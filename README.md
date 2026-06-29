@@ -1,120 +1,114 @@
 # OpenDiagram
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, and more.
+> **The open-source AI workspace for software architecture.**
+
+Design software with natural language, diagrams, and documentation—all in one place.
+
+OpenDiagram combines AI-assisted system design, collaborative diagrams, engineering documentation, and persistent architectural context into a single open-source workspace.
+
+> **Status:** Early development (Hackathon MVP)
+
+## Why OpenDiagram?
+
+Modern engineering teams use multiple tools to design software.
+
+- Draw diagrams in one app.
+- Write documentation in another.
+- Store ADRs somewhere else.
+- Ask AI to redesign everything from scratch every session.
+
+OpenDiagram brings everything together.
+
+Describe your architecture in plain English, generate diagrams, document decisions, iterate with AI, and keep your engineering knowledge connected.
 
 ## Features
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Hono** - Lightweight, performant server framework
-- **Bun** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Turborepo** - Optimized monorepo build system
+### AI-first system design
 
-## Getting Started
-
-First, install the dependencies:
-
-```bash
-bun install
-```
-
-## Database Setup
-
-This project uses PostgreSQL with Drizzle ORM.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
-
-```bash
-bun run db:push
-```
-
-Then, run the development server:
-
-```bash
-bun run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@OpenDiagram/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Docker Compose
-
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: bun run docker:build
-- Start: bun run docker:up
-- Logs: bun run docker:logs
-- Stop: bun run docker:down
-
-Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-## Project Structure
+Describe systems in natural language.
 
 ```
-OpenDiagram/
-├── apps/
-│   ├── web/         # Frontend application (Next.js)
-│   └── server/      # Backend API (Hono)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+Build a real-time notification service
+100k users
+PostgreSQL
+Multi-region
 ```
 
-## Available Scripts
+Generate production-ready architecture diagrams in seconds.
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Oxlint and Oxfmt
-- `bun run docker:build`: Build the Docker Compose images
-- `bun run docker:up`: Build and start the Docker Compose stack
-- `bun run docker:logs`: Tail logs from the Docker Compose stack
-- `bun run docker:down`: Stop the Docker Compose stack
+### Interactive diagrams
+
+- Architecture diagrams
+- Flowcharts
+- Sequence diagrams
+- ER diagrams
+- Mermaid support
+- Visual editing
+
+### Engineering documentation
+
+Keep architecture close to the documentation that explains it.
+
+- Design docs
+- ADRs
+- API documentation
+- Requirements
+- Notes
+
+### Architectural context
+
+OpenDiagram can learn from previous projects to provide more relevant architectural suggestions and maintain continuity across design sessions.
+
+### Bring your own AI
+
+Use your existing AI provider.
+
+- Anthropic
+- OpenAI
+- Gemini
+- Groq
+- OpenRouter
+- Ollama
+- Any OpenAI-compatible endpoint
+
+Don't have an API key?
+
+Use OpenDiagram Cloud.
+
+### Self-hostable
+
+Run everything on your own infrastructure.
+
+Perfect for individuals, startups, and enterprises.
+
+## Roadmap
+
+- [ ] Interactive whiteboard
+- [ ] AI diagram generation
+- [ ] Engineering documentation
+- [ ] Mermaid support
+- [ ] Bring Your Own AI
+- [ ] Team collaboration
+- [ ] Version history
+- [ ] MCP support
+- [ ] Plugin system
+
+## Philosophy
+
+OpenDiagram is built around a few simple ideas.
+
+- Open source first.
+- Self-hostable by default.
+- Bring your own AI.
+- Git-friendly workflows.
+- Engineers should own their data.
+
+## Contributing
+
+Contributions are welcome.
+
+Whether you're fixing bugs, improving the editor, designing new templates, or building integrations, we'd love your help.
+
+## License
+
+Apache License 2.0
