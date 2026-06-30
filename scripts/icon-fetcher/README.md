@@ -89,7 +89,21 @@ keywords = ["ec2", "instance", "virtual machine"]     # synonyms / alternate nam
   These do the heavy lifting for AI matching. Be generous but accurate.
 - **keywords** — synonyms and the literal product name ("ec2", "elastic compute").
 
+## Libraries used
+
+What's currently fetched and tagged into `registry.json` (all MIT-licensed, from [libraries.excalidraw.com](https://libraries.excalidraw.com)).
+
+| Pack                            | Icons | Author              | Notes                                                          |
+| ------------------------------- | ----- | ------------------- | -------------------------------------------------------------- |
+| Architecture diagram components | 11    | Anna Pastushko      | generic: vpc, subnet, user, server, slack, github, docker      |
+| Software Logos                  | 18    | drwnio.polyrand.net | vendor-neutral: postgres, redis, k8s, nginx, rabbitmq, python… |
+| AWS Architecture Icons          | 249   | Anna Pastushko      | full AWS service set                                           |
+| AWS Serverless Icons v2         | 24    | slobodan            | lambda, appsync, dynamodb, sqs…                                |
+
+Total: **302 icons, all tagged.**
+
 ## Notes
 
 - `output/` and `target/` are gitignored. `registry.json` is committed (it's the product).
 - Re-running `gen-tags` overwrites `tags.toml` -- back it up before regenerating if you've already tagged a lot.
+- The server turns `registry.json` into the LLM prompt catalog via `apps/server/src/lib/icons/registry.ts` (`buildIconCatalog()`).
