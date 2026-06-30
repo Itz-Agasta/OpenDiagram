@@ -32,9 +32,7 @@ export default function DashboardPage() {
       <header className="border-b border-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileCode2 className="size-5 text-primary" />
-          <span className="font-semibold text-lg tracking-tight">
-            OpenDiagram
-          </span>
+          <span className="font-semibold text-lg tracking-tight">OpenDiagram</span>
         </div>
         <button
           onClick={() => setCreating(true)}
@@ -87,9 +85,7 @@ export default function DashboardPage() {
           <div className="flex flex-col items-center justify-center py-32 text-center text-muted-foreground">
             <LayoutGrid className="size-12 mb-4 opacity-30" />
             <p className="text-lg font-medium mb-1">No projects yet</p>
-            <p className="text-sm mb-6">
-              Create your first diagram to get started
-            </p>
+            <p className="text-sm mb-6">Create your first diagram to get started</p>
             <button
               onClick={() => setCreating(true)}
               className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
@@ -109,9 +105,7 @@ export default function DashboardPage() {
                 <div className="flex items-start justify-between mb-3">
                   <FileCode2 className="size-5 text-muted-foreground" />
                 </div>
-                <p className="font-medium text-sm mb-1 truncate">
-                  {project.name}
-                </p>
+                <p className="font-medium text-sm mb-1 truncate">{project.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {project.updatedAt.toLocaleDateString()}
                 </p>

@@ -9,8 +9,8 @@
     "check-types": "tsgo --noEmit"
   },
   "dependencies": {
-    "@OpenDiagram/diagram-engine": "workspace:*",
     "@OpenDiagram/env": "workspace:*",
+    "@OpenDiagram/harness": "workspace:*",
     "@ai-sdk/react": "^4.0.5",
     "@base-ui/react": "^1.6.0",
     "@excalidraw/excalidraw": "^0.18.1",
