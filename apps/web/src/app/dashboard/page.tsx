@@ -1,125 +1,228 @@
-// TODO: Saswata refine this dashboard with proper design, filters, search, empty state art
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, LayoutGrid, FileCode2 } from "lucide-react";
 import { nanoid } from "nanoid";
-import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import { useEffect, useRef, useState } from "react";
 
-interface Project {
-  id: string;
-  name: string;
-  updatedAt: Date;
-}
+const filters = ["All", "Architecture", "API maps", "README", "Shared"];
+
+const menuItems = [
+  { label: "Diagrams", href: "/dashboard" },
+  { label: "Repositories", href: "/import/github" },
+  { label: "Docs & READMEs", href: "/dashboard" },
+];
+
+const secondaryMenuItems = [
+  { label: "Settings", href: "/dashboard" },
+  { label: "Sign out", href: "/" },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [nav, setNav] = useState("home");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState(filters[0]);
 
-  function createProject() {
-    const name = newName.trim() || "Untitled Project";
-    const id = nanoid(10);
-    setProjects((prev) => [{ id, name, updatedAt: new Date() }, ...prev]);
-    setCreating(false);
-    setNewName("");
-    router.push(`/workspace/${id}`);
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  function createDiagram() {
+    router.push(`/workspace/${nanoid(10)}`);
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <SidebarNav active={nav} onSelect={setNav} onCreateDiagram={() => setCreating(true)} />
+    <main className="relative min-h-screen bg-white text-od-ink">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 opacity-45 [background-image:radial-gradient(rgba(0,0,0,0.04)_1px,transparent_1px)] [background-size:4px_4px]"
+      />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b border-border px-6 py-4">
-          <div className="flex items-center gap-2">
-            <FileCode2 className="size-5 text-primary" />
-            <span className="text-lg font-semibold tracking-tight">OpenDiagram</span>
-          </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] px-6 md:px-12 lg:px-[120px]">
+        <header className="flex items-center justify-between pt-6">
+          <Link
+            href="/"
+            className="flex h-11 items-center rounded-full bg-white px-6 text-[16px] font-bold text-od-ink"
           >
-            <Plus className="size-4" />
-            New Project
-          </button>
-        </header>
+            OpenDiagram
+          </Link>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-6 py-10">
-          <h1 className="mb-6 text-2xl font-bold">Projects</h1>
+          <nav ref={menuRef} className="relative">
+            <button
+              type="button"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+              className="flex h-11 w-11 flex-col items-center justify-center gap-[3px] rounded-full bg-white active:translate-y-px"
+            >
+              <span
+                className={`block h-[2px] w-4 rounded bg-od-ink transition duration-200 ${
+                  menuOpen ? "translate-y-[5px] rotate-45" : ""
+                }`}
+              />
+              <span
+                className={`block h-[2px] w-4 rounded bg-od-ink transition duration-200 ${
+                  menuOpen ? "opacity-0" : ""
+                }`}
+              />
+              <span
+                className={`block h-[2px] w-4 rounded bg-od-ink transition duration-200 ${
+                  menuOpen ? "-translate-y-[5px] -rotate-45" : ""
+                }`}
+              />
+            </button>
 
-          {/* Create modal */}
-          {creating && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl">
-                <h2 className="mb-4 text-lg font-semibold">New Project</h2>
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="Project name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") createProject();
-                    if (e.key === "Escape") setCreating(false);
-                  }}
-                  className="mb-4 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setCreating(false)}
-                    className="rounded-md border border-border px-4 py-2 text-sm transition-colors hover:bg-accent"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={createProject}
-                    className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground transition-opacity hover:opacity-90"
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-32 text-center text-muted-foreground">
-              <LayoutGrid className="mb-4 size-12 opacity-30" />
-              <p className="mb-1 text-lg font-medium">No projects yet</p>
-              <p className="mb-6 text-sm">Create your first diagram to get started</p>
-              <button
-                onClick={() => setCreating(true)}
-                className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                <Plus className="size-4" />
-                New Project
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => router.push(`/workspace/${project.id}`)}
-                  className="rounded-xl border border-border bg-card p-5 text-left transition-all hover:border-primary/50 hover:shadow-md"
+            <div
+              hidden={!menuOpen}
+              className="absolute right-0 top-[calc(100%+12px)] z-50 w-[30vw] min-w-[200px] rounded-lg border border-od-border-soft bg-white p-2 shadow-[0_18px_50px_-20px_rgba(0,0,0,0.4)]"
+            >
+              {menuItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="block rounded-md px-3 py-2 text-[14px] font-medium text-od-ink hover:bg-od-canvas/60"
+                  onClick={() => setMenuOpen(false)}
                 >
-                  <div className="mb-3 flex items-start justify-between">
-                    <FileCode2 className="size-5 text-muted-foreground" />
-                  </div>
-                  <p className="mb-1 truncate text-sm font-medium">{project.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {project.updatedAt.toLocaleDateString()}
-                  </p>
-                </button>
+                  {item.label}
+                </Link>
+              ))}
+              <div className="my-1 h-px bg-od-border-soft" />
+              {secondaryMenuItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="block rounded-md px-3 py-2 text-[14px] font-medium text-od-ink-muted hover:bg-od-canvas/60"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
               ))}
             </div>
-          )}
-        </main>
+          </nav>
+        </header>
+
+        <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="relative w-full sm:max-w-[420px]">
+            <span className="sr-only">Search diagrams, repositories, and READMEs</span>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-od-ink-faint"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search diagrams, repos, READMEs..."
+              className="h-11 w-full rounded-full border border-od-border-soft bg-white pl-11 pr-4 text-[14px] text-od-ink outline-none placeholder:text-od-ink-faint focus:border-od-ink"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={createDiagram}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-od-ink px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a2a] active:translate-y-px"
+          >
+            New diagram
+            <ArrowIcon />
+          </button>
+        </section>
+
+        <section className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[13px] font-medium text-od-ink-faint">Filter</span>
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              aria-pressed={activeFilter === filter}
+              onClick={() => setActiveFilter(filter)}
+              className="h-9 rounded-full border border-od-border-soft bg-white px-4 text-[13px] font-medium text-od-ink-muted transition-colors aria-pressed:border-od-ink aria-pressed:bg-od-ink aria-pressed:text-white"
+            >
+              {filter}
+            </button>
+          ))}
+        </section>
+
+        <div className="mt-5 h-px w-full bg-od-border-soft" />
+
+        <section className="flex flex-col items-center justify-center py-14 text-center md:py-20">
+          <p className="font-serif text-[24px] italic leading-none text-od-ink-faint">
+            Nothing here yet
+          </p>
+          <h1 className="mt-3 max-w-[22ch] text-[26px] font-bold leading-[1.2] -tracking-[0.03em] text-od-ink md:text-[30px]">
+            Turn your first repository into a diagram
+          </h1>
+          <p className="mt-4 max-w-[46ch] text-[16px] leading-[1.7] text-od-ink-muted">
+            Connect a repo and OpenDiagram maps its services, APIs, and modules into an editable
+            architecture diagram you can refine.
+          </p>
+
+          <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row">
+            <Link
+              href="/import/github"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-od-ink px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a2a] active:translate-y-px"
+            >
+              Connect a repository
+              <ArrowIcon />
+            </Link>
+            <button
+              type="button"
+              onClick={createDiagram}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-[14px] font-medium text-od-ink transition-colors hover:bg-white active:translate-y-px"
+            >
+              Import a diagram
+            </button>
+          </div>
+        </section>
+
+        <footer className="pb-10" />
       </div>
-    </div>
+    </main>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
   );
 }
