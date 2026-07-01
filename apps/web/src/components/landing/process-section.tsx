@@ -159,7 +159,6 @@ export function ProcessSection() {
             role="Founder of Drifted Studio"
           />
         </div>
-
       </div>
     </section>
   );

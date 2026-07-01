@@ -65,7 +65,10 @@ function ProjectNames({ className = "" }: { className?: string }) {
         }
       >
         {[0, 1].map((group) => (
-          <div key={group} className="flex items-center gap-8 pr-8 font-serif text-3xl italic leading-none text-white/85 max-md:gap-6 max-md:pr-6 max-md:text-xl">
+          <div
+            key={group}
+            className="flex items-center gap-8 pr-8 font-serif text-3xl italic leading-none text-white/85 max-md:gap-6 max-md:pr-6 max-md:text-xl"
+          >
             {projectNames.map((project) => (
               <span key={`${group}-${project}`} className="shrink-0">
                 {project}

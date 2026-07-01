@@ -1,16 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Home,
-  Clock,
-  Users,
-  Star,
-  Trash2,
-  Plus,
-  ChevronDown,
-  Settings,
-} from "lucide-react";
+import { Home, Clock, Users, Star, Trash2, Plus, ChevronDown, Settings } from "lucide-react";
 import { ButtonShaderTexture } from "@/components/button-shader-texture";
 
 const navItems = [

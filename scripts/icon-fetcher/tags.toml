@@ -1,0 +1,1821 @@
+# OpenDiagram Icon Registry — Tags
+# Fill in category, tags, and keywords for each icon.
+# Tags help the AI match icons to concepts.
+# Keywords are synonyms for the icon name.
+
+# aws-serverless-icons-v2
+["aws-serverless-icons-v2__lambda"]
+name = "Lambda"
+category = "function"
+tags = ["serverless", "function", "faas", "compute", "event-driven", "aws"]
+keywords = ["lambda", "serverless function"]
+
+["aws-serverless-icons-v2__appsync"]
+name = "AppSync"
+category = "gateway"
+tags = ["graphql", "api", "realtime", "managed", "aws"]
+keywords = ["appsync", "graphql api"]
+
+["aws-serverless-icons-v2__apigateway"]
+name = "APIGateway"
+category = "gateway"
+tags = ["api", "gateway", "rest", "http", "endpoint", "aws"]
+keywords = ["api gateway", "rest api"]
+
+["aws-serverless-icons-v2__dynamodb"]
+name = "DynamoDB"
+category = "database"
+tags = ["database", "nosql", "key-value", "serverless", "managed", "aws"]
+keywords = ["dynamodb", "nosql"]
+
+["aws-serverless-icons-v2__aurora"]
+name = "Aurora"
+category = "database"
+tags = ["database", "relational", "sql", "mysql", "postgres", "managed", "aws"]
+keywords = ["aurora", "relational database"]
+
+["aws-serverless-icons-v2__eventbridge"]
+name = "EventBridge"
+category = "queue"
+tags = ["event-bus", "events", "messaging", "event-driven", "aws"]
+keywords = ["eventbridge", "event bus"]
+
+["aws-serverless-icons-v2__sqs"]
+name = "SQS"
+category = "queue"
+tags = ["queue", "message-queue", "messaging", "async", "decoupling", "aws"]
+keywords = ["sqs", "message queue"]
+
+["aws-serverless-icons-v2__sns"]
+name = "SNS"
+category = "queue"
+tags = ["pub-sub", "notification", "messaging", "topic", "fan-out", "aws"]
+keywords = ["sns", "pubsub", "notification"]
+
+["aws-serverless-icons-v2__s3"]
+name = "S3"
+category = "storage"
+tags = ["storage", "object-store", "bucket", "blob", "aws"]
+keywords = ["s3", "bucket", "object storage"]
+
+["aws-serverless-icons-v2__cloudfront"]
+name = "CloudFront"
+category = "network"
+tags = ["cdn", "edge", "content-delivery", "caching", "aws"]
+keywords = ["cloudfront", "cdn"]
+
+["aws-serverless-icons-v2__ses"]
+name = "SES"
+category = "service"
+tags = ["email", "smtp", "transactional-email", "messaging", "aws"]
+keywords = ["ses", "email"]
+
+["aws-serverless-icons-v2__cloudwatch"]
+name = "CloudWatch"
+category = "service"
+tags = ["monitoring", "observability", "metrics", "logs", "alarms", "aws"]
+keywords = ["cloudwatch", "monitoring"]
+
+["aws-serverless-icons-v2__stepfunctions"]
+name = "StepFunctions"
+category = "service"
+tags = ["workflow", "orchestration", "state-machine", "serverless", "aws"]
+keywords = ["step functions", "state machine", "workflow"]
+
+["aws-serverless-icons-v2__amplify"]
+name = "Amplify"
+category = "service"
+tags = ["frontend", "hosting", "fullstack", "web", "mobile", "aws"]
+keywords = ["amplify", "frontend hosting"]
+
+["aws-serverless-icons-v2__cognito"]
+name = "Cognito"
+category = "service"
+tags = ["auth", "authentication", "identity", "users", "oauth", "aws"]
+keywords = ["cognito", "authentication", "user pool"]
+
+["aws-serverless-icons-v2__kinesis"]
+name = "Kinesis"
+category = "queue"
+tags = ["streaming", "data-stream", "realtime", "ingestion", "events", "aws"]
+keywords = ["kinesis", "data stream", "streaming"]
+
+["aws-serverless-icons-v2__efs"]
+name = "EFS"
+category = "storage"
+tags = ["file-system", "nfs", "shared", "elastic", "aws"]
+keywords = ["efs", "elastic file system"]
+
+["aws-serverless-icons-v2__waf"]
+name = "WAF"
+category = "network"
+tags = ["firewall", "web-application-firewall", "security", "protection", "aws"]
+keywords = ["waf", "web application firewall"]
+
+["aws-serverless-icons-v2__vtl-resolver"]
+name = "VTL-resolver"
+category = "function"
+tags = ["resolver", "appsync", "vtl", "template", "aws"]
+keywords = ["vtl resolver"]
+
+["aws-serverless-icons-v2__javascript-resolver"]
+name = "JavaScript-resolver"
+category = "function"
+tags = ["resolver", "appsync", "javascript", "aws"]
+keywords = ["javascript resolver"]
+
+["aws-serverless-icons-v2__aws-serverless-icons-v2-20"]
+name = "code-pipeline"
+category = "service"
+tags = ["ci-cd", "pipeline", "automation", "devops", "aws"]
+keywords = ["codepipeline", "code pipeline", "ci/cd pipeline"]
+
+["aws-serverless-icons-v2__aws-serverless-icons-v2-21"]
+name = "cloudtrail"
+category = "service"
+tags = ["audit", "logging", "governance", "api-logging", "security", "aws"]
+keywords = ["cloudtrail", "audit log"]
+
+["aws-serverless-icons-v2__aws-serverless-icons-v2-22"]
+name = "route53"
+category = "network"
+tags = ["dns", "routing", "domain", "traffic", "aws"]
+keywords = ["route53", "route 53", "dns"]
+
+["aws-serverless-icons-v2__aws-serverless-icons-v2-23"]
+name = "EventBridge"
+category = "queue"
+tags = ["event-bus", "events", "messaging", "event-driven", "aws"]
+keywords = ["eventbridge", "event bus"]
+
+# aws-architecture-icons
+["aws-architecture-icons__cloudsearch"]
+name = "CloudSearch"
+category = "service"
+tags = ["search", "full-text-search", "managed", "analytics", "aws"]
+keywords = ["cloudsearch", "search"]
+
+["aws-architecture-icons__emr"]
+name = "EMR"
+category = "service"
+tags = ["big-data", "hadoop", "spark", "analytics", "processing", "aws"]
+keywords = ["emr", "elastic mapreduce", "hadoop", "spark"]
+
+["aws-architecture-icons__lake-formation"]
+name = "Lake Formation"
+category = "service"
+tags = ["data-lake", "governance", "analytics", "data-management", "aws"]
+keywords = ["lake formation", "data lake"]
+
+["aws-architecture-icons__data-lake"]
+name = "Data Lake"
+category = "storage"
+tags = ["data-lake", "storage", "analytics", "big-data", "aws"]
+keywords = ["data lake"]
+
+["aws-architecture-icons__kinesis"]
+name = "Kinesis"
+category = "queue"
+tags = ["streaming", "data-stream", "realtime", "ingestion", "aws"]
+keywords = ["kinesis", "streaming"]
+
+["aws-architecture-icons__kinesis-video-streams"]
+name = "Kinesis Video Streams"
+category = "queue"
+tags = ["video", "streaming", "realtime", "ingestion", "aws"]
+keywords = ["kinesis video streams", "video stream"]
+
+["aws-architecture-icons__kinesis-data-streams"]
+name = "Kinesis Data Streams"
+category = "queue"
+tags = ["streaming", "data-stream", "realtime", "events", "aws"]
+keywords = ["kinesis data streams"]
+
+["aws-architecture-icons__kinesis-data-firehose"]
+name = "Kinesis Data Firehose"
+category = "queue"
+tags = ["streaming", "delivery", "etl", "ingestion", "realtime", "aws"]
+keywords = ["kinesis data firehose", "firehose"]
+
+["aws-architecture-icons__kinesis-data-analytics"]
+name = "Kinesis Data Analytics"
+category = "service"
+tags = ["streaming", "analytics", "sql", "realtime", "aws"]
+keywords = ["kinesis data analytics"]
+
+["aws-architecture-icons__managed-service-for-apache-flink"]
+name = "Managed Service for Apache Flink"
+category = "service"
+tags = ["streaming", "analytics", "flink", "realtime", "aws"]
+keywords = ["apache flink", "flink", "stream processing"]
+
+["aws-architecture-icons__glue"]
+name = "Glue"
+category = "service"
+tags = ["etl", "data-integration", "serverless", "analytics", "aws"]
+keywords = ["glue", "etl", "data integration"]
+
+["aws-architecture-icons__crawler"]
+name = "Crawler"
+category = "service"
+tags = ["crawler", "etl", "glue", "schema-discovery", "aws"]
+keywords = ["crawler", "glue crawler"]
+
+["aws-architecture-icons__datacatalog"]
+name = "DataCatalog"
+category = "service"
+tags = ["data-catalog", "metadata", "glue", "analytics", "aws"]
+keywords = ["data catalog", "glue catalog"]
+
+["aws-architecture-icons__elastic-views"]
+name = "Elastic Views"
+category = "service"
+tags = ["materialized-view", "data", "analytics", "aws"]
+keywords = ["elastic views"]
+
+["aws-architecture-icons__opensearch-service"]
+name = "OpenSearch Service"
+category = "database"
+tags = ["search", "opensearch", "elasticsearch", "analytics", "logging", "aws"]
+keywords = ["opensearch", "elasticsearch", "search"]
+
+["aws-architecture-icons__redshift"]
+name = "Redshift"
+category = "database"
+tags = ["data-warehouse", "analytics", "sql", "olap", "columnar", "aws"]
+keywords = ["redshift", "data warehouse"]
+
+["aws-architecture-icons__quicksight"]
+name = "QuickSight"
+category = "service"
+tags = ["bi", "dashboard", "visualization", "analytics", "reporting", "aws"]
+keywords = ["quicksight", "business intelligence", "dashboard"]
+
+["aws-architecture-icons__data-pipeline"]
+name = "Data Pipeline"
+category = "service"
+tags = ["pipeline", "etl", "orchestration", "data", "aws"]
+keywords = ["data pipeline"]
+
+["aws-architecture-icons__managed-streaming-for-apache-kafka"]
+name = "Managed Streaming for Apache Kafka"
+category = "queue"
+tags = ["kafka", "streaming", "messaging", "events", "msk", "aws"]
+keywords = ["msk", "kafka", "managed kafka"]
+
+["aws-architecture-icons__data-exchange"]
+name = "Data Exchange"
+category = "service"
+tags = ["data-sharing", "marketplace", "datasets", "aws"]
+keywords = ["data exchange"]
+
+["aws-architecture-icons__glue-databrew"]
+name = "Glue DataBrew"
+category = "service"
+tags = ["data-prep", "etl", "no-code", "analytics", "aws"]
+keywords = ["databrew", "glue databrew", "data preparation"]
+
+["aws-architecture-icons__datazone"]
+name = "DataZone"
+category = "service"
+tags = ["data-governance", "catalog", "data-management", "aws"]
+keywords = ["datazone"]
+
+["aws-architecture-icons__business-data-catalog"]
+name = "Business data catalog"
+category = "service"
+tags = ["data-catalog", "metadata", "governance", "aws"]
+keywords = ["business data catalog"]
+
+["aws-architecture-icons__athena"]
+name = "Athena"
+category = "service"
+tags = ["query", "sql", "serverless", "analytics", "s3", "aws"]
+keywords = ["athena", "serverless sql", "query"]
+
+["aws-architecture-icons__comprehend"]
+name = "Comprehend"
+category = "service"
+tags = ["nlp", "ai", "ml", "text-analysis", "language", "aws"]
+keywords = ["comprehend", "nlp", "natural language"]
+
+["aws-architecture-icons__elastic-inference"]
+name = "Elastic Inference"
+category = "service"
+tags = ["ml", "inference", "gpu", "acceleration", "aws"]
+keywords = ["elastic inference"]
+
+["aws-architecture-icons__forecast"]
+name = "Forecast"
+category = "service"
+tags = ["ml", "forecasting", "time-series", "prediction", "aws"]
+keywords = ["forecast", "time series forecasting"]
+
+["aws-architecture-icons__lex"]
+name = "Lex"
+category = "service"
+tags = ["chatbot", "conversational-ai", "nlp", "voice", "ml", "aws"]
+keywords = ["lex", "chatbot", "conversational"]
+
+["aws-architecture-icons__personalize"]
+name = "Personalize"
+category = "service"
+tags = ["ml", "recommendation", "personalization", "aws"]
+keywords = ["personalize", "recommendations"]
+
+["aws-architecture-icons__polly"]
+name = "Polly"
+category = "service"
+tags = ["text-to-speech", "tts", "voice", "ml", "aws"]
+keywords = ["polly", "text to speech"]
+
+["aws-architecture-icons__rekognition"]
+name = "Rekognition"
+category = "service"
+tags = ["computer-vision", "image", "video", "ml", "face-detection", "aws"]
+keywords = ["rekognition", "image recognition", "computer vision"]
+
+["aws-architecture-icons__sagemaker"]
+name = "SageMaker"
+category = "service"
+tags = ["ml", "machine-learning", "model-training", "ai", "aws"]
+keywords = ["sagemaker", "machine learning"]
+
+["aws-architecture-icons__notebook"]
+name = "Notebook"
+category = "service"
+tags = ["notebook", "jupyter", "ml", "development", "aws"]
+keywords = ["notebook", "jupyter"]
+
+["aws-architecture-icons__canvas"]
+name = "Canvas"
+category = "service"
+tags = ["ml", "no-code", "sagemaker", "visual", "aws"]
+keywords = ["sagemaker canvas"]
+
+["aws-architecture-icons__model"]
+name = "Model"
+category = "service"
+tags = ["ml-model", "model", "inference", "aws"]
+keywords = ["model", "ml model"]
+
+["aws-architecture-icons__train"]
+name = "Train"
+category = "service"
+tags = ["training", "ml", "model-training", "aws"]
+keywords = ["train", "model training"]
+
+["aws-architecture-icons__geospatial-ml"]
+name = "Geospatial ML"
+category = "service"
+tags = ["geospatial", "ml", "location", "mapping", "aws"]
+keywords = ["geospatial ml"]
+
+["aws-architecture-icons__ground-truth"]
+name = "Ground Truth"
+category = "service"
+tags = ["data-labeling", "ml", "annotation", "aws"]
+keywords = ["ground truth", "data labeling"]
+
+["aws-architecture-icons__textract"]
+name = "Textract"
+category = "service"
+tags = ["ocr", "document", "text-extraction", "ml", "aws"]
+keywords = ["textract", "ocr", "document extraction"]
+
+["aws-architecture-icons__transcribe"]
+name = "Transcribe"
+category = "service"
+tags = ["speech-to-text", "transcription", "voice", "ml", "aws"]
+keywords = ["transcribe", "speech to text"]
+
+["aws-architecture-icons__deepcomposer"]
+name = "DeepComposer"
+category = "service"
+tags = ["ml", "music", "generative", "aws"]
+keywords = ["deepcomposer"]
+
+["aws-architecture-icons__fraud-detector"]
+name = "Fraud Detector"
+category = "service"
+tags = ["fraud-detection", "ml", "security", "aws"]
+keywords = ["fraud detector"]
+
+["aws-architecture-icons__kendra"]
+name = "Kendra"
+category = "service"
+tags = ["search", "enterprise-search", "ml", "nlp", "aws"]
+keywords = ["kendra", "enterprise search"]
+
+["aws-architecture-icons__codeguru"]
+name = "CodeGuru"
+category = "service"
+tags = ["code-review", "ml", "profiling", "devtools", "aws"]
+keywords = ["codeguru", "code review"]
+
+["aws-architecture-icons__devops-guru"]
+name = "DevOps Guru"
+category = "service"
+tags = ["devops", "ml", "monitoring", "anomaly-detection", "aws"]
+keywords = ["devops guru"]
+
+["aws-architecture-icons__panorama"]
+name = "Panorama"
+category = "service"
+tags = ["computer-vision", "edge", "ml", "video", "aws"]
+keywords = ["panorama"]
+
+["aws-architecture-icons__sagemaker-studio-lab"]
+name = "SageMaker Studio Lab"
+category = "service"
+tags = ["ml", "notebook", "ide", "learning", "aws"]
+keywords = ["sagemaker studio lab"]
+
+["aws-architecture-icons__comprehend-medical"]
+name = "Comprehend Medical"
+category = "service"
+tags = ["nlp", "medical", "healthcare", "ml", "aws"]
+keywords = ["comprehend medical"]
+
+["aws-architecture-icons__codewhisperer"]
+name = "CodeWhisperer"
+category = "service"
+tags = ["ai", "code-generation", "copilot", "devtools", "aws"]
+keywords = ["codewhisperer", "code generation"]
+
+["aws-architecture-icons__augmented-ai"]
+name = "Augmented AI"
+category = "service"
+tags = ["human-review", "ml", "a2i", "aws"]
+keywords = ["augmented ai", "a2i"]
+
+["aws-architecture-icons__amazon-bedrock"]
+name = "Amazon Bedrock"
+category = "service"
+tags = ["genai", "llm", "foundation-models", "ai", "generative", "aws"]
+keywords = ["bedrock", "generative ai", "foundation models"]
+
+["aws-architecture-icons__amazon-q"]
+name = "Amazon Q"
+category = "service"
+tags = ["ai-assistant", "genai", "chatbot", "copilot", "aws"]
+keywords = ["amazon q", "ai assistant"]
+
+["aws-architecture-icons__aurora"]
+name = "Aurora"
+category = "database"
+tags = ["database", "relational", "sql", "mysql", "postgres", "managed", "aws"]
+keywords = ["aurora"]
+
+["aws-architecture-icons__documentdb"]
+name = "DocumentDB"
+category = "database"
+tags = ["database", "nosql", "document", "mongodb", "managed", "aws"]
+keywords = ["documentdb", "mongodb", "document database"]
+
+["aws-architecture-icons__dynamodb"]
+name = "DynamoDB"
+category = "database"
+tags = ["database", "nosql", "key-value", "serverless", "managed", "aws"]
+keywords = ["dynamodb", "nosql"]
+
+["aws-architecture-icons__dynamodb-table"]
+name = "DynamoDB Table"
+category = "database"
+tags = ["table", "nosql", "dynamodb", "aws"]
+keywords = ["dynamodb table"]
+
+["aws-architecture-icons__dax"]
+name = "DAX"
+category = "cache"
+tags = ["cache", "in-memory", "dynamodb", "accelerator", "aws"]
+keywords = ["dax", "dynamodb accelerator", "cache"]
+
+["aws-architecture-icons__stream"]
+name = "Stream"
+category = "queue"
+tags = ["stream", "change-data-capture", "dynamodb", "events", "aws"]
+keywords = ["stream", "dynamodb stream"]
+
+["aws-architecture-icons__keyspaces"]
+name = "Keyspaces"
+category = "database"
+tags = ["database", "cassandra", "nosql", "wide-column", "managed", "aws"]
+keywords = ["keyspaces", "cassandra"]
+
+["aws-architecture-icons__dms"]
+name = "DMS"
+category = "service"
+tags = ["migration", "database-migration", "replication", "aws"]
+keywords = ["dms", "database migration service"]
+
+["aws-architecture-icons__neptune"]
+name = "Neptune"
+category = "database"
+tags = ["database", "graph", "graph-database", "managed", "aws"]
+keywords = ["neptune", "graph database"]
+
+["aws-architecture-icons__timestream"]
+name = "Timestream"
+category = "database"
+tags = ["database", "time-series", "iot", "metrics", "aws"]
+keywords = ["timestream", "time series database"]
+
+["aws-architecture-icons__rds"]
+name = "RDS"
+category = "database"
+tags = ["database", "relational", "sql", "managed", "mysql", "postgres", "aws"]
+keywords = ["rds", "relational database service"]
+
+["aws-architecture-icons__multi-az-db-cluster"]
+name = "Multi-AZ DB cluster"
+category = "database"
+tags = ["database", "high-availability", "multi-az", "replication", "aws"]
+keywords = ["multi-az db cluster"]
+
+["aws-architecture-icons__memorydb-for-redis"]
+name = "MemoryDB for Redis"
+category = "database"
+tags = ["database", "redis", "in-memory", "durable", "aws"]
+keywords = ["memorydb", "redis"]
+
+["aws-architecture-icons__elasticache"]
+name = "ElastiCache"
+category = "cache"
+tags = ["cache", "in-memory", "redis", "memcached", "aws"]
+keywords = ["elasticache", "cache", "redis"]
+
+["aws-architecture-icons__rds-instance"]
+name = "RDS instance"
+category = "database"
+tags = ["database", "instance", "relational", "sql", "aws"]
+keywords = ["rds instance"]
+
+["aws-architecture-icons__aurora-instance"]
+name = "Aurora instance"
+category = "database"
+tags = ["database", "instance", "aurora", "relational", "aws"]
+keywords = ["aurora instance"]
+
+["aws-architecture-icons__ebs"]
+name = "EBS"
+category = "storage"
+tags = ["block-storage", "volume", "disk", "persistent", "aws"]
+keywords = ["ebs", "elastic block store", "volume"]
+
+["aws-architecture-icons__storage-gateway"]
+name = "Storage Gateway"
+category = "storage"
+tags = ["hybrid-storage", "gateway", "on-premises", "aws"]
+keywords = ["storage gateway"]
+
+["aws-architecture-icons__efs"]
+name = "EFS"
+category = "storage"
+tags = ["file-system", "nfs", "shared", "elastic", "aws"]
+keywords = ["efs", "elastic file system"]
+
+["aws-architecture-icons__fsx"]
+name = "FSx"
+category = "storage"
+tags = ["file-system", "windows", "lustre", "managed", "aws"]
+keywords = ["fsx", "file system"]
+
+["aws-architecture-icons__snowball"]
+name = "Snowball"
+category = "storage"
+tags = ["data-transfer", "edge", "migration", "offline", "aws"]
+keywords = ["snowball", "data transfer"]
+
+["aws-architecture-icons__backup"]
+name = "Backup"
+category = "storage"
+tags = ["backup", "disaster-recovery", "restore", "aws"]
+keywords = ["backup"]
+
+["aws-architecture-icons__s3"]
+name = "S3"
+category = "storage"
+tags = ["storage", "object-store", "bucket", "blob", "aws"]
+keywords = ["s3", "bucket", "object storage"]
+
+["aws-architecture-icons__glacier"]
+name = "Glacier"
+category = "storage"
+tags = ["archive", "cold-storage", "backup", "object-store", "aws"]
+keywords = ["glacier", "archive", "cold storage"]
+
+["aws-architecture-icons__managed-blockchain"]
+name = "Managed Blockchain"
+category = "service"
+tags = ["blockchain", "ledger", "distributed", "aws"]
+keywords = ["managed blockchain"]
+
+["aws-architecture-icons__quantum-ledger-database"]
+name = "Quantum Ledger Database"
+category = "database"
+tags = ["ledger", "immutable", "cryptographic", "qldb", "aws"]
+keywords = ["qldb", "quantum ledger"]
+
+["aws-architecture-icons__ec2"]
+name = "EC2"
+category = "service"
+tags = ["compute", "server", "vm", "instance", "virtual-machine", "aws"]
+keywords = ["ec2", "instance", "virtual machine", "compute"]
+
+["aws-architecture-icons__ami"]
+name = "AMI"
+category = "service"
+tags = ["image", "ami", "machine-image", "template", "aws"]
+keywords = ["ami", "amazon machine image"]
+
+["aws-architecture-icons__auto-scaling"]
+name = "Auto scaling"
+category = "service"
+tags = ["scaling", "auto-scaling", "elasticity", "capacity", "aws"]
+keywords = ["auto scaling", "autoscaling"]
+
+["aws-architecture-icons__instance"]
+name = "Instance"
+category = "service"
+tags = ["compute", "instance", "server", "vm", "aws"]
+keywords = ["instance", "server"]
+
+["aws-architecture-icons__db-instance"]
+name = "DB Instance"
+category = "database"
+tags = ["database", "instance", "db", "aws"]
+keywords = ["db instance"]
+
+["aws-architecture-icons__instances"]
+name = "Instances"
+category = "service"
+tags = ["compute", "instances", "servers", "fleet", "aws"]
+keywords = ["instances", "servers"]
+
+["aws-architecture-icons__spot-instance"]
+name = "Spot instance"
+category = "service"
+tags = ["compute", "spot", "cost-optimization", "instance", "aws"]
+keywords = ["spot instance"]
+
+["aws-architecture-icons__instance-with-cloudwatch"]
+name = "Instance with CloudWatch"
+category = "service"
+tags = ["compute", "instance", "monitoring", "cloudwatch", "aws"]
+keywords = ["instance with cloudwatch"]
+
+["aws-architecture-icons__elastic-beanstalk"]
+name = "Elastic Beanstalk"
+category = "service"
+tags = ["paas", "deployment", "app-hosting", "managed", "aws"]
+keywords = ["elastic beanstalk", "paas"]
+
+["aws-architecture-icons__lambda"]
+name = "Lambda"
+category = "function"
+tags = ["serverless", "function", "faas", "compute", "event-driven", "aws"]
+keywords = ["lambda", "serverless function"]
+
+["aws-architecture-icons__ec2-auto-scaling"]
+name = "EC2 Auto Scaling"
+category = "service"
+tags = ["scaling", "auto-scaling", "ec2", "elasticity", "aws"]
+keywords = ["ec2 auto scaling"]
+
+["aws-architecture-icons__outposts"]
+name = "Outposts"
+category = "service"
+tags = ["hybrid", "on-premises", "infrastructure", "edge", "aws"]
+keywords = ["outposts"]
+
+["aws-architecture-icons__ec2-image-builder"]
+name = "EC2 Image Builder"
+category = "service"
+tags = ["image", "ami", "automation", "pipeline", "aws"]
+keywords = ["ec2 image builder"]
+
+["aws-architecture-icons__elastic-fabric-adapter"]
+name = "Elastic Fabric Adapter"
+category = "network"
+tags = ["networking", "hpc", "low-latency", "adapter", "aws"]
+keywords = ["elastic fabric adapter", "efa"]
+
+["aws-architecture-icons__app-runner"]
+name = "App Runner"
+category = "service"
+tags = ["container", "serverless", "web-app", "managed", "aws"]
+keywords = ["app runner"]
+
+["aws-architecture-icons__batch"]
+name = "Batch"
+category = "service"
+tags = ["batch", "compute", "jobs", "processing", "aws"]
+keywords = ["batch", "batch processing"]
+
+["aws-architecture-icons__eks"]
+name = "EKS"
+category = "service"
+tags = ["kubernetes", "container", "orchestration", "k8s", "managed", "aws"]
+keywords = ["eks", "kubernetes", "k8s"]
+
+["aws-architecture-icons__ecr"]
+name = "ECR"
+category = "service"
+tags = ["container-registry", "registry", "docker", "images", "aws"]
+keywords = ["ecr", "container registry"]
+
+["aws-architecture-icons__registry"]
+name = "Registry"
+category = "service"
+tags = ["registry", "container", "images", "aws"]
+keywords = ["registry"]
+
+["aws-architecture-icons__image"]
+name = "Image"
+category = "service"
+tags = ["image", "container-image", "docker", "aws"]
+keywords = ["image", "container image"]
+
+["aws-architecture-icons__ecs"]
+name = "ECS"
+category = "service"
+tags = ["container", "orchestration", "docker", "managed", "aws"]
+keywords = ["ecs", "elastic container service"]
+
+["aws-architecture-icons__container"]
+name = "Container"
+category = "service"
+tags = ["container", "docker", "workload", "aws"]
+keywords = ["container"]
+
+["aws-architecture-icons__container2"]
+name = "Container2"
+category = "service"
+tags = ["container", "docker", "workload", "aws"]
+keywords = ["container"]
+
+["aws-architecture-icons__task"]
+name = "Task"
+category = "service"
+tags = ["task", "container", "ecs", "workload", "aws"]
+keywords = ["task", "ecs task"]
+
+["aws-architecture-icons__service"]
+name = "Service"
+category = "service"
+tags = ["service", "microservice", "container", "ecs", "aws"]
+keywords = ["service"]
+
+["aws-architecture-icons__eks-anywhere"]
+name = "EKS Anywhere"
+category = "service"
+tags = ["kubernetes", "hybrid", "on-premises", "k8s", "aws"]
+keywords = ["eks anywhere"]
+
+["aws-architecture-icons__fargate"]
+name = "Fargate"
+category = "service"
+tags = ["serverless", "container", "compute", "managed", "aws"]
+keywords = ["fargate", "serverless container"]
+
+["aws-architecture-icons__sns"]
+name = "SNS"
+category = "queue"
+tags = ["pub-sub", "notification", "messaging", "topic", "aws"]
+keywords = ["sns", "pubsub", "notification"]
+
+["aws-architecture-icons__sqs"]
+name = "SQS"
+category = "queue"
+tags = ["queue", "message-queue", "messaging", "async", "aws"]
+keywords = ["sqs", "message queue"]
+
+["aws-architecture-icons__amazon-mq"]
+name = "Amazon MQ"
+category = "queue"
+tags = ["message-broker", "rabbitmq", "activemq", "messaging", "aws"]
+keywords = ["amazon mq", "rabbitmq", "message broker"]
+
+["aws-architecture-icons__appsync"]
+name = "AppSync"
+category = "gateway"
+tags = ["graphql", "api", "realtime", "managed", "aws"]
+keywords = ["appsync", "graphql"]
+
+["aws-architecture-icons__step-functions"]
+name = "Step Functions"
+category = "service"
+tags = ["workflow", "orchestration", "state-machine", "serverless", "aws"]
+keywords = ["step functions", "state machine", "workflow"]
+
+["aws-architecture-icons__eventbridge"]
+name = "EventBridge"
+category = "queue"
+tags = ["event-bus", "events", "messaging", "event-driven", "aws"]
+keywords = ["eventbridge", "event bus"]
+
+["aws-architecture-icons__event"]
+name = "Event"
+category = "queue"
+tags = ["event", "message", "events", "aws"]
+keywords = ["event"]
+
+["aws-architecture-icons__rule"]
+name = "Rule"
+category = "service"
+tags = ["rule", "eventbridge", "routing", "aws"]
+keywords = ["rule", "event rule"]
+
+["aws-architecture-icons__event-bus"]
+name = "Event bus"
+category = "queue"
+tags = ["event-bus", "events", "messaging", "aws"]
+keywords = ["event bus"]
+
+["aws-architecture-icons__scheduler"]
+name = "Scheduler"
+category = "service"
+tags = ["scheduler", "cron", "jobs", "eventbridge", "aws"]
+keywords = ["scheduler", "cron"]
+
+["aws-architecture-icons__appflow"]
+name = "AppFlow"
+category = "service"
+tags = ["integration", "data-flow", "saas", "etl", "aws"]
+keywords = ["appflow"]
+
+["aws-architecture-icons__managed-workflows-for-apache-airflow"]
+name = "Managed Workflows for Apache Airflow"
+category = "service"
+tags = ["workflow", "airflow", "orchestration", "dag", "mwaa", "aws"]
+keywords = ["airflow", "mwaa", "managed airflow"]
+
+["aws-architecture-icons__iot-analytics"]
+name = "IoT Analytics"
+category = "service"
+tags = ["iot", "analytics", "data", "aws"]
+keywords = ["iot analytics"]
+
+["aws-architecture-icons__iot-core"]
+name = "IoT Core"
+category = "service"
+tags = ["iot", "mqtt", "device-connectivity", "messaging", "aws"]
+keywords = ["iot core", "iot"]
+
+["aws-architecture-icons__iot-greengrass"]
+name = "Iot Greengrass"
+category = "service"
+tags = ["iot", "edge", "runtime", "devices", "aws"]
+keywords = ["greengrass", "iot greengrass"]
+
+["aws-architecture-icons__iot-sitewise"]
+name = "IoT SiteWise"
+category = "service"
+tags = ["iot", "industrial", "data", "monitoring", "aws"]
+keywords = ["iot sitewise"]
+
+["aws-architecture-icons__iot-expresslink"]
+name = "IoT ExpressLink"
+category = "service"
+tags = ["iot", "connectivity", "hardware", "aws"]
+keywords = ["iot expresslink"]
+
+["aws-architecture-icons__iot-roborunner"]
+name = "IoT RoboRunner"
+category = "service"
+tags = ["iot", "robotics", "orchestration", "aws"]
+keywords = ["iot roborunner"]
+
+["aws-architecture-icons__iot-sensor"]
+name = "IoT sensor"
+category = "client"
+tags = ["iot", "sensor", "device", "telemetry", "aws"]
+keywords = ["iot sensor", "sensor"]
+
+["aws-architecture-icons__iot-topic"]
+name = "IoT topic"
+category = "queue"
+tags = ["iot", "topic", "mqtt", "messaging", "aws"]
+keywords = ["iot topic", "mqtt topic"]
+
+["aws-architecture-icons__cloud9"]
+name = "Cloud9"
+category = "service"
+tags = ["ide", "development", "cloud-ide", "devtools", "aws"]
+keywords = ["cloud9", "ide"]
+
+["aws-architecture-icons__codebuild"]
+name = "CodeBuild"
+category = "service"
+tags = ["ci", "build", "ci-cd", "devtools", "aws"]
+keywords = ["codebuild", "build", "continuous integration"]
+
+["aws-architecture-icons__codecommit"]
+name = "CodeCommit"
+category = "service"
+tags = ["git", "source-control", "repository", "vcs", "aws"]
+keywords = ["codecommit", "git repository"]
+
+["aws-architecture-icons__codedeploy"]
+name = "CodeDeploy"
+category = "service"
+tags = ["deployment", "cd", "ci-cd", "automation", "aws"]
+keywords = ["codedeploy", "deployment"]
+
+["aws-architecture-icons__codepipeline"]
+name = "CodePipeline"
+category = "service"
+tags = ["ci-cd", "pipeline", "automation", "devops", "aws"]
+keywords = ["codepipeline", "ci/cd pipeline"]
+
+["aws-architecture-icons__aws-cli"]
+name = "AWS CLI"
+category = "service"
+tags = ["cli", "command-line", "tools", "devtools", "aws"]
+keywords = ["aws cli", "command line"]
+
+["aws-architecture-icons__tools-and-sdks"]
+name = "Tools and SDKs"
+category = "service"
+tags = ["sdk", "tools", "development", "aws"]
+keywords = ["tools and sdks", "sdk"]
+
+["aws-architecture-icons__x-ray"]
+name = "X-Ray"
+category = "service"
+tags = ["tracing", "observability", "debugging", "distributed-tracing", "aws"]
+keywords = ["x-ray", "tracing"]
+
+["aws-architecture-icons__codeartifact"]
+name = "CodeArtifact"
+category = "service"
+tags = ["artifact", "package-registry", "repository", "devtools", "aws"]
+keywords = ["codeartifact", "package registry"]
+
+["aws-architecture-icons__cloudshell"]
+name = "CloudShell"
+category = "service"
+tags = ["shell", "cli", "browser-terminal", "devtools", "aws"]
+keywords = ["cloudshell", "shell"]
+
+["aws-architecture-icons__application-composer"]
+name = "Application Composer"
+category = "service"
+tags = ["visual", "serverless", "design", "devtools", "aws"]
+keywords = ["application composer"]
+
+["aws-architecture-icons__fault-injection-simulator"]
+name = "Fault Injection Simulator"
+category = "service"
+tags = ["chaos-engineering", "testing", "resilience", "fis", "aws"]
+keywords = ["fault injection simulator", "chaos engineering"]
+
+["aws-architecture-icons__amplify"]
+name = "Amplify"
+category = "service"
+tags = ["frontend", "hosting", "fullstack", "web", "mobile", "aws"]
+keywords = ["amplify"]
+
+["aws-architecture-icons__device-farm"]
+name = "Device Farm"
+category = "service"
+tags = ["testing", "mobile", "device-testing", "aws"]
+keywords = ["device farm"]
+
+["aws-architecture-icons__location-service"]
+name = "Location Service"
+category = "service"
+tags = ["location", "maps", "geolocation", "tracking", "aws"]
+keywords = ["location service", "maps"]
+
+["aws-architecture-icons__application-discovery-service"]
+name = "Application Discovery Service"
+category = "service"
+tags = ["migration", "discovery", "inventory", "aws"]
+keywords = ["application discovery service"]
+
+["aws-architecture-icons__agentless-collector"]
+name = "Agentless Collector"
+category = "service"
+tags = ["migration", "discovery", "agentless", "aws"]
+keywords = ["agentless collector"]
+
+["aws-architecture-icons__discovery-agent"]
+name = "Discovery Agent"
+category = "service"
+tags = ["migration", "discovery", "agent", "aws"]
+keywords = ["discovery agent"]
+
+["aws-architecture-icons__transfer-family"]
+name = "Transfer Family"
+category = "service"
+tags = ["file-transfer", "sftp", "ftp", "managed", "aws"]
+keywords = ["transfer family", "sftp"]
+
+["aws-architecture-icons__datasync"]
+name = "DataSync"
+category = "service"
+tags = ["data-transfer", "sync", "migration", "aws"]
+keywords = ["datasync", "data sync"]
+
+["aws-architecture-icons__agent"]
+name = "Agent"
+category = "service"
+tags = ["agent", "monitoring", "collector", "aws"]
+keywords = ["agent"]
+
+["aws-architecture-icons__discovery"]
+name = "Discovery"
+category = "service"
+tags = ["discovery", "inventory", "migration", "aws"]
+keywords = ["discovery"]
+
+["aws-architecture-icons__migration-hub"]
+name = "Migration Hub"
+category = "service"
+tags = ["migration", "tracking", "hub", "aws"]
+keywords = ["migration hub"]
+
+["aws-architecture-icons__application-migration-service"]
+name = "Application Migration Service"
+category = "service"
+tags = ["migration", "lift-and-shift", "replication", "mgn", "aws"]
+keywords = ["application migration service", "mgn"]
+
+["aws-architecture-icons__migration-evaluator"]
+name = "Migration Evaluator"
+category = "service"
+tags = ["migration", "assessment", "planning", "aws"]
+keywords = ["migration evaluator"]
+
+["aws-architecture-icons__server-migration-service"]
+name = "Server Migration Service"
+category = "service"
+tags = ["migration", "server", "replication", "sms", "aws"]
+keywords = ["server migration service", "sms"]
+
+["aws-architecture-icons__alexa-for-business"]
+name = "Alexa for Business"
+category = "service"
+tags = ["voice", "alexa", "productivity", "aws"]
+keywords = ["alexa for business"]
+
+["aws-architecture-icons__chime"]
+name = "Chime"
+category = "service"
+tags = ["communication", "video-conferencing", "meetings", "voip", "aws"]
+keywords = ["chime", "video conferencing"]
+
+["aws-architecture-icons__connect"]
+name = "Connect"
+category = "service"
+tags = ["contact-center", "call-center", "customer-service", "voip", "aws"]
+keywords = ["connect", "contact center"]
+
+["aws-architecture-icons__ses"]
+name = "SES"
+category = "service"
+tags = ["email", "smtp", "transactional-email", "messaging", "aws"]
+keywords = ["ses", "email"]
+
+["aws-architecture-icons__cloudwatch"]
+name = "CloudWatch"
+category = "service"
+tags = ["monitoring", "observability", "metrics", "logs", "alarms", "aws"]
+keywords = ["cloudwatch", "monitoring"]
+
+["aws-architecture-icons__alarm"]
+name = "Alarm"
+category = "service"
+tags = ["alarm", "alert", "monitoring", "cloudwatch", "aws"]
+keywords = ["alarm", "alert"]
+
+["aws-architecture-icons__logs"]
+name = "Logs"
+category = "service"
+tags = ["logs", "logging", "observability", "cloudwatch", "aws"]
+keywords = ["logs", "logging"]
+
+["aws-architecture-icons__dashboard"]
+name = "Dashboard"
+category = "service"
+tags = ["dashboard", "visualization", "monitoring", "aws"]
+keywords = ["dashboard"]
+
+["aws-architecture-icons__cloudformation"]
+name = "CloudFormation"
+category = "service"
+tags = ["iac", "infrastructure-as-code", "provisioning", "templates", "aws"]
+keywords = ["cloudformation", "infrastructure as code"]
+
+["aws-architecture-icons__application-auto-scaling"]
+name = "Application Auto Scaling"
+category = "service"
+tags = ["scaling", "auto-scaling", "capacity", "aws"]
+keywords = ["application auto scaling"]
+
+["aws-architecture-icons__config"]
+name = "Config"
+category = "service"
+tags = ["compliance", "configuration", "audit", "governance", "aws"]
+keywords = ["config", "compliance"]
+
+["aws-architecture-icons__license-manager"]
+name = "License Manager"
+category = "service"
+tags = ["license", "management", "compliance", "aws"]
+keywords = ["license manager"]
+
+["aws-architecture-icons__personal-health-dashboard"]
+name = "Personal Health Dashboard"
+category = "service"
+tags = ["health", "status", "monitoring", "dashboard", "aws"]
+keywords = ["personal health dashboard"]
+
+["aws-architecture-icons__opsworks"]
+name = "OpsWorks"
+category = "service"
+tags = ["configuration-management", "chef", "puppet", "automation", "aws"]
+keywords = ["opsworks", "chef", "puppet"]
+
+["aws-architecture-icons__cloudtrail"]
+name = "CloudTrail"
+category = "service"
+tags = ["audit", "logging", "governance", "api-logging", "security", "aws"]
+keywords = ["cloudtrail", "audit log"]
+
+["aws-architecture-icons__service-catalog"]
+name = "Service Catalog"
+category = "service"
+tags = ["catalog", "governance", "provisioning", "products", "aws"]
+keywords = ["service catalog"]
+
+["aws-architecture-icons__system-manager"]
+name = "System Manager"
+category = "service"
+tags = ["management", "operations", "ssm", "automation", "aws"]
+keywords = ["systems manager", "ssm"]
+
+["aws-architecture-icons__automation"]
+name = "Automation"
+category = "service"
+tags = ["automation", "runbook", "ssm", "operations", "aws"]
+keywords = ["automation"]
+
+["aws-architecture-icons__documents"]
+name = "Documents"
+category = "service"
+tags = ["document", "ssm-document", "runbook", "aws"]
+keywords = ["documents", "ssm document"]
+
+["aws-architecture-icons__parameter-store"]
+name = "Parameter Store"
+category = "service"
+tags = ["configuration", "secrets", "parameters", "ssm", "aws"]
+keywords = ["parameter store", "configuration"]
+
+["aws-architecture-icons__incident-manager"]
+name = "Incident Manager"
+category = "service"
+tags = ["incident", "on-call", "response", "operations", "aws"]
+keywords = ["incident manager"]
+
+["aws-architecture-icons__session-manager"]
+name = "Session Manager"
+category = "service"
+tags = ["shell", "access", "ssm", "secure-access", "aws"]
+keywords = ["session manager"]
+
+["aws-architecture-icons__well-arhitected-tool"]
+name = "Well-Arhitected Tool"
+category = "service"
+tags = ["best-practices", "review", "architecture", "assessment", "aws"]
+keywords = ["well architected tool"]
+
+["aws-architecture-icons__control-tower"]
+name = "Control Tower"
+category = "service"
+tags = ["governance", "multi-account", "landing-zone", "aws"]
+keywords = ["control tower"]
+
+["aws-architecture-icons__organizations"]
+name = "Organizations"
+category = "service"
+tags = ["multi-account", "governance", "billing", "management", "aws"]
+keywords = ["organizations"]
+
+["aws-architecture-icons__appconfig"]
+name = "AppConfig"
+category = "service"
+tags = ["configuration", "feature-flags", "deployment", "aws"]
+keywords = ["appconfig", "feature flags"]
+
+["aws-architecture-icons__chatbot"]
+name = "Chatbot"
+category = "service"
+tags = ["chatops", "slack", "notifications", "operations", "aws"]
+keywords = ["chatbot", "chatops"]
+
+["aws-architecture-icons__backint-agent"]
+name = "Backint Agent"
+category = "service"
+tags = ["backup", "sap", "agent", "aws"]
+keywords = ["backint agent"]
+
+["aws-architecture-icons__managed-service-for-grafana"]
+name = "Managed Service for Grafana"
+category = "service"
+tags = ["monitoring", "grafana", "dashboard", "visualization", "aws"]
+keywords = ["grafana", "managed grafana"]
+
+["aws-architecture-icons__managed-service-for-prometheus"]
+name = "Managed Service for Prometheus"
+category = "service"
+tags = ["monitoring", "prometheus", "metrics", "observability", "aws"]
+keywords = ["prometheus", "managed prometheus"]
+
+["aws-architecture-icons__distro-for-open-telemetry"]
+name = "Distro for Open Telemetry"
+category = "service"
+tags = ["observability", "opentelemetry", "tracing", "metrics", "aws"]
+keywords = ["open telemetry", "adot", "opentelemetry"]
+
+["aws-architecture-icons__resilience-hub"]
+name = "Resilience Hub"
+category = "service"
+tags = ["resilience", "disaster-recovery", "assessment", "aws"]
+keywords = ["resilience hub"]
+
+["aws-architecture-icons__cognito"]
+name = "Cognito"
+category = "service"
+tags = ["auth", "authentication", "identity", "users", "oauth", "aws"]
+keywords = ["cognito", "authentication", "user pool"]
+
+["aws-architecture-icons__guardduty"]
+name = "GuardDuty"
+category = "service"
+tags = ["threat-detection", "security", "monitoring", "aws"]
+keywords = ["guardduty", "threat detection"]
+
+["aws-architecture-icons__inspector"]
+name = "Inspector"
+category = "service"
+tags = ["vulnerability", "scanning", "security", "assessment", "aws"]
+keywords = ["inspector", "vulnerability scanning"]
+
+["aws-architecture-icons__macie"]
+name = "Macie"
+category = "service"
+tags = ["data-security", "pii", "discovery", "security", "aws"]
+keywords = ["macie", "data security"]
+
+["aws-architecture-icons__artifact"]
+name = "Artifact"
+category = "service"
+tags = ["compliance", "reports", "audit", "security", "aws"]
+keywords = ["artifact"]
+
+["aws-architecture-icons__certificate-manager"]
+name = "Certificate Manager"
+category = "service"
+tags = ["ssl", "tls", "certificate", "acm", "security", "aws"]
+keywords = ["certificate manager", "acm", "ssl certificate"]
+
+["aws-architecture-icons__cloudhsm"]
+name = "CloudHSM"
+category = "service"
+tags = ["hsm", "encryption", "keys", "hardware-security", "aws"]
+keywords = ["cloudhsm", "hardware security module"]
+
+["aws-architecture-icons__directory-service"]
+name = "Directory Service"
+category = "service"
+tags = ["directory", "active-directory", "ldap", "identity", "aws"]
+keywords = ["directory service", "active directory"]
+
+["aws-architecture-icons__firewall-manager"]
+name = "Firewall Manager"
+category = "network"
+tags = ["firewall", "security", "management", "waf", "aws"]
+keywords = ["firewall manager"]
+
+["aws-architecture-icons__iam"]
+name = "IAM"
+category = "service"
+tags = ["identity", "access-management", "permissions", "security", "auth", "aws"]
+keywords = ["iam", "identity and access management", "permissions"]
+
+["aws-architecture-icons__permissions"]
+name = "Permissions"
+category = "service"
+tags = ["permissions", "policy", "iam", "access", "aws"]
+keywords = ["permissions", "policy"]
+
+["aws-architecture-icons__role"]
+name = "Role"
+category = "service"
+tags = ["role", "iam", "permissions", "access", "aws"]
+keywords = ["role", "iam role"]
+
+["aws-architecture-icons__aws-sts"]
+name = "AWS STS"
+category = "service"
+tags = ["security-token", "temporary-credentials", "sts", "auth", "aws"]
+keywords = ["sts", "security token service"]
+
+["aws-architecture-icons__kms"]
+name = "KMS"
+category = "service"
+tags = ["encryption", "keys", "key-management", "security", "aws"]
+keywords = ["kms", "key management", "encryption"]
+
+["aws-architecture-icons__secrets-manager"]
+name = "Secrets Manager"
+category = "service"
+tags = ["secrets", "credentials", "security", "rotation", "aws"]
+keywords = ["secrets manager", "secrets"]
+
+["aws-architecture-icons__security-hub"]
+name = "Security Hub"
+category = "service"
+tags = ["security", "compliance", "posture", "aggregation", "aws"]
+keywords = ["security hub"]
+
+["aws-architecture-icons__shield"]
+name = "Shield"
+category = "network"
+tags = ["ddos", "protection", "security", "mitigation", "aws"]
+keywords = ["shield", "ddos protection"]
+
+["aws-architecture-icons__iam-identity-center"]
+name = "IAM Identity Center"
+category = "service"
+tags = ["sso", "identity", "access", "single-sign-on", "aws"]
+keywords = ["iam identity center", "sso"]
+
+["aws-architecture-icons__waf"]
+name = "WAF"
+category = "network"
+tags = ["firewall", "web-application-firewall", "security", "protection", "aws"]
+keywords = ["waf", "web application firewall"]
+
+["aws-architecture-icons__detective"]
+name = "Detective"
+category = "service"
+tags = ["investigation", "security", "analysis", "aws"]
+keywords = ["detective"]
+
+["aws-architecture-icons__resource-access-manager"]
+name = "Resource Access Manager"
+category = "service"
+tags = ["sharing", "resources", "ram", "access", "aws"]
+keywords = ["resource access manager", "ram"]
+
+["aws-architecture-icons__audit-manager"]
+name = "Audit Manager"
+category = "service"
+tags = ["audit", "compliance", "assessment", "security", "aws"]
+keywords = ["audit manager"]
+
+["aws-architecture-icons__network-firewall"]
+name = "Network Firewall"
+category = "network"
+tags = ["firewall", "network-security", "filtering", "protection", "aws"]
+keywords = ["network firewall"]
+
+["aws-architecture-icons__private-certificate-authority"]
+name = "Private Certificate Authority"
+category = "service"
+tags = ["certificate", "pki", "ca", "security", "aws"]
+keywords = ["private certificate authority", "pca"]
+
+["aws-architecture-icons__transit-gateway"]
+name = "Transit Gateway"
+category = "network"
+tags = ["network", "routing", "hub", "connectivity", "aws"]
+keywords = ["transit gateway"]
+
+["aws-architecture-icons__attachment"]
+name = "Attachment"
+category = "network"
+tags = ["attachment", "vpc", "transit-gateway", "connection", "aws"]
+keywords = ["attachment"]
+
+["aws-architecture-icons__cloudfront"]
+name = "CloudFront"
+category = "network"
+tags = ["cdn", "edge", "content-delivery", "caching", "aws"]
+keywords = ["cloudfront", "cdn"]
+
+["aws-architecture-icons__edge-location"]
+name = "Edge location"
+category = "network"
+tags = ["edge", "pop", "cdn", "location", "aws"]
+keywords = ["edge location"]
+
+["aws-architecture-icons__route-53"]
+name = "Route 53"
+category = "network"
+tags = ["dns", "routing", "domain", "traffic", "aws"]
+keywords = ["route 53", "dns"]
+
+["aws-architecture-icons__resolver"]
+name = "Resolver"
+category = "network"
+tags = ["dns", "resolver", "route53", "aws"]
+keywords = ["resolver", "dns resolver"]
+
+["aws-architecture-icons__route-table"]
+name = "Route table"
+category = "network"
+tags = ["routing", "route-table", "vpc", "network", "aws"]
+keywords = ["route table"]
+
+["aws-architecture-icons__vpc"]
+name = "VPC"
+category = "network"
+tags = ["network", "virtual-network", "isolation", "boundary", "aws"]
+keywords = ["vpc", "virtual private cloud"]
+
+["aws-architecture-icons__internet-gateway"]
+name = "Internet gateway"
+category = "network"
+tags = ["gateway", "internet", "vpc", "egress", "aws"]
+keywords = ["internet gateway", "igw"]
+
+["aws-architecture-icons__vpn-gateway"]
+name = "VPN gateway"
+category = "network"
+tags = ["vpn", "gateway", "connectivity", "secure", "aws"]
+keywords = ["vpn gateway"]
+
+["aws-architecture-icons__nat-gateway"]
+name = "NAT gateway"
+category = "network"
+tags = ["nat", "gateway", "egress", "private-subnet", "aws"]
+keywords = ["nat gateway"]
+
+["aws-architecture-icons__flow-logs"]
+name = "Flow logs"
+category = "network"
+tags = ["logs", "network-monitoring", "vpc", "traffic", "aws"]
+keywords = ["flow logs", "vpc flow logs"]
+
+["aws-architecture-icons__interface-endpoint"]
+name = "Interface Endpoint"
+category = "network"
+tags = ["endpoint", "privatelink", "vpc", "private", "aws"]
+keywords = ["interface endpoint"]
+
+["aws-architecture-icons__eni"]
+name = "ENI"
+category = "network"
+tags = ["network-interface", "eni", "vpc", "networking", "aws"]
+keywords = ["eni", "elastic network interface"]
+
+["aws-architecture-icons__nacl"]
+name = "NACL"
+category = "network"
+tags = ["acl", "firewall", "subnet", "security", "aws"]
+keywords = ["nacl", "network acl"]
+
+["aws-architecture-icons__vpn-connection"]
+name = "VPN Connection"
+category = "network"
+tags = ["vpn", "connection", "secure", "tunnel", "aws"]
+keywords = ["vpn connection"]
+
+["aws-architecture-icons__peering-connection"]
+name = "Peering connection"
+category = "network"
+tags = ["peering", "vpc", "connectivity", "network", "aws"]
+keywords = ["peering connection", "vpc peering"]
+
+["aws-architecture-icons__direct-connect"]
+name = "Direct Connect"
+category = "network"
+tags = ["dedicated-connection", "hybrid", "network", "on-premises", "aws"]
+keywords = ["direct connect"]
+
+["aws-architecture-icons__global-accelerator"]
+name = "Global Accelerator"
+category = "network"
+tags = ["routing", "performance", "global", "anycast", "aws"]
+keywords = ["global accelerator"]
+
+["aws-architecture-icons__client-vpn"]
+name = "Client VPN"
+category = "network"
+tags = ["vpn", "client", "remote-access", "secure", "aws"]
+keywords = ["client vpn"]
+
+["aws-architecture-icons__site-to-site-vpn"]
+name = "Site-to-Site VPN"
+category = "network"
+tags = ["vpn", "site-to-site", "hybrid", "tunnel", "aws"]
+keywords = ["site to site vpn"]
+
+["aws-architecture-icons__elb"]
+name = "ELB"
+category = "network"
+tags = ["load-balancer", "traffic", "distribution", "aws"]
+keywords = ["elb", "elastic load balancer", "load balancer"]
+
+["aws-architecture-icons__alb"]
+name = "ALB"
+category = "network"
+tags = ["load-balancer", "application", "layer7", "http", "aws"]
+keywords = ["alb", "application load balancer"]
+
+["aws-architecture-icons__nlb"]
+name = "NLB"
+category = "network"
+tags = ["load-balancer", "network", "layer4", "tcp", "aws"]
+keywords = ["nlb", "network load balancer"]
+
+["aws-architecture-icons__glb"]
+name = "GLB"
+category = "network"
+tags = ["load-balancer", "gateway", "appliances", "aws"]
+keywords = ["glb", "gateway load balancer"]
+
+["aws-architecture-icons__privatelink"]
+name = "PrivateLink"
+category = "network"
+tags = ["private-connectivity", "endpoint", "vpc", "secure", "aws"]
+keywords = ["privatelink"]
+
+["aws-architecture-icons__api-gateway"]
+name = "API Gateway"
+category = "gateway"
+tags = ["api", "gateway", "rest", "http", "endpoint", "aws"]
+keywords = ["api gateway", "rest api"]
+
+["aws-architecture-icons__endpoint"]
+name = "Endpoint"
+category = "network"
+tags = ["endpoint", "vpc", "connection", "aws"]
+keywords = ["endpoint"]
+
+["aws-architecture-icons__budgets"]
+name = "Budgets"
+category = "service"
+tags = ["cost", "budget", "billing", "finance", "aws"]
+keywords = ["budgets", "cost budget"]
+
+["aws-architecture-icons__cost-usage-report"]
+name = "Cost & Usage Report"
+category = "service"
+tags = ["cost", "billing", "report", "finance", "aws"]
+keywords = ["cost and usage report"]
+
+["aws-architecture-icons__cost-explorer"]
+name = "Cost Explorer"
+category = "service"
+tags = ["cost", "analysis", "billing", "finance", "aws"]
+keywords = ["cost explorer"]
+
+["aws-architecture-icons__saving-plans"]
+name = "Saving Plans"
+category = "service"
+tags = ["cost", "savings", "pricing", "finance", "aws"]
+keywords = ["savings plans"]
+
+["aws-architecture-icons__support"]
+name = "Support"
+category = "service"
+tags = ["support", "help", "service", "aws"]
+keywords = ["support"]
+
+["aws-architecture-icons__aws-cloud"]
+name = "AWS Cloud"
+category = "external"
+tags = ["cloud", "aws", "boundary", "container"]
+keywords = ["aws cloud"]
+
+["aws-architecture-icons__region"]
+name = "Region"
+category = "network"
+tags = ["region", "geography", "boundary", "aws"]
+keywords = ["region", "aws region"]
+
+["aws-architecture-icons__auto-scaling-group"]
+name = "Auto Scaling group"
+category = "service"
+tags = ["scaling", "asg", "group", "ec2", "aws"]
+keywords = ["auto scaling group", "asg"]
+
+["aws-architecture-icons__data-center"]
+name = "Data center"
+category = "external"
+tags = ["data-center", "on-premises", "infrastructure", "aws"]
+keywords = ["data center", "on premises"]
+
+["aws-architecture-icons__spot-fleet"]
+name = "Spot Fleet"
+category = "service"
+tags = ["spot", "fleet", "compute", "cost-optimization", "aws"]
+keywords = ["spot fleet"]
+
+["aws-architecture-icons__ec2-contents"]
+name = "EC2 contents"
+category = "service"
+tags = ["ec2", "compute", "contents", "aws"]
+keywords = ["ec2 contents"]
+
+["aws-architecture-icons__iot-greengrass-2"]
+name = "IoT Greengrass"
+category = "service"
+tags = ["iot", "edge", "runtime", "devices", "aws"]
+keywords = ["greengrass", "iot greengrass"]
+
+["aws-architecture-icons__aws-account"]
+name = "AWS account"
+category = "external"
+tags = ["account", "aws", "boundary", "organization"]
+keywords = ["aws account"]
+
+["aws-architecture-icons__aws-step-functions-workflow"]
+name = "AWS Step Functions Workflow"
+category = "service"
+tags = ["workflow", "orchestration", "state-machine", "aws"]
+keywords = ["step functions workflow"]
+
+# software-logos
+["software-logos__software-logos-0"]
+name = "archive"
+category = "storage"
+tags = ["archive", "backup", "cold-storage", "compress"]
+keywords = ["archive", "backup"]
+
+["software-logos__software-logos-1"]
+name = "database"
+category = "database"
+tags = ["database", "storage", "data", "db"]
+keywords = ["database", "db"]
+
+["software-logos__software-logos-2"]
+name = "docker"
+category = "service"
+tags = ["container", "containerization", "image", "devops"]
+keywords = ["docker", "container"]
+
+["software-logos__software-logos-3"]
+name = "json"
+category = "external"
+tags = ["json", "data-format", "config", "payload"]
+keywords = ["json"]
+
+["software-logos__software-logos-4"]
+name = "Kubernetes"
+category = "service"
+tags = ["kubernetes", "orchestration", "container", "k8s", "cluster"]
+keywords = ["kubernetes", "k8s"]
+
+["software-logos__software-logos-5"]
+name = "Redis"
+category = "cache"
+tags = ["cache", "in-memory", "key-value", "redis"]
+keywords = ["redis", "cache"]
+
+["software-logos__software-logos-6"]
+name = "Nginx"
+category = "gateway"
+tags = ["web-server", "reverse-proxy", "load-balancer", "nginx", "http"]
+keywords = ["nginx", "reverse proxy", "web server"]
+
+["software-logos__software-logos-7"]
+name = "RabbitMQ"
+category = "queue"
+tags = ["message-broker", "queue", "amqp", "messaging", "rabbitmq"]
+keywords = ["rabbitmq", "message broker", "amqp"]
+
+["software-logos__software-logos-8"]
+name = "server-chip"
+category = "service"
+tags = ["server", "chip", "hardware", "compute", "cpu"]
+keywords = ["server chip", "hardware"]
+
+["software-logos__software-logos-9"]
+name = "secure-lock"
+category = "service"
+tags = ["security", "encryption", "lock", "auth", "secure"]
+keywords = ["secure lock", "security", "encryption"]
+
+["software-logos__software-logos-10"]
+name = "reverse proxy"
+category = "gateway"
+tags = ["reverse-proxy", "proxy", "gateway", "routing", "load-balancer"]
+keywords = ["reverse proxy", "proxy"]
+
+["software-logos__software-logos-11"]
+name = "code"
+category = "external"
+tags = ["code", "source-code", "development", "file"]
+keywords = ["code", "source code"]
+
+["software-logos__software-logos-12"]
+name = "Postgres"
+category = "database"
+tags = ["database", "sql", "relational", "postgres", "rdbms"]
+keywords = ["postgres", "postgresql", "relational database"]
+
+["software-logos__software-logos-13"]
+name = "GitHub"
+category = "external"
+tags = ["git", "vcs", "source-control", "repository", "ci-cd"]
+keywords = ["github", "git", "repository"]
+
+["software-logos__software-logos-14"]
+name = "server"
+category = "service"
+tags = ["server", "compute", "host", "backend", "machine"]
+keywords = ["server", "host", "backend"]
+
+["software-logos__software-logos-15"]
+name = "python"
+category = "external"
+tags = ["python", "language", "runtime", "script", "backend"]
+keywords = ["python"]
+
+["software-logos__software-logos-16"]
+name = "website"
+category = "client"
+tags = ["website", "web", "browser", "frontend", "page"]
+keywords = ["website", "web page"]
+
+["software-logos__software-logos-17"]
+name = "DNS"
+category = "network"
+tags = ["dns", "resolution", "domain", "naming", "routing"]
+keywords = ["dns", "domain name system"]
+
+# architecture-diagram-components
+["architecture-diagram-components__slack"]
+name = "Slack"
+category = "external"
+tags = ["chat", "messaging", "collaboration", "notification", "saas"]
+keywords = ["slack"]
+
+["architecture-diagram-components__docker"]
+name = "Docker"
+category = "service"
+tags = ["container", "containerization", "image", "devops"]
+keywords = ["docker", "container"]
+
+["architecture-diagram-components__github"]
+name = "GitHub"
+category = "external"
+tags = ["git", "vcs", "source-control", "repository", "ci-cd", "saas"]
+keywords = ["github", "git", "repository"]
+
+["architecture-diagram-components__vpc"]
+name = "VPC"
+category = "network"
+tags = ["network", "virtual-network", "isolation", "boundary"]
+keywords = ["vpc", "virtual private cloud", "network boundary"]
+
+["architecture-diagram-components__private-subnet"]
+name = "Private subnet"
+category = "network"
+tags = ["subnet", "private", "network", "isolation"]
+keywords = ["private subnet"]
+
+["architecture-diagram-components__public-subnet"]
+name = "Public subnet"
+category = "network"
+tags = ["subnet", "public", "network", "internet-facing"]
+keywords = ["public subnet"]
+
+["architecture-diagram-components__user"]
+name = "User"
+category = "client"
+tags = ["user", "person", "actor", "client", "end-user"]
+keywords = ["user", "person", "actor"]
+
+["architecture-diagram-components__users"]
+name = "Users"
+category = "client"
+tags = ["users", "people", "group", "actors", "clients"]
+keywords = ["users", "people", "group"]
+
+["architecture-diagram-components__device"]
+name = "Device"
+category = "client"
+tags = ["device", "hardware", "endpoint", "client"]
+keywords = ["device", "hardware"]
+
+["architecture-diagram-components__server"]
+name = "Server"
+category = "service"
+tags = ["server", "compute", "host", "backend", "machine"]
+keywords = ["server", "host", "backend"]
+
+["architecture-diagram-components__email"]
+name = "Email"
+category = "service"
+tags = ["email", "mail", "message", "communication"]
+keywords = ["email", "mail"]
+

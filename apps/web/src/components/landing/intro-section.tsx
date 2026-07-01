@@ -19,21 +19,8 @@ interface SkillChipProps {
 function SkillIcon({ icon, color }: { icon: string; color: string }) {
   if (icon === "SidebarSimple") {
     return (
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
-        <rect
-          x="2"
-          y="3"
-          width="12"
-          height="10"
-          rx="2"
-          stroke={color}
-          strokeWidth="1.5"
-        />
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <rect x="2" y="3" width="12" height="10" rx="2" stroke={color} strokeWidth="1.5" />
         <path d="M6 3v10" stroke={color} strokeWidth="1.5" />
       </svg>
     );
@@ -41,18 +28,8 @@ function SkillIcon({ icon, color }: { icon: string; color: string }) {
 
   if (icon === "FileDashed") {
     return (
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M4 2.75h5l3 3v7.5H4z"
-          stroke={color}
-          strokeWidth="1.5"
-          strokeDasharray="2 1.5"
-        />
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M4 2.75h5l3 3v7.5H4z" stroke={color} strokeWidth="1.5" strokeDasharray="2 1.5" />
         <path d="M9 2.75v3h3" stroke={color} strokeWidth="1.5" />
       </svg>
     );
@@ -60,12 +37,7 @@ function SkillIcon({ icon, color }: { icon: string; color: string }) {
 
   if (icon === "Path") {
     return (
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <circle cx="4" cy="4" r="1.75" stroke={color} strokeWidth="1.5" />
         <circle cx="12" cy="12" r="1.75" stroke={color} strokeWidth="1.5" />
         <path
@@ -80,36 +52,17 @@ function SkillIcon({ icon, color }: { icon: string; color: string }) {
 
   if (icon === "MagnifyingGlass") {
     return (
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <circle cx="7" cy="7" r="4" stroke={color} strokeWidth="1.5" />
-        <path
-          d="m10 10 3 3"
-          stroke={color}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
+        <path d="m10 10 3 3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
 
   if (icon === "GridFour") {
     return (
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z"
-          stroke={color}
-          strokeWidth="1.5"
-        />
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z" stroke={color} strokeWidth="1.5" />
       </svg>
     );
   }
@@ -265,7 +218,10 @@ export function IntroSection() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="flex w-full flex-col items-center justify-center overflow-hidden px-[120px] max-md:px-6">
+    <section
+      ref={sectionRef}
+      className="flex w-full flex-col items-center justify-center overflow-hidden px-[120px] max-md:px-6"
+    >
       <div className="relative flex min-h-screen w-full max-w-[1366px] flex-col items-center justify-center py-20">
         <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6">
           <span className="h-px w-[69px] bg-black/50" />

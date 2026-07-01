@@ -8,11 +8,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from "@/components/ai-elements/message";
+import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputBody,
@@ -85,9 +81,7 @@ export function AIChatPanel() {
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <p className="text-xs text-muted-foreground flex-1">
-                AI backend wired in Phase 3
-              </p>
+              <p className="text-xs text-muted-foreground flex-1">AI backend wired in Phase 3</p>
               <PromptInputSubmit status="ready" disabled />
             </PromptInputFooter>
           </PromptInput>
