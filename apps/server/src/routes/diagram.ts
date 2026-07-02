@@ -11,7 +11,7 @@ import { iconRegistry } from "../lib/icons/registry";
 import { generateDiagramSpec } from "../lib/llm";
 
 const generateRequestSchema = z.object({
-  prompt: z.string().min(1),
+  prompt: z.string().min(1).max(2000),
   diagramType: diagramTypeSchema.optional(),
 });
 
@@ -44,8 +44,7 @@ diagramRoute.post("/generate", async (c) => {
   if (!spec) {
     log.set({ diagram: { promptLength: prompt.length, diagramType, attempts } });
     log.error(lastError instanceof Error ? lastError : new Error("Diagram generation failed"));
-    const message = lastError instanceof Error ? lastError.message : "Diagram generation failed";
-    return c.json({ error: message }, 502);
+    return c.json({ error: "Diagram generation failed. Please try again." }, 502);
   }
 
   const positioned = layoutDiagram(spec);
@@ -59,6 +58,11 @@ diagramRoute.post("/generate", async (c) => {
       edgeCount: spec.edges.length,
     },
   });
+  if (positioned.warnings.length > 0) {
+    log.warn("layoutDiagram sanitized malformed LLM output", {
+      diagram: { layoutWarnings: positioned.warnings },
+    });
+  }
 
   return c.json({ spec, skeletons, rawElements });
 });

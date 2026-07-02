@@ -284,7 +284,7 @@ export function renderToExcalidraw(
       startId: edge.from,
       endId: edge.to,
       label,
-      startArrowhead: edge.startArrowhead ?? "none",
+      startArrowhead: edge.startArrowhead ?? (edge.direction === "bi" ? "arrow" : "none"),
       endArrowhead: edge.endArrowhead ?? "arrow",
       strokeStyle: edge.style ?? "solid",
     });

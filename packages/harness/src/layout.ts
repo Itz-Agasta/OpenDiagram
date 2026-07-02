@@ -12,6 +12,7 @@ export interface PositionedSpec extends DiagramSpec {
   positions: Record<string, Box>;
   groupBoxes: Record<string, Box>;
   zoneBoxes: Record<string, Box>;
+  warnings: string[];
 }
 
 const NODE_BOX = { width: 150, height: 90 };
@@ -25,9 +26,12 @@ const ZONE_MARGIN = 40;
  *
  * LLM output can reference ids that don't exist (hallucinated node/edge
  * endpoints, a node listed in two groups) — sanitized defensively so bad
- * output degrades gracefully instead of throwing.
+ * output degrades gracefully instead of throwing. Sanitization notes are
+ * collected in the returned `warnings` array instead of logged directly —
+ * this package has no logger dependency, callers decide how to surface them.
  */
 export function layoutDiagram(spec: DiagramSpec): PositionedSpec {
+  const warnings: string[] = [];
   const g = new dagre.graphlib.Graph({ compound: true });
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({
@@ -47,10 +51,14 @@ export function layoutDiagram(spec: DiagramSpec): PositionedSpec {
   const claimedNodes = new Set<string>();
   const validGroups: { id: string; contains: string[] }[] = [];
   for (const group of spec.groups ?? []) {
+    if (nodeIds.has(group.id)) {
+      warnings.push(`dropping group "${group.id}" — id collides with a node id`);
+      continue;
+    }
     const contains = group.contains.filter((id) => nodeIds.has(id) && !claimedNodes.has(id));
     if (contains.length === 0) {
       if (group.contains.length > 0) {
-        console.warn(`layoutDiagram: dropping group "${group.id}" — no valid unclaimed nodes`);
+        warnings.push(`dropping group "${group.id}" — no valid unclaimed nodes`);
       }
       continue;
     }
@@ -67,9 +75,7 @@ export function layoutDiagram(spec: DiagramSpec): PositionedSpec {
 
   for (const edge of spec.edges) {
     if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) {
-      console.warn(
-        `layoutDiagram: dropping edge with unknown endpoint (${edge.from} -> ${edge.to})`,
-      );
+      warnings.push(`dropping edge with unknown endpoint (${edge.from} -> ${edge.to})`);
       continue;
     }
     g.setEdge(edge.from, edge.to);
@@ -105,7 +111,7 @@ export function layoutDiagram(spec: DiagramSpec): PositionedSpec {
       .map((id) => positions[id] ?? groupBoxes[id])
       .filter((box): box is Box => box !== undefined);
     if (memberBoxes.length === 0) {
-      console.warn(`layoutDiagram: dropping zone "${zone.id}" — no valid members`);
+      warnings.push(`dropping zone "${zone.id}" — no valid members`);
       continue;
     }
     const minX = Math.min(...memberBoxes.map((b) => b.x)) - ZONE_MARGIN;
@@ -120,5 +126,5 @@ export function layoutDiagram(spec: DiagramSpec): PositionedSpec {
     };
   }
 
-  return { ...spec, positions, groupBoxes, zoneBoxes };
+  return { ...spec, positions, groupBoxes, zoneBoxes, warnings };
 }

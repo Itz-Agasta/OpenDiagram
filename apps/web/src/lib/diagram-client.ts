@@ -15,6 +15,7 @@ export async function generateDiagram(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt, diagramType }),
+    signal: AbortSignal.timeout(60_000),
   });
 
   const data = await response.json();

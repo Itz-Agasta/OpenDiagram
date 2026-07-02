@@ -68,7 +68,7 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, text: `Error: ${message}` } : m)),
         );
-        setStatus("error");
+        setStatus("ready");
       }
     },
     [excalidrawAPI, status],
