@@ -2,9 +2,11 @@ import { auth } from "@OpenDiagram/auth";
 import { env } from "@OpenDiagram/env/server";
 import { initLogger } from "evlog";
 import { createAuthMiddleware, type BetterAuthInstance } from "evlog/better-auth";
+import { createFsDrain } from "evlog/fs";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { diagramRoute } from "./routes/diagram";
 
 initLogger({
   env: { service: "OpenDiagram-server" },
@@ -17,7 +19,7 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 
 const app = new Hono<EvlogVariables>();
 
-app.use(evlog());
+app.use(evlog({ drain: createFsDrain() }));
 app.use("*", async (c, next) => {
   await identifyUser(c.get("log"), c.req.raw.headers, c.req.path);
   await next();
@@ -34,6 +36,7 @@ app.use(
 );
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.route("/api/diagram", diagramRoute);
 
 app.get("/", (c) => {
   return c.text("OK");

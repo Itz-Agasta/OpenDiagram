@@ -1,4 +1,4 @@
-import { Whiteboard } from "@/components/whiteboard/Whiteboard";
+import { WorkspaceLayout } from "@/components/whiteboard/WorkspaceLayout";
 
 interface WorkspacePageProps {
   params: Promise<{ projectId: string }>;
@@ -9,9 +9,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
 
   return (
     <div className="h-screen w-screen overflow-hidden">
-      <Whiteboard />
+      <WorkspaceLayout />
     </div>
   );
 }
-
-// TODO: Need to redesign the canvas & add ai panel

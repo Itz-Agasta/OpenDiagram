@@ -21,7 +21,8 @@
       "@tailwindcss/postcss": "^4.3.1",
       "@types/react": "^19.2.17",
       "@types/react-dom": "^19.2.3",
-      "tailwindcss": "^4.3.1"
+      "tailwindcss": "^4.3.1",
+      "ai": "^7.0.10"
     }
   },
   "type": "module",
