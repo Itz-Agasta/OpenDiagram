@@ -29,6 +29,20 @@
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
   --radius: 0.625rem;
+
+  --od-canvas: #d9d9d9;
+  --od-surface: #ffffff;
+  --od-surface-muted: rgba(255, 255, 255, 0.5);
+  --od-surface-elevated: rgba(255, 255, 255, 0.8);
+  --od-ink: #1a1a1a;
+  --od-ink-muted: rgba(0, 0, 0, 0.7);
+  --od-ink-faint: rgba(0, 0, 0, 0.5);
+  --od-on-dark: #ffffff;
+  --od-on-dark-muted: rgba(255, 255, 255, 0.8);
+  --od-border-soft: rgba(0, 0, 0, 0.1);
+  --od-green: #0cb300;
+  --od-dark-surface: #18181b;
+  --od-dark-panel: #262626;
 }
 
 .dark {
@@ -58,7 +72,10 @@
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans: var(--font-inter-next), sans-serif;
+  --font-inter: var(--font-inter-next), sans-serif;
+  --font-serif: var(--font-instrument-serif-next), serif;
+  --font-instrument-serif: var(--font-instrument-serif-next), serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -74,6 +91,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -87,6 +105,20 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-od-canvas: #d9d9d9;
+  --color-od-surface: #ffffff;
+  --color-od-surface-muted: rgba(255, 255, 255, 0.5);
+  --color-od-surface-elevated: rgba(255, 255, 255, 0.8);
+  --color-od-ink: #1a1a1a;
+  --color-od-ink-muted: rgba(0, 0, 0, 0.7);
+  --color-od-ink-faint: rgba(0, 0, 0, 0.5);
+  --color-od-on-dark: #ffffff;
+  --color-od-on-dark-muted: rgba(255, 255, 255, 0.8);
+  --color-od-border-soft: rgba(0, 0, 0, 0.1);
+  --color-od-green: #0cb300;
+  --color-od-dark-surface: #18181b;
+  --color-od-dark-panel: #262626;
 }
 
 @layer base {
@@ -95,5 +127,11 @@
   }
   body {
     @apply font-sans bg-background text-foreground;
+    font-optical-sizing: auto;
+  }
+
+  .font-editorial {
+    font-family: var(--font-instrument-serif-next), serif;
+    font-style: italic;
   }
 }
