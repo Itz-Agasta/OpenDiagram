@@ -7,7 +7,7 @@ export interface IconEntry {
   tags: string[];
   keywords: string[];
   source_lib: string;
-  elements: unknown[];
+  elements: Record<string, unknown>[];
 }
 
 export type IconRegistry = Record<string, IconEntry>;
