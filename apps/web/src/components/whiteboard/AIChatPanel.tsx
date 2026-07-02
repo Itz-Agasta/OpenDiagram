@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
+import type { ChatStatus } from "ai";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { generateDiagram } from "@/lib/diagram-client";
+import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import {
   Conversation,
   ConversationContent,
@@ -25,15 +29,50 @@ interface ChatMessage {
   text: string;
 }
 
-export function AIChatPanel() {
-  const [messages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const _idRef = useRef(0);
+interface AIChatPanelProps {
+  excalidrawAPI: ExcalidrawImperativeAPI | null;
+}
 
-  // Phase 1: UI only — submit disabled, no backend wired yet
-  const handleSubmit = useCallback((_msg: PromptInputMessage) => {
-    // Intentionally no-op until Phase 3 backend is wired
-  }, []);
+export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [status, setStatus] = useState<ChatStatus>("ready");
+  const idRef = useRef(0);
+
+  const handleSubmit = useCallback(
+    async (msg: PromptInputMessage) => {
+      const text = msg.text.trim();
+      if (!text || !excalidrawAPI || status !== "ready") return;
+
+      const userMessageId = `msg-${idRef.current++}`;
+      const assistantMessageId = `msg-${idRef.current++}`;
+      setMessages((prev) => [
+        ...prev,
+        { id: userMessageId, role: "user", text },
+        { id: assistantMessageId, role: "assistant", text: "Generating diagram…" },
+      ]);
+      setStatus("submitted");
+
+      try {
+        const { spec, skeletons, rawElements } = await generateDiagram(text);
+        await applyDiagramToCanvas(excalidrawAPI, skeletons, rawElements);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? { ...m, text: `Done — "${spec.title}" (${spec.nodes.length} nodes).` }
+              : m,
+          ),
+        );
+        setStatus("ready");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Diagram generation failed";
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantMessageId ? { ...m, text: `Error: ${message}` } : m)),
+        );
+        setStatus("error");
+      }
+    },
+    [excalidrawAPI, status],
+  );
 
   return (
     <div className="flex flex-col h-full border-l border-border bg-background">
@@ -41,9 +80,6 @@ export function AIChatPanel() {
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
         <Sparkles className="size-4 text-primary" />
         <span className="text-sm font-semibold">AI Assistant</span>
-        <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-          Phase 1
-        </span>
       </div>
 
       {/* Messages */}
@@ -74,15 +110,13 @@ export function AIChatPanel() {
           <PromptInput onSubmit={handleSubmit} className="w-full">
             <PromptInputBody>
               <PromptInputTextarea
-                value={input}
-                placeholder="Describe your architecture… (AI coming soon)"
-                onChange={(e) => setInput(e.currentTarget.value)}
+                placeholder="Describe your architecture…"
                 className="min-h-40 max-h-40 resize-none"
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <p className="text-xs text-muted-foreground flex-1">AI backend wired in Phase 3</p>
-              <PromptInputSubmit status="ready" disabled />
+              <p className="text-xs text-muted-foreground flex-1">Gemini 2.5 Flash</p>
+              <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>
         </PromptInputProvider>

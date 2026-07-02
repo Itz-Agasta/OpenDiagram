@@ -1,11 +1,9 @@
 "use client";
 
 import "@excalidraw/excalidraw/index.css";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import dynamic from "next/dynamic";
 import { useState, useCallback } from "react";
-// narrowed to real type in Phase 3 when API methods are used
-// oxlint-disable-next-line no-explicit-any
-type ExcalidrawImperativeAPI = any;
 
 const Excalidraw = dynamic(
   async () => {
