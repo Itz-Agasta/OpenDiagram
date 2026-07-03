@@ -18,6 +18,7 @@
     "ai": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
     "evlog": "catalog:",
     "hono": "^4.8.2",
     "zod": "catalog:"
