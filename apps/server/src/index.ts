@@ -7,6 +7,7 @@ import { evlog, type EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { diagramRoute } from "./routes/diagram";
+import { projectsRoute } from "./routes/projects";
 
 initLogger({
   env: { service: "OpenDiagram-server" },
@@ -29,7 +30,7 @@ app.use(
   "/*",
   cors({
     origin: env.CORS_ORIGIN,
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
@@ -37,6 +38,7 @@ app.use(
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api/diagram", diagramRoute);
+app.route("/api/projects", projectsRoute);
 
 app.get("/", (c) => {
   return c.text("OK");
