@@ -88,7 +88,14 @@ projectsRoute.get("/:projectId/files", async (c) => {
   }
 
   const rows = await db
-    .select()
+    .select({
+      id: projectFile.id,
+      projectId: projectFile.projectId,
+      type: projectFile.type,
+      name: projectFile.name,
+      createdAt: projectFile.createdAt,
+      updatedAt: projectFile.updatedAt,
+    })
     .from(projectFile)
     .where(eq(projectFile.projectId, projectId))
     .orderBy(desc(projectFile.updatedAt));

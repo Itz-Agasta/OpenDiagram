@@ -241,7 +241,7 @@ The header is minimal: a white brand pill on the left and a circular menu button
 
 Primary marketing buttons are black pills with white text, 12px vertical padding, 24px horizontal padding, and a small arrow icon when navigating forward. Hover should reduce opacity or slightly deepen the fill. Active state can translate down by 1px. Do not add glow.
 
-Dashboard command buttons use rounded-md corners, 8px radius, with compact 40-44px heights. This keeps app controls precise and closer to Linear/Cursor-style product chrome. Do not use pill buttons for dashboard actions unless the control is input-like, circular, or intentionally separate from command surfaces.
+Dashboard command buttons use rounded-md corners, 8px radius, with compact 44px heights. This keeps app controls precise and closer to Linear/Cursor-style product chrome while maintaining the minimum touch target size. Do not use pill buttons for dashboard actions unless the control is input-like, circular, or intentionally separate from command surfaces.
 
 **Hero Inline Media**
 

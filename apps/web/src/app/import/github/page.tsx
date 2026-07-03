@@ -115,8 +115,10 @@ function GitHubImportContent() {
     }
   }
 
+  const [importingRepo, setImportingRepo] = useState<string | null>(null);
+
   async function importSelectedRepo(repoFullName: string) {
-    setSelectedRepo(repoFullName);
+    setImportingRepo(repoFullName);
     setImportState("importing");
     setError(null);
 
@@ -221,7 +223,7 @@ function GitHubImportContent() {
                 loadState={loadState}
                 repositories={filteredRepositories}
                 requestedRepo={requestedRepo}
-                selectedRepo={selectedRepo}
+                importingRepo={importingRepo}
                 error={error}
                 onQueryChange={setQuery}
                 onImport={importSelectedRepo}
@@ -310,7 +312,7 @@ function RepositoryPicker({
   loadState,
   repositories,
   requestedRepo,
-  selectedRepo,
+  importingRepo,
   error,
   onQueryChange,
   onImport,
@@ -319,7 +321,7 @@ function RepositoryPicker({
   loadState: LoadState;
   repositories: GitHubRepository[];
   requestedRepo: string;
-  selectedRepo: string | null;
+  importingRepo: string | null;
   error: string | null;
   onQueryChange: (value: string) => void;
   onImport: (repoFullName: string) => void;
@@ -403,7 +405,7 @@ function RepositoryPicker({
                   onClick={() => onImport(repo.fullName)}
                   className="justify-self-end rounded-full border border-[#d9d9d9] px-4 py-2 text-[13px] text-od-ink transition hover:bg-od-surface"
                 >
-                  {selectedRepo === repo.fullName ? "Importing" : "Import"}
+                  {importingRepo === repo.fullName ? "Importing" : "Import"}
                 </button>
               </div>
             ))}

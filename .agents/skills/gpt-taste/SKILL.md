@@ -53,7 +53,7 @@ The Hero must breathe. It must NOT be a narrow, 6-line text wall.
 
 ## 5. ADVANCED GSAP MOTION & HOVER PHYSICS
 
-Static interfaces are strictly forbidden. You must write real GSAP (`@gsap/react`, `ScrollTrigger`).
+Static interfaces are strictly forbidden. You must write real GSAP (using `gsap` directly inside `useEffect`/`useLayoutEffect` hooks, `ScrollTrigger`).
 
 - **Hover Physics:** Every clickable card and image must react. Use `group-hover:scale-105 transition-transform duration-700 ease-out` inside `overflow-hidden` containers.
 - **Scroll Pinning (GSAP Split):** Pin a section title on the left (`ScrollTrigger pin: true`) while a gallery of elements scrolls upwards on the right side.

@@ -64,7 +64,7 @@ export function WorkspaceLayout() {
   }, [draft, session.data?.user]);
 
   useEffect(() => {
-    if (session.isPending || !session.data?.user || draft) return;
+    if (session.isPending || !session.data?.user || draftRef.current) return;
 
     let active = true;
 

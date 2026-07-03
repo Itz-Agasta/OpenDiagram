@@ -15,6 +15,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { env } from "@OpenDiagram/env/web";
 import { authClient } from "@/lib/auth-client";
 import {
   createGuestProjectDraft,
@@ -248,10 +249,18 @@ export default function DashboardPage() {
     try {
       if (user) {
         const project = await createProject({ name });
-        await createProjectFile(project.id, {
-          name: "Your first design",
-          type: "diagram",
-        });
+        try {
+          await createProjectFile(project.id, {
+            name: "Your first design",
+            type: "diagram",
+          });
+        } catch (fileErr) {
+          fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${project.id}`, {
+            method: "DELETE",
+            credentials: "include",
+          }).catch(() => {});
+          throw fileErr;
+        }
         setSavedProjects((currentProjects) => [project, ...currentProjects]);
         setProjectModalOpen(false);
         setProjectName("");

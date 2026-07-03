@@ -151,6 +151,7 @@ export function HeroSection() {
       });
     } catch {
       setAuthError("Could not start GitHub sign in.");
+    } finally {
       setAuthPending(false);
     }
   }

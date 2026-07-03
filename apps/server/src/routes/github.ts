@@ -34,17 +34,23 @@ githubRoute.get("/repositories", async (c) => {
     return c.json({ error: "Connect GitHub before importing repositories." }, 401);
   }
 
-  const response = await fetch(
-    "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member",
-    {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "OpenDiagram",
-        "X-GitHub-Api-Version": "2022-11-28",
+  let response: Response;
+
+  try {
+    response = await fetch(
+      "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member",
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token}`,
+          "User-Agent": "OpenDiagram",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
       },
-    },
-  );
+    );
+  } catch {
+    return c.json({ error: "Could not reach GitHub. Check your network connection." }, 502);
+  }
 
   if (!response.ok) {
     return c.json(
@@ -53,7 +59,13 @@ githubRoute.get("/repositories", async (c) => {
     );
   }
 
-  const repositories = (await response.json()) as GitHubRepository[];
+  let repositories: GitHubRepository[];
+
+  try {
+    repositories = (await response.json()) as GitHubRepository[];
+  } catch {
+    return c.json({ error: "Invalid response from GitHub." }, 502);
+  }
 
   return c.json({
     repositories: repositories.map((repo) => ({
@@ -89,23 +101,42 @@ async function importGitHubRepository(c: Context) {
     return c.json({ error: parsed.error.issues[0]?.message ?? "Invalid repository." }, 400);
   }
 
-  const repoResponse = await fetch(`https://api.github.com/repos/${parsed.data.repoFullName}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "User-Agent": "OpenDiagram",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
+  let repoResponse: Response;
 
-  if (!repoResponse.ok) {
-    return c.json(
-      { error: "Could not access that GitHub repository." },
-      repoResponse.status === 404 ? 404 : 502,
-    );
+  try {
+    repoResponse = await fetch(`https://api.github.com/repos/${parsed.data.repoFullName}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "OpenDiagram",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+  } catch {
+    return c.json({ error: "Could not reach GitHub. Check your network connection." }, 502);
   }
 
-  const repo = (await repoResponse.json()) as GitHubRepository;
+  if (!repoResponse.ok) {
+    const status = repoResponse.status;
+    if (status === 401 || status === 403 || status === 404) {
+      const message =
+        status === 401
+          ? "GitHub token expired. Reconnect GitHub to continue."
+          : status === 403
+            ? "Insufficient permissions to access that repository."
+            : "GitHub repository not found.";
+      return c.json({ error: message }, status);
+    }
+    return c.json({ error: "Could not access that GitHub repository." }, 502);
+  }
+
+  let repo: GitHubRepository;
+
+  try {
+    repo = (await repoResponse.json()) as GitHubRepository;
+  } catch {
+    return c.json({ error: "Invalid response from GitHub." }, 502);
+  }
 
   return c.json({
     project: {

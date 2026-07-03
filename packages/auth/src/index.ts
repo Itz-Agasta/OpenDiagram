@@ -4,6 +4,10 @@ import { env } from "@OpenDiagram/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
+// TODO: Replace with Redis-backed secondary storage before deploying to production.
+// The current in-memory Map does not survive across server instances or cold starts,
+// which will break OAuth flows and rate limiting in horizontally scaled deployments.
+// See https://www.better-auth.com/docs/advanced/secondary-storage
 const secondaryStorage = createMemorySecondaryStorage();
 
 export function createAuth() {
@@ -52,6 +56,17 @@ export const auth = createAuth();
 function createMemorySecondaryStorage() {
   const store = new Map<string, { value: string; expiresAt: number | null }>();
 
+  let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+  function sweep() {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      if (entry.expiresAt && entry.expiresAt <= now) {
+        store.delete(key);
+      }
+    }
+  }
+
   function read(key: string) {
     const entry = store.get(key);
 
@@ -74,6 +89,13 @@ function createMemorySecondaryStorage() {
         value,
         expiresAt: ttl ? Date.now() + ttl * 1000 : null,
       });
+
+      if (!sweepTimer) {
+        sweepTimer = setInterval(sweep, 60_000);
+        if (typeof sweepTimer === "object" && "unref" in sweepTimer) {
+          sweepTimer.unref();
+        }
+      }
     },
     async delete(key: string) {
       store.delete(key);

@@ -28,7 +28,11 @@ export function getGuestProjectDraft(id: string): GuestProjectDraft | null {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as GuestProjectDraft;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    if (typeof parsed.id !== "string" || typeof parsed.name !== "string") return null;
+    if (typeof parsed.createdAt !== "string" || typeof parsed.updatedAt !== "string") return null;
+    return parsed as GuestProjectDraft;
   } catch {
     return null;
   }
@@ -44,7 +48,11 @@ export function listGuestProjectDrafts(): GuestProjectDraft[] {
       if (!raw) return null;
 
       try {
-        return JSON.parse(raw) as GuestProjectDraft;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed !== "object" || parsed === null) return null;
+        if (typeof parsed.id !== "string" || typeof parsed.name !== "string") return null;
+        if (typeof parsed.createdAt !== "string" || typeof parsed.updatedAt !== "string") return null;
+        return parsed as GuestProjectDraft;
       } catch {
         return null;
       }
