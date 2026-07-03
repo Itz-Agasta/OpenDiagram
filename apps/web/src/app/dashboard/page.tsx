@@ -2,18 +2,40 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ChevronDown,
   FileText,
   Import,
+  LogOut,
   PenTool,
   Plus,
   Search,
   Settings,
+  Sparkles,
 } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import {
+  createGuestProjectDraft,
+  listGuestProjectDrafts,
+  saveGuestProjectDraft,
+  type GuestProjectDraft,
+} from "@/lib/guest-drafts";
+import {
+  createProject,
+  createProjectFile,
+  listProjects,
+  type SavedProject,
+} from "@/lib/projects-client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type FileKind = "diagram" | "doc";
 
@@ -30,6 +52,7 @@ type Project = {
   color: string;
   active: boolean;
   files: ProjectFile[];
+  source: "guest" | "saved";
 };
 
 type RecentFile = {
@@ -44,135 +67,209 @@ type RecentFile = {
   kind: FileKind;
 };
 
-const initialProjects: Project[] = [
-  {
-    id: "atlas-cloud",
-    name: "Atlas Cloud",
-    initials: "AC",
-    color: "#0CB300",
-    active: true,
-    files: [
-      { id: "checkout-architecture", name: "Checkout architecture", kind: "diagram" },
-      { id: "service-topology", name: "Service topology", kind: "diagram" },
-      { id: "auth-boundary-map", name: "Auth boundary map", kind: "diagram" },
-      { id: "gateway-readme", name: "Gateway README", kind: "doc" },
-      { id: "platform-runbook", name: "Platform runbook", kind: "doc" },
-      { id: "api-conventions", name: "API conventions", kind: "doc" },
-    ],
-  },
-  {
-    id: "gateway-api",
-    name: "Gateway API",
-    initials: "GA",
-    color: "#3B82F6",
-    active: false,
-    files: [
-      { id: "request-lifecycle", name: "Request lifecycle", kind: "diagram" },
-      { id: "rate-limit-flow", name: "Rate limit flow", kind: "diagram" },
-      { id: "gateway-readme", name: "Gateway README", kind: "doc" },
-      { id: "public-api-guide", name: "Public API guide", kind: "doc" },
-      { id: "error-contract", name: "Error contract", kind: "doc" },
-    ],
-  },
-  {
-    id: "billing-core",
-    name: "Billing Core",
-    initials: "BC",
-    color: "#F97316",
-    active: false,
-    files: [
-      { id: "billing-architecture", name: "Billing architecture", kind: "diagram" },
-      { id: "event-processing-flow", name: "Event processing flow", kind: "diagram" },
-      { id: "ledger-model", name: "Ledger model", kind: "diagram" },
-      { id: "billing-runbook", name: "Billing runbook", kind: "doc" },
-      { id: "reconciliation-notes", name: "Reconciliation notes", kind: "doc" },
-    ],
-  },
-];
+function SidebarProjectSkeletons() {
+  return (
+    <div className="flex flex-col gap-3 px-2 py-2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <Skeleton className="size-5 rounded-[5px]" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-const initialRecentFiles: RecentFile[] = [
-  {
-    id: "recent-checkout-architecture",
-    fileId: "checkout-architecture",
-    title: "Checkout architecture",
-    type: "Diagram file",
-    description: "Excalidraw canvas for service boundaries and dependencies",
-    project: "Atlas Cloud",
-    updated: "Edited 12m ago",
-    status: "Live draft",
-    kind: "diagram",
-  },
-  {
-    id: "recent-gateway-readme",
-    fileId: "gateway-readme",
-    title: "Gateway README",
-    type: "Doc file",
-    description: "Repository README for setup, conventions, and ownership",
-    project: "Gateway API",
-    updated: "Edited yesterday",
-    status: "Synced",
-    kind: "doc",
-  },
-  {
-    id: "recent-billing-architecture",
-    fileId: "billing-architecture",
-    title: "Billing architecture",
-    type: "Diagram file",
-    description: "Excalidraw canvas for event flow and core services",
-    project: "Billing Core",
-    updated: "Edited Tue",
-    status: "Review",
-    kind: "diagram",
-  },
-  {
-    id: "recent-platform-runbook",
-    fileId: "platform-runbook",
-    title: "Platform runbook",
-    type: "Doc file",
-    description: "Operational doc for deploys, alerts, and recovery steps",
-    project: "Atlas Cloud",
-    updated: "Edited Mon",
-    status: "Draft",
-    kind: "doc",
-  },
-];
+function RecentFilesSkeleton() {
+  return (
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-od-border-soft bg-od-surface">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-od-border-soft p-4 md:p-5">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <Skeleton className="hidden h-9 w-20 rounded-[8px] sm:block" />
+      </div>
+
+      <div className="divide-y divide-od-border-soft">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-[auto_1fr] gap-3 p-4 md:grid-cols-[auto_1fr_150px_100px] md:items-center md:p-5"
+          >
+            <Skeleton className="size-10 rounded-[8px]" />
+            <span className="flex min-w-0 flex-col gap-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-full max-w-[360px]" />
+            </span>
+            <Skeleton className="col-start-2 h-4 w-20 md:col-start-auto" />
+            <Skeleton className="col-start-2 h-7 w-16 rounded-[8px] md:col-start-auto" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [recentFiles, setRecentFiles] = useState<RecentFile[]>(initialRecentFiles);
+  const session = authClient.useSession();
+  const [guestDrafts, setGuestDrafts] = useState<GuestProjectDraft[]>([]);
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [fileModalProjectId, setFileModalProjectId] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [fileKind, setFileKind] = useState<FileKind>("diagram");
+  const [projectPending, setProjectPending] = useState(false);
+  const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
+  const [savedProjectsLoaded, setSavedProjectsLoaded] = useState(false);
+  const [signOutPending, setSignOutPending] = useState(false);
+  const [projectError, setProjectError] = useState<string | null>(null);
+
+  const user = session.data?.user;
+  const isSignedIn = Boolean(user);
+  const accountName = user?.name || user?.email || "OpenDiagram";
+  const accountImage = user?.image;
+
+  useEffect(() => {
+    setGuestDrafts(listGuestProjectDrafts());
+  }, []);
+
+  useEffect(() => {
+    if (session.isPending || !user) return;
+
+    let active = true;
+
+    async function loadSavedProjects() {
+      setSavedProjectsLoading(true);
+      setSavedProjectsLoaded(false);
+      setProjectError(null);
+
+      try {
+        const projects = await listProjects();
+        if (active) {
+          setSavedProjects(projects);
+        }
+      } catch (err) {
+        if (active) {
+          setProjectError(
+            err instanceof Error && err.message !== "Internal Server Error"
+              ? err.message
+              : "Could not load saved projects.",
+          );
+        }
+      } finally {
+        if (active) {
+          setSavedProjectsLoading(false);
+          setSavedProjectsLoaded(true);
+        }
+      }
+    }
+
+    void loadSavedProjects();
+
+    return () => {
+      active = false;
+    };
+  }, [session.isPending, user]);
+
+  const projects = useMemo<Project[]>(() => {
+    const sourceProjects = isSignedIn ? savedProjects : guestDrafts;
+
+    return sourceProjects.map((project, index) => ({
+      id: project.id,
+      name: project.name,
+      initials: getInitials(project.name),
+      color: getProjectColor(project.name),
+      active: index === 0,
+      source: isSignedIn ? "saved" : "guest",
+      files: [
+        {
+          id: project.id,
+          name: "Your first design",
+          kind: "diagram",
+        },
+      ],
+    }));
+  }, [guestDrafts, isSignedIn, savedProjects]);
+
+  const recentFiles = useMemo<RecentFile[]>(
+    () =>
+      projects.map((project) => ({
+        id: `recent-${project.id}`,
+        fileId: project.id,
+        title: "Your first design",
+        type: "Diagram file",
+        description:
+          project.source === "guest"
+            ? "Guest draft saved in this browser"
+            : "Saved project in your workspace",
+        project: project.name,
+        updated: project.source === "guest" ? "Local draft" : "Saved",
+        status: project.source === "guest" ? "Guest" : "Synced",
+        kind: "diagram",
+      })),
+    [projects],
+  );
 
   const selectedProject = projects.find((project) => project.id === fileModalProjectId);
+  const projectsLoading =
+    session.isPending || (isSignedIn && !savedProjectsLoaded) || savedProjectsLoading;
 
   function openProjectModal() {
     setProjectName("");
+    setProjectError(null);
     setProjectModalOpen(true);
   }
 
-  function createProject(event: React.FormEvent<HTMLFormElement>) {
+  async function signOut() {
+    setSignOutPending(true);
+
+    try {
+      await authClient.signOut();
+      setSavedProjects([]);
+      setSavedProjectsLoaded(false);
+      router.refresh();
+    } finally {
+      setSignOutPending(false);
+    }
+  }
+
+  async function createDashboardProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const name = projectName.trim();
     if (!name) return;
 
-    setProjects((currentProjects) => [
-      {
-        id: nanoid(10),
-        name,
-        initials: getInitials(name),
-        color: getProjectColor(name),
-        active: true,
-        files: [],
-      },
-      ...currentProjects.map((project) => ({ ...project, active: false })),
-    ]);
-    setProjectModalOpen(false);
-    setProjectName("");
+    setProjectPending(true);
+    setProjectError(null);
+
+    try {
+      if (user) {
+        const project = await createProject({ name });
+        await createProjectFile(project.id, {
+          name: "Your first design",
+          type: "diagram",
+        });
+        setSavedProjects((currentProjects) => [project, ...currentProjects]);
+        setProjectModalOpen(false);
+        setProjectName("");
+        router.push(`/workspace/${project.id}`);
+        return;
+      }
+
+      const draft = createGuestProjectDraft(name);
+      saveGuestProjectDraft(draft);
+      setGuestDrafts((currentDrafts) => [draft, ...currentDrafts]);
+      setProjectModalOpen(false);
+      setProjectName("");
+      router.push(`/workspace/${draft.id}`);
+    } catch (err) {
+      setProjectError(err instanceof Error ? err.message : "Could not create project.");
+    } finally {
+      setProjectPending(false);
+    }
   }
 
   function openFileModal(projectId: string) {
@@ -185,39 +282,12 @@ export default function DashboardPage() {
     event.preventDefault();
 
     const project = selectedProject;
-    const name = fileName.trim();
-    if (!project || !name) return;
+    if (!project || !fileName.trim()) return;
 
-    const file: ProjectFile = {
-      id: nanoid(10),
-      name,
-      kind: fileKind,
-    };
+    if (fileKind === "diagram") {
+      router.push(`/workspace/${project.id}`);
+    }
 
-    setProjects((currentProjects) =>
-      currentProjects.map((currentProject) =>
-        currentProject.id === project.id
-          ? { ...currentProject, files: [...currentProject.files, file] }
-          : currentProject,
-      ),
-    );
-    setRecentFiles((currentFiles) => [
-      {
-        id: nanoid(10),
-        fileId: file.id,
-        title: name,
-        type: fileKind === "diagram" ? "Diagram file" : "Doc file",
-        description:
-          fileKind === "diagram"
-            ? "Excalidraw canvas for architecture work"
-            : "Project documentation for implementation notes",
-        project: project.name,
-        updated: "Created just now",
-        status: "Draft",
-        kind: fileKind,
-      },
-      ...currentFiles,
-    ]);
     setFileModalProjectId(null);
     setFileName("");
   }
@@ -233,23 +303,47 @@ export default function DashboardPage() {
       <div className="flex h-full w-full overflow-hidden">
         <aside className="hidden h-full w-[288px] shrink-0 border-r border-od-border-soft bg-od-surface text-od-ink lg:flex lg:flex-col">
           <div className="flex h-16 items-center gap-3 border-b border-od-border-soft px-4">
-            <Link
-              href="/"
-              className="grid h-9 w-9 place-items-center rounded-[8px] bg-od-ink text-[13px] font-semibold text-od-on-dark"
-            >
-              OD
-            </Link>
+            {accountImage ? (
+              <img
+                src={accountImage}
+                alt=""
+                className="h-9 w-9 rounded-[8px] border border-od-border-soft object-cover"
+              />
+            ) : (
+              <Link
+                href="/"
+                className="grid h-9 w-9 place-items-center rounded-[8px] bg-od-ink text-[13px] font-semibold text-od-on-dark"
+              >
+                {getInitials(accountName)}
+              </Link>
+            )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-medium">OpenDiagram</p>
-              <p className="truncate text-[12px] text-od-ink-faint">Architecture workspace</p>
+              <p className="truncate text-[14px] font-medium">{accountName}</p>
+              <p className="truncate text-[12px] text-od-ink-faint">Default workspace</p>
             </div>
-            <button
-              type="button"
-              aria-label="Workspace settings"
-              className="grid h-8 w-8 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Workspace settings"
+                  className="grid h-8 w-8 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    disabled={!isSignedIn || signOutPending}
+                    onSelect={() => void signOut()}
+                    className="cursor-pointer text-od-ink"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {signOutPending ? "Logging out..." : "Log out"}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="px-3 py-3">
@@ -274,67 +368,68 @@ export default function DashboardPage() {
             </button>
 
             <div className="min-h-0 overflow-y-auto pb-4">
-              {projects.map((project) => (
-                <div key={project.id} className="group/project mb-2">
-                  <button
-                    type="button"
-                    className={`group flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-left text-[14px] transition ${
-                      project.active
-                        ? "bg-od-canvas/70 text-od-ink"
-                        : "text-od-ink-muted hover:bg-od-canvas/45"
-                    }`}
-                  >
-                    <span
-                      className="grid h-5 w-5 place-items-center rounded-[5px] text-[10px] font-semibold text-white"
-                      style={{ backgroundColor: project.color }}
-                    >
-                      {project.initials}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                    <ChevronDown className="h-3.5 w-3.5 text-od-ink-faint" />
-                  </button>
-
-                  <div className="mt-1 grid gap-0.5 pl-5">
-                    {project.files.map(({ id, name, kind }) => {
-                      const Icon = getFileIcon(kind);
-
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => openFile({ id, kind })}
-                          className={`flex h-7 items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-muted transition hover:bg-od-canvas/45 hover:text-od-ink ${
-                            kind === "diagram" ? "cursor-pointer" : "cursor-default"
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-od-ink-faint" />
-                          <span className="min-w-0 truncate">{name}</span>
-                        </button>
-                      );
-                    })}
+              {projectsLoading ? (
+                <SidebarProjectSkeletons />
+              ) : projects.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={openProjectModal}
+                  className="flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-left text-[13px] text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" />
+                  Your first project
+                </button>
+              ) : (
+                projects.map((project) => (
+                  <div key={project.id} className="group/project mb-2">
                     <button
                       type="button"
-                      onClick={() => openFileModal(project.id)}
-                      className="flex h-7 items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-faint opacity-0 transition hover:bg-od-canvas/45 hover:text-od-ink group-hover/project:opacity-100"
+                      onClick={() => router.push(`/workspace/${project.id}`)}
+                      className={`group flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-left text-[14px] transition ${
+                        project.active
+                          ? "bg-od-canvas/70 text-od-ink"
+                          : "text-od-ink-muted hover:bg-od-canvas/45"
+                      }`}
                     >
-                      <Plus className="h-3.5 w-3.5 shrink-0" />
-                      <span className="min-w-0 truncate">New file</span>
+                      <span
+                        className="grid h-5 w-5 place-items-center rounded-[5px] text-[10px] font-semibold text-white"
+                        style={{ backgroundColor: project.color }}
+                      >
+                        {project.initials}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-od-ink-faint" />
                     </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="border-t border-od-border-soft p-3">
-            <button
-              type="button"
-              onClick={openProjectModal}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-od-ink text-[14px] font-medium text-od-on-dark transition hover:bg-[#2a2a2a] active:translate-y-px"
-            >
-              <Plus className="h-4 w-4" />
-              New project
-            </button>
+                    <div className="mt-1 grid gap-0.5 pl-5">
+                      {project.files.map(({ id, name, kind }) => {
+                        const Icon = getFileIcon(kind);
+
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => openFile({ id, kind })}
+                            className="flex h-7 cursor-pointer items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-muted transition hover:bg-od-canvas/45 hover:text-od-ink"
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0 text-od-ink-faint" />
+                            <span className="min-w-0 truncate">{name}</span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => openFileModal(project.id)}
+                        className="flex h-7 items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-faint opacity-0 transition hover:bg-od-canvas/45 hover:text-od-ink group-hover/project:opacity-100"
+                      >
+                        <Plus className="h-3.5 w-3.5 shrink-0" />
+                        <span className="min-w-0 truncate">New file</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </aside>
 
@@ -345,99 +440,175 @@ export default function DashboardPage() {
                 OD
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[13px] text-od-ink-faint">Personal workspace</p>
                 <h1 className="truncate text-[18px] font-semibold leading-tight md:text-[20px]">
                   Dashboard
                 </h1>
               </div>
             </div>
 
-            <div className="hidden h-9 min-w-[280px] items-center gap-2 rounded-full border border-od-border-soft bg-od-surface px-3 text-[13px] text-od-ink-faint md:flex">
+            <label className="hidden h-9 min-w-[280px] cursor-text items-center gap-2 rounded-full border border-od-border-soft bg-od-surface px-3 text-[13px] text-od-ink-faint focus-within:border-od-ink md:flex">
               <Search className="h-4 w-4" />
-              Search projects and files
-            </div>
+              <span className="sr-only">Search projects and files</span>
+              <input
+                type="search"
+                placeholder="Search projects and files"
+                className="min-w-0 flex-1 cursor-text bg-transparent text-od-ink outline-none placeholder:text-od-ink-faint"
+              />
+            </label>
           </header>
 
           <div className="mx-auto flex min-h-0 w-full max-w-[1360px] flex-1 flex-col gap-4 overflow-hidden bg-od-surface p-4 md:p-8">
-            <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <button
-                type="button"
-                onClick={openProjectModal}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-od-ink px-5 text-[14px] font-medium text-od-on-dark transition hover:bg-[#2a2a2a] active:translate-y-px"
-              >
-                <Plus className="h-4 w-4" />
-                New project
-              </button>
-              <Link
-                href="/import/github"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-od-surface px-5 text-[14px] font-medium text-od-ink ring-1 ring-od-border-soft transition hover:bg-white active:translate-y-px"
-              >
-                <Import className="h-4 w-4" />
-                Import project
-              </Link>
-            </div>
-
-            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-od-border-soft bg-od-surface">
-              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-od-border-soft p-4 md:p-5">
-                <div>
-                  <h2 className="text-[18px] font-semibold">Recent files</h2>
-                  <p className="mt-1 text-[13px] text-od-ink-faint">
-                    Diagram files and doc files across projects.
-                  </p>
-                </div>
+            {recentFiles.length > 0 && (
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
-                  className="hidden h-9 items-center gap-2 rounded-[8px] border border-od-border-soft px-3 text-[13px] font-medium transition hover:bg-od-surface-elevated sm:flex"
+                  onClick={openProjectModal}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-od-ink px-4 text-[13px] font-medium text-od-on-dark transition hover:bg-[#2a2a2a] active:translate-y-px"
                 >
-                  View all
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <Sparkles className="h-4 w-4" />
+                  Generate AI diagram
                 </button>
+                <button
+                  type="button"
+                  onClick={openProjectModal}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-od-surface px-4 text-[13px] font-medium text-od-ink ring-1 ring-od-border-soft transition hover:bg-white active:translate-y-px"
+                >
+                  <Plus className="h-4 w-4" />
+                  New project
+                </button>
+                <Link
+                  href="/import/github"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-od-surface px-4 text-[13px] font-medium text-od-ink ring-1 ring-od-border-soft transition hover:bg-white active:translate-y-px"
+                >
+                  <Import className="h-4 w-4" />
+                  Import project
+                </Link>
               </div>
+            )}
 
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <div className="divide-y divide-od-border-soft">
-                  {recentFiles.map(
-                    ({ id, fileId, title, type, description, project, updated, status, kind }) => {
-                      const Icon = getFileIcon(kind);
+            {projectError && (
+              <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+                {projectError}
+              </div>
+            )}
 
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => openFile({ id: fileId, kind })}
-                          className={`group grid w-full grid-cols-[auto_1fr] gap-3 p-4 text-left transition hover:bg-od-surface-elevated md:grid-cols-[auto_1fr_150px_100px] md:items-center md:p-5 ${
-                            kind === "diagram" ? "cursor-pointer" : "cursor-default"
-                          }`}
-                        >
-                          <span className="grid h-10 w-10 place-items-center rounded-[8px] border border-od-border-soft bg-od-surface-elevated text-od-ink transition group-hover:scale-105">
-                            <Icon className="h-5 w-5" />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-[15px] font-medium">{title}</span>
-                            <span className="mt-1 block truncate text-[13px] text-od-ink-faint">
-                              {type} · {project} · {description}
-                            </span>
-                          </span>
-                          <span className="col-start-2 text-[13px] text-od-ink-faint md:col-start-auto">
-                            {updated}
-                          </span>
-                          <span className="col-start-2 inline-flex w-fit rounded-[8px] border border-od-border-soft px-2.5 py-1 text-[12px] text-od-ink-muted md:col-start-auto">
-                            {status}
-                          </span>
-                        </button>
-                      );
-                    },
-                  )}
+            {projectsLoading ? (
+              <RecentFilesSkeleton />
+            ) : recentFiles.length === 0 ? (
+              <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+                <h2 className="max-w-[18ch] text-[32px] font-semibold leading-[1.1] -tracking-[0.03em] text-od-ink md:text-[44px]">
+                  Start with your first design
+                </h2>
+                <p className="mt-4 max-w-[52ch] text-[15px] leading-[1.7] text-od-ink-muted">
+                  Create locally without signing in, then save it to your workspace when you are
+                  ready.
+                </p>
+
+                <div className="mt-8 grid w-full max-w-[680px] grid-cols-1 gap-3 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={openProjectModal}
+                    className="flex min-h-[128px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[14px] border border-od-border-soft bg-white p-5 text-center transition hover:bg-od-surface-elevated"
+                  >
+                    <Sparkles className="h-7 w-7 text-od-ink" />
+                    <span className="text-[14px] font-medium leading-tight text-od-ink">
+                      Generate AI diagram
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openProjectModal}
+                    className="flex min-h-[128px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[14px] border border-od-border-soft bg-white p-5 text-center transition hover:bg-od-surface-elevated"
+                  >
+                    <PenTool className="h-7 w-7 text-od-ink" />
+                    <span className="text-[14px] font-medium leading-tight text-od-ink">
+                      Blank canvas
+                    </span>
+                  </button>
+                  <Link
+                    href="/import/github"
+                    className="flex min-h-[128px] flex-col items-center justify-center gap-3 rounded-[14px] border border-od-border-soft bg-white p-5 text-center transition hover:bg-od-surface-elevated"
+                  >
+                    <Import className="h-7 w-7 text-od-ink" />
+                    <span className="text-[14px] font-medium leading-tight text-od-ink">
+                      Import from GitHub
+                    </span>
+                  </Link>
                 </div>
-              </div>
-            </section>
+              </section>
+            ) : (
+              <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-od-border-soft bg-od-surface">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-od-border-soft p-4 md:p-5">
+                  <div>
+                    <h2 className="text-[18px] font-semibold">Recent files</h2>
+                    <p className="mt-1 text-[13px] text-od-ink-faint">
+                      Diagram files and doc files across projects.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="hidden h-9 items-center gap-2 rounded-[8px] border border-od-border-soft px-3 text-[13px] font-medium transition hover:bg-od-surface-elevated sm:flex"
+                  >
+                    View all
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="divide-y divide-od-border-soft">
+                    {recentFiles.map(
+                      ({
+                        id,
+                        fileId,
+                        title,
+                        type,
+                        description,
+                        project,
+                        updated,
+                        status,
+                        kind,
+                      }) => {
+                        const Icon = getFileIcon(kind);
+
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => openFile({ id: fileId, kind })}
+                            className="group grid w-full cursor-pointer grid-cols-[auto_1fr] gap-3 p-4 text-left transition hover:bg-od-surface-elevated md:grid-cols-[auto_1fr_150px_100px] md:items-center md:p-5"
+                          >
+                            <span className="grid h-10 w-10 place-items-center rounded-[8px] border border-od-border-soft bg-od-surface-elevated text-od-ink transition group-hover:scale-105">
+                              <Icon className="h-5 w-5" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-[15px] font-medium">
+                                {title}
+                              </span>
+                              <span className="mt-1 block truncate text-[13px] text-od-ink-faint">
+                                {type} · {project} · {description}
+                              </span>
+                            </span>
+                            <span className="col-start-2 text-[13px] text-od-ink-faint md:col-start-auto">
+                              {updated}
+                            </span>
+                            <span className="col-start-2 inline-flex w-fit rounded-[8px] border border-od-border-soft px-2.5 py-1 text-[12px] text-od-ink-muted md:col-start-auto">
+                              {status}
+                            </span>
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
         </section>
       </div>
 
       {projectModalOpen && (
         <Modal title="New project" onClose={() => setProjectModalOpen(false)}>
-          <form onSubmit={createProject} className="grid gap-4">
+          <form onSubmit={createDashboardProject} className="grid gap-4">
             <label className="grid gap-2 text-[13px] font-medium text-od-ink-muted">
               Project name
               <input
@@ -458,9 +629,10 @@ export default function DashboardPage() {
               </button>
               <button
                 type="submit"
-                className="h-10 rounded-[8px] bg-od-ink px-4 text-[14px] font-medium text-od-on-dark transition hover:bg-[#2a2a2a]"
+                disabled={projectPending}
+                className="h-10 rounded-[8px] bg-od-ink px-4 text-[14px] font-medium text-od-on-dark transition hover:bg-[#2a2a2a] disabled:cursor-wait disabled:opacity-70"
               >
-                Create project
+                {projectPending ? "Creating..." : "Create project"}
               </button>
             </div>
           </form>
