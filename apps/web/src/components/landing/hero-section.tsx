@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import gsap from "gsap";
 import { ButtonShaderTexture } from "@/components/button-shader-texture";
+import { authClient } from "@/lib/auth-client";
 
 const slideshowImages = [
   "https://framerusercontent.com/images/jSslhcqo8HKNjUvPEceq7bhbY.jpg",
@@ -91,6 +92,9 @@ const avatarImages = [
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const [repoTarget, setRepoTarget] = useState("");
+  const [authPending, setAuthPending] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -124,6 +128,32 @@ export function HeroSection() {
 
     return () => ctx.revert();
   }, []);
+
+  async function importProject(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const target = normalizeRepoTarget(repoTarget);
+    const query = target ? `?repo=${encodeURIComponent(target)}` : "";
+    const callbackURL = `${window.location.origin}/import/github${query}`;
+
+    setAuthPending(true);
+    setAuthError(null);
+
+    if (target) {
+      window.localStorage.setItem("opendiagram:pending-github-repo", target);
+    }
+
+    try {
+      await authClient.signIn.social({
+        provider: "github",
+        scopes: ["repo"],
+        callbackURL,
+      });
+    } catch {
+      setAuthError("Could not start GitHub sign in.");
+      setAuthPending(false);
+    }
+  }
 
   return (
     <section
@@ -163,14 +193,29 @@ export function HeroSection() {
           </p>
         </div>
 
-        <div className="hero-copy flex items-center gap-4 max-md:flex-col">
-          <div className="inline-flex items-center gap-6 rounded-[33px] bg-white p-2">
-            <a
-              href="/import/github"
-              className="relative isolate inline-flex cursor-pointer items-center gap-2 overflow-hidden rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
+        <div className="hero-copy flex max-w-[760px] flex-col items-center gap-4">
+          <form
+            id="hero-import"
+            onSubmit={importProject}
+            className="flex w-full items-center gap-2 rounded-[33px] bg-white p-2 shadow-[0_16px_60px_-36px_rgba(0,0,0,0.55)] max-md:flex-col"
+          >
+            <label htmlFor="hero-github-repo" className="sr-only">
+              GitHub repository
+            </label>
+            <input
+              id="hero-github-repo"
+              value={repoTarget}
+              onChange={(event) => setRepoTarget(event.target.value)}
+              placeholder="github.com/owner/repo or owner/repo"
+              className="h-12 min-w-0 flex-1 rounded-full bg-transparent px-5 text-sm text-black outline-none placeholder:text-black/45 max-md:w-full"
+            />
+            <button
+              type="submit"
+              disabled={authPending}
+              className="relative isolate inline-flex h-12 shrink-0 cursor-pointer items-center gap-2 overflow-hidden rounded-full bg-black px-6 text-sm font-medium text-white transition-all hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
             >
               <ButtonShaderTexture />
-              Import From GitHub
+              {authPending ? "Opening GitHub..." : "Import project"}
               <svg
                 width="16"
                 height="16"
@@ -184,8 +229,9 @@ export function HeroSection() {
                 <path d="M5 12h14" />
                 <path d="m12 5 7 7-7 7" />
               </svg>
-            </a>
-          </div>
+            </button>
+          </form>
+          {authError && <p className="text-sm text-red-700">{authError}</p>}
 
           <div className="flex flex-col items-start gap-0.5">
             <div className="relative h-8 w-[135px]">
@@ -205,4 +251,15 @@ export function HeroSection() {
       </div>
     </section>
   );
+}
+
+function normalizeRepoTarget(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  return trimmed
+    .replace(/^https?:\/\/github\.com\//i, "")
+    .replace(/^github\.com\//i, "")
+    .replace(/\.git$/i, "")
+    .replace(/\/$/, "");
 }

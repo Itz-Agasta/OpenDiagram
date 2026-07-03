@@ -66,6 +66,7 @@ just reinstall         # clean + bun install
 - Workspace deps use `workspace:*`.
 - Follow existing patterns in adjacent files.
 - oxlint enforces style — don't duplicate lint rules in instructions.
+- Interactive controls must visibly behave as interactive: buttons, clickable links, role-button elements, and enabled form controls should show `cursor: pointer` on hover/focusable pointer use. Prefer the global stylesheet default; only override for disabled/loading states such as `cursor-wait` or `cursor-not-allowed`.
 - Organize components by scope:
   - `components/` — shared, reusable (button, card, input, etc.)
   - `components/<feature>/` — page-specific (e.g., `components/dashboard/`, `components/auth/`)

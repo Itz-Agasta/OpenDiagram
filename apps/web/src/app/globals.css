@@ -130,6 +130,16 @@
     font-optical-sizing: auto;
   }
 
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  label[for],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   .font-editorial {
     font-family: var(--font-instrument-serif-next), serif;
     font-style: italic;
