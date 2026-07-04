@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1783142803775,
-      "tag": "0001_unusual_the_phantom",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1783200000000,
-      "tag": "0002_silly_nightmare",
+      "when": 1783164377923,
+      "tag": "0001_sticky_mole_man",
       "breakpoints": true
     }
   ]

@@ -164,6 +164,25 @@ export async function createProject(input: CreateProjectInput): Promise<SavedPro
   return data.project;
 }
 
+export async function updateProject(
+  id: string,
+  input: { name?: string; description?: string | null },
+): Promise<SavedProject> {
+  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${id}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not rename project.");
+  }
+
+  return data.project;
+}
+
 export async function listProjectFiles(projectId: string): Promise<SavedProjectFile[]> {
   const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files`, {
     credentials: "include",
@@ -180,9 +199,7 @@ export async function listProjectFiles(projectId: string): Promise<SavedProjectF
 export async function getProjectFile(projectId: string, fileId: string): Promise<SavedProjectFile> {
   const response = await fetch(
     `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${fileId}`,
-    {
-      credentials: "include",
-    },
+    { credentials: "include" },
   );
   const data = await readProjectResponse(response);
 

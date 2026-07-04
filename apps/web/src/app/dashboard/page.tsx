@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   ChevronDown,
@@ -10,6 +10,7 @@ import {
   Import,
   LogIn,
   LogOut,
+  Pencil,
   PenTool,
   Plus,
   Search,
@@ -20,17 +21,17 @@ import { env } from "@OpenDiagram/env/web";
 import { authClient } from "@/lib/auth-client";
 import {
   createGuestProjectDraft,
-  getGuestProjectDraft,
   listGuestProjectDrafts,
   saveGuestProjectDraft,
   type GuestProjectDraft,
-  type GuestDraftFile,
 } from "@/lib/guest-drafts";
 import {
   createProject,
   createProjectFile,
   listProjectFiles,
   listProjects,
+  updateProject,
+  updateProjectFile,
   type SavedProject,
   type SavedProjectFile,
 } from "@/lib/projects-client";
@@ -46,7 +47,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 type FileKind = "diagram" | "doc";
 
 type ProjectFile = {
-  id: string;
+  key: string;
+  projectId: string;
+  fileId: string | null;
   name: string;
   kind: FileKind;
 };
@@ -63,8 +66,8 @@ type Project = {
 
 type RecentFile = {
   id: string;
-  fileId: string;
   projectId: string;
+  fileId: string | null;
   title: string;
   type: string;
   description: string;
@@ -123,9 +126,6 @@ export default function DashboardPage() {
   const session = authClient.useSession();
   const [guestDrafts, setGuestDrafts] = useState<GuestProjectDraft[]>([]);
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
-  const [projectFilesByProjectId, setProjectFilesByProjectId] = useState<
-    Record<string, SavedProjectFile[]>
-  >({});
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [fileModalProjectId, setFileModalProjectId] = useState<string | null>(null);
@@ -134,10 +134,15 @@ export default function DashboardPage() {
   const [projectPending, setProjectPending] = useState(false);
   const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
   const [savedProjectsLoaded, setSavedProjectsLoaded] = useState(false);
-  const [firstFileName, setFirstFileName] = useState("Your first design");
-  const [firstFileKind, setFirstFileKind] = useState<FileKind>("diagram");
   const [signOutPending, setSignOutPending] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [filesByProject, setFilesByProject] = useState<Record<string, SavedProjectFile[]>>({});
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingFileKey, setEditingFileKey] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const skipCommitRef = useRef(false);
+  const expandInitRef = useRef(false);
 
   const user = session.data?.user;
   const isSignedIn = Boolean(user);
@@ -160,14 +165,22 @@ export default function DashboardPage() {
 
       try {
         const projects = await listProjects();
-        const filesByProjectId = Object.fromEntries(
-          await Promise.all(
-            projects.map(async (project) => [project.id, await listProjectFiles(project.id)]),
-          ),
+        if (!active) return;
+        setSavedProjects(projects);
+
+        // Load each project's files so real names show and can be renamed +
+        // created from the dashboard.
+        const entries = await Promise.all(
+          projects.map(async (project) => {
+            try {
+              return [project.id, await listProjectFiles(project.id)] as const;
+            } catch {
+              return [project.id, []] as const;
+            }
+          }),
         );
         if (active) {
-          setSavedProjects(projects);
-          setProjectFilesByProjectId(filesByProjectId);
+          setFilesByProject(Object.fromEntries(entries));
         }
       } catch (err) {
         if (active) {
@@ -195,66 +208,72 @@ export default function DashboardPage() {
   const projects = useMemo<Project[]>(() => {
     const sourceProjects = isSignedIn ? savedProjects : guestDrafts;
 
-    return sourceProjects.map((project, index) => ({
-      id: project.id,
-      name: project.name,
-      initials: getInitials(project.name),
-      color: getProjectColor(project.name),
-      active: index === 0,
-      source: isSignedIn ? "saved" : "guest",
-      files: isSignedIn
-        ? (projectFilesByProjectId[project.id] ?? [])
-            .filter((file) => file.type === "diagram" || file.type === "doc")
-            .map((file) => ({
-              id: file.id,
+    return sourceProjects.map((project, index) => {
+      const realFiles = isSignedIn ? (filesByProject[project.id] ?? []) : [];
+      const files: ProjectFile[] =
+        realFiles.length > 0
+          ? realFiles.map((file) => ({
+              key: file.id,
+              projectId: project.id,
+              fileId: file.id,
               name: file.name,
-              kind: file.type === "doc" ? "doc" : "diagram",
+              kind: file.type === "diagram" ? "diagram" : "doc",
             }))
-        : (project as GuestProjectDraft).files.map((file) => ({
-            id: file.id,
-            name: file.name,
-            kind: "diagram" as const,
-          })),
-    }));
-  }, [guestDrafts, isSignedIn, projectFilesByProjectId, savedProjects]);
+          : [
+              {
+                key: project.id,
+                projectId: project.id,
+                fileId: null,
+                name: "Your first design",
+                kind: "diagram",
+              },
+            ];
+
+      return {
+        id: project.id,
+        name: project.name,
+        initials: getInitials(project.name),
+        color: getProjectColor(project.name),
+        active: index === 0,
+        source: isSignedIn ? "saved" : "guest",
+        files,
+      };
+    });
+  }, [filesByProject, guestDrafts, isSignedIn, savedProjects]);
 
   const recentFiles = useMemo<RecentFile[]>(
     () =>
-      projects.flatMap((project) =>
-        project.files.map((file) => ({
-          id: `recent-${project.id}-${file.id}`,
-          fileId: file.id,
-          projectId: project.id,
-          title: file.name,
-          type: file.kind === "doc" ? "Doc file" : "Diagram file",
-          description:
-            project.source === "guest"
-              ? "Guest draft saved in this browser"
-              : "Saved project in your workspace",
-          project: project.name,
-          updated: project.source === "guest" ? "Local draft" : "Saved",
-          status: project.source === "guest" ? "Guest" : "Synced",
-          kind: file.kind,
-        })),
-      ),
+      projects.map((project) => ({
+        id: `recent-${project.id}`,
+        projectId: project.id,
+        fileId: project.files[0]?.fileId ?? null,
+        title: project.files[0]?.name ?? "Your first design",
+        type: "Diagram file",
+        description:
+          project.source === "guest"
+            ? "Guest draft saved in this browser"
+            : "Saved project in your workspace",
+        project: project.name,
+        updated: project.source === "guest" ? "Local draft" : "Saved",
+        status: project.source === "guest" ? "Guest" : "Synced",
+        kind: project.files[0]?.kind ?? "diagram",
+      })),
     [projects],
   );
+
+  // Open the first project by default; after that, expansion is user-controlled.
+  useEffect(() => {
+    if (expandInitRef.current || projects.length === 0) return;
+    expandInitRef.current = true;
+    setExpandedProjectId(projects[0].id);
+  }, [projects]);
 
   const selectedProject = projects.find((project) => project.id === fileModalProjectId);
   const projectsLoading =
     session.isPending || (isSignedIn && !savedProjectsLoaded) || savedProjectsLoading;
 
-  async function signIn() {
-    await authClient.signIn.social({
-      provider: "github",
-      callbackURL: window.location.href,
-    });
-  }
-
   function openProjectModal() {
     setProjectName("");
-    setFirstFileName("Your first design");
-    setFirstFileKind("diagram");
     setProjectError(null);
     setProjectModalOpen(true);
   }
@@ -265,7 +284,6 @@ export default function DashboardPage() {
     try {
       await authClient.signOut();
       setSavedProjects([]);
-      setProjectFilesByProjectId({});
       setSavedProjectsLoaded(false);
       router.refresh();
     } finally {
@@ -285,12 +303,11 @@ export default function DashboardPage() {
     try {
       if (user) {
         const project = await createProject({ name });
-        let file: Awaited<ReturnType<typeof createProjectFile>>;
+        let file = null;
         try {
           file = await createProjectFile(project.id, {
-            name: firstFileName.trim() || "Untitled",
-            type: firstFileKind === "doc" ? "doc" : "diagram",
-            content: firstFileKind === "doc" ? "" : undefined,
+            name: "Your first design",
+            type: "diagram",
           });
         } catch (fileErr) {
           fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${project.id}`, {
@@ -300,17 +317,22 @@ export default function DashboardPage() {
           throw fileErr;
         }
         setSavedProjects((currentProjects) => [project, ...currentProjects]);
-        setProjectFilesByProjectId((currentFiles) => ({
-          ...currentFiles,
-          [project.id]: [file],
-        }));
         setProjectModalOpen(false);
         setProjectName("");
-        router.push(`/project/${project.id}/workspace/${file.id}`);
+        if (file) {
+          router.push(`/project/${project.id}/workspace/${file.id}`);
+        } else {
+          router.push(`/project/${project.id}/workspace`);
+        }
         return;
       }
 
-      const draft = createGuestProjectDraft(name, firstFileName.trim() || "Untitled");
+      if (guestDrafts.length >= 1) {
+        setProjectError("You can try one project as a guest. Log in to save it and create more.");
+        return;
+      }
+
+      const draft = createGuestProjectDraft(name);
       saveGuestProjectDraft(draft);
       setGuestDrafts((currentDrafts) => [draft, ...currentDrafts]);
       setProjectModalOpen(false);
@@ -333,38 +355,119 @@ export default function DashboardPage() {
     event.preventDefault();
 
     const project = selectedProject;
-    if (!project || !fileName.trim()) return;
+    const name = fileName.trim();
+    if (!project || !name) return;
 
-    if (project.source === "saved") {
-      const file = await createProjectFile(project.id, {
-        name: fileName.trim(),
-        type: fileKind,
-        content: fileKind === "doc" ? "" : undefined,
-      });
-      setProjectFilesByProjectId((currentFiles) => ({
-        ...currentFiles,
-        [project.id]: [file, ...(currentFiles[project.id] ?? [])],
-      }));
-      router.push(`/project/${project.id}/workspace/${file.id}`);
-    } else if (fileKind === "diagram") {
-      const draft = getGuestProjectDraft(project.id);
-      if (!draft) return;
-
-      const newFile: GuestDraftFile = { id: crypto.randomUUID(), name: fileName.trim() };
-      const nextDraft = { ...draft, files: [...draft.files, newFile] };
-      saveGuestProjectDraft(nextDraft);
-      setGuestDrafts((currentDrafts) =>
-        currentDrafts.map((d) => (d.id === draft.id ? nextDraft : d)),
-      );
-      router.push(`/project/${project.id}/workspace/${newFile.id}`);
+    if (project.source === "guest") {
+      setFileModalProjectId(null);
+      setProjectError("Log in to save your project before adding files.");
+      return;
     }
 
-    setFileModalProjectId(null);
-    setFileName("");
+    setProjectPending(true);
+    setProjectError(null);
+
+    try {
+      const file = await createProjectFile(project.id, {
+        name,
+        type: fileKind === "diagram" ? "diagram" : "doc",
+      });
+      setFilesByProject((current) => ({
+        ...current,
+        [project.id]: [...(current[project.id] ?? []), file],
+      }));
+      setExpandedProjectId(project.id);
+      setFileModalProjectId(null);
+      setFileName("");
+
+      router.push(`/project/${project.id}/workspace/${file.id}`);
+    } catch (err) {
+      setProjectError(err instanceof Error ? err.message : "Could not create file.");
+    } finally {
+      setProjectPending(false);
+    }
   }
 
-  function openFile(file: Pick<ProjectFile, "id" | "kind">, projectId: string) {
-    router.push(`/project/${projectId}/workspace/${file.id}`);
+  function openFile(file: Pick<ProjectFile, "projectId" | "fileId" | "kind">) {
+    const fileId = file.fileId ?? "";
+    router.push(`/project/${file.projectId}/workspace/${fileId}`);
+  }
+
+  function toggleExpand(id: string) {
+    setExpandedProjectId((current) => (current === id ? null : id));
+  }
+
+  function beginEditProject(project: Project) {
+    setEditingFileKey(null);
+    setEditingProjectId(project.id);
+    setNameDraft(project.name);
+  }
+
+  function beginEditFile(file: ProjectFile) {
+    setEditingProjectId(null);
+    setEditingFileKey(file.key);
+    setNameDraft(file.name);
+  }
+
+  function cancelEdit() {
+    skipCommitRef.current = true;
+    setEditingProjectId(null);
+    setEditingFileKey(null);
+  }
+
+  async function commitProject(project: Project) {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      setEditingProjectId(null);
+      return;
+    }
+    setEditingProjectId(null);
+
+    const name = nameDraft.trim();
+    if (!name || name === project.name) return;
+
+    try {
+      if (project.source === "saved") {
+        const updated = await updateProject(project.id, { name });
+        setSavedProjects((current) =>
+          current.map((p) => (p.id === project.id ? { ...p, name: updated.name } : p)),
+        );
+      } else {
+        const target = guestDrafts.find((entry) => entry.id === project.id);
+        if (target) {
+          const next = { ...target, name };
+          saveGuestProjectDraft(next);
+          setGuestDrafts((current) => current.map((d) => (d.id === project.id ? next : d)));
+        }
+      }
+    } catch (err) {
+      setProjectError(err instanceof Error ? err.message : "Could not rename project.");
+    }
+  }
+
+  async function commitFile(file: ProjectFile) {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      setEditingFileKey(null);
+      return;
+    }
+    setEditingFileKey(null);
+
+    const name = nameDraft.trim();
+    const fileId = file.fileId;
+    if (!name || !fileId || name === file.name) return;
+
+    try {
+      const updated = await updateProjectFile(file.projectId, fileId, { name });
+      setFilesByProject((current) => ({
+        ...current,
+        [file.projectId]: (current[file.projectId] ?? []).map((entry) =>
+          entry.id === fileId ? { ...entry, name: updated.name } : entry,
+        ),
+      }));
+    } catch (err) {
+      setProjectError(err instanceof Error ? err.message : "Could not rename file.");
+    }
   }
 
   return (
@@ -412,12 +515,11 @@ export default function DashboardPage() {
                       {signOutPending ? "Logging out..." : "Log out"}
                     </DropdownMenuItem>
                   ) : (
-                    <DropdownMenuItem
-                      onSelect={() => void signIn()}
-                      className="cursor-pointer text-od-ink"
-                    >
-                      <LogIn className="h-4 w-4" />
-                      Sign in
+                    <DropdownMenuItem asChild className="cursor-pointer text-od-ink">
+                      <Link href="/login">
+                        <LogIn className="h-4 w-4" />
+                        Log in
+                      </Link>
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuGroup>
@@ -460,51 +562,126 @@ export default function DashboardPage() {
                 </button>
               ) : (
                 projects.map((project) => (
-                  <div key={project.id} className="group/project mb-2">
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/project/${project.id}/workspace`)}
-                      className={`group flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-left text-[14px] transition ${
+                  <div key={project.id} className="mb-1">
+                    <div
+                      className={`group/prow flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-[14px] transition ${
                         project.active
                           ? "bg-od-canvas/70 text-od-ink"
                           : "text-od-ink-muted hover:bg-od-canvas/45"
                       }`}
                     >
                       <span
-                        className="grid h-5 w-5 place-items-center rounded-[5px] text-[10px] font-semibold text-white"
+                        className="grid h-5 w-5 shrink-0 place-items-center rounded-[5px] text-[10px] font-semibold text-white"
                         style={{ backgroundColor: project.color }}
                       >
                         {project.initials}
                       </span>
-                      <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                      <ChevronDown className="h-3.5 w-3.5 text-od-ink-faint" />
-                    </button>
-
-                    <div className="mt-1 grid gap-0.5 pl-5">
-                      {project.files.map(({ id, name, kind }) => {
-                        const Icon = getFileIcon(kind);
-
-                        return (
+                      {editingProjectId === project.id ? (
+                        <input
+                          autoFocus
+                          value={nameDraft}
+                          onChange={(event) => setNameDraft(event.target.value)}
+                          onBlur={() => void commitProject(project)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                            else if (event.key === "Escape") cancelEdit();
+                          }}
+                          className="min-w-0 flex-1 rounded-[5px] border border-od-border-soft bg-white px-1.5 py-0.5 text-[13px] text-od-ink outline-none focus:border-od-ink"
+                        />
+                      ) : (
+                        <>
                           <button
-                            key={id}
                             type="button"
-                            onClick={() => openFile({ id, kind }, project.id)}
-                            className="flex h-7 cursor-pointer items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-muted transition hover:bg-od-canvas/45 hover:text-od-ink"
+                            onClick={() => {
+                              const fileId = project.files[0]?.fileId ?? "";
+                              router.push(`/project/${project.id}/workspace/${fileId}`);
+                            }}
+                            className="min-w-0 flex-1 cursor-pointer truncate text-left"
                           >
-                            <Icon className="h-3.5 w-3.5 shrink-0 text-od-ink-faint" />
-                            <span className="min-w-0 truncate">{name}</span>
+                            {project.name}
                           </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => openFileModal(project.id)}
-                        className="flex h-7 items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-faint opacity-0 transition hover:bg-od-canvas/45 hover:text-od-ink group-hover/project:opacity-100"
-                      >
-                        <Plus className="h-3.5 w-3.5 shrink-0" />
-                        <span className="min-w-0 truncate">New file</span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => beginEditProject(project)}
+                            aria-label="Rename project"
+                            className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-[5px] text-od-ink-faint opacity-0 transition hover:bg-od-canvas/60 hover:text-od-ink group-hover/prow:opacity-100"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(project.id)}
+                            aria-label={expandedProjectId === project.id ? "Collapse" : "Expand"}
+                            aria-expanded={expandedProjectId === project.id}
+                            className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-[5px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
+                          >
+                            <ChevronDown
+                              className={`h-3.5 w-3.5 transition-transform ${
+                                expandedProjectId === project.id ? "" : "-rotate-90"
+                              }`}
+                            />
+                          </button>
+                        </>
+                      )}
                     </div>
+
+                    {expandedProjectId === project.id && (
+                      <div className="mt-1 grid gap-0.5 pl-5">
+                        {project.files.map((file) => {
+                          const Icon = getFileIcon(file.kind);
+
+                          return (
+                            <div
+                              key={file.key}
+                              className="group/file flex h-7 items-center gap-2 rounded-[7px] px-2 text-[12px] text-od-ink-muted transition hover:bg-od-canvas/45 hover:text-od-ink"
+                            >
+                              <Icon className="h-3.5 w-3.5 shrink-0 text-od-ink-faint" />
+                              {editingFileKey === file.key ? (
+                                <input
+                                  autoFocus
+                                  value={nameDraft}
+                                  onChange={(event) => setNameDraft(event.target.value)}
+                                  onBlur={() => void commitFile(file)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") event.currentTarget.blur();
+                                    else if (event.key === "Escape") cancelEdit();
+                                  }}
+                                  className="min-w-0 flex-1 rounded-[5px] border border-od-border-soft bg-white px-1.5 py-0.5 text-[12px] text-od-ink outline-none focus:border-od-ink"
+                                />
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => openFile(file)}
+                                    className="min-w-0 flex-1 cursor-pointer truncate text-left"
+                                  >
+                                    {file.name}
+                                  </button>
+                                  {file.fileId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => beginEditFile(file)}
+                                      aria-label="Rename file"
+                                      className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-[5px] text-od-ink-faint opacity-0 transition hover:bg-od-canvas/60 hover:text-od-ink group-hover/file:opacity-100"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => openFileModal(project.id)}
+                          className="flex h-7 items-center gap-2 rounded-[7px] px-2 text-left text-[12px] text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
+                        >
+                          <Plus className="h-3.5 w-3.5 shrink-0" />
+                          <span className="min-w-0 truncate">New file</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -638,8 +815,8 @@ export default function DashboardPage() {
                     {recentFiles.map(
                       ({
                         id,
-                        fileId,
                         projectId,
+                        fileId,
                         title,
                         type,
                         description,
@@ -654,7 +831,7 @@ export default function DashboardPage() {
                           <button
                             key={id}
                             type="button"
-                            onClick={() => openFile({ id: fileId, kind }, projectId)}
+                            onClick={() => openFile({ projectId, fileId, kind })}
                             className="group grid w-full cursor-pointer grid-cols-[auto_1fr] gap-3 p-4 text-left transition hover:bg-od-surface-elevated md:grid-cols-[auto_1fr_150px_100px] md:items-center md:p-5"
                           >
                             <span className="grid h-10 w-10 place-items-center rounded-[8px] border border-od-border-soft bg-od-surface-elevated text-od-ink transition group-hover:scale-105">
@@ -699,41 +876,6 @@ export default function DashboardPage() {
                 className="h-11 rounded-[8px] border border-od-border-soft px-3 text-[14px] text-od-ink outline-none transition placeholder:text-od-ink-faint focus:border-od-ink"
               />
             </label>
-
-            <label className="grid gap-2 text-[13px] font-medium text-od-ink-muted">
-              File name
-              <input
-                value={firstFileName}
-                onChange={(event) => setFirstFileName(event.target.value)}
-                placeholder="e.g. Checkout architecture"
-                className="h-11 rounded-[8px] border border-od-border-soft px-3 text-[14px] text-od-ink outline-none transition placeholder:text-od-ink-faint focus:border-od-ink"
-              />
-            </label>
-
-            <div className="grid gap-2">
-              <p className="text-[13px] font-medium text-od-ink-muted">File type</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  aria-pressed={firstFileKind === "diagram"}
-                  onClick={() => setFirstFileKind("diagram")}
-                  className="flex h-11 items-center justify-center gap-2 rounded-[8px] border border-od-border-soft text-[14px] font-medium text-od-ink transition hover:bg-od-surface-elevated aria-pressed:border-od-ink aria-pressed:bg-od-ink aria-pressed:text-od-on-dark"
-                >
-                  <PenTool className="h-4 w-4" />
-                  Canvas
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={firstFileKind === "doc"}
-                  onClick={() => setFirstFileKind("doc")}
-                  className="flex h-11 items-center justify-center gap-2 rounded-[8px] border border-od-border-soft text-[14px] font-medium text-od-ink transition hover:bg-od-surface-elevated aria-pressed:border-od-ink aria-pressed:bg-od-ink aria-pressed:text-od-on-dark"
-                >
-                  <FileText className="h-4 w-4" />
-                  Doc
-                </button>
-              </div>
-            </div>
-
             <div className="flex justify-end gap-2">
               <button
                 type="button"

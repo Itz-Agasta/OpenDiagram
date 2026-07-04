@@ -51,4 +51,10 @@ app.route("/api/github", githubRoute);
 app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
 
-export default app;
+export default {
+  // GitHub's OAuth token exchange can take >10s on slow networks; Bun's default
+  // 10s idleTimeout aborts it mid-flight, so the retried callback reuses an
+  // already-consumed code and fails with `bad_verification_code`.
+  idleTimeout: 30,
+  fetch: app.fetch,
+};

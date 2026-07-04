@@ -108,7 +108,6 @@ function GitHubImportContent() {
     try {
       await authClient.signIn.social({
         provider: "github",
-        scopes: ["repo"],
         callbackURL: new URL(callbackPath, window.location.origin).toString(),
       });
     } catch {

@@ -10,6 +10,10 @@ export const env = createEnv({
     CORS_ORIGIN: z.string().min(1),
     GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+    // Prod split deploy: set to the shared parent domain (e.g. ".vyse.site") so
+    // the session cookie is shared across app.* (web) and api.* (server). Leave
+    // unset locally -- localhost needs no cross-subdomain sharing.
+    COOKIE_DOMAIN: z.string().min(1).optional(),
     GROQ_API_KEY: z.string().min(1).optional(),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
     AI_PROVIDER: z.enum(["google", "custom"]).default("google"),

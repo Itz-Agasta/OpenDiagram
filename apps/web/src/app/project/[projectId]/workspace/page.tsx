@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { WorkspaceLayout } from "@/components/whiteboard/WorkspaceLayout";
 
 interface WorkspacePageProps {
@@ -9,7 +10,9 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
 
   return (
     <div className="h-screen w-screen overflow-hidden">
-      <WorkspaceLayout />
+      <Suspense>
+        <WorkspaceLayout />
+      </Suspense>
     </div>
   );
 }

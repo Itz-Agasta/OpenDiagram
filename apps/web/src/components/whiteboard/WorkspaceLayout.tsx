@@ -15,6 +15,7 @@ import {
   PenTool,
   Settings,
 } from "lucide-react";
+import { env } from "@OpenDiagram/env/web";
 import { AIChatPanel } from "./AIChatPanel";
 import { Whiteboard } from "./Whiteboard";
 import { Diamond } from "@/components/loading-ui/diamond";
@@ -69,6 +70,10 @@ const MilkdownDocEditor = dynamic(
   },
 );
 
+const AUTOSAVE_DELAY_MS = 800;
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
 
@@ -105,6 +110,22 @@ function getInitials(name: string) {
 
 function toSidebarFile(file: Pick<SavedProjectFile, "id" | "name" | "type">): WorkspaceSidebarFile {
   return { id: file.id, name: file.name, type: file.type };
+}
+
+function sceneElementsVersion(elements: readonly unknown[]) {
+  let version = 0;
+  for (const element of elements) {
+    if (element && typeof element === "object" && "version" in element) {
+      const value = (element as { version?: unknown }).version;
+      if (typeof value === "number") version += value;
+    }
+  }
+  return version;
+}
+
+function initialElementsVersion(scene: unknown) {
+  const elements = (scene as { elements?: unknown })?.elements;
+  return Array.isArray(elements) ? sceneElementsVersion(elements) : 0;
 }
 
 function RepoGenerationProgress({
@@ -187,14 +208,25 @@ export function WorkspaceLayout() {
   const [leavePromptOpen, setLeavePromptOpen] = useState(false);
   const [showFirstFileDialog, setShowFirstFileDialog] = useState(false);
   const [firstFileName, setFirstFileName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const [savePending, setSavePending] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
   const draftRef = useRef<GuestProjectDraft | null>(null);
   const sceneRef = useRef<unknown>(null);
   const contentRef = useRef<string>("");
   const currentFileIdRef = useRef<string | null>(null);
   const startedRepoGenerationRef = useRef<string | null>(null);
+  const activeFileRef = useRef<SavedProjectFile | null>(null);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+  const promotionStartedRef = useRef(false);
+  const lastSavedVersionRef = useRef(0);
+  const pendingVersionRef = useRef(0);
+  const skipCommitRef = useRef(false);
+
   const sidebarWidth = useWorkspaceLayoutStore((state) => state.sidebarWidth);
   const agentWidth = useWorkspaceLayoutStore((state) => state.agentWidth);
   const isAgentOpen = useWorkspaceLayoutStore((state) => state.isAgentOpen);
@@ -209,6 +241,7 @@ export function WorkspaceLayout() {
   const setProjectSnapshot = useWorkspaceLayoutStore((state) => state.setProjectSnapshot);
   const setStoredActiveFileId = useWorkspaceLayoutStore((state) => state.setActiveFileId);
   const upsertStoredFile = useWorkspaceLayoutStore((state) => state.upsertFile);
+
   const resizeRef = useRef<{
     pane: "sidebar" | "agent";
     startX: number;
@@ -219,6 +252,14 @@ export function WorkspaceLayout() {
   sidebarWidthRef.current = sidebarWidth;
   agentWidthRef.current = agentWidth;
   const welcomeSceneRef = useRef(false);
+
+  const isSignedIn = Boolean(session.data?.user);
+  const isSignedInRef = useRef(isSignedIn);
+  isSignedInRef.current = isSignedIn;
+
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  }, [activeFile]);
 
   async function loadWelcomeScene(api: ExcalidrawImperativeAPI) {
     const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
@@ -245,6 +286,7 @@ export function WorkspaceLayout() {
     api.updateScene({ elements });
   }
 
+  // Load guest draft or initial state
   useEffect(() => {
     const nextDraft = getGuestProjectDraft(params.projectId);
     draftRef.current = nextDraft;
@@ -270,14 +312,16 @@ export function WorkspaceLayout() {
       setDocContent("");
       contentRef.current = "";
       setInitialScene(file?.scene ?? null);
+      lastSavedVersionRef.current = initialElementsVersion(file?.scene);
     } else {
       currentFileIdRef.current = null;
       setInitialScene(null);
     }
   }, [params.projectId, params.workspaceId, setProjectSnapshot]);
 
+  // Guest hard-exit guard (tab close / refresh)
   useEffect(() => {
-    if (!draft || session.data?.user) return;
+    if (!draft || isSignedIn) return;
 
     function warnBeforeUnload(event: BeforeUnloadEvent) {
       event.preventDefault();
@@ -287,10 +331,27 @@ export function WorkspaceLayout() {
     window.addEventListener("beforeunload", warnBeforeUnload);
 
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [draft, session.data?.user]);
+  }, [draft, isSignedIn]);
 
+  // Guest in-app back-navigation guard
   useEffect(() => {
-    if (session.isPending || !session.data?.user || draftRef.current) return;
+    if (!draft || isSignedIn) return;
+
+    window.history.pushState(null, "", window.location.href);
+
+    function onPopState() {
+      window.history.pushState(null, "", window.location.href);
+      setLeavePromptOpen(true);
+    }
+
+    window.addEventListener("popstate", onPopState);
+
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [draft, isSignedIn]);
+
+  // Load database project file
+  useEffect(() => {
+    if (session.isPending || !isSignedIn || draftRef.current) return;
 
     let active = true;
 
@@ -341,6 +402,7 @@ export function WorkspaceLayout() {
           contentRef.current = result.type === "doc" ? fileContentToText(result.content) : "";
           setDocContent(contentRef.current);
           setInitialScene(result.type === "diagram" ? (result.scene ?? null) : null);
+          lastSavedVersionRef.current = initialElementsVersion(result.type === "diagram" ? (result.scene ?? null) : null);
         }
       } catch (err) {
         if (active) {
@@ -358,19 +420,14 @@ export function WorkspaceLayout() {
     draft,
     params.projectId,
     params.workspaceId,
-    session.data?.user,
+    isSignedIn,
     session.isPending,
     setProjectSnapshot,
   ]);
 
   const saveDraftAfterLogin = useCallback(async () => {
     const currentDraft = draftRef.current;
-    if (!currentDraft) return;
-
-    if (!session.data?.user) {
-      setLeavePromptOpen(true);
-      return;
-    }
+    if (!currentDraft || !session.data?.user) return;
 
     setSavePending(true);
     setSaveError(null);
@@ -405,12 +462,15 @@ export function WorkspaceLayout() {
     }
   }, [router, session.data?.user]);
 
+  // Promote guest draft on login
   useEffect(() => {
-    if (!draft || !session.data?.user || savePending) return;
+    if (!draft || !session.data?.user || savePending || promotionStartedRef.current) return;
 
+    promotionStartedRef.current = true;
     void saveDraftAfterLogin();
   }, [draft, saveDraftAfterLogin, savePending, session.data?.user]);
 
+  // Repo generation polling (for imports)
   useEffect(() => {
     if (!session.data?.user || draft || projectRow?.source !== "github_import") return;
     if (startedRepoGenerationRef.current === projectRow.id) return;
@@ -463,27 +523,127 @@ export function WorkspaceLayout() {
     };
   }, [draft, projectRow, session.data?.user, setProjectSnapshot]);
 
-  const updateGuestDraft = useCallback(
-    (elements: readonly unknown[], appState: unknown, files: unknown) => {
-      const scene = { elements, appState: sanitizeSceneAppState(appState), files };
+  const runAutosave = useCallback(async () => {
+    const file = activeFileRef.current;
+    if (!file) return;
 
+    const versionAtSave = pendingVersionRef.current;
+
+    try {
+      const updated = await updateProjectFile(params.projectId, file.id, {
+        scene: file.type === "diagram" ? sceneRef.current : undefined,
+        content: file.type === "doc" ? contentRef.current : undefined,
+      });
+      lastSavedVersionRef.current = file.type === "diagram" ? versionAtSave : lastSavedVersionRef.current;
+      if (versionAtSave === pendingVersionRef.current) dirtyRef.current = false;
+      setSaveStatus("saved");
+      upsertStoredFile(toSidebarFile(updated));
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [params.projectId, upsertStoredFile]);
+
+  const scheduleAutosave = useCallback(() => {
+    dirtyRef.current = true;
+    setSaveStatus("saving");
+
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => void runAutosave(), AUTOSAVE_DELAY_MS);
+  }, [runAutosave]);
+
+  // Excalidraw Scene Change Handler
+  const handleSceneChange = useCallback(
+    (elements: readonly unknown[], appState: unknown, files: unknown) => {
+      const version = sceneElementsVersion(elements);
+      if (version === lastSavedVersionRef.current) return;
+
+      const scene = { elements, appState: sanitizeSceneAppState(appState), files };
       sceneRef.current = scene;
 
       const currentDraft = draftRef.current;
-      if (!currentDraft || session.data?.user) return;
+      if (currentDraft && !isSignedInRef.current) {
+        lastSavedVersionRef.current = version;
+        const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
+        if (fileId) {
+          const nextDraft = {
+            ...currentDraft,
+            files: currentDraft.files.map((f) => (f.id === fileId ? { ...f, scene } : f)),
+          };
+          draftRef.current = nextDraft;
+          saveGuestProjectDraft(nextDraft);
+          setDraft(nextDraft);
+        }
+        return;
+      }
 
-      const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
-      if (!fileId) return;
-
-      const nextDraft = {
-        ...currentDraft,
-        files: currentDraft.files.map((f) => (f.id === fileId ? { ...f, scene } : f)),
-      };
-
-      draftRef.current = nextDraft;
-      saveGuestProjectDraft(nextDraft);
+      if (isSignedInRef.current && activeFileRef.current && activeFileRef.current.type === "diagram") {
+        pendingVersionRef.current = version;
+        scheduleAutosave();
+      }
     },
-    [session.data?.user],
+    [scheduleAutosave],
+  );
+
+  // Markdown Doc Change Handler
+  const handleDocChange = useCallback(
+    (value: string) => {
+      if (contentRef.current === value) return;
+      contentRef.current = value;
+      setDocContent(value);
+
+      const currentDraft = draftRef.current;
+      if (currentDraft && !isSignedInRef.current) {
+        const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
+        if (fileId) {
+          const nextDraft = {
+            ...currentDraft,
+            files: currentDraft.files.map((f) => (f.id === fileId ? { ...f, content: value } : f)),
+          };
+          draftRef.current = nextDraft;
+          saveGuestProjectDraft(nextDraft);
+          setDraft(nextDraft);
+        }
+        return;
+      }
+
+      if (isSignedInRef.current && activeFileRef.current && activeFileRef.current.type === "doc") {
+        pendingVersionRef.current += 1;
+        scheduleAutosave();
+      }
+    },
+    [scheduleAutosave],
+  );
+
+  // pagehide handler to flush debounce edits
+  useEffect(() => {
+    function flush() {
+      if (!isSignedInRef.current || !dirtyRef.current) return;
+
+      const file = activeFileRef.current;
+      if (!file) return;
+
+      fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${params.projectId}/files/${file.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scene: file.type === "diagram" ? sceneRef.current : undefined,
+          content: file.type === "doc" ? contentRef.current : undefined,
+        }),
+      }).catch(() => {});
+    }
+
+    window.addEventListener("pagehide", flush);
+
+    return () => window.removeEventListener("pagehide", flush);
+  }, [params.projectId]);
+
+  useEffect(
+    () => () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    },
+    [],
   );
 
   const handleExcalidrawAPI = useCallback((api: ExcalidrawImperativeAPI) => {
@@ -531,36 +691,39 @@ export function WorkspaceLayout() {
     }
   }, [excalidrawAPI, initialScene]);
 
+  // Manual save trigger
   async function saveActiveFile() {
     if (!session.data?.user) {
       await saveDraftAfterLogin();
       return;
     }
 
-    if (!activeFile) {
-      setSaveError("Project file is still loading.");
-      return;
-    }
+    const file = activeFile;
+    if (!file) return;
 
     setSavePending(true);
     setSaveError(null);
-    setSaveMessage(null);
+    setSaveStatus("saving");
+
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
 
     try {
-      const file = await updateProjectFile(params.projectId, activeFile.id, {
-        content: activeFile.type === "doc" ? contentRef.current : undefined,
-        scene: activeFile.type === "diagram" ? sceneRef.current : undefined,
+      const updated = await updateProjectFile(params.projectId, file.id, {
+        content: file.type === "doc" ? contentRef.current : undefined,
+        scene: file.type === "diagram" ? sceneRef.current : undefined,
       });
 
-      setActiveFile(file);
-      upsertStoredFile(toSidebarFile(file));
-      if (file.type === "doc") {
-        contentRef.current = fileContentToText(file.content);
+      setActiveFile(updated);
+      upsertStoredFile(toSidebarFile(updated));
+      if (updated.type === "doc") {
+        contentRef.current = fileContentToText(updated.content);
         setDocContent(contentRef.current);
       }
-      setSaveMessage("Saved");
+      dirtyRef.current = false;
+      setSaveStatus("saved");
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Could not save canvas.");
+      setSaveStatus("error");
+      setSaveError(err instanceof Error ? err.message : "Could not save file.");
     } finally {
       setSavePending(false);
     }
@@ -593,11 +756,8 @@ export function WorkspaceLayout() {
   }
 
   async function signInToSave() {
-    await authClient.signIn.social({
-      provider: "github",
-      scopes: ["repo"],
-      callbackURL: window.location.href,
-    });
+    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+    router.push(`/login?redirect=${redirect}`);
   }
 
   async function signOut() {
@@ -608,6 +768,60 @@ export function WorkspaceLayout() {
   function openWorkspaceFile(fileId: string) {
     setStoredActiveFileId(fileId);
     router.push(`/project/${params.projectId}/workspace/${fileId}`);
+  }
+
+  // Inline Rename file name
+  function beginEditName() {
+    setNameDraft(activeFile?.name ?? draft?.name ?? "Your first design");
+    setIsEditingName(true);
+  }
+
+  function cancelName() {
+    skipCommitRef.current = true;
+    setIsEditingName(false);
+  }
+
+  async function commitName() {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      setIsEditingName(false);
+      return;
+    }
+    setIsEditingName(false);
+
+    const name = nameDraft.trim();
+    if (!name) return;
+
+    const currentDraft = draftRef.current;
+    if (currentDraft && !isSignedIn) {
+      if (name === currentDraft.name) return;
+      const nextDraft = { ...currentDraft, name };
+      draftRef.current = nextDraft;
+      saveGuestProjectDraft(nextDraft);
+      setDraft(nextDraft);
+      return;
+    }
+
+    if (activeFile && name !== activeFile.name) {
+      try {
+        const updated = await updateProjectFile(params.projectId, activeFile.id, { name });
+        setActiveFile(updated);
+        upsertStoredFile(toSidebarFile(updated));
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Could not rename file.");
+      }
+    }
+  }
+
+  function leaveWithoutSaving() {
+    const currentDraft = draftRef.current;
+    if (currentDraft) {
+      deleteGuestProjectDraft(currentDraft.id);
+      draftRef.current = null;
+      setDraft(null);
+    }
+    setLeavePromptOpen(false);
+    router.push("/dashboard");
   }
 
   const clampSidebarWidth = useCallback((width: number, agent = agentWidthRef.current) => {
@@ -630,7 +844,6 @@ export function WorkspaceLayout() {
 
   useEffect(() => {
     function clampPanesToViewport() {
-      // Prevent re-triggering resize if values are the same
       const newSidebarWidth = clampSidebarWidth(sidebarWidthRef.current);
       const newAgentWidth = clampAgentWidth(agentWidthRef.current);
 
@@ -810,7 +1023,28 @@ export function WorkspaceLayout() {
             <p className="truncate text-[11px] uppercase tracking-[0.16em] text-od-ink-faint">
               {sidebarProjectName}
             </p>
-            <h1 className="truncate text-[15px] font-semibold text-od-ink">{activeFileName}</h1>
+            {isEditingName ? (
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                onBlur={() => void commitName()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  else if (event.key === "Escape") cancelName();
+                }}
+                className="rounded-[6px] border border-od-border-soft px-1.5 py-0.5 text-[14px] font-medium text-od-ink outline-none focus:border-od-ink"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={beginEditName}
+                title="Rename file"
+                className="-mx-1.5 block max-w-full truncate rounded-[6px] px-1.5 py-0.5 text-left text-[15px] font-semibold text-od-ink transition hover:bg-od-canvas/40"
+              >
+                {activeFileName}
+              </button>
+            )}
           </div>
           {(draft || session.data?.user) && (
             <div className="flex shrink-0 items-center gap-3">
@@ -824,22 +1058,41 @@ export function WorkspaceLayout() {
                   <PanelRightOpen className="h-4 w-4" />
                 </button>
               )}
-              {saveMessage && (
-                <p className="hidden text-[12px] text-od-green sm:block">{saveMessage}</p>
+              {saveStatus === "saving" && (
+                <p className="hidden text-[12px] text-amber-500 sm:block">Saving…</p>
+              )}
+              {saveStatus === "saved" && (
+                <p className="hidden text-[12px] text-od-green sm:block">Saved</p>
+              )}
+              {saveStatus === "error" && (
+                <p className="hidden text-[12px] text-red-500 sm:block">Save failed</p>
+              )}
+              {!session.data?.user && (
+                <p className="hidden text-[12px] text-od-ink-faint sm:block">Guest</p>
               )}
               {saveError && (
                 <p className="hidden max-w-[260px] truncate text-[12px] text-red-600 sm:block">
                   {saveError}
                 </p>
               )}
-              <button
-                type="button"
-                onClick={saveActiveFile}
-                disabled={savePending}
-                className="h-8 rounded-[8px] bg-od-ink px-3 text-[12px] font-medium text-white disabled:cursor-wait disabled:opacity-70"
-              >
-                {savePending ? "Saving..." : "Save"}
-              </button>
+              {!session.data?.user ? (
+                <button
+                  type="button"
+                  onClick={signInToSave}
+                  className="h-8 rounded-[8px] bg-od-ink px-3 text-[12px] font-medium text-white"
+                >
+                  Sign in to save
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={saveActiveFile}
+                  disabled={savePending}
+                  className="h-8 rounded-[8px] bg-od-ink px-3 text-[12px] font-medium text-white disabled:cursor-wait disabled:opacity-70"
+                >
+                  {savePending ? "Saving..." : "Save"}
+                </button>
+              )}
             </div>
           )}
         </header>
@@ -850,17 +1103,14 @@ export function WorkspaceLayout() {
               <MilkdownDocEditor
                 key={activeFile.id}
                 value={docContent}
-                onChange={(value) => {
-                  contentRef.current = value;
-                  setDocContent(value);
-                }}
+                onChange={handleDocChange}
               />
             </div>
           ) : (
             <Whiteboard
               initialScene={initialScene}
               onAPIReady={handleExcalidrawAPI}
-              onSceneChange={updateGuestDraft}
+              onSceneChange={handleSceneChange}
             />
           )}
         </div>
@@ -944,10 +1194,10 @@ export function WorkspaceLayout() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setLeavePromptOpen(false)}
-                className="h-10 rounded-[8px] border border-od-border-soft px-4 text-[14px] font-medium text-od-ink"
+                onClick={leaveWithoutSaving}
+                className="h-10 rounded-[8px] border border-od-border-soft px-4 text-[14px] font-medium text-od-ink-muted hover:text-od-ink"
               >
-                Keep editing
+                Leave without saving
               </button>
               <button
                 type="button"

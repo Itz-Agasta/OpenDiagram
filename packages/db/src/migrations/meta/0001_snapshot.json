@@ -1,5 +1,5 @@
 {
-  "id": "0b6079ed-082c-4783-a9e7-d23b5f7f52d1",
+  "id": "4208924f-2225-4f1e-852d-0e7aa1f7d7fb",
   "prevId": "156076b5-2874-4498-8a42-36172829bbb5",
   "version": "7",
   "dialect": "postgresql",
@@ -371,25 +371,6 @@
         },
         "description": {
           "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cognee_dataset_id": {
-          "name": "cognee_dataset_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cognee_status": {
-          "name": "cognee_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'not_started'"
-        },
-        "cognee_error": {
-          "name": "cognee_error",
           "type": "text",
           "primaryKey": false,
           "notNull": false
