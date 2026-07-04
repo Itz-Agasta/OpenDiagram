@@ -220,7 +220,8 @@ Never use neon outer glows. Never use heavy drop shadows that make surfaces feel
 
 OpenDiagram is softly rounded and tactile, but not childish.
 
-- Buttons: rounded pill, 999px radius.
+- Marketing and editorial buttons: rounded pill, 999px radius.
+- Dashboard command buttons: rounded-md, 8px radius.
 - Small controls: rounded pill, 999px radius when circular or input-like.
 - Dropdown/menu cards: rounded-md, 8px radius.
 - Content cards: rounded-2xl, 16px radius.
@@ -238,7 +239,9 @@ The header is minimal: a white brand pill on the left and a circular menu button
 
 **Buttons**
 
-Primary buttons are black pills with white text, 12px vertical padding, 24px horizontal padding, and a small arrow icon when navigating forward. Hover should reduce opacity or slightly deepen the fill. Active state can translate down by 1px. Do not add glow.
+Primary marketing buttons are black pills with white text, 12px vertical padding, 24px horizontal padding, and a small arrow icon when navigating forward. Hover should reduce opacity or slightly deepen the fill. Active state can translate down by 1px. Do not add glow.
+
+Dashboard command buttons use rounded-md corners, 8px radius, with compact 44px heights. This keeps app controls precise and closer to Linear/Cursor-style product chrome while maintaining the minimum touch target size. Do not use pill buttons for dashboard actions unless the control is input-like, circular, or intentionally separate from command surfaces.
 
 **Hero Inline Media**
 

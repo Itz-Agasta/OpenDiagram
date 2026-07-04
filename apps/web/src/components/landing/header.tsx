@@ -7,7 +7,7 @@ const navItems = [
   { label: "How it Works", href: "#how-it-works" },
   { label: "About", href: "#about" },
   { label: "FAQ", href: "#faq" },
-  { label: "Import your Project", href: "/import/github" },
+  { label: "Import your Project", href: "#hero-import" },
 ];
 
 export function Header() {

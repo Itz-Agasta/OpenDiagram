@@ -1,9 +1,13 @@
 "use client";
 
 import "@excalidraw/excalidraw/index.css";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type {
+  BinaryFiles,
+  ExcalidrawImperativeAPI,
+  ExcalidrawInitialDataState,
+} from "@excalidraw/excalidraw/types";
 import dynamic from "next/dynamic";
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 
 const Excalidraw = dynamic(
   async () => {
@@ -23,14 +27,33 @@ function WhiteboardSkeleton() {
 
 interface WhiteboardProps {
   onAPIReady?: (api: ExcalidrawImperativeAPI) => void;
+  onSceneChange?: (elements: readonly unknown[], appState: unknown, files: unknown) => void;
+  initialScene?: unknown;
 }
 
-export function Whiteboard({ onAPIReady }: WhiteboardProps) {
-  const [, setAPI] = useState<ExcalidrawImperativeAPI | null>(null);
+function toExcalidrawInitialData(scene: unknown): ExcalidrawInitialDataState | undefined {
+  if (!scene || typeof scene !== "object") return undefined;
 
+  const value = scene as { elements?: unknown; appState?: unknown; files?: unknown };
+  const appState =
+    value.appState && typeof value.appState === "object"
+      ? ({
+          ...(value.appState as Record<string, unknown>),
+          collaborators: undefined,
+        } as ExcalidrawInitialDataState["appState"])
+      : undefined;
+
+  return {
+    elements: Array.isArray(value.elements) ? value.elements : undefined,
+    appState,
+    files:
+      value.files && typeof value.files === "object" ? (value.files as BinaryFiles) : undefined,
+  };
+}
+
+export function Whiteboard({ onAPIReady, onSceneChange, initialScene }: WhiteboardProps) {
   const handleAPI = useCallback(
     (api: ExcalidrawImperativeAPI) => {
-      setAPI(api);
       onAPIReady?.(api);
     },
     [onAPIReady],
@@ -40,6 +63,8 @@ export function Whiteboard({ onAPIReady }: WhiteboardProps) {
     <div className="w-full h-full overflow-hidden relative">
       <Excalidraw
         excalidrawAPI={handleAPI}
+        initialData={toExcalidrawInitialData(initialScene)}
+        onChange={(elements, appState, files) => onSceneChange?.(elements, appState, files)}
         UIOptions={{
           canvasActions: {
             saveToActiveFile: false,
