@@ -20,9 +20,15 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
   maskEmail: true,
 });
 
+const origins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
+
 const app = new Hono<EvlogVariables>();
 
 app.use(evlog({ drain: createFsDrain() }));
+
+app.get("/", (c) => c.text("OK"));
+app.get("/health", (c) => c.json({ status: "ok" }));
+
 app.use("*", async (c, next) => {
   await identifyUser(c.get("log"), c.req.raw.headers, c.req.path);
   await next();
@@ -31,7 +37,7 @@ app.use("*", async (c, next) => {
 app.use(
   "/*",
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: origins,
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -44,9 +50,5 @@ app.route("/api/orchestrate", orchestrateRoute);
 app.route("/api/github", githubRoute);
 app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
-
-app.get("/", (c) => {
-  return c.text("OK");
-});
 
 export default app;
