@@ -29,7 +29,7 @@ export function createAuth() {
 
       schema: schema,
     }),
-    trustedOrigins: [env.CORS_ORIGIN],
+    trustedOrigins: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
     secondaryStorage,
     session: {
       storeSessionInDatabase: true,

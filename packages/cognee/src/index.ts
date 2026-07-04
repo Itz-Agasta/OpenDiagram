@@ -174,30 +174,73 @@ async function cloudRequest<T>(path: string, init: RequestInit): Promise<T> {
     throw new Error("COGNEE_BASE_URL or COGNEE_CLOUD_BASE_URL is required for Cognee Cloud.");
   }
 
-  const headers = new Headers(init.headers);
-  headers.set("X-Api-Key", apiKey);
+  const url = new URL(path, baseUrl);
+  const method = init.method ?? "GET";
+  let wasNetworkError = false;
 
-  if (!(init.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      const delay = Math.min(500 * 2 ** attempt + Math.random() * 500, 5000);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+
+    try {
+      const headers = new Headers(init.headers);
+      headers.set("X-Api-Key", apiKey);
+
+      if (!(init.body instanceof FormData)) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      const response = await fetch(url, { ...init, headers });
+
+      if (!response.ok) {
+        if (response.status >= 500) {
+          continue;
+        }
+
+        throw new CogneeCloudError(
+          response.status,
+          method,
+          path,
+          await readError(response),
+        );
+      }
+
+      if (response.status === 204) return undefined as T;
+
+      const text = await response.text();
+      if (!text) return undefined as T;
+
+      return JSON.parse(text) as T;
+    } catch (error) {
+      if (error instanceof CogneeCloudError && error.status < 500) throw error;
+
+      const cause = error instanceof Error ? error : new Error(String(error));
+      wasNetworkError = isCogneeNetworkError(cause);
+    }
   }
 
-  const response = await fetch(new URL(path, baseUrl), { ...init, headers });
+  const detail = wasNetworkError
+    ? "Cognee Cloud is unreachable. The tenant may be down or DNS is failing."
+    : "Cognee Cloud request failed after 3 retries.";
 
-  if (!response.ok) {
-    throw new CogneeCloudError(
-      response.status,
-      init.method ?? "GET",
-      path,
-      await readError(response),
-    );
-  }
+  throw new CogneeCloudError(503, method, path, detail);
+}
 
-  if (response.status === 204) return undefined as T;
+const NETWORK_ERROR_CODES = new Set([
+  "ConnectionRefused",
+  "ConnectionReset",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+]);
 
-  const text = await response.text();
-  if (!text) return undefined as T;
-
-  return JSON.parse(text) as T;
+function isCogneeNetworkError(error: Error | CogneeCloudError): boolean {
+  if (error instanceof CogneeCloudError) return false;
+  return NETWORK_ERROR_CODES.has((error as Error & { code?: string }).code ?? "");
 }
 
 async function readError(response: Response) {
