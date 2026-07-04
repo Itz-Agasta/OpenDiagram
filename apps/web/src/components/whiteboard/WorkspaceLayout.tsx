@@ -18,10 +18,6 @@ import {
 import { env } from "@OpenDiagram/env/web";
 import { AIChatPanel } from "./AIChatPanel";
 import { Whiteboard } from "./Whiteboard";
-import { Diamond } from "@/components/loading-ui/diamond";
-import { MorphingInfinity } from "@/components/loading-ui/morphing-infinity";
-import { SquareSnake } from "@/components/loading-ui/square-snake";
-import { TextDots } from "@/components/loading-ui/text-dots";
 import { authClient } from "@/lib/auth-client";
 import {
   DropdownMenu,
@@ -126,71 +122,6 @@ function sceneElementsVersion(elements: readonly unknown[]) {
 function initialElementsVersion(scene: unknown) {
   const elements = (scene as { elements?: unknown })?.elements;
   return Array.isArray(elements) ? sceneElementsVersion(elements) : 0;
-}
-
-function RepoGenerationProgress({
-  error,
-  job,
-}: {
-  error: string | null;
-  job: RepoGenerationJob | null;
-}) {
-  if (!job && !error) return null;
-
-  const activeTask = job?.tasks.find((task) => task.status === "active");
-  const loaderIndex = job ? job.tasks.findIndex((task) => task.status === "active") : 0;
-  const Loader = [Diamond, MorphingInfinity, SquareSnake][Math.max(loaderIndex, 0) % 3] ?? Diamond;
-
-  return (
-    <div className="mb-4 rounded-[12px] border border-od-border-soft bg-white p-3 shadow-[0_12px_36px_-28px_rgba(0,0,0,0.45)]">
-      <div className="flex items-center gap-2">
-        {job?.status === "done" ? (
-          <span className="grid size-5 place-items-center rounded-full bg-od-green/10 text-[11px] font-semibold text-od-green">
-            ✓
-          </span>
-        ) : error || job?.status === "failed" ? (
-          <span className="grid size-5 place-items-center rounded-full bg-red-50 text-[11px] font-semibold text-red-600">
-            !
-          </span>
-        ) : (
-          <Loader className="size-5 text-od-ink" />
-        )}
-        <div className="min-w-0">
-          <p className="truncate text-[12px] font-medium text-od-ink">
-            {error ?? job?.message ?? "Generating repository files"}
-          </p>
-          {job && job.status !== "done" && job.status !== "failed" && (
-            <p className="text-[11px] text-od-ink-faint">
-              {activeTask?.message ?? "Preparing agents"}
-              <TextDots />
-            </p>
-          )}
-        </div>
-      </div>
-
-      {job?.tasks.length ? (
-        <div className="mt-3 grid gap-1.5">
-          {job.tasks.map((task) => (
-            <div key={task.id} className="flex items-center gap-2 text-[11px] text-od-ink-muted">
-              <span
-                className={`size-1.5 rounded-full ${
-                  task.status === "complete"
-                    ? "bg-od-green"
-                    : task.status === "active"
-                      ? "bg-od-ink"
-                      : task.status === "failed"
-                        ? "bg-red-500"
-                        : "bg-od-border-soft"
-                }`}
-              />
-              <span className="min-w-0 flex-1 truncate">{task.name}</span>
-              <span className="shrink-0 text-od-ink-faint">{task.status}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 export function WorkspaceLayout() {
@@ -402,7 +333,9 @@ export function WorkspaceLayout() {
           contentRef.current = result.type === "doc" ? fileContentToText(result.content) : "";
           setDocContent(contentRef.current);
           setInitialScene(result.type === "diagram" ? (result.scene ?? null) : null);
-          lastSavedVersionRef.current = initialElementsVersion(result.type === "diagram" ? (result.scene ?? null) : null);
+          lastSavedVersionRef.current = initialElementsVersion(
+            result.type === "diagram" ? (result.scene ?? null) : null,
+          );
         }
       } catch (err) {
         if (active) {
@@ -473,6 +406,10 @@ export function WorkspaceLayout() {
   // Repo generation polling (for imports)
   useEffect(() => {
     if (!session.data?.user || draft || projectRow?.source !== "github_import") return;
+    if (projectRow.generationStatus === "done") {
+      setRepoGenerationJob(null);
+      return;
+    }
     if (startedRepoGenerationRef.current === projectRow.id) return;
 
     const importedProject = projectRow;
@@ -496,7 +433,14 @@ export function WorkspaceLayout() {
         if (cancelled) return;
         setRepoGenerationJob(job);
         if (job.createdFiles.length > 0) await syncSidebarFiles().catch(() => undefined);
-        if (job.status === "done" || job.status === "failed") return;
+        if (job.status === "done" || job.status === "failed") {
+          // Refetch project details to sync database fields in client state
+          const updatedProj = await getProject(importedProject.id).catch(() => null);
+          if (updatedProj && !cancelled) {
+            setProjectRow(updatedProj);
+          }
+          return;
+        }
         await new Promise((resolve) => window.setTimeout(resolve, 1200));
       }
     }
@@ -507,7 +451,14 @@ export function WorkspaceLayout() {
         if (cancelled) return;
         setRepoGenerationJob(job);
         if (job.createdFiles.length > 0) await syncSidebarFiles().catch(() => undefined);
-        if (job.status !== "done" && job.status !== "failed") await pollJob(job.id);
+        if (job.status !== "done" && job.status !== "failed") {
+          await pollJob(job.id);
+        } else if (job.status === "done" || job.status === "failed") {
+          const updatedProj = await getProject(importedProject.id).catch(() => null);
+          if (updatedProj && !cancelled) {
+            setProjectRow(updatedProj);
+          }
+        }
       } catch (err) {
         if (cancelled) return;
         setRepoGenerationError(
@@ -534,7 +485,8 @@ export function WorkspaceLayout() {
         scene: file.type === "diagram" ? sceneRef.current : undefined,
         content: file.type === "doc" ? contentRef.current : undefined,
       });
-      lastSavedVersionRef.current = file.type === "diagram" ? versionAtSave : lastSavedVersionRef.current;
+      lastSavedVersionRef.current =
+        file.type === "diagram" ? versionAtSave : lastSavedVersionRef.current;
       if (versionAtSave === pendingVersionRef.current) dirtyRef.current = false;
       setSaveStatus("saved");
       upsertStoredFile(toSidebarFile(updated));
@@ -576,7 +528,11 @@ export function WorkspaceLayout() {
         return;
       }
 
-      if (isSignedInRef.current && activeFileRef.current && activeFileRef.current.type === "diagram") {
+      if (
+        isSignedInRef.current &&
+        activeFileRef.current &&
+        activeFileRef.current.type === "diagram"
+      ) {
         pendingVersionRef.current = version;
         scheduleAutosave();
       }
@@ -984,8 +940,6 @@ export function WorkspaceLayout() {
             </p>
           </div>
 
-          <RepoGenerationProgress error={repoGenerationError} job={repoGenerationJob} />
-
           <div className="min-h-0 overflow-y-auto pb-4">
             {sidebarFilesForProject.length === 0 ? (
               <p className="rounded-[8px] px-2 py-2 text-[13px] text-od-ink-faint">No files yet</p>
@@ -1147,6 +1101,8 @@ export function WorkspaceLayout() {
                 | { id: string; role: "user" | "assistant"; text: string }[]
                 | undefined
             }
+            repoGenerationJob={repoGenerationJob}
+            repoGenerationError={repoGenerationError}
           />
         </aside>
       )}

@@ -12,7 +12,7 @@ import {
   type WorkspaceAgentProgress,
   type WorkspaceAgentRoute,
 } from "@/lib/workspace-agents";
-import { updateProjectFile } from "@/lib/projects-client";
+import { updateProjectFile, type RepoGenerationJob } from "@/lib/projects-client";
 import { cn } from "@/lib/utils";
 import { Diamond } from "@/components/loading-ui/diamond";
 import { MorphingInfinity } from "@/components/loading-ui/morphing-infinity";
@@ -65,6 +65,8 @@ interface AIChatPanelProps {
   projectId?: string;
   fileId?: string;
   initialHistory?: ChatMessage[];
+  repoGenerationJob?: RepoGenerationJob | null;
+  repoGenerationError?: string | null;
 }
 
 const loaderKinds: LoaderKind[] = ["diamond", "infinity", "snake"];
@@ -138,6 +140,8 @@ export function AIChatPanel({
   projectId,
   fileId,
   initialHistory,
+  repoGenerationJob,
+  repoGenerationError,
 }: AIChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialHistory ?? []);
   const [status, setStatus] = useState<ChatStatus>("ready");
@@ -323,6 +327,10 @@ export function AIChatPanel({
 
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="flex flex-col gap-4 px-4 py-4">
+          <RepoGenerationProgress
+            error={repoGenerationError ?? null}
+            job={repoGenerationJob ?? null}
+          />
           {messages.length === 0 ? (
             <ConversationEmptyState
               title="Start a conversation"
@@ -441,4 +449,65 @@ function RandomLoader({ kind }: { kind: LoaderKind }) {
   if (kind === "diamond") return <Diamond className="size-5" />;
   if (kind === "infinity") return <MorphingInfinity className="size-5" />;
   return <SquareSnake className="text-[5px]" size={4} />;
+}
+
+function RepoGenerationProgress({
+  error,
+  job,
+}: {
+  error: string | null;
+  job: RepoGenerationJob | null;
+}) {
+  if (!job && !error) return null;
+
+  const activeTask = job?.tasks.find((task) => task.status === "active");
+  const loaderIndex = job ? job.tasks.findIndex((task) => task.status === "active") : 0;
+  const Loader = [Diamond, MorphingInfinity, SquareSnake][Math.max(loaderIndex, 0) % 3] ?? Diamond;
+
+  return (
+    <div className="mb-2 rounded-[12px] border border-od-border-soft bg-white p-3 shadow-[0_12px_36px_-28px_rgba(0,0,0,0.45)]">
+      <div className="flex items-center gap-2">
+        {job?.status === "done" ? null : error || job?.status === "failed" ? (
+          <span className="grid size-5 place-items-center rounded-full bg-red-50 text-[11px] font-semibold text-red-600">
+            !
+          </span>
+        ) : (
+          <Loader className="size-5 text-od-ink" />
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-medium text-od-ink">
+            {error ?? job?.message ?? "Generating repository files"}
+          </p>
+          {job && job.status !== "done" && job.status !== "failed" && (
+            <p className="text-[11px] text-od-ink-faint">
+              {activeTask?.message ?? "Preparing agents"}
+              <TextDots />
+            </p>
+          )}
+        </div>
+      </div>
+
+      {job?.tasks.length ? (
+        <div className="mt-3 grid gap-1.5">
+          {job.tasks.map((task) => (
+            <div key={task.id} className="flex items-center gap-2 text-[11px] text-od-ink-muted">
+              <span
+                className={`size-1.5 rounded-full ${
+                  task.status === "complete"
+                    ? "bg-od-green"
+                    : task.status === "active"
+                      ? "bg-od-ink"
+                      : task.status === "failed"
+                        ? "bg-red-500"
+                        : "bg-od-border-soft"
+                }`}
+              />
+              <span className="min-w-0 flex-1 truncate">{task.name}</span>
+              <span className="shrink-0 text-od-ink-faint">{task.status}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }

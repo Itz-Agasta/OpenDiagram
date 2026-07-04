@@ -81,6 +81,7 @@ projectsRoute.get("/", async (c) => {
       description: project.description,
       source: project.source,
       sourceMetadata: project.sourceMetadata,
+      generationStatus: project.generationStatus,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
     })

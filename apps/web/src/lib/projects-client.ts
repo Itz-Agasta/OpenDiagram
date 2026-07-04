@@ -9,6 +9,7 @@ export type SavedProject = {
   memoryDatasetId?: string | null;
   memoryStatus?: string;
   memoryError?: string | null;
+  generationStatus?: "none" | "queued" | "planning" | "creating" | "generating" | "done" | "failed";
   createdAt: string;
   updatedAt: string;
 };

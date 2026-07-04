@@ -15,6 +15,13 @@
       "when": 1783164377923,
       "tag": "0001_sticky_mole_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783195006857,
+      "tag": "0002_loving_vampiro",
+      "breakpoints": true
     }
   ]
 }

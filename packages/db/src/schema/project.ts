@@ -14,6 +14,16 @@ export const projectMemoryStatuses = [
 
 export const projectSources = ["manual", "github_import"] as const;
 
+export const projectGenerationStatuses = [
+  "none",
+  "queued",
+  "planning",
+  "creating",
+  "generating",
+  "done",
+  "failed",
+] as const;
+
 export const project = pgTable(
   "project",
   {
@@ -32,6 +42,9 @@ export const project = pgTable(
       .default("not_started")
       .notNull(),
     memoryError: text("cognee_error"),
+    generationStatus: text("generation_status", { enum: projectGenerationStatuses })
+      .default("none")
+      .notNull(),
     scene: jsonb("scene"),
     spec: jsonb("spec"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
