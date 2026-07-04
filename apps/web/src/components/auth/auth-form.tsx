@@ -67,10 +67,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       // Absolute URLs on THIS (web) origin -- better-auth resolves relative
       // callbackURLs against the server's baseURL, which sends users to the API
       // origin (:3000) instead of the web app in a split deployment.
+      const errorCallbackURL =
+        `${window.location.origin}/login` +
+        (redirectParam ? `?redirect=${encodeURIComponent(redirectTo)}` : "");
       await authClient.signIn.social({
         provider: "github",
         callbackURL: `${window.location.origin}${redirectTo}`,
-        errorCallbackURL: `${window.location.origin}/login`,
+        errorCallbackURL,
       });
     } catch {
       setError("Could not start GitHub sign in.");
