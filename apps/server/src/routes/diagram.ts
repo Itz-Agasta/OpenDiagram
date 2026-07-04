@@ -13,6 +13,7 @@ import { generateDiagramSpec } from "../lib/llm";
 const generateRequestSchema = z.object({
   prompt: z.string().min(1).max(2000),
   diagramType: diagramTypeSchema.optional(),
+  context: z.string().optional(),
 });
 
 export const diagramRoute = new Hono<EvlogVariables>();
@@ -27,7 +28,7 @@ diagramRoute.post("/generate", async (c) => {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
 
-  const { prompt, diagramType } = parsed.data;
+  const { prompt, diagramType, context } = parsed.data;
 
   let spec: DiagramSpec | undefined;
   let lastError: unknown;
@@ -35,7 +36,7 @@ diagramRoute.post("/generate", async (c) => {
 
   for (; attempts < MAX_ATTEMPTS && !spec; attempts++) {
     try {
-      spec = await generateDiagramSpec({ prompt, diagramType });
+      spec = await generateDiagramSpec({ prompt, diagramType, context });
     } catch (error) {
       lastError = error;
     }

@@ -17,6 +17,7 @@ export const projectFile = pgTable(
     scene: jsonb("scene"),
     spec: jsonb("spec"),
     content: jsonb("content"),
+    history: jsonb("history").$default(() => []),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

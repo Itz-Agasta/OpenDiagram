@@ -4,6 +4,9 @@ export type SavedProject = {
   id: string;
   name: string;
   description: string | null;
+  cogneeDatasetId?: string | null;
+  cogneeStatus?: string;
+  cogneeError?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -18,6 +21,7 @@ export type SavedProjectFile = {
   scene?: unknown;
   spec?: unknown;
   content?: unknown;
+  history?: unknown[];
   createdAt: string;
   updatedAt: string;
 };
@@ -33,9 +37,24 @@ export type CreateProjectFileInput = {
   scene?: unknown;
   spec?: unknown;
   content?: unknown;
+  history?: unknown[];
 };
 
 export type UpdateProjectFileInput = Partial<CreateProjectFileInput>;
+
+export type ProjectChatSource = {
+  id: string;
+  title: string;
+  sourceType: string;
+  excerpt: string;
+  score: number;
+  metadata: Record<string, unknown>;
+};
+
+export type ProjectChatResult = {
+  answer: string;
+  sources: ProjectChatSource[];
+};
 
 async function readProjectResponse(response: Response) {
   const contentType = response.headers.get("content-type");
@@ -103,6 +122,22 @@ export async function listProjectFiles(projectId: string): Promise<SavedProjectF
   return data.files;
 }
 
+export async function getProjectFile(projectId: string, fileId: string): Promise<SavedProjectFile> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${fileId}`,
+    {
+      credentials: "include",
+    },
+  );
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not load project file.");
+  }
+
+  return data.file;
+}
+
 export async function createProjectFile(
   projectId: string,
   input: CreateProjectFileInput,
@@ -143,4 +178,52 @@ export async function updateProjectFile(
   }
 
   return data.file;
+}
+
+export type ProjectContextResult = {
+  context: string;
+  sources: ProjectChatSource[];
+};
+
+export async function getProjectContext(
+  projectId: string,
+  query: string,
+): Promise<ProjectContextResult> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/cognee/context`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not get project context.");
+  }
+
+  return data;
+}
+
+export async function chatWithProject(
+  projectId: string,
+  message: string,
+): Promise<ProjectChatResult> {
+  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/chat`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not ask project assistant.");
+  }
+
+  return data;
 }

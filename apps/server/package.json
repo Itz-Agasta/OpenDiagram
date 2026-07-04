@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "@OpenDiagram/auth": "workspace:*",
+    "@OpenDiagram/cognee": "workspace:*",
     "@OpenDiagram/db": "workspace:*",
     "@OpenDiagram/env": "workspace:*",
     "@OpenDiagram/harness": "workspace:*",
     "@ai-sdk/google": "^4.0.5",
+    "@ai-sdk/groq": "^4.0.5",
     "@ai-sdk/openai": "^2.0.0",
     "ai": "catalog:",
     "better-auth": "catalog:",

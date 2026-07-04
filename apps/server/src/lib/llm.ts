@@ -8,7 +8,7 @@ import {
   type DiagramType,
 } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { buildIconCatalog } from "./icons/registry";
 
@@ -112,22 +112,25 @@ const kimiDiagramSpecSchema = z.union([
 
 function normalizeKimiDiagramSpec(
   object: z.infer<typeof kimiDiagramSpecSchema>,
-  diagramType?: DiagramType
+  diagramType?: DiagramType,
 ): DiagramSpec {
   const raw = "diagram" in object ? object.diagram : object;
   const rawNodes = raw.nodes as z.infer<typeof kimiDiagramNodeSchema>[];
   const textNodeIds = new Set(
-    rawNodes.filter((node) => isKimiTextNode(node)).map((node) => node.id)
+    rawNodes.filter((node) => isKimiTextNode(node)).map((node) => node.id),
   );
   const groupedNodes = rawNodes.filter((node) => node.type === "group" && node.contains?.length);
-  const regularNodes = rawNodes.filter((node) => node.type !== "group" && !textNodeIds.has(node.id));
+  const regularNodes = rawNodes.filter(
+    (node) => node.type !== "group" && !textNodeIds.has(node.id),
+  );
   const spec: DiagramSpec = {
     type: raw.type ?? raw.diagramType ?? diagramType ?? "system-design",
     title: raw.title ?? "Generated Diagram",
     description: raw.description,
     nodes: regularNodes.map((rawNode) => {
-      const { contains, description, title, type, ...node } =
-        rawNode as z.infer<typeof kimiDiagramNodeSchema>;
+      const { contains, description, title, type, ...node } = rawNode as z.infer<
+        typeof kimiDiagramNodeSchema
+      >;
       void contains;
       void description;
       return {
@@ -152,7 +155,8 @@ function normalizeKimiDiagramSpec(
           contains: group.contains ?? [],
           style: toKimiGroupStyle(group.style),
           strokeColor: group.strokeColor ?? getKimiStyleColor(group.style, "strokeColor"),
-          backgroundColor: group.backgroundColor ?? getKimiStyleColor(group.style, "backgroundColor"),
+          backgroundColor:
+            group.backgroundColor ?? getKimiStyleColor(group.style, "backgroundColor"),
         })),
       ...groupedNodes.map((node) => ({
         id: node.id,
@@ -179,9 +183,16 @@ function toKimiNodeCategory(value?: string): z.infer<typeof kimiNodeCategorySche
 function isKimiTextNode(node: z.infer<typeof kimiDiagramNodeSchema>): boolean {
   const type = node.type?.toLowerCase();
   if (!type) return false;
-  return ["text", "label", "note", "annotation", "caption", "legend", "title", "description"].includes(
-    type
-  );
+  return [
+    "text",
+    "label",
+    "note",
+    "annotation",
+    "caption",
+    "legend",
+    "title",
+    "description",
+  ].includes(type);
 }
 
 function toKimiEdgeStyle(value: unknown): DiagramSpec["edges"][number]["style"] {
@@ -189,12 +200,16 @@ function toKimiEdgeStyle(value: unknown): DiagramSpec["edges"][number]["style"] 
 }
 
 function toKimiGroupStyle(value: unknown): NonNullable<DiagramSpec["groups"]>[number]["style"] {
-  if (value === "vpc" || value === "region" || value === "subnet" || value === "cluster") return value;
+  if (value === "vpc" || value === "region" || value === "subnet" || value === "cluster")
+    return value;
   if (value === "swimlane" || value === "box") return value;
   return "box";
 }
 
-function getKimiStyleColor(value: unknown, key: "strokeColor" | "backgroundColor"): string | undefined {
+function getKimiStyleColor(
+  value: unknown,
+  key: "strokeColor" | "backgroundColor",
+): string | undefined {
   if (!value || typeof value !== "object" || !(key in value)) return undefined;
   const color = (value as Record<string, unknown>)[key];
   return typeof color === "string" ? color : undefined;
@@ -287,12 +302,17 @@ function buildKimiSystemPrompt(diagramType?: DiagramType): string {
 async function generateGeminiDiagramSpec(input: {
   prompt: string;
   diagramType?: DiagramType;
+  context?: string;
 }): Promise<DiagramSpec> {
+  const userPrompt = input.context
+    ? `Project context:\n${input.context}\n\nUser request:\n${input.prompt}`
+    : input.prompt;
+
   const result = await generateObject({
     model: createGeminiModel(),
     schema: diagramSpecSchema,
     system: buildSystemPrompt(input.diagramType),
-    prompt: input.prompt,
+    prompt: userPrompt,
     // Bounds runaway/repetition-loop generations (observed during testing:
     // gemini-2.5-flash occasionally gets stuck dumping a huge repeated string
     // into a field instead of terminating) so a bad completion fails fast
@@ -306,22 +326,50 @@ async function generateGeminiDiagramSpec(input: {
 async function generateKimiDiagramSpec(input: {
   prompt: string;
   diagramType?: DiagramType;
+  context?: string;
 }): Promise<DiagramSpec> {
+  const userPrompt = input.context
+    ? `Project context:\n${input.context}\n\nUser request:\n${input.prompt}`
+    : input.prompt;
+
   const result = await generateObject({
     model: createKimiModel(),
     schema: kimiDiagramSpecSchema,
     system: buildKimiSystemPrompt(input.diagramType),
-    prompt: input.prompt,
+    prompt: userPrompt,
     maxOutputTokens: CUSTOM_DEFAULTS.maxTokens,
     providerOptions: { openai: { structuredOutputs: false } },
   });
-  return normalizeKimiDiagramSpec(result.object as z.infer<typeof kimiDiagramSpecSchema>, input.diagramType);
+  return normalizeKimiDiagramSpec(
+    result.object as z.infer<typeof kimiDiagramSpecSchema>,
+    input.diagramType,
+  );
 }
 
 export async function generateDiagramSpec(input: {
   prompt: string;
   diagramType?: DiagramType;
+  context?: string;
 }): Promise<DiagramSpec> {
   if (env.AI_PROVIDER === "custom") return generateKimiDiagramSpec(input);
   return generateGeminiDiagramSpec(input);
+}
+
+export async function generateGroundedProjectAnswer(input: {
+  message: string;
+  context: string;
+}): Promise<string> {
+  const result = await generateText({
+    model: env.AI_PROVIDER === "custom" ? createKimiModel() : createGeminiModel(),
+    system: [
+      "You are OpenDiagram's project assistant.",
+      "Answer using only the provided project context.",
+      "If the context is insufficient, say what is missing and suggest what the user can add to the project.",
+      "Keep answers concise, specific, and grounded in the project's diagrams, docs, and files.",
+    ].join("\n"),
+    prompt: `Project context:\n${input.context}\n\nUser question:\n${input.message}`,
+    maxOutputTokens: 1200,
+  });
+
+  return result.text;
 }

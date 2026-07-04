@@ -10,11 +10,12 @@ export interface DiagramGenerateResult {
 export async function generateDiagram(
   prompt: string,
   diagramType?: DiagramType,
+  context?: string,
 ): Promise<DiagramGenerateResult> {
   const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, diagramType }),
+    body: JSON.stringify({ prompt, diagramType, context }),
     signal: AbortSignal.timeout(60_000),
   });
 

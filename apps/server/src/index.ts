@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { diagramRoute } from "./routes/diagram";
 import { githubImportRoute, githubRoute } from "./routes/github";
+import { orchestrateRoute } from "./routes/orchestrate";
 import { projectsRoute } from "./routes/projects";
 
 initLogger({
@@ -39,6 +40,7 @@ app.use(
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api/diagram", diagramRoute);
+app.route("/api/orchestrate", orchestrateRoute);
 app.route("/api/github", githubRoute);
 app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
