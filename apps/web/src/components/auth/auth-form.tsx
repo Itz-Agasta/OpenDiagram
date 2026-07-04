@@ -15,11 +15,24 @@ function GithubMark() {
   );
 }
 
+// Only allow internal, non-protocol-relative paths so a crafted
+// `?redirect=` can't bounce the user to an external site after login.
+function safeRedirect(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
+    return "/dashboard";
+  }
+  return raw;
+}
+
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const params = useSearchParams();
-  const redirectTo = params.get("redirect") || "/dashboard";
+  const redirectParam = params.get("redirect");
+  const redirectTo = safeRedirect(redirectParam);
   const isSignup = mode === "signup";
+  const switchHref =
+    `${isSignup ? "/login" : "/signup"}` +
+    (redirectParam ? `?redirect=${encodeURIComponent(redirectTo)}` : "");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -51,7 +64,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setGithubPending(true);
     setError(null);
     try {
-      await authClient.signIn.social({ provider: "github", callbackURL: redirectTo });
+      // Absolute URLs on THIS (web) origin -- better-auth resolves relative
+      // callbackURLs against the server's baseURL, which sends users to the API
+      // origin (:3000) instead of the web app in a split deployment.
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: `${window.location.origin}${redirectTo}`,
+        errorCallbackURL: `${window.location.origin}/login`,
+      });
     } catch {
       setError("Could not start GitHub sign in.");
       setGithubPending(false);
@@ -139,7 +159,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <p className="mt-6 text-center text-[13px] text-od-ink-muted">
         {isSignup ? "Already have an account? " : "New to OpenDiagram? "}
         <Link
-          href={isSignup ? "/login" : "/signup"}
+          href={switchHref}
           className="font-medium text-od-ink underline-offset-4 hover:underline"
         >
           {isSignup ? "Log in" : "Create one"}
