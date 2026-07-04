@@ -54,6 +54,9 @@ export interface DiagramEdge {
   label?: string;
   protocol?: string;
   direction?: "uni" | "bi";
+  /** Semantic connection type — the renderer maps it to a stroke style. */
+  kind?: "sync" | "async" | "replication";
+  /** @deprecated prefer `kind`; kept as explicit stroke override. */
   style?: "solid" | "dashed" | "dotted";
   startArrowhead?: "none" | "arrow" | "circle" | "bar";
   endArrowhead?: "none" | "arrow" | "circle" | "bar";

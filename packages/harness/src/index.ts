@@ -10,7 +10,7 @@ export type {
 export { diagramSpecSchema, diagramTypeSchema } from "./diagram-schema.js";
 
 export { layoutDiagram } from "./layout.js";
-export type { Box, PositionedSpec } from "./layout.js";
+export type { Box, EdgeRoute, PositionedSpec } from "./layout.js";
 
 export { renderToExcalidraw } from "./renderer.js";
 export type {
@@ -19,3 +19,6 @@ export type {
   RenderSkeleton,
   RenderResult,
 } from "./renderer.js";
+
+export { defaultTheme } from "./theme.js";
+export type { Theme } from "./theme.js";
