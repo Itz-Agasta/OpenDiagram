@@ -51,7 +51,8 @@ export function listGuestProjectDrafts(): GuestProjectDraft[] {
         const parsed = JSON.parse(raw);
         if (typeof parsed !== "object" || parsed === null) return null;
         if (typeof parsed.id !== "string" || typeof parsed.name !== "string") return null;
-        if (typeof parsed.createdAt !== "string" || typeof parsed.updatedAt !== "string") return null;
+        if (typeof parsed.createdAt !== "string" || typeof parsed.updatedAt !== "string")
+          return null;
         return parsed as GuestProjectDraft;
       } catch {
         return null;

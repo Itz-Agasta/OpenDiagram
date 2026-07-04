@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { env } from "@OpenDiagram/env/web";
 import { AIChatPanel } from "./AIChatPanel";
 import { Whiteboard } from "./Whiteboard";
 import { authClient } from "@/lib/auth-client";
@@ -15,10 +16,15 @@ import {
 import {
   createProject,
   createProjectFile,
+  getProjectFile,
   listProjectFiles,
   updateProjectFile,
   type SavedProjectFile,
 } from "@/lib/projects-client";
+
+const AUTOSAVE_DELAY_MS = 800;
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
@@ -28,30 +34,72 @@ function sanitizeSceneAppState(appState: unknown) {
   return rest;
 }
 
+// Cheap change signal (sum of element `version`s, same idea as Excalidraw's
+// getSceneVersion). Excalidraw fires onChange on every render — without this we
+// autosave in an infinite loop even when the drawing hasn't actually changed.
+function sceneElementsVersion(elements: readonly unknown[]) {
+  let version = 0;
+  for (const element of elements) {
+    if (element && typeof element === "object" && "version" in element) {
+      const value = (element as { version?: unknown }).version;
+      if (typeof value === "number") version += value;
+    }
+  }
+  return version;
+}
+
+function initialElementsVersion(scene: unknown) {
+  const elements = (scene as { elements?: unknown })?.elements;
+  return Array.isArray(elements) ? sceneElementsVersion(elements) : 0;
+}
+
 export function WorkspaceLayout() {
   const params = useParams<{ projectId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fileIdParam = searchParams.get("file");
   const session = authClient.useSession();
   const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
   const [draft, setDraft] = useState<GuestProjectDraft | null>(null);
   const [activeFile, setActiveFile] = useState<SavedProjectFile | null>(null);
   const [initialScene, setInitialScene] = useState<unknown>(null);
   const [leavePromptOpen, setLeavePromptOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const [savePending, setSavePending] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const draftRef = useRef<GuestProjectDraft | null>(null);
   const sceneRef = useRef<unknown>(null);
+  const activeFileRef = useRef<SavedProjectFile | null>(null);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+  const promotionStartedRef = useRef(false);
+  const lastSavedVersionRef = useRef(0);
+  const pendingVersionRef = useRef(0);
+  const skipCommitRef = useRef(false);
+
+  const isSignedIn = Boolean(session.data?.user);
+  // Kept in a ref so the (frequently called) Excalidraw onChange handler reads
+  // the latest auth state without being re-created on every render.
+  const isSignedInRef = useRef(isSignedIn);
+  isSignedInRef.current = isSignedIn;
+
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  }, [activeFile]);
 
   useEffect(() => {
     const nextDraft = getGuestProjectDraft(params.projectId);
     draftRef.current = nextDraft;
     setDraft(nextDraft);
     setInitialScene(nextDraft?.scene ?? null);
+    lastSavedVersionRef.current = initialElementsVersion(nextDraft?.scene);
   }, [params.projectId]);
 
+  // Guest hard-exit guard (tab close / refresh).
   useEffect(() => {
-    if (!draft || session.data?.user) return;
+    if (!draft || isSignedIn) return;
 
     function warnBeforeUnload(event: BeforeUnloadEvent) {
       event.preventDefault();
@@ -61,10 +109,27 @@ export function WorkspaceLayout() {
     window.addEventListener("beforeunload", warnBeforeUnload);
 
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [draft, session.data?.user]);
+  }, [draft, isSignedIn]);
+
+  // Guest in-app back-navigation guard: intercept the browser back button and
+  // show the "you'll lose your work" prompt instead of silently leaving.
+  useEffect(() => {
+    if (!draft || isSignedIn) return;
+
+    window.history.pushState(null, "", window.location.href);
+
+    function onPopState() {
+      window.history.pushState(null, "", window.location.href);
+      setLeavePromptOpen(true);
+    }
+
+    window.addEventListener("popstate", onPopState);
+
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [draft, isSignedIn]);
 
   useEffect(() => {
-    if (session.isPending || !session.data?.user || draftRef.current) return;
+    if (session.isPending || !isSignedIn || draftRef.current) return;
 
     let active = true;
 
@@ -73,18 +138,23 @@ export function WorkspaceLayout() {
 
       try {
         const files = await listProjectFiles(params.projectId);
-        const diagramFile = files.find((file) => file.type === "diagram");
-        const file =
-          diagramFile ??
-          (await createProjectFile(params.projectId, {
-            name: "Your first design",
-            type: "diagram",
-          }));
+        const target =
+          (fileIdParam ? files.find((file) => file.id === fileIdParam) : undefined) ??
+          files.find((file) => file.type === "diagram");
+        // The list endpoint omits `scene`; fetch the full file so the canvas
+        // reloads its saved content (or create the first diagram file).
+        const diagramFile = target
+          ? await getProjectFile(params.projectId, target.id)
+          : await createProjectFile(params.projectId, {
+              name: "Your first design",
+              type: "diagram",
+            });
 
         if (active) {
-          setActiveFile(file);
-          sceneRef.current = file.scene ?? null;
-          setInitialScene(file.scene ?? null);
+          setActiveFile(diagramFile);
+          sceneRef.current = diagramFile.scene ?? null;
+          setInitialScene(diagramFile.scene ?? null);
+          lastSavedVersionRef.current = initialElementsVersion(diagramFile.scene);
         }
       } catch (err) {
         if (active) {
@@ -98,16 +168,11 @@ export function WorkspaceLayout() {
     return () => {
       active = false;
     };
-  }, [draft, params.projectId, session.data?.user, session.isPending]);
+  }, [draft, fileIdParam, params.projectId, isSignedIn, session.isPending]);
 
   const saveDraftAfterLogin = useCallback(async () => {
     const currentDraft = draftRef.current;
-    if (!currentDraft) return;
-
-    if (!session.data?.user) {
-      setLeavePromptOpen(true);
-      return;
-    }
+    if (!currentDraft || !session.data?.user) return;
 
     setSavePending(true);
     setSaveError(null);
@@ -135,30 +200,92 @@ export function WorkspaceLayout() {
     }
   }, [router, session.data?.user]);
 
+  // After a guest returns signed-in, promote their local draft to a saved project.
   useEffect(() => {
-    if (!draft || !session.data?.user || savePending) return;
+    if (!draft || !session.data?.user || savePending || promotionStartedRef.current) return;
 
+    promotionStartedRef.current = true;
     void saveDraftAfterLogin();
   }, [draft, saveDraftAfterLogin, savePending, session.data?.user]);
 
-  const updateGuestDraft = useCallback(
-    (elements: readonly unknown[], appState: unknown, files: unknown) => {
-      const scene = { elements, appState: sanitizeSceneAppState(appState), files };
+  const runAutosave = useCallback(async () => {
+    const file = activeFileRef.current;
+    if (!file) return;
 
+    const versionAtSave = pendingVersionRef.current;
+
+    try {
+      await updateProjectFile(params.projectId, file.id, { scene: sceneRef.current });
+      lastSavedVersionRef.current = versionAtSave;
+      dirtyRef.current = false;
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [params.projectId]);
+
+  const scheduleAutosave = useCallback(() => {
+    dirtyRef.current = true;
+    setSaveStatus("saving");
+
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => void runAutosave(), AUTOSAVE_DELAY_MS);
+  }, [runAutosave]);
+
+  const handleSceneChange = useCallback(
+    (elements: readonly unknown[], appState: unknown, files: unknown) => {
+      // Ignore onChange fires that don't actually change the drawing (Excalidraw
+      // emits on every render); otherwise autosave loops forever.
+      const version = sceneElementsVersion(elements);
+      if (version === lastSavedVersionRef.current) return;
+
+      const scene = { elements, appState: sanitizeSceneAppState(appState), files };
       sceneRef.current = scene;
 
       const currentDraft = draftRef.current;
-      if (!currentDraft || session.data?.user) return;
+      if (currentDraft && !isSignedInRef.current) {
+        lastSavedVersionRef.current = version;
+        draftRef.current = { ...currentDraft, scene };
+        saveGuestProjectDraft(draftRef.current);
+        return;
+      }
 
-      const nextDraft = {
-        ...currentDraft,
-        scene,
-      };
-
-      draftRef.current = nextDraft;
-      saveGuestProjectDraft(nextDraft);
+      if (isSignedInRef.current && activeFileRef.current) {
+        pendingVersionRef.current = version;
+        scheduleAutosave();
+      }
     },
-    [session.data?.user],
+    [scheduleAutosave],
+  );
+
+  // Flush pending edits on tab-close / navigate so nothing in the debounce
+  // window is lost (keepalive lets the request outlive the page).
+  useEffect(() => {
+    function flush() {
+      if (!isSignedInRef.current || !dirtyRef.current) return;
+
+      const file = activeFileRef.current;
+      if (!file) return;
+
+      fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${params.projectId}/files/${file.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene: sceneRef.current }),
+      }).catch(() => {});
+    }
+
+    window.addEventListener("pagehide", flush);
+
+    return () => window.removeEventListener("pagehide", flush);
+  }, [params.projectId]);
+
+  useEffect(
+    () => () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    },
+    [],
   );
 
   const handleExcalidrawAPI = useCallback((api: ExcalidrawImperativeAPI) => {
@@ -181,42 +308,73 @@ export function WorkspaceLayout() {
     }
   }, [excalidrawAPI, initialScene]);
 
-  async function saveActiveFile() {
-    if (!session.data?.user) {
-      await saveDraftAfterLogin();
+  function goToLogin() {
+    const redirect = encodeURIComponent(window.location.pathname);
+    router.push(`/login?redirect=${redirect}`);
+  }
+
+  // Inline rename of the file name (tap the title to edit). Project name is not
+  // editable here — that lives on the dashboard.
+  function beginEditName() {
+    setNameDraft(activeFile?.name ?? draft?.name ?? "Your first design");
+    setIsEditingName(true);
+  }
+
+  function cancelName() {
+    skipCommitRef.current = true;
+    setIsEditingName(false);
+  }
+
+  async function commitName() {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      setIsEditingName(false);
+      return;
+    }
+    setIsEditingName(false);
+
+    const name = nameDraft.trim();
+    if (!name) return;
+
+    const currentDraft = draftRef.current;
+    if (currentDraft && !isSignedIn) {
+      if (name === currentDraft.name) return;
+      const nextDraft = { ...currentDraft, name };
+      draftRef.current = nextDraft;
+      saveGuestProjectDraft(nextDraft);
+      setDraft(nextDraft);
       return;
     }
 
-    if (!activeFile) {
-      setSaveError("Project file is still loading.");
-      return;
-    }
-
-    setSavePending(true);
-    setSaveError(null);
-    setSaveMessage(null);
-
-    try {
-      const file = await updateProjectFile(params.projectId, activeFile.id, {
-        scene: sceneRef.current,
-      });
-
-      setActiveFile(file);
-      setSaveMessage("Saved");
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Could not save canvas.");
-    } finally {
-      setSavePending(false);
+    if (activeFile && name !== activeFile.name) {
+      try {
+        const updated = await updateProjectFile(params.projectId, activeFile.id, { name });
+        setActiveFile(updated);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : "Could not rename file.");
+      }
     }
   }
 
-  async function signInToSave() {
-    await authClient.signIn.social({
-      provider: "github",
-      scopes: ["repo"],
-      callbackURL: window.location.href,
-    });
+  function leaveWithoutSaving() {
+    // Guest chose not to sign in — discard the local draft (project + diagram).
+    const currentDraft = draftRef.current;
+    if (currentDraft) {
+      deleteGuestProjectDraft(currentDraft.id);
+      draftRef.current = null;
+      setDraft(null);
+    }
+    setLeavePromptOpen(false);
+    router.push("/dashboard");
   }
+
+  const saveIndicator = !isSignedIn
+    ? { dot: "bg-od-ink-faint", label: "Guest" }
+    : saveStatus === "saving"
+      ? { dot: "bg-amber-500", label: "Saving…" }
+      : saveStatus === "error"
+        ? { dot: "bg-red-500", label: "Save failed" }
+        : { dot: "bg-od-green", label: "Saved" };
 
   return (
     <div className="flex h-full w-full">
@@ -224,54 +382,86 @@ export function WorkspaceLayout() {
         <Whiteboard
           initialScene={initialScene}
           onAPIReady={handleExcalidrawAPI}
-          onSceneChange={updateGuestDraft}
+          onSceneChange={handleSceneChange}
         />
       </div>
-      <div className="w-96 shrink-0">
-        {(draft || session.data?.user) && (
-          <div className="border-b border-od-border-soft bg-white p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-od-ink">
-                  {draft?.name ?? activeFile?.name ?? "Your first design"}
-                </p>
-                <p className="truncate text-[12px] text-od-ink-faint">
-                  {session.data?.user ? "Saved project file" : "Guest draft"}
-                </p>
+      <div className="flex h-full w-96 shrink-0 flex-col">
+        {(draft || isSignedIn) && (
+          <div className="shrink-0 border-b border-od-border-soft bg-white p-3">
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                {isEditingName ? (
+                  <input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    onBlur={() => void commitName()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      else if (event.key === "Escape") cancelName();
+                    }}
+                    className="w-full rounded-[6px] border border-od-border-soft px-1.5 py-1 text-[14px] font-medium text-od-ink outline-none focus:border-od-ink"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={beginEditName}
+                    title="Rename file"
+                    className="-mx-1.5 block max-w-full truncate rounded-[6px] px-1.5 py-1 text-left text-[14px] font-medium text-od-ink transition hover:bg-od-canvas/40"
+                  >
+                    {activeFile?.name ?? draft?.name ?? "Your first design"}
+                  </button>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={saveActiveFile}
-                disabled={savePending}
-                className="h-8 rounded-[8px] bg-od-ink px-3 text-[12px] font-medium text-white disabled:cursor-wait disabled:opacity-70"
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 text-[11px] text-od-ink-faint"
+                title={saveError ?? undefined}
               >
-                {savePending ? "Saving..." : "Save"}
-              </button>
+                <span className={`h-1.5 w-1.5 rounded-full ${saveIndicator.dot}`} />
+                {saveIndicator.label}
+              </span>
+              {!isSignedIn && (
+                <button
+                  type="button"
+                  onClick={goToLogin}
+                  className="h-8 shrink-0 rounded-[8px] bg-od-ink px-3 text-[12px] font-medium text-white"
+                >
+                  Sign in to save
+                </button>
+              )}
             </div>
-            {saveMessage && <p className="mt-2 text-[12px] text-od-green">{saveMessage}</p>}
-            {saveError && <p className="mt-2 text-[12px] text-red-600">{saveError}</p>}
+            {saveError && <p className="mt-1.5 truncate text-[11px] text-red-600">{saveError}</p>}
           </div>
         )}
-        <AIChatPanel excalidrawAPI={excalidrawAPI} />
+        <div className="min-h-0 flex-1">
+          <AIChatPanel excalidrawAPI={excalidrawAPI} />
+        </div>
       </div>
       {leavePromptOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/25 px-4">
-          <div className="w-full max-w-[420px] rounded-[18px] border border-od-border-soft bg-white p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.55)]">
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/25 px-4"
+          onClick={() => setLeavePromptOpen(false)}
+        >
+          <div
+            className="w-full max-w-[420px] rounded-[18px] border border-od-border-soft bg-white p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.55)]"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h2 className="text-[18px] font-semibold text-od-ink">You&apos;ll lose your work</h2>
             <p className="mt-2 text-[14px] leading-6 text-od-ink-muted">
-              Sign in to save this guest draft to your workspace before leaving.
+              This project is only on this device. Sign in to save it to your workspace, or leave to
+              discard it.
             </p>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setLeavePromptOpen(false)}
-                className="h-10 rounded-[8px] border border-od-border-soft px-4 text-[14px] font-medium text-od-ink"
+                onClick={leaveWithoutSaving}
+                className="h-10 rounded-[8px] border border-od-border-soft px-4 text-[14px] font-medium text-od-ink-muted hover:text-od-ink"
               >
-                Keep editing
+                Leave without saving
               </button>
               <button
                 type="button"
-                onClick={signInToSave}
+                onClick={goToLogin}
                 className="h-10 rounded-[8px] bg-od-ink px-4 text-[14px] font-medium text-white"
               >
                 Login / Sign up
