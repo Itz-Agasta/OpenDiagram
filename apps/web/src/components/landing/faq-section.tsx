@@ -6,38 +6,38 @@ import { ButtonShaderTexture } from "@/components/button-shader-texture";
 
 const faqItems = [
   {
-    question: "What type of docs does OpenDiagram generate?",
+    question: "What is a Vibe Diagram?",
     answer:
-      "The subscription is ongoing and flexible — ideal for continuous design needs. Custom projects are one-time, fixed-scope engagements for larger goals like a rebrand or product launch.",
+      "A Vibe Diagram is a fast, editable architecture diagram that starts from a prompt or repo and helps your team see how a system should work.",
   },
   {
-    question: "How long does analysis take?",
+    question: "How fast can I create one?",
     answer:
-      "Most requests are delivered within 1–2 business days. Larger tasks may take longer, but you’ll always be kept in the loop.",
+      "Most first drafts generate in seconds. You can keep shaping the canvas with the editor and AI agent after the first pass.",
   },
   {
-    question: "Does it work with private repositories?",
+    question: "Can I start from a GitHub repo?",
     answer:
-      "As many as you like — with a subscription, you can queue unlimited requests, and they’ll be handled one at a time in priority order.",
+      "Yes. Connect GitHub, choose a repository, and OpenDiagram can ground your Vibe Diagram in real project structure.",
   },
   {
-    question: "What languages and frameworks are supported?",
+    question: "What can I diagram?",
     answer:
-      "Websites, product UI, landing pages, brand assets, decks, social media visuals — anything digital that needs to look and feel sharp.",
+      "System architecture, request flows, data flows, service maps, cloud layouts, onboarding maps, and early product ideas.",
   },
   {
-    question: "Can I customize the output format?",
+    question: "Can I edit the output?",
     answer:
-      "Figma for design, Notion for task management, and Slack or email for async communication.",
+      "Yes. Every Vibe Diagram opens in an editable whiteboard so you can move shapes, rename parts, and keep iterating.",
   },
   {
-    question: "Is there a free tier?",
-    answer: "Yes — you can pause anytime and resume when you’re ready. Unused days roll over.",
+    question: "Is OpenDiagram free to try?",
+    answer: "Yes. You can start creating Vibe Diagrams from the dashboard and save work when you sign in.",
   },
   {
-    question: "Do you support monorepos?",
+    question: "Do you support complex repos?",
     answer:
-      "Joris focuses on design only, but all deliverables are dev-ready. He can also recommend trusted no-code or Webflow/Framer developers if needed.",
+      "OpenDiagram is built for real software projects, including larger repos. Generated diagrams are a strong first draft, not a replacement for engineering review.",
   },
 ];
 
@@ -132,7 +132,7 @@ export function FaqSection() {
                 className="h-20 w-20 rounded-full"
               />
               <h3 className="text-2xl font-bold leading-[1.6] -tracking-[0.02em]">
-                Have more questions? Checkout our GitHub
+                Have more questions? Check out our GitHub
               </h3>
             </div>
             <div className="flex w-full flex-col items-center gap-6">

@@ -25,19 +25,19 @@ export function Footer() {
           <div className="relative z-10 inline-flex max-w-full items-center justify-center gap-6 overflow-hidden rounded-full px-6">
             <span className="h-px w-[69px] bg-white/50" />
             <span className="font-serif text-2xl italic leading-[1.2] text-white">
-              Now in Beta, Free for Open Source
+              Now in Beta, Built for Vibe Diagrams
             </span>
             <span className="h-px w-[69px] bg-white/50" />
           </div>
 
           <h2 className="w-full text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] text-white max-md:text-5xl max-sm:text-4xl">
-            Your Repo, <span className="text-white/70">Fully Documented</span>
+            Your Ideas, <span className="text-white/70">Vibe Diagrammed</span>
           </h2>
 
           <div className="flex w-full max-w-[620px] flex-col items-center justify-center gap-2.5 overflow-hidden">
             <p className="text-center text-xl font-normal leading-[1.6] -tracking-[0.02em] text-white/80 max-md:text-xl">
-              Connect your GitHub and get architecture diagrams, API docs, and a full README
-              generated in seconds.
+              Start from a prompt or connect GitHub to generate expressive architecture diagrams
+              you can edit in seconds.
             </p>
           </div>
 
@@ -46,7 +46,7 @@ export function Footer() {
               href="/import/github"
               className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-all hover:opacity-90"
             >
-              Import From GitHub
+              Create a Vibe Diagram
               <svg
                 width="16"
                 height="16"

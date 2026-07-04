@@ -230,7 +230,7 @@ export function IntroSection() {
         </div>
 
         <div className="relative flex w-full max-w-[940px] flex-col items-center gap-12 px-[120px] py-12 max-md:px-6">
-          <TextOpacityWords text="We help open source projects turn complex codebases into clear, beautiful documentation that contributors actually read" />
+          <TextOpacityWords text="We help teams turn fuzzy software ideas into Vibe Diagrams that make architecture feel fast, visual, and alive" />
 
           <SkillChip
             label="Architecture Diagrams"

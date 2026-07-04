@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import gsap from "gsap";
-import { ButtonShaderTexture } from "@/components/button-shader-texture";
-import { authClient } from "@/lib/auth-client";
 
 const slideshowImages = [
   "https://framerusercontent.com/images/jSslhcqo8HKNjUvPEceq7bhbY.jpg",
@@ -92,9 +91,6 @@ const avatarImages = [
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
-  const [repoTarget, setRepoTarget] = useState("");
-  const [authPending, setAuthPending] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -129,32 +125,6 @@ export function HeroSection() {
     return () => ctx.revert();
   }, []);
 
-  async function importProject(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const target = normalizeRepoTarget(repoTarget);
-    const query = target ? `?repo=${encodeURIComponent(target)}` : "";
-    const callbackURL = `${window.location.origin}/import/github${query}`;
-
-    setAuthPending(true);
-    setAuthError(null);
-
-    if (target) {
-      window.localStorage.setItem("opendiagram:pending-github-repo", target);
-    }
-
-    try {
-      await authClient.signIn.social({
-        provider: "github",
-        callbackURL,
-      });
-    } catch {
-      setAuthError("Could not start GitHub sign in.");
-    } finally {
-      setAuthPending(false);
-    }
-  }
-
   return (
     <section
       ref={sectionRef}
@@ -167,71 +137,54 @@ export function HeroSection() {
               className="h-[9px] w-[6px] rounded-full"
               style={{ backgroundColor: "rgb(12, 179, 0)" }}
             />
-            <span className="text-base">Get Started for free!</span>
+            <span className="text-base">Powered by Cognee</span>
           </div>
 
           <div className="flex w-full flex-wrap items-center justify-center gap-3">
             <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              Open{" "}
+              Create{" "}
             </h1>
             <Slideshow className="hero-media-box" />
             <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              <span className="text-black/50">Diagram</span>
+              <span className="text-black/50">Vibe</span>
             </h1>
             <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              <span className="text-black/50">for Every </span>
+              <span className="text-black/50">Diagrams for </span>
             </h1>
             <ProjectNames className="hero-media-box" />
             <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              Open Source Project
+              Software Teams
             </h1>
           </div>
 
           <p className="hero-copy max-w-[434px] text-center text-base leading-[1.7]">
-            We help open source maintainers generate beautiful, accurate documentation — fast and
-            automatically.
+            Turn prompts, repos, and rough architecture ideas into expressive diagrams you can
+            edit, explain, and share.
           </p>
         </div>
 
         <div className="hero-copy flex max-w-[760px] flex-col items-center gap-4">
-          <form
-            id="hero-import"
-            onSubmit={importProject}
-            className="flex w-full items-center gap-2 rounded-[33px] bg-white p-2 shadow-[0_16px_60px_-36px_rgba(0,0,0,0.55)] max-md:flex-col"
+          <Link
+            href="/dashboard"
+            className="group inline-flex h-14 cursor-pointer items-center justify-center gap-3 rounded-full bg-black px-12 text-base font-medium text-white shadow-[0_16px_60px_-36px_rgba(0,0,0,0.55)] transition-all hover:bg-black/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
           >
-            <label htmlFor="hero-github-repo" className="sr-only">
-              GitHub repository
-            </label>
-            <input
-              id="hero-github-repo"
-              value={repoTarget}
-              onChange={(event) => setRepoTarget(event.target.value)}
-              placeholder="github.com/owner/repo or owner/repo"
-              className="h-12 min-w-0 flex-1 rounded-full bg-transparent px-5 text-sm text-black outline-none placeholder:text-black/45 max-md:w-full"
-            />
-            <button
-              type="submit"
-              disabled={authPending}
-              className="relative isolate inline-flex h-12 shrink-0 cursor-pointer items-center gap-2 overflow-hidden rounded-full bg-black px-6 text-sm font-medium text-white transition-all hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
+            Try for free
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="transition-transform duration-300 ease-out group-hover:translate-x-2"
+              aria-hidden="true"
             >
-              <ButtonShaderTexture />
-              {authPending ? "Opening GitHub..." : "Import project"}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 12h14" />
-                <path d="m12 5 7 7-7 7" />
-              </svg>
-            </button>
-          </form>
-          {authError && <p className="text-sm text-red-700">{authError}</p>}
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </Link>
 
           <div className="flex flex-col items-start gap-0.5">
             <div className="relative h-8 w-[135px]">
@@ -245,21 +198,10 @@ export function HeroSection() {
                 />
               ))}
             </div>
-            <span className="text-xs">Trusted by Maintainers</span>
+            <span className="text-xs">Made for Vibe Diagrammers</span>
           </div>
         </div>
       </div>
     </section>
   );
-}
-
-function normalizeRepoTarget(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-
-  return trimmed
-    .replace(/^https?:\/\/github\.com\//i, "")
-    .replace(/^github\.com\//i, "")
-    .replace(/\.git$/i, "")
-    .replace(/\/$/, "");
 }
