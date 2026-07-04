@@ -146,7 +146,6 @@ export function HeroSection() {
     try {
       await authClient.signIn.social({
         provider: "github",
-        scopes: ["repo"],
         callbackURL,
       });
     } catch {
