@@ -59,11 +59,15 @@ export async function importGitHubRepository(repoFullName: string): Promise<GitH
   return data.job;
 }
 
-export async function getGitHubImportJob(jobId: string): Promise<GitHubImportJob> {
+export async function getGitHubImportJob(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<GitHubImportJob> {
   const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/import/github/${jobId}`, {
     credentials: "include",
+    signal,
   });
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new Error(data?.error ?? "Could not load import status.");

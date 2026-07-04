@@ -13,7 +13,7 @@ import { generateDiagramSpec } from "../lib/llm";
 const generateRequestSchema = z.object({
   prompt: z.string().min(1).max(2000),
   diagramType: diagramTypeSchema.optional(),
-  context: z.string().optional(),
+  context: z.string().max(8000).optional(),
 });
 
 export const diagramRoute = new Hono<EvlogVariables>();

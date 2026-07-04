@@ -230,16 +230,25 @@ export function AIChatPanel({
             : current,
         );
       } catch {
-        route = { intent: "project_chat", pendingMessage: "Reading project context…" };
+        route = projectId
+          ? { intent: "project_chat", pendingMessage: "Reading project context…" }
+          : { intent: "diagram", pendingMessage: "Generating diagram…" };
         setAgentRun((current) =>
           current
             ? {
                 ...current,
                 intent: route.intent,
-                activeMessage: randomStatus("memory"),
+                activeMessage: randomStatus(route.intent === "diagram" ? "diagram" : "memory"),
                 steps: createSteps(route.intent, Boolean(projectId)).map((step) =>
                   step.id === "router"
-                    ? { ...step, detail: "Used default project chat route", status: "complete" }
+                    ? {
+                        ...step,
+                        detail:
+                          route.intent === "diagram"
+                            ? "Used default diagram route"
+                            : "Used default project chat route",
+                        status: "complete",
+                      }
                     : step,
                 ),
               }

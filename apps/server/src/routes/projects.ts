@@ -58,7 +58,9 @@ const contextQuerySchema = z.object({
 });
 
 function markProjectMemoryPendingSafely(projectId: string, userId: string) {
-  void markProjectMemoryPending(projectId, userId).catch(() => undefined);
+  void markProjectMemoryPending(projectId, userId).catch((error) => {
+    console.error("Failed to mark project memory pending:", error);
+  });
 }
 
 function markDocSpecUserEdited(spec: unknown) {

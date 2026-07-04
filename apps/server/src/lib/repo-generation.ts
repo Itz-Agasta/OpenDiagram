@@ -38,6 +38,9 @@ export type RepoGenerationJob = {
 
 const jobs = new Map<string, RepoGenerationJob>();
 const activeJobByProject = new Map<string, string>();
+const jobCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const JOB_RETENTION_MS = 15 * 60 * 1000;
+const MAX_RETAINED_JOBS = 100;
 
 const PLAN: RepoGenerationPlanItem[] = [
   {
@@ -105,6 +108,7 @@ function logJob(
 }
 
 export async function startRepoGeneration(input: { projectId: string; userId: string }) {
+  pruneOldJobs();
   const existingJobId = activeJobByProject.get(projectKey(input));
   const existingJob = existingJobId ? jobs.get(existingJobId) : null;
   if (
@@ -126,7 +130,10 @@ export async function startRepoGeneration(input: { projectId: string; userId: st
   }
 
   const existingGeneratedFiles = await getGeneratedFiles(input.projectId);
-  if (projectRow.generationStatus === "done" || existingGeneratedFiles.length > 0) {
+  const hasCompletedPlan = PLAN.every((item) =>
+    existingGeneratedFiles.some((file) => file.name === item.name && isGeneratedFileComplete(file)),
+  );
+  if (hasCompletedPlan) {
     if (projectRow.generationStatus === "none") {
       await db
         .update(project)
@@ -157,6 +164,7 @@ export async function startRepoGeneration(input: { projectId: string; userId: st
     };
     jobs.set(job.id, job);
     activeJobByProject.set(projectKey(input), job.id);
+    scheduleJobCleanup(job.id);
     console.log(`👀 job start: returning done job #${job.id.slice(0, 8)}`);
     return job;
   }
@@ -331,7 +339,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
       }
       addCreatedFile(jobId, { id: file.id, name: file.name, type: file.type });
       updateTask(jobId, item.id, {
-        status: "complete",
+        status: "pending",
         message: "Placeholder created",
         fileId: file.id,
       });
@@ -341,7 +349,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
       addCreatedFile(jobId, { id: file.id, name: file.name, type: file.type });
       const isCompleted = (file.spec as any)?.status === "complete";
       updateTask(jobId, item.id, {
-        status: isCompleted ? "complete" : "complete",
+        status: isCompleted ? "complete" : "pending",
         message: isCompleted ? "Already generated" : "Placeholder created",
         fileId: file.id,
       });
@@ -386,7 +394,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
           `- Commit: ${commitSha}`,
           "",
           "## Generated notes",
-          context ||
+          context?.context ||
             "Repository memory was unavailable, so this file was created as a starter document.",
           "",
           "## Next steps",
@@ -708,6 +716,12 @@ function isRepoGeneratedSpec(value: unknown) {
   );
 }
 
+function isGeneratedFileComplete(file: { spec: unknown }) {
+  return (
+    isRepoGeneratedSpec(file.spec) && (file.spec as { status?: unknown }).status === "complete"
+  );
+}
+
 function updateJob(
   jobId: string,
   values: Partial<Omit<RepoGenerationJob, "id" | "userId" | "projectId" | "createdAt">>,
@@ -723,6 +737,10 @@ function updateJob(
       .catch((err) => {
         console.error(`Failed to update project generation_status in DB:`, err);
       });
+
+    if (values.status === "done" || values.status === "failed") {
+      scheduleJobCleanup(jobId);
+    }
   }
 }
 
@@ -742,6 +760,39 @@ function addCreatedFile(jobId: string, file: RepoGenerationJob["createdFiles"][n
 
 function projectKey(input: { projectId: string; userId: string }) {
   return `${input.userId}:${input.projectId}`;
+}
+
+function scheduleJobCleanup(jobId: string) {
+  if (jobCleanupTimers.has(jobId)) return;
+
+  const timer = setTimeout(() => {
+    const job = jobs.get(jobId);
+    jobs.delete(jobId);
+    jobCleanupTimers.delete(jobId);
+    if (job && activeJobByProject.get(projectKey(job)) === jobId) {
+      activeJobByProject.delete(projectKey(job));
+    }
+  }, JOB_RETENTION_MS);
+
+  jobCleanupTimers.set(jobId, timer);
+}
+
+function pruneOldJobs() {
+  if (jobs.size <= MAX_RETAINED_JOBS) return;
+
+  const removable = [...jobs.values()]
+    .filter((job) => job.status === "done" || job.status === "failed")
+    .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt));
+
+  for (const job of removable.slice(0, jobs.size - MAX_RETAINED_JOBS)) {
+    const timer = jobCleanupTimers.get(job.id);
+    if (timer) clearTimeout(timer);
+    jobCleanupTimers.delete(job.id);
+    jobs.delete(job.id);
+    if (activeJobByProject.get(projectKey(job)) === job.id) {
+      activeJobByProject.delete(projectKey(job));
+    }
+  }
 }
 
 function sleep(ms: number) {

@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { Hono } from "hono";
@@ -9,8 +8,11 @@ const requestSchema = z.object({
   text: z.string().min(1).max(2000),
 });
 
-const DIAGRAM_KEYWORDS =
-  /\b(create|design|draw|generate|make|build|render|diagram|flow|architecture|system flow|canvas)\b/i;
+const DIAGRAM_NOUNS =
+  /\b(diagram|flowchart|sequence diagram|architecture diagram|system flow|request flow|data flow|canvas|whiteboard)\b/i;
+const DIAGRAM_VERBS = /\b(create|design|draw|generate|render|sketch|map)\b/i;
+const DIAGRAM_TARGETS =
+  /\b(diagram|architecture|system flow|request flow|data flow|sequence|flowchart)\b/i;
 
 const SYSTEM_PROMPT = `You are an orchestrator for an AI architecture workspace. Classify the user's request into one of two intents:
 
@@ -30,7 +32,7 @@ orchestrateRoute.post("/", async (c) => {
 
   const { text } = parsed.data;
 
-  if (DIAGRAM_KEYWORDS.test(text)) {
+  if (isLikelyDiagramRequest(text)) {
     return c.json({ intent: "diagram" });
   }
 
@@ -43,6 +45,7 @@ orchestrateRoute.post("/", async (c) => {
       model: groq("groq/compound-mini"),
       system: SYSTEM_PROMPT,
       prompt: text,
+      timeout: 15_000,
     });
 
     const intent = response.trim().toLowerCase() === "diagram" ? "diagram" : "project_chat";
@@ -51,3 +54,7 @@ orchestrateRoute.post("/", async (c) => {
     return c.json({ intent: "project_chat" });
   }
 });
+
+function isLikelyDiagramRequest(text: string) {
+  return DIAGRAM_NOUNS.test(text) || (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text));
+}

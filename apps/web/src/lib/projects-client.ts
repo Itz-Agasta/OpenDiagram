@@ -24,7 +24,6 @@ export type RepositoryDocProvenance = {
   branch: string;
   commitSha: string | null;
   importedAt: string;
-  repoPath: string;
   sourcePaths: string[];
   userEditedAt: string | null;
 };

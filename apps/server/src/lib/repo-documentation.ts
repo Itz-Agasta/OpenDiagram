@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const MAX_FILE_BYTES = 128 * 1024;
@@ -53,7 +54,6 @@ export type RepositoryDocProvenance = {
   branch: string;
   commitSha: string | null;
   importedAt: string;
-  repoPath: string;
   sourcePaths: string[];
   userEditedAt: string | null;
 };
@@ -105,7 +105,6 @@ export async function cloneAndBuildRepositoryDoc(input: {
       branch: input.defaultBranch,
       commitSha,
       importedAt: input.importedAt,
-      repoPath,
       sourcePaths: sourceFiles.map((file) => file.path),
       userEditedAt: null,
     },
@@ -145,18 +144,51 @@ async function cloneRepository(input: {
     baseDir,
     `${safePathSegment(input.repoFullName)}-${Date.parse(input.importedAt)}-${randomUUID().slice(0, 8)}`,
   );
-  const cloneUrl = `https://x-access-token:${encodeURIComponent(input.token)}@github.com/${input.repoFullName}.git`;
-  const proc = Bun.spawn(
-    ["git", "clone", "--depth", "1", "--branch", input.defaultBranch, cloneUrl, repoDir],
-    { stderr: "pipe", stdout: "pipe" },
-  );
-  const [exitCode, stderr] = await Promise.all([proc.exited, streamToText(proc.stderr)]);
+  const askPassDir = await mkdtemp(path.join(tmpdir(), "opendiagram-git-askpass-"));
+  const askPassPath = path.join(askPassDir, "askpass.sh");
 
-  if (exitCode !== 0) {
-    throw new Error(`Could not clone repository: ${sanitizeGitError(stderr)}`);
+  try {
+    await writeFile(
+      askPassPath,
+      [
+        "#!/bin/sh",
+        'case "$1" in',
+        '  *Username*) printf "%s\\n" "x-access-token" ;;',
+        '  *) printf "%s\\n" "$OPENDIAGRAM_GITHUB_TOKEN" ;;',
+        "esac",
+        "",
+      ].join("\n"),
+      { mode: 0o700 },
+    );
+
+    const cloneUrl = `https://github.com/${input.repoFullName}.git`;
+    const proc = Bun.spawn(
+      ["git", "clone", "--depth", "1", "--branch", input.defaultBranch, cloneUrl, repoDir],
+      {
+        env: {
+          ...process.env,
+          GIT_ASKPASS: askPassPath,
+          GIT_TERMINAL_PROMPT: "0",
+          OPENDIAGRAM_GITHUB_TOKEN: input.token,
+        },
+        stderr: "pipe",
+        stdout: "pipe",
+      },
+    );
+    const [exitCode, stderr] = await Promise.all([proc.exited, streamToText(proc.stderr)]);
+
+    if (exitCode !== 0) {
+      throw new Error(`Could not clone repository: ${sanitizeGitError(stderr)}`);
+    }
+  } finally {
+    await rm(askPassDir, { recursive: true, force: true });
   }
 
   return repoDir;
+}
+
+export async function cleanupRepositoryClone(repoPath: string) {
+  await rm(repoPath, { recursive: true, force: true });
 }
 
 async function getCommitSha(repoPath: string) {

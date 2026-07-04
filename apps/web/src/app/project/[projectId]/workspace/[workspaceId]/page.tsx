@@ -1,12 +1,6 @@
 import { WorkspaceLayout } from "@/components/whiteboard/WorkspaceLayout";
 
-interface WorkspaceFilePageProps {
-  params: Promise<{ projectId: string; workspaceId: string }>;
-}
-
-export default async function WorkspaceIdPage({ params }: WorkspaceFilePageProps) {
-  await params;
-
+export default function WorkspaceIdPage() {
   return (
     <div className="h-screen w-screen overflow-hidden">
       <WorkspaceLayout />

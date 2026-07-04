@@ -25,14 +25,17 @@ export type WorkspaceAgentResult = {
   spec?: DiagramSpec;
 };
 
-const DIAGRAM_KEYWORDS =
-  /\b(create|design|draw|generate|make|build|render|diagram|flow|architecture|system flow|canvas)\b/i;
+const DIAGRAM_NOUNS =
+  /\b(diagram|flowchart|sequence diagram|architecture diagram|system flow|request flow|data flow|canvas|whiteboard)\b/i;
+const DIAGRAM_VERBS = /\b(create|design|draw|generate|render|sketch|map)\b/i;
+const DIAGRAM_TARGETS =
+  /\b(diagram|architecture|system flow|request flow|data flow|sequence|flowchart)\b/i;
 
 export async function orchestrateWorkspaceRequest(input: {
   text: string;
   projectId?: string;
 }): Promise<WorkspaceAgentRoute> {
-  if (DIAGRAM_KEYWORDS.test(input.text)) {
+  if (isLikelyDiagramRequest(input.text)) {
     return { intent: "diagram", pendingMessage: "Generating diagram…" };
   }
 
@@ -50,8 +53,14 @@ export async function orchestrateWorkspaceRequest(input: {
       pendingMessage: intent === "diagram" ? "Generating diagram…" : "Reading project context…",
     };
   } catch {
-    return { intent: "project_chat", pendingMessage: "Reading project context…" };
+    return input.projectId
+      ? { intent: "project_chat", pendingMessage: "Reading project context…" }
+      : { intent: "diagram", pendingMessage: "Generating diagram…" };
   }
+}
+
+function isLikelyDiagramRequest(text: string) {
+  return DIAGRAM_NOUNS.test(text) || (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text));
 }
 
 export async function runDiagramAgent(input: {

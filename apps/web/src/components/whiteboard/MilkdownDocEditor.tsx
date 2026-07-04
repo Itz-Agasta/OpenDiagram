@@ -102,6 +102,7 @@ function CrepePane({
   useLayoutEffect(() => {
     if (!rootRef.current || loadingRef.current) return;
 
+    let mounted = true;
     loadingRef.current = true;
     const crepe = new Crepe({
       defaultValue: initialValue,
@@ -118,10 +119,19 @@ function CrepePane({
       })
       .use(listener);
 
-    crepe.create().then(() => {
-      crepeRef.current = crepe;
-      loadingRef.current = false;
-    });
+    crepe
+      .create()
+      .then(() => {
+        if (!mounted) return;
+        crepeRef.current = crepe;
+      })
+      .catch((error) => {
+        console.error("Failed to initialize Milkdown editor:", error);
+      })
+      .finally(() => {
+        loadingRef.current = false;
+        if (!mounted) void crepe.destroy();
+      });
 
     setAPI({
       update: (markdown: string) => {
@@ -146,8 +156,10 @@ function CrepePane({
     });
 
     return () => {
-      if (loadingRef.current) return;
-      crepe.destroy();
+      mounted = false;
+      loadingRef.current = false;
+      crepeRef.current = null;
+      void crepe.destroy();
       setAPI({ update: () => undefined });
     };
   }, [initialValue, onChange, setAPI]);

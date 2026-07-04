@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import { ArrowLeft, Check, GitBranch, Loader2, Lock, Search } from "lucide-react";
@@ -44,6 +44,8 @@ function GitHubImportContent() {
   const [importMessage, setImportMessage] = useState("Queued repository import");
   const [error, setError] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
+  const importAbortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
 
   const requestedRepo = useMemo(() => {
     const fromQuery = normalizeRepoTarget(searchParams.get("repo") ?? "");
@@ -53,6 +55,15 @@ function GitHubImportContent() {
 
     return window.localStorage.getItem("opendiagram:pending-github-repo") ?? "";
   }, [searchParams]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      importAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (!requestedRepo) return;
@@ -119,6 +130,9 @@ function GitHubImportContent() {
   const [importingRepo, setImportingRepo] = useState<string | null>(null);
 
   async function importSelectedRepo(repoFullName: string) {
+    importAbortRef.current?.abort();
+    const controller = new AbortController();
+    importAbortRef.current = controller;
     setImportingRepo(repoFullName);
     setImportState("importing");
     setImportMessage("Queued repository import");
@@ -126,8 +140,10 @@ function GitHubImportContent() {
 
     try {
       const job = await importGitHubRepository(repoFullName);
+      if (!mountedRef.current || controller.signal.aborted) return;
       setImportMessage(job.message);
-      const completed = await waitForImportJob(job.id, setImportMessage);
+      const completed = await waitForImportJob(job.id, setImportMessage, controller.signal);
+      if (!mountedRef.current || controller.signal.aborted) return;
 
       if (!completed.project) {
         throw new Error("Import finished without a project.");
@@ -137,8 +153,11 @@ function GitHubImportContent() {
       setImportedProject(completed.project);
       setImportState("done");
     } catch (err) {
+      if (!mountedRef.current || controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not import GitHub repository.");
       setImportState("idle");
+    } finally {
+      if (importAbortRef.current === controller) importAbortRef.current = null;
     }
   }
 
@@ -525,10 +544,11 @@ function normalizeRepoTarget(value: string) {
 async function waitForImportJob(
   jobId: string,
   onMessage: (message: string) => void,
+  signal: AbortSignal,
 ): Promise<Awaited<ReturnType<typeof getGitHubImportJob>>> {
   for (let attempt = 0; attempt < 180; attempt++) {
-    await new Promise((resolve) => window.setTimeout(resolve, 1000));
-    const job = await getGitHubImportJob(jobId);
+    await abortableDelay(1000, signal);
+    const job = await getGitHubImportJob(jobId, signal);
     onMessage(job.message);
 
     if (job.status === "done") return job;
@@ -536,4 +556,20 @@ async function waitForImportJob(
   }
 
   throw new Error("Repository import timed out.");
+}
+
+function abortableDelay(ms: number, signal: AbortSignal) {
+  if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+
+  return new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timeout);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
 }

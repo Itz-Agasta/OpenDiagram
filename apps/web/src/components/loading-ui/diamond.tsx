@@ -16,6 +16,19 @@ function Diamond(props: React.ComponentProps<"svg">) {
             .pixel-6 { animation: spin-pixel 0.8s ease-in-out 0.5s infinite; }
             .pixel-7 { animation: spin-pixel 0.8s ease-in-out 0.6s infinite; }
             .pixel-8 { animation: spin-pixel 0.8s ease-in-out 0.7s infinite; }
+            @media (prefers-reduced-motion: reduce) {
+              .pixel-1,
+              .pixel-2,
+              .pixel-3,
+              .pixel-4,
+              .pixel-5,
+              .pixel-6,
+              .pixel-7,
+              .pixel-8 {
+                animation: none !important;
+                opacity: 1;
+              }
+            }
           `}
       </style>
       {/* Top */}

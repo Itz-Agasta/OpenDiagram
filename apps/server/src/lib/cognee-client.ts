@@ -117,6 +117,7 @@ async function cogneeRequest<T = unknown>(path: string, init: RequestInit): Prom
   const config = getCogneeConfig();
   const response = await fetch(`${config.baseUrl}${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(30_000),
     headers: {
       ...init.headers,
       "X-Api-Key": config.apiKey,

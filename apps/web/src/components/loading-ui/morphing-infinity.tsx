@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 
 const circleA =
   "M 12 8 C 14.21 8 16 9.79 16 12 C 16 14.21 14.21 16 12 16 C 9.79 16 8 14.21 8 12 C 8 9.79 9.79 8 12 8 Z";
@@ -12,6 +13,8 @@ const circleB =
   "M 12 16 C 14.21 16 16 14.21 16 12 C 16 9.79 14.21 8 12 8 C 9.79 8 8 9.79 8 12 C 8 14.21 9.79 16 12 16 Z";
 
 function MorphingInfinity(props: React.ComponentProps<"svg">) {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <svg
       viewBox="0 0 24 24"
@@ -25,17 +28,23 @@ function MorphingInfinity(props: React.ComponentProps<"svg">) {
       {...props}
     >
       <motion.path
-        animate={{
-          d: [circleA, infinity, circleB, infinity, circleA],
-        }}
-        transition={{
-          d: {
-            duration: 5,
-            ease: "easeInOut",
-            repeat: Infinity,
-            times: [0, 0.25, 0.5, 0.75, 1.0],
-          },
-        }}
+        animate={
+          shouldReduceMotion
+            ? { d: infinity }
+            : { d: [circleA, infinity, circleB, infinity, circleA] }
+        }
+        transition={
+          shouldReduceMotion
+            ? undefined
+            : {
+                d: {
+                  duration: 5,
+                  ease: "easeInOut",
+                  repeat: Infinity,
+                  times: [0, 0.25, 0.5, 0.75, 1.0],
+                },
+              }
+        }
       />
     </svg>
   );

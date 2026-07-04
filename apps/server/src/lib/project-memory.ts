@@ -156,7 +156,6 @@ export async function indexRepositoryMemory(input: {
   repoFullName: string;
   branch: string;
   commitSha: string | null;
-  repoPath: string;
   sourceDocuments: RepositorySourceDocument[];
 }) {
   const row = await getOwnedProject(input);
@@ -371,7 +370,6 @@ function buildRepositoryDocuments(input: {
   repoFullName: string;
   branch: string;
   commitSha: string | null;
-  repoPath: string;
   sourceDocuments: RepositorySourceDocument[];
 }) {
   return [
@@ -382,7 +380,6 @@ function buildRepositoryDocuments(input: {
         "",
         `Branch: ${input.branch}`,
         `Commit: ${input.commitSha ?? "unknown"}`,
-        `Clone path: ${input.repoPath}`,
         `Indexed source files: ${input.sourceDocuments.length}`,
         "",
         "## Source files",

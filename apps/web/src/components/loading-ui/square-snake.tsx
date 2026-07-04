@@ -38,6 +38,13 @@ function SquareSnake({
             transform: translate(0, var(--loader-y));
           }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+          .loading-ui-square-snake__glyph {
+            animation: none !important;
+            transform: translate(0, 0);
+          }
+        }
       `}</style>
       <span
         role="status"
@@ -59,7 +66,7 @@ function SquareSnake({
           <span
             key={`${glyph}-${index}`}
             aria-hidden="true"
-            className="pointer-events-none absolute top-0 left-0 flex h-[1ch] w-[1ch] items-center justify-center"
+            className="loading-ui-square-snake__glyph pointer-events-none absolute top-0 left-0 flex h-[1ch] w-[1ch] items-center justify-center"
             style={{
               animation: "loading-ui-square-snake var(--duration, 2s) linear infinite",
               animationDelay: `calc(var(--delay, 0.125s) * -${glyphs.length - 1 - index})`,
