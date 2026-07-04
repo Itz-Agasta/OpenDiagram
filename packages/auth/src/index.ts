@@ -27,10 +27,22 @@ export function createAuth() {
     emailAndPassword: {
       enabled: true,
     },
+    // Stateless OAuth state: keep the whole state payload in one encrypted,
+    // short-lived cookie instead of the DB. Avoids "verification not found"
+    // from flaky pooler writes / `bun --hot` reloads mid-flow.
+    account: {
+      storeStateStrategy: "cookie",
+    },
     socialProviders: githubProvider,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
+      // In prod, web (app.vyse.site) and server (api.vyse.site) are different
+      // subdomains, so the session cookie must be scoped to the shared parent
+      // domain or the browser treats it as third-party and drops it.
+      ...(env.COOKIE_DOMAIN
+        ? { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }
+        : {}),
       defaultCookieAttributes: {
         sameSite: "none",
         secure: true,
