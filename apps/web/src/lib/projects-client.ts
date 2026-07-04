@@ -4,9 +4,9 @@ export type SavedProject = {
   id: string;
   name: string;
   description: string | null;
-  cogneeDatasetId?: string | null;
-  cogneeStatus?: string;
-  cogneeError?: string | null;
+  memoryDatasetId?: string | null;
+  memoryStatus?: string;
+  memoryError?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,6 +54,22 @@ export type ProjectChatSource = {
 export type ProjectChatResult = {
   answer: string;
   sources: ProjectChatSource[];
+  provider?: "cognee" | "local";
+};
+
+export type ProjectMemoryContextResult = {
+  context: string;
+  sources: ProjectChatSource[];
+  provider: "cognee" | "local";
+};
+
+export type ProjectMemoryStatus = {
+  provider: string;
+  status: string;
+  datasetId: string | null;
+  datasetName: string;
+  error: string | null;
+  health?: { ok: boolean; disabled: boolean } | null;
 };
 
 async function readProjectResponse(response: Response) {
@@ -180,17 +196,45 @@ export async function updateProjectFile(
   return data.file;
 }
 
-export type ProjectContextResult = {
-  context: string;
-  sources: ProjectChatSource[];
-};
+export async function getProjectMemoryStatus(projectId: string): Promise<ProjectMemoryStatus> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/memory/status`,
+    {
+      credentials: "include",
+    },
+  );
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not load project memory status.");
+  }
+
+  return data.memory;
+}
+
+export async function reindexProjectMemory(projectId: string): Promise<ProjectMemoryStatus> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/memory/reindex`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not index project memory.");
+  }
+
+  return data.memory;
+}
 
 export async function getProjectContext(
   projectId: string,
   query: string,
-): Promise<ProjectContextResult> {
+): Promise<ProjectMemoryContextResult> {
   const response = await fetch(
-    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/cognee/context`,
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/memory/context`,
     {
       method: "POST",
       credentials: "include",
