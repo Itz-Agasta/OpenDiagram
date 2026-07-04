@@ -155,24 +155,24 @@ Create `.env` from `.env.template` if it exists, then set at least `LLM_API_KEY`
 
 When setup fails, do not reinstall blindly. Read the first meaningful error and match it:
 
-| Error clue | Likely fix |
-|---|---|
-| `No module named cognee` | Activate the virtual environment and install `cognee` in that environment. |
-| `Python 3.9`, `SyntaxError`, or resolver rejects Python | Switch to Python 3.10 through 3.14 and recreate the virtual environment. |
-| `anthropic` | Install `cognee[anthropic]`. |
-| `psycopg2`, `asyncpg`, or `pgvector` | Install `cognee[postgres]` or `cognee[postgres-binary]`. |
-| `neo4j` | Install `cognee[neo4j]`. |
-| `playwright`, `tavily`, or `beautifulsoup4` | Install `cognee[scraping]`. |
-| `unstructured` | Install `cognee[docs]`. |
-| `docling` | Install `cognee[docling]`. |
-| `fastembed` | Install `cognee[fastembed]` or `cognee[codegraph]`. |
-| `tree_sitter` | Install `cognee[codegraph]`. |
-| `modal` | Install `cognee[distributed]`. |
-| `redis` | Install `cognee[redis]`. |
-| `baml` | Install `cognee[baml]`. |
-| API key, auth, or provider fallback errors | Confirm `.env` is in the project root and both LLM and embedding settings are configured for non-default providers. |
-| Embedding dimension mismatch or stale vector collections | Reset local metadata with `await cognee.prune.prune_system(metadata=True)` or use a new `SYSTEM_ROOT_DIRECTORY`. |
-| LLM connection preflight times out on a local/small model | Add `COGNEE_SKIP_CONNECTION_TEST=true` to `.env`, then test with a small input. |
+| Error clue                                                | Likely fix                                                                                                          |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `No module named cognee`                                  | Activate the virtual environment and install `cognee` in that environment.                                          |
+| `Python 3.9`, `SyntaxError`, or resolver rejects Python   | Switch to Python 3.10 through 3.14 and recreate the virtual environment.                                            |
+| `anthropic`                                               | Install `cognee[anthropic]`.                                                                                        |
+| `psycopg2`, `asyncpg`, or `pgvector`                      | Install `cognee[postgres]` or `cognee[postgres-binary]`.                                                            |
+| `neo4j`                                                   | Install `cognee[neo4j]`.                                                                                            |
+| `playwright`, `tavily`, or `beautifulsoup4`               | Install `cognee[scraping]`.                                                                                         |
+| `unstructured`                                            | Install `cognee[docs]`.                                                                                             |
+| `docling`                                                 | Install `cognee[docling]`.                                                                                          |
+| `fastembed`                                               | Install `cognee[fastembed]` or `cognee[codegraph]`.                                                                 |
+| `tree_sitter`                                             | Install `cognee[codegraph]`.                                                                                        |
+| `modal`                                                   | Install `cognee[distributed]`.                                                                                      |
+| `redis`                                                   | Install `cognee[redis]`.                                                                                            |
+| `baml`                                                    | Install `cognee[baml]`.                                                                                             |
+| API key, auth, or provider fallback errors                | Confirm `.env` is in the project root and both LLM and embedding settings are configured for non-default providers. |
+| Embedding dimension mismatch or stale vector collections  | Reset local metadata with `await cognee.prune.prune_system(metadata=True)` or use a new `SYSTEM_ROOT_DIRECTORY`.    |
+| LLM connection preflight times out on a local/small model | Add `COGNEE_SKIP_CONNECTION_TEST=true` to `.env`, then test with a small input.                                     |
 
 ## Windows adjustments
 
