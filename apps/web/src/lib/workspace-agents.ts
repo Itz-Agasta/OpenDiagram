@@ -46,14 +46,6 @@ export async function orchestrateWorkspaceRequest(input: {
   }
 }
 
-export async function runCogneeContextAgent(input: {
-  text: string;
-  projectId: string;
-}): Promise<string> {
-  const { context } = await getProjectContext(input.projectId, input.text);
-  return context;
-}
-
 export async function runDiagramAgent(input: {
   text: string;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
@@ -65,10 +57,9 @@ export async function runDiagramAgent(input: {
 
   let context: string | undefined;
   if (input.projectId) {
-    context = await runCogneeContextAgent({
-      text: input.text,
-      projectId: input.projectId,
-    });
+    context = await getProjectContext(input.projectId, input.text)
+      .then((result) => result.context)
+      .catch(() => undefined);
   }
 
   const { spec, skeletons, rawElements } = await generateDiagram(input.text, undefined, context);
