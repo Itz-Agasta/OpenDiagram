@@ -163,8 +163,13 @@ async function cognifyDataset(datasetId: string) {
 }
 
 async function cloudRequest<T>(path: string, init: RequestInit): Promise<T> {
-  const apiKey = env.COGNEE_CLOUD_API_KEY ?? env.COGNEE_API_KEY;
-  const baseUrl = env.COGNEE_CLOUD_BASE_URL ?? env.COGNEE_BASE_URL;
+  const apiKey =
+    process.env.COGNEE_CLOUD_API_KEY ?? env.COGNEE_CLOUD_API_KEY ?? process.env.COGNEE_API_KEY ?? env.COGNEE_API_KEY;
+  const baseUrl =
+    process.env.COGNEE_CLOUD_BASE_URL ??
+    env.COGNEE_CLOUD_BASE_URL ??
+    process.env.COGNEE_BASE_URL ??
+    env.COGNEE_BASE_URL;
 
   if (!apiKey) {
     throw new Error("COGNEE_API_KEY or COGNEE_CLOUD_API_KEY is required for Cognee Cloud.");
