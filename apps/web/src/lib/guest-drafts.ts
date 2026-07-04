@@ -1,21 +1,70 @@
+export type GuestDraftFile = {
+  id: string;
+  name: string;
+  scene?: unknown;
+  spec?: unknown;
+};
+
 export type GuestProjectDraft = {
   id: string;
   name: string;
   description?: string;
-  scene?: unknown;
-  spec?: unknown;
+  files: GuestDraftFile[];
   createdAt: string;
   updatedAt: string;
 };
 
 const draftPrefix = "opendiagram:guest-project:";
 
-export function createGuestProjectDraft(name: string): GuestProjectDraft {
+function migrateDraft(raw: Record<string, unknown>): GuestProjectDraft | null {
+  if (typeof raw.id !== "string" || typeof raw.name !== "string") return null;
+  if (typeof raw.createdAt !== "string" || typeof raw.updatedAt !== "string") return null;
+
+  if (Array.isArray(raw.files)) {
+    return raw as unknown as GuestProjectDraft;
+  }
+
+  const files: GuestDraftFile[] = [
+    {
+      id: raw.id as string,
+      name: "Your first design",
+      scene: raw.scene,
+      spec: raw.spec,
+    },
+  ];
+
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    description: raw.description as string | undefined,
+    files,
+    createdAt: raw.createdAt as string,
+    updatedAt: raw.updatedAt as string,
+  };
+}
+
+function parseDraft(raw: string): GuestProjectDraft | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return migrateDraft(parsed);
+  } catch {
+    return null;
+  }
+}
+
+export function createGuestProjectDraft(name: string, fileName?: string): GuestProjectDraft {
   const now = new Date().toISOString();
 
   return {
     id: crypto.randomUUID(),
     name,
+    files: [
+      {
+        id: crypto.randomUUID(),
+        name: fileName?.trim() || "Your first design",
+      },
+    ],
     createdAt: now,
     updatedAt: now,
   };
@@ -27,15 +76,7 @@ export function getGuestProjectDraft(id: string): GuestProjectDraft | null {
   const raw = window.localStorage.getItem(`${draftPrefix}${id}`);
   if (!raw) return null;
 
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return null;
-    if (typeof parsed.id !== "string" || typeof parsed.name !== "string") return null;
-    if (typeof parsed.createdAt !== "string" || typeof parsed.updatedAt !== "string") return null;
-    return parsed as GuestProjectDraft;
-  } catch {
-    return null;
-  }
+  return parseDraft(raw);
 }
 
 export function listGuestProjectDrafts(): GuestProjectDraft[] {
@@ -46,16 +87,7 @@ export function listGuestProjectDrafts(): GuestProjectDraft[] {
     .map((key) => {
       const raw = window.localStorage.getItem(key);
       if (!raw) return null;
-
-      try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed !== "object" || parsed === null) return null;
-        if (typeof parsed.id !== "string" || typeof parsed.name !== "string") return null;
-        if (typeof parsed.createdAt !== "string" || typeof parsed.updatedAt !== "string") return null;
-        return parsed as GuestProjectDraft;
-      } catch {
-        return null;
-      }
+      return parseDraft(raw);
     })
     .filter((draft): draft is GuestProjectDraft => Boolean(draft))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

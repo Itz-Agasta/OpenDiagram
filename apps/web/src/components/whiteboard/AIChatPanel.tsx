@@ -4,8 +4,13 @@ import { useCallback, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { ChatStatus } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { generateDiagram } from "@/lib/diagram-client";
-import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
+import {
+  orchestrateWorkspaceRequest,
+  runDiagramAgent,
+  runProjectChatAgent,
+  type WorkspaceAgentRoute,
+} from "@/lib/workspace-agents";
+import { updateProjectFile } from "@/lib/projects-client";
 import {
   Conversation,
   ConversationContent,
@@ -31,37 +36,70 @@ interface ChatMessage {
 
 interface AIChatPanelProps {
   excalidrawAPI: ExcalidrawImperativeAPI | null;
+  projectId?: string;
+  fileId?: string;
+  initialHistory?: ChatMessage[];
 }
 
-export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function AIChatPanel({
+  excalidrawAPI,
+  projectId,
+  fileId,
+  initialHistory,
+}: AIChatPanelProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialHistory ?? []);
   const [status, setStatus] = useState<ChatStatus>("ready");
-  const idRef = useRef(0);
+  const idRef = useRef(initialHistory?.length ?? 0);
 
   const handleSubmit = useCallback(
     async (msg: PromptInputMessage) => {
       const text = msg.text.trim();
-      if (!text || !excalidrawAPI || status !== "ready") return;
+      if (!text || status !== "ready") return;
+      if (!projectId && !excalidrawAPI) return;
+
+      setStatus("submitted");
+
+      let route: WorkspaceAgentRoute;
+      try {
+        route = await orchestrateWorkspaceRequest({ text, projectId });
+      } catch {
+        route = { intent: "project_chat", pendingMessage: "Reading project context…" };
+      }
 
       const userMessageId = `msg-${idRef.current++}`;
       const assistantMessageId = `msg-${idRef.current++}`;
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: "user", text },
-        { id: assistantMessageId, role: "assistant", text: "Generating diagram…" },
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          text: route.pendingMessage,
+        },
       ]);
-      setStatus("submitted");
 
       try {
-        const { spec, skeletons, rawElements } = await generateDiagram(text);
-        await applyDiagramToCanvas(excalidrawAPI, skeletons, rawElements);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? { ...m, text: `Done — "${spec.title}" (${spec.nodes.length} nodes).` }
-              : m,
-          ),
-        );
+        const result =
+          route.intent === "diagram"
+            ? await runDiagramAgent({ text, excalidrawAPI, projectId })
+            : await runProjectChatAgent({ text, projectId });
+
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
+            m.id === assistantMessageId ? { ...m, text: result.message } : m,
+          );
+
+          if (projectId && fileId) {
+            setTimeout(() => {
+              void updateProjectFile(projectId, fileId, {
+                history: updated,
+                spec: result.spec,
+              });
+            }, 0);
+          }
+
+          return updated;
+        });
         setStatus("ready");
       } catch (error) {
         const message = error instanceof Error ? error.message : "Diagram generation failed";
@@ -71,7 +109,7 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
         setStatus("ready");
       }
     },
-    [excalidrawAPI, status],
+    [excalidrawAPI, projectId, fileId, status],
   );
 
   return (
@@ -88,7 +126,11 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
           {messages.length === 0 ? (
             <ConversationEmptyState
               title="Start a conversation"
-              description="Describe your architecture and I'll generate a diagram for you."
+              description={
+                projectId
+                  ? "Ask about this project's diagrams, docs, and workspace context."
+                  : "Describe your architecture and I'll generate a diagram for you."
+              }
               icon={<Sparkles className="size-6 text-muted-foreground" />}
             />
           ) : (
@@ -115,7 +157,9 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <p className="text-xs text-muted-foreground flex-1">Gemini 2.5 Flash</p>
+              <p className="text-xs text-muted-foreground flex-1">
+                {projectId ? "Project-grounded AI" : "Gemini 2.5 Flash"}
+              </p>
               <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>

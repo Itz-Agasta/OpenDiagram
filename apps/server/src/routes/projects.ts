@@ -3,6 +3,13 @@ import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { project } from "@OpenDiagram/db/schema/project";
 import { Hono } from "hono";
 import { z } from "zod";
+import { generateGroundedProjectAnswer } from "../lib/llm";
+import {
+  ensureProjectKnowledgeDataset,
+  getProjectCogneeStatus,
+  reindexProjectKnowledge,
+  searchProjectKnowledge,
+} from "../lib/project-knowledge";
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
 
 const createSchema = z.object({
@@ -25,6 +32,7 @@ const createFileSchema = z.object({
   scene: z.unknown().optional(),
   spec: z.unknown().optional(),
   content: z.unknown().optional(),
+  history: z.array(z.unknown()).optional(),
 });
 
 const updateFileSchema = z
@@ -34,8 +42,13 @@ const updateFileSchema = z
     scene: z.unknown().optional(),
     spec: z.unknown().optional(),
     content: z.unknown().optional(),
+    history: z.array(z.unknown()).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No fields to update" });
+
+const chatSchema = z.object({
+  message: z.string().min(1).max(4000),
+});
 
 export const projectsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -72,7 +85,122 @@ projectsRoute.post("/", async (c) => {
     .values({ ...parsed.data, userId })
     .returning();
 
-  return c.json({ project: row }, 201);
+  if (!row) {
+    return c.json({ error: "Could not create project" }, 500);
+  }
+
+  const cogneeDatasetId = await ensureProjectKnowledgeDataset({ projectId: row.id, userId });
+
+  return c.json(
+    { project: { ...row, cogneeDatasetId, cogneeStatus: cogneeDatasetId ? "pending" : "failed" } },
+    201,
+  );
+});
+
+projectsRoute.get("/:projectId/cognee/status", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const status = await getProjectCogneeStatus({ projectId, userId });
+
+  if (!status) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  return c.json({ cognee: status });
+});
+
+projectsRoute.post("/:projectId/cognee/reindex", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  try {
+    const status = await reindexProjectKnowledge({ projectId, userId });
+
+    if (!status) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    return c.json({ cognee: status });
+  } catch {
+    return c.json({ error: "Could not index project knowledge." }, 502);
+  }
+});
+
+const contextQuerySchema = z.object({
+  query: z.string().min(1).max(2000),
+});
+
+projectsRoute.post("/:projectId/cognee/context", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const body = await c.req.json().catch(() => null);
+  const parsed = contextQuerySchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
+  }
+
+  const results = await searchProjectKnowledge({
+    projectId,
+    userId,
+    query: parsed.data.query,
+  });
+
+  if (!results) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  const context =
+    results.length > 0 ? formatProjectContext(results) : "No matching project context found.";
+
+  return c.json({
+    context,
+    sources: results.map((result) => ({
+      id: result.document.id,
+      title: result.document.title,
+      sourceType: result.document.sourceType,
+      excerpt: result.excerpt,
+      score: result.score,
+      metadata: result.document.metadata ?? {},
+    })),
+  });
+});
+
+projectsRoute.post("/:projectId/chat", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const body = await c.req.json().catch(() => null);
+  const parsed = chatSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
+  }
+
+  const results = await searchProjectKnowledge({
+    projectId,
+    userId,
+    query: parsed.data.message,
+  });
+
+  if (!results) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  const context =
+    results.length > 0 ? formatProjectContext(results) : "No matching project context.";
+  const answer = await generateGroundedProjectAnswer({ message: parsed.data.message, context });
+
+  return c.json({
+    answer,
+    sources: results.map((result) => ({
+      id: result.document.id,
+      title: result.document.title,
+      sourceType: result.document.sourceType,
+      excerpt: result.excerpt,
+      score: result.score,
+      metadata: result.document.metadata ?? {},
+    })),
+  });
 });
 
 projectsRoute.get("/:projectId/files", async (c) => {
@@ -127,6 +255,8 @@ projectsRoute.post("/:projectId/files", async (c) => {
     .values({ ...parsed.data, projectId })
     .returning();
 
+  await markProjectKnowledgePending(projectId, userId);
+
   return c.json({ file: row }, 201);
 });
 
@@ -143,6 +273,7 @@ projectsRoute.get("/:projectId/files/:fileId", async (c) => {
       scene: projectFile.scene,
       spec: projectFile.spec,
       content: projectFile.content,
+      history: projectFile.history,
       createdAt: projectFile.createdAt,
       updatedAt: projectFile.updatedAt,
     })
@@ -184,6 +315,8 @@ projectsRoute.patch("/:projectId/files/:fileId", async (c) => {
     .where(eq(projectFile.id, fileId))
     .returning();
 
+  await markProjectKnowledgePending(projectId, userId);
+
   return c.json({ file: row });
 });
 
@@ -202,9 +335,28 @@ projectsRoute.delete("/:projectId/files/:fileId", async (c) => {
   }
 
   await db.delete(projectFile).where(eq(projectFile.id, fileId));
+  await markProjectKnowledgePending(projectId, userId);
 
   return c.json({ ok: true });
 });
+
+function formatProjectContext(
+  results: NonNullable<Awaited<ReturnType<typeof searchProjectKnowledge>>>,
+) {
+  return results
+    .map(
+      (result, index) =>
+        `Source ${index + 1}: ${result.document.title}\nType: ${result.document.sourceType}\nExcerpt: ${result.excerpt}`,
+    )
+    .join("\n\n");
+}
+
+async function markProjectKnowledgePending(projectId: string, userId: string) {
+  await db
+    .update(project)
+    .set({ cogneeStatus: "pending", cogneeError: null })
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)));
+}
 
 projectsRoute.get("/:id", async (c) => {
   const userId = c.get("userId");
@@ -216,6 +368,8 @@ projectsRoute.get("/:id", async (c) => {
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
+
+  await markProjectKnowledgePending(row.id, userId);
 
   return c.json({ project: row });
 });

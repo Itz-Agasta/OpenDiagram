@@ -15,6 +15,7 @@ import {
 import {
   createProject,
   createProjectFile,
+  getProjectFile,
   listProjectFiles,
   updateProjectFile,
   type SavedProjectFile,
@@ -29,7 +30,7 @@ function sanitizeSceneAppState(appState: unknown) {
 }
 
 export function WorkspaceLayout() {
-  const params = useParams<{ projectId: string }>();
+  const params = useParams<{ projectId: string; workspaceId?: string }>();
   const router = useRouter();
   const session = authClient.useSession();
   const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
@@ -37,18 +38,31 @@ export function WorkspaceLayout() {
   const [activeFile, setActiveFile] = useState<SavedProjectFile | null>(null);
   const [initialScene, setInitialScene] = useState<unknown>(null);
   const [leavePromptOpen, setLeavePromptOpen] = useState(false);
+  const [showFirstFileDialog, setShowFirstFileDialog] = useState(false);
+  const [firstFileName, setFirstFileName] = useState("");
   const [savePending, setSavePending] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const draftRef = useRef<GuestProjectDraft | null>(null);
   const sceneRef = useRef<unknown>(null);
+  const currentFileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const nextDraft = getGuestProjectDraft(params.projectId);
     draftRef.current = nextDraft;
     setDraft(nextDraft);
-    setInitialScene(nextDraft?.scene ?? null);
-  }, [params.projectId]);
+
+    if (nextDraft) {
+      const file = params.workspaceId
+        ? nextDraft.files.find((f) => f.id === params.workspaceId)
+        : nextDraft.files[0];
+      currentFileIdRef.current = file?.id ?? nextDraft.files[0]?.id ?? null;
+      setInitialScene(file?.scene ?? null);
+    } else {
+      currentFileIdRef.current = null;
+      setInitialScene(null);
+    }
+  }, [params.projectId, params.workspaceId]);
 
   useEffect(() => {
     if (!draft || session.data?.user) return;
@@ -72,19 +86,29 @@ export function WorkspaceLayout() {
       setSaveError(null);
 
       try {
-        const files = await listProjectFiles(params.projectId);
-        const diagramFile = files.find((file) => file.type === "diagram");
-        const file =
-          diagramFile ??
-          (await createProjectFile(params.projectId, {
-            name: "Your first design",
-            type: "diagram",
-          }));
+        let result: SavedProjectFile;
+
+        if (params.workspaceId) {
+          result = await getProjectFile(params.projectId, params.workspaceId);
+        } else {
+          const files = await listProjectFiles(params.projectId);
+          const diagramFile = files.find((f) => f.type === "diagram");
+
+          if (!diagramFile) {
+            if (active) {
+              setShowFirstFileDialog(true);
+              setFirstFileName("");
+            }
+            return;
+          }
+
+          result = await getProjectFile(params.projectId, diagramFile.id);
+        }
 
         if (active) {
-          setActiveFile(file);
-          sceneRef.current = file.scene ?? null;
-          setInitialScene(file.scene ?? null);
+          setActiveFile(result);
+          sceneRef.current = result.scene ?? null;
+          setInitialScene(result.scene ?? null);
         }
       } catch (err) {
         if (active) {
@@ -98,7 +122,7 @@ export function WorkspaceLayout() {
     return () => {
       active = false;
     };
-  }, [draft, params.projectId, session.data?.user, session.isPending]);
+  }, [draft, params.projectId, params.workspaceId, session.data?.user, session.isPending]);
 
   const saveDraftAfterLogin = useCallback(async () => {
     const currentDraft = draftRef.current;
@@ -113,21 +137,28 @@ export function WorkspaceLayout() {
     setSaveError(null);
 
     try {
+      const currentFile =
+        currentDraft.files.find((f) => f.id === currentFileIdRef.current) ?? currentDraft.files[0];
+      if (!currentFile) {
+        setSaveError("No file to save.");
+        return;
+      }
+
       const project = await createProject({
         name: currentDraft.name,
         description: currentDraft.description,
       });
-      await createProjectFile(project.id, {
-        name: "Your first design",
+      const file = await createProjectFile(project.id, {
+        name: currentFile.name,
         type: "diagram",
-        scene: currentDraft.scene,
-        spec: currentDraft.spec,
+        scene: currentFile.scene,
+        spec: currentFile.spec,
       });
 
       deleteGuestProjectDraft(currentDraft.id);
       draftRef.current = null;
       setDraft(null);
-      router.replace(`/workspace/${project.id}`);
+      router.replace(`/project/${project.id}/workspace/${file.id}`);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Could not save project.");
     } finally {
@@ -150,9 +181,12 @@ export function WorkspaceLayout() {
       const currentDraft = draftRef.current;
       if (!currentDraft || session.data?.user) return;
 
+      const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
+      if (!fileId) return;
+
       const nextDraft = {
         ...currentDraft,
-        scene,
+        files: currentDraft.files.map((f) => (f.id === fileId ? { ...f, scene } : f)),
       };
 
       draftRef.current = nextDraft;
@@ -166,7 +200,12 @@ export function WorkspaceLayout() {
   }, []);
 
   useEffect(() => {
-    if (!excalidrawAPI || !initialScene || typeof initialScene !== "object") return;
+    if (!excalidrawAPI) return;
+
+    if (!initialScene || typeof initialScene !== "object") {
+      excalidrawAPI.updateScene({ elements: [], appState: undefined });
+      return;
+    }
 
     const scene = initialScene as { elements?: unknown; appState?: unknown; files?: unknown };
     const appState = sanitizeSceneAppState(scene.appState);
@@ -210,6 +249,25 @@ export function WorkspaceLayout() {
     }
   }
 
+  async function handleCreateFirstFile(event: React.FormEvent) {
+    event.preventDefault();
+    const name = firstFileName.trim() || "Untitled diagram";
+
+    try {
+      const file = await createProjectFile(params.projectId, {
+        name,
+        type: "diagram",
+      });
+      setShowFirstFileDialog(false);
+      setActiveFile(file);
+      sceneRef.current = null;
+      setInitialScene(null);
+      router.replace(`/project/${params.projectId}/workspace/${file.id}`);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Could not create file.");
+    }
+  }
+
   async function signInToSave() {
     await authClient.signIn.social({
       provider: "github",
@@ -233,7 +291,7 @@ export function WorkspaceLayout() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium text-od-ink">
-                  {draft?.name ?? activeFile?.name ?? "Your first design"}
+                  {draft?.name ?? activeFile?.name ?? "Untitled diagram"}
                 </p>
                 <p className="truncate text-[12px] text-od-ink-faint">
                   {session.data?.user ? "Saved project file" : "Guest draft"}
@@ -252,8 +310,51 @@ export function WorkspaceLayout() {
             {saveError && <p className="mt-2 text-[12px] text-red-600">{saveError}</p>}
           </div>
         )}
-        <AIChatPanel excalidrawAPI={excalidrawAPI} />
+        <AIChatPanel
+          excalidrawAPI={excalidrawAPI}
+          projectId={session.data?.user ? params.projectId : undefined}
+          fileId={activeFile?.id ?? currentFileIdRef.current ?? undefined}
+          initialHistory={
+            activeFile?.history as
+              | { id: string; role: "user" | "assistant"; text: string }[]
+              | undefined
+          }
+        />
       </div>
+      {showFirstFileDialog && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/25 px-4">
+          <div className="w-full max-w-[420px] rounded-[18px] border border-od-border-soft bg-white p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.55)]">
+            <h2 className="text-[18px] font-semibold text-od-ink">Name your file</h2>
+            <form onSubmit={handleCreateFirstFile} className="mt-4 grid gap-4">
+              <input
+                autoFocus
+                value={firstFileName}
+                onChange={(event) => setFirstFileName(event.target.value)}
+                placeholder="e.g. Checkout architecture"
+                className="h-11 rounded-[8px] border border-od-border-soft px-3 text-[14px] text-od-ink outline-none transition placeholder:text-od-ink-faint focus:border-od-ink"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFirstFileDialog(false);
+                    router.push("/dashboard");
+                  }}
+                  className="h-10 rounded-[8px] border border-od-border-soft px-4 text-[14px] font-medium text-od-ink"
+                >
+                  Go to dashboard
+                </button>
+                <button
+                  type="submit"
+                  className="h-10 rounded-[8px] bg-od-ink px-4 text-[14px] font-medium text-white"
+                >
+                  Create file
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {leavePromptOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/25 px-4">
           <div className="w-full max-w-[420px] rounded-[18px] border border-od-border-soft bg-white p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.55)]">

@@ -498,7 +498,7 @@ function DonePanel({ project }: { project: SavedProject }) {
         </p>
       </div>
       <Link
-        href={`/workspace/${project.id}`}
+        href={`/project/${project.id}/workspace`}
         className="relative isolate overflow-hidden rounded-full bg-od-ink px-5 py-3 text-[14px] text-od-on-dark transition hover:bg-[#2a2a2a]"
       >
         <ButtonShaderTexture />
