@@ -3,6 +3,15 @@ import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
+export const projectMemoryStatuses = [
+  "not_started",
+  "pending",
+  "ingesting",
+  "ready",
+  "failed",
+  "not_ready",
+] as const;
+
 export const project = pgTable(
   "project",
   {
@@ -15,7 +24,9 @@ export const project = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     memoryDatasetId: text("cognee_dataset_id"),
-    memoryStatus: text("cognee_status").default("not_started").notNull(),
+    memoryStatus: text("cognee_status", { enum: projectMemoryStatuses })
+      .default("not_started")
+      .notNull(),
     memoryError: text("cognee_error"),
     scene: jsonb("scene"),
     spec: jsonb("spec"),

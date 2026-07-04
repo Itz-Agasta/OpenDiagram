@@ -1,4 +1,4 @@
-import { and, db, desc, eq } from "@OpenDiagram/db";
+import { and, db, desc, eq, ne } from "@OpenDiagram/db";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { project } from "@OpenDiagram/db/schema/project";
 import {
@@ -13,6 +13,8 @@ import {
 
 const MAX_DOCUMENT_CHARS = 16_000;
 const MAX_CONTEXT_CHARS = 16_000;
+
+type ProjectMemoryStatus = typeof project.$inferSelect.memoryStatus;
 
 const ARCHITECTURE_EXTRACTION_PROMPT = [
   "Extract software architecture knowledge from this OpenDiagram project.",
@@ -87,11 +89,20 @@ export async function reindexProjectMemory(input: { projectId: string; userId: s
     };
   }
 
-  await setProjectMemoryState(input, { status: "ingesting", error: null });
+  const lockedRow = await acquireProjectMemoryIngestLock(input);
+  if (!lockedRow) {
+    return {
+      provider: "cognee",
+      status: "ingesting",
+      datasetId: row.memoryDatasetId,
+      datasetName: createProjectDatasetName(input.projectId),
+      error: "Project memory indexing is already running.",
+    };
+  }
 
   try {
-    if (row.memoryDatasetId) {
-      await deleteCogneeDataset(row.memoryDatasetId).catch((error) => {
+    if (lockedRow.memoryDatasetId) {
+      await deleteCogneeDataset(lockedRow.memoryDatasetId).catch((error) => {
         if (error instanceof CogneeApiError && [403, 404].includes(error.status)) return;
         throw error;
       });
@@ -99,7 +110,7 @@ export async function reindexProjectMemory(input: { projectId: string; userId: s
 
     const datasetName = createProjectDatasetName(input.projectId);
     const dataset = await createCogneeDataset(datasetName);
-    const documents = await buildProjectDocuments(input.projectId, row);
+    const documents = await buildProjectDocuments(input.projectId, lockedRow);
     const remembered = await rememberCogneeDocuments({
       datasetId: dataset.id,
       documents,
@@ -239,6 +250,22 @@ async function getProjectFiles(projectId: string) {
     .orderBy(desc(projectFile.updatedAt));
 }
 
+async function acquireProjectMemoryIngestLock(input: { projectId: string; userId: string }) {
+  const [row] = await db
+    .update(project)
+    .set({ memoryStatus: "ingesting", memoryError: null })
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.userId, input.userId),
+        ne(project.memoryStatus, "ingesting"),
+      ),
+    )
+    .returning();
+
+  return row ?? null;
+}
+
 async function buildProjectDocuments(
   projectId: string,
   projectRow: NonNullable<Awaited<ReturnType<typeof getOwnedProject>>>,
@@ -255,7 +282,7 @@ async function buildProjectDocuments(
 
 async function setProjectMemoryState(
   input: { projectId: string; userId: string },
-  values: { datasetId?: string | null; status?: string; error?: string | null },
+  values: { datasetId?: string | null; status?: ProjectMemoryStatus; error?: string | null },
 ) {
   const update: Partial<typeof project.$inferInsert> = {};
   if ("datasetId" in values) update.memoryDatasetId = values.datasetId;

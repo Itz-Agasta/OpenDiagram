@@ -54,6 +54,10 @@ const contextQuerySchema = z.object({
   query: z.string().min(1).max(2000),
 });
 
+function markProjectMemoryPendingSafely(projectId: string, userId: string) {
+  void markProjectMemoryPending(projectId, userId).catch(() => undefined);
+}
+
 export const projectsRoute = new Hono<{ Variables: AuthVariables }>();
 
 projectsRoute.use("*", requireAuth);
@@ -232,7 +236,7 @@ projectsRoute.post("/:projectId/files", async (c) => {
     .values({ ...parsed.data, projectId })
     .returning();
 
-  await markProjectMemoryPending(projectId, userId);
+  markProjectMemoryPendingSafely(projectId, userId);
 
   return c.json({ file: row }, 201);
 });
@@ -292,7 +296,7 @@ projectsRoute.patch("/:projectId/files/:fileId", async (c) => {
     .where(eq(projectFile.id, fileId))
     .returning();
 
-  await markProjectMemoryPending(projectId, userId);
+  markProjectMemoryPendingSafely(projectId, userId);
 
   return c.json({ file: row });
 });
@@ -312,7 +316,7 @@ projectsRoute.delete("/:projectId/files/:fileId", async (c) => {
   }
 
   await db.delete(projectFile).where(eq(projectFile.id, fileId));
-  await markProjectMemoryPending(projectId, userId);
+  markProjectMemoryPendingSafely(projectId, userId);
 
   return c.json({ ok: true });
 });
@@ -327,8 +331,6 @@ projectsRoute.get("/:id", async (c) => {
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
-
-  await markProjectMemoryPending(c.req.param("id"), userId);
 
   return c.json({ project: row });
 });
@@ -351,6 +353,8 @@ projectsRoute.patch("/:id", async (c) => {
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
+
+  markProjectMemoryPendingSafely(c.req.param("id"), userId);
 
   return c.json({ project: row });
 });
