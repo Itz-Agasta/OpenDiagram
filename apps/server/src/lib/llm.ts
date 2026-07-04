@@ -373,3 +373,41 @@ export async function generateGroundedProjectAnswer(input: {
 
   return result.text;
 }
+
+export async function generateArchitectureDoc(input: {
+  context: string;
+  goal: string;
+  title: string;
+  repoFullName: string;
+  defaultBranch: string;
+  commitSha: string;
+}): Promise<string> {
+  const result = await generateText({
+    model: env.AI_PROVIDER === "custom" ? createKimiModel() : createGeminiModel(),
+    system: [
+      "You are an expert software architect writing technical documentation.",
+      "Write detailed, structured markdown using only the provided project context.",
+      "Cover the architecture, key components, data flow, and design decisions.",
+      "Use headings, bullet points, and code blocks for clarity.",
+      "Cite specific source files from the context where relevant.",
+      "If the context is insufficient, document what is known and note what needs investigation.",
+      "Be specific: include actual file paths, module names, and framework details found in the context.",
+      "Minimum 300 words. Do not add placeholder sections — write real content from the context.",
+    ].join("\n"),
+    prompt: [
+      `Goal: ${input.goal}`,
+      `Title: ${input.title}`,
+      `Repository: ${input.repoFullName} (${input.defaultBranch} @ ${input.commitSha})`,
+      "",
+      "## Project Context",
+      input.context,
+      "",
+      "## Instructions",
+      `Write the document "${input.title}" based on the goal and context above.`,
+      "Return valid markdown only — no wrapper explanations.",
+    ].join("\n"),
+    maxOutputTokens: 4096,
+  });
+
+  return result.text;
+}

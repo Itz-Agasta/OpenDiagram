@@ -10,11 +10,14 @@ import {
   markProjectMemoryPending,
   reindexProjectMemory,
 } from "../lib/project-memory";
+import { getRepoGenerationJob, startRepoGeneration } from "../lib/repo-generation";
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
+  source: z.enum(["manual", "github_import"]).optional(),
+  sourceMetadata: z.unknown().optional(),
 });
 
 const updateSchema = z
@@ -24,7 +27,7 @@ const updateSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No fields to update" });
 
-const fileTypeSchema = z.enum(["diagram", "doc", "readme", "imported_repo", "ai_diagram"]);
+const fileTypeSchema = z.enum(["diagram", "doc"]);
 
 const createFileSchema = z.object({
   name: z.string().min(1).max(200),
@@ -58,6 +61,13 @@ function markProjectMemoryPendingSafely(projectId: string, userId: string) {
   void markProjectMemoryPending(projectId, userId).catch(() => undefined);
 }
 
+function markDocSpecUserEdited(spec: unknown) {
+  if (!spec || typeof spec !== "object" || !("kind" in spec)) return spec;
+  if ((spec as { kind?: unknown }).kind !== "repo_documentation") return spec;
+
+  return { ...(spec as Record<string, unknown>), userEditedAt: new Date().toISOString() };
+}
+
 export const projectsRoute = new Hono<{ Variables: AuthVariables }>();
 
 projectsRoute.use("*", requireAuth);
@@ -69,6 +79,8 @@ projectsRoute.get("/", async (c) => {
       id: project.id,
       name: project.name,
       description: project.description,
+      source: project.source,
+      sourceMetadata: project.sourceMetadata,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
     })
@@ -184,6 +196,33 @@ projectsRoute.post("/:projectId/chat", async (c) => {
   });
 });
 
+projectsRoute.post("/:projectId/repo-generation", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  try {
+    const job = await startRepoGeneration({ projectId, userId });
+    if (!job) return c.json({ error: "Not found" }, 404);
+    return c.json({ job }, 202);
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : "Could not start repository generation." },
+      400,
+    );
+  }
+});
+
+projectsRoute.get("/:projectId/repo-generation/:jobId", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const jobId = c.req.param("jobId");
+  const job = getRepoGenerationJob({ projectId, userId, jobId });
+
+  if (!job) return c.json({ error: "Repository generation job not found." }, 404);
+
+  return c.json({ job });
+});
+
 projectsRoute.get("/:projectId/files", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
@@ -281,7 +320,7 @@ projectsRoute.patch("/:projectId/files/:fileId", async (c) => {
   }
 
   const [ownedFile] = await db
-    .select({ id: projectFile.id })
+    .select({ id: projectFile.id, spec: projectFile.spec, type: projectFile.type })
     .from(projectFile)
     .innerJoin(project, eq(projectFile.projectId, project.id))
     .where(and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)));
@@ -290,9 +329,17 @@ projectsRoute.patch("/:projectId/files/:fileId", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  const update = {
+    ...parsed.data,
+    spec:
+      ownedFile.type === "doc" && "content" in parsed.data
+        ? markDocSpecUserEdited(ownedFile.spec)
+        : parsed.data.spec,
+  };
+
   const [row] = await db
     .update(projectFile)
-    .set(parsed.data)
+    .set(update)
     .where(eq(projectFile.id, fileId))
     .returning();
 

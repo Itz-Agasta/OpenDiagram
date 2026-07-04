@@ -3,6 +3,8 @@ import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { project } from "./project";
 
+export const projectFileTypes = ["diagram", "doc"] as const;
+
 export const projectFile = pgTable(
   "project_file",
   {
@@ -12,7 +14,7 @@ export const projectFile = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => project.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
+    type: text("type", { enum: projectFileTypes }).notNull(),
     name: text("name").notNull(),
     scene: jsonb("scene"),
     spec: jsonb("spec"),

@@ -290,6 +290,7 @@ export default function DashboardPage() {
           file = await createProjectFile(project.id, {
             name: firstFileName.trim() || "Untitled",
             type: firstFileKind === "doc" ? "doc" : "diagram",
+            content: firstFileKind === "doc" ? "" : undefined,
           });
         } catch (fileErr) {
           fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${project.id}`, {
@@ -334,29 +335,28 @@ export default function DashboardPage() {
     const project = selectedProject;
     if (!project || !fileName.trim()) return;
 
-    if (fileKind === "diagram") {
-      if (project.source === "saved") {
-        const file = await createProjectFile(project.id, {
-          name: fileName.trim(),
-          type: "diagram",
-        });
-        setProjectFilesByProjectId((currentFiles) => ({
-          ...currentFiles,
-          [project.id]: [file, ...(currentFiles[project.id] ?? [])],
-        }));
-        router.push(`/project/${project.id}/workspace/${file.id}`);
-      } else {
-        const draft = getGuestProjectDraft(project.id);
-        if (!draft) return;
+    if (project.source === "saved") {
+      const file = await createProjectFile(project.id, {
+        name: fileName.trim(),
+        type: fileKind,
+        content: fileKind === "doc" ? "" : undefined,
+      });
+      setProjectFilesByProjectId((currentFiles) => ({
+        ...currentFiles,
+        [project.id]: [file, ...(currentFiles[project.id] ?? [])],
+      }));
+      router.push(`/project/${project.id}/workspace/${file.id}`);
+    } else if (fileKind === "diagram") {
+      const draft = getGuestProjectDraft(project.id);
+      if (!draft) return;
 
-        const newFile: GuestDraftFile = { id: crypto.randomUUID(), name: fileName.trim() };
-        const nextDraft = { ...draft, files: [...draft.files, newFile] };
-        saveGuestProjectDraft(nextDraft);
-        setGuestDrafts((currentDrafts) =>
-          currentDrafts.map((d) => (d.id === draft.id ? nextDraft : d)),
-        );
-        router.push(`/project/${project.id}/workspace/${newFile.id}`);
-      }
+      const newFile: GuestDraftFile = { id: crypto.randomUUID(), name: fileName.trim() };
+      const nextDraft = { ...draft, files: [...draft.files, newFile] };
+      saveGuestProjectDraft(nextDraft);
+      setGuestDrafts((currentDrafts) =>
+        currentDrafts.map((d) => (d.id === draft.id ? nextDraft : d)),
+      );
+      router.push(`/project/${project.id}/workspace/${newFile.id}`);
     }
 
     setFileModalProjectId(null);
@@ -364,8 +364,6 @@ export default function DashboardPage() {
   }
 
   function openFile(file: Pick<ProjectFile, "id" | "kind">, projectId: string) {
-    if (file.kind !== "diagram") return;
-
     router.push(`/project/${projectId}/workspace/${file.id}`);
   }
 

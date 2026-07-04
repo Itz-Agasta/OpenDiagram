@@ -4,6 +4,8 @@ export type SavedProject = {
   id: string;
   name: string;
   description: string | null;
+  source: "manual" | "github_import";
+  sourceMetadata?: unknown;
   memoryDatasetId?: string | null;
   memoryStatus?: string;
   memoryError?: string | null;
@@ -11,7 +13,20 @@ export type SavedProject = {
   updatedAt: string;
 };
 
-export type ProjectFileType = "diagram" | "doc" | "readme" | "imported_repo" | "ai_diagram";
+export type ProjectFileType = "diagram" | "doc";
+
+export type RepositoryDocProvenance = {
+  kind: "repo_documentation";
+  generated: true;
+  generatorVersion: "repo-doc-stub-v1";
+  repoFullName: string;
+  branch: string;
+  commitSha: string | null;
+  importedAt: string;
+  repoPath: string;
+  sourcePaths: string[];
+  userEditedAt: string | null;
+};
 
 export type SavedProjectFile = {
   id: string;
@@ -19,7 +34,7 @@ export type SavedProjectFile = {
   type: ProjectFileType;
   name: string;
   scene?: unknown;
-  spec?: unknown;
+  spec?: RepositoryDocProvenance | unknown;
   content?: unknown;
   history?: unknown[];
   createdAt: string;
@@ -29,6 +44,8 @@ export type SavedProjectFile = {
 export type CreateProjectInput = {
   name: string;
   description?: string;
+  source?: "manual" | "github_import";
+  sourceMetadata?: unknown;
 };
 
 export type CreateProjectFileInput = {
@@ -70,6 +87,28 @@ export type ProjectMemoryStatus = {
   datasetName: string;
   error: string | null;
   health?: { ok: boolean; disabled: boolean } | null;
+};
+
+export type RepoGenerationTask = {
+  id: string;
+  type: ProjectFileType;
+  name: string;
+  goal: string;
+  status: "pending" | "active" | "complete" | "failed";
+  message: string;
+  fileId: string | null;
+};
+
+export type RepoGenerationJob = {
+  id: string;
+  projectId: string;
+  status: "queued" | "planning" | "creating" | "generating" | "done" | "failed";
+  message: string;
+  error: string | null;
+  tasks: RepoGenerationTask[];
+  createdFiles: Array<{ id: string; name: string; type: ProjectFileType }>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 async function readProjectResponse(response: Response) {
@@ -210,6 +249,40 @@ export async function getProjectMemoryStatus(projectId: string): Promise<Project
   }
 
   return data.memory;
+}
+
+export async function startRepoGeneration(projectId: string): Promise<RepoGenerationJob> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/repo-generation`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not start repository generation.");
+  }
+
+  return data.job;
+}
+
+export async function getRepoGenerationJob(
+  projectId: string,
+  jobId: string,
+): Promise<RepoGenerationJob> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/repo-generation/${jobId}`,
+    { credentials: "include" },
+  );
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Could not load repository generation job.");
+  }
+
+  return data.job;
 }
 
 export async function reindexProjectMemory(projectId: string): Promise<ProjectMemoryStatus> {

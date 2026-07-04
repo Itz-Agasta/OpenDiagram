@@ -8,11 +8,12 @@ import { ArrowLeft, Check, GitBranch, Loader2, Lock, Search } from "lucide-react
 import { ButtonShaderTexture } from "@/components/button-shader-texture";
 import { authClient } from "@/lib/auth-client";
 import {
+  getGitHubImportJob,
   importGitHubRepository,
   listGitHubRepositories,
+  type ImportedGitHubProject,
   type GitHubRepository,
 } from "@/lib/github-import-client";
-import { createProject, createProjectFile, type SavedProject } from "@/lib/projects-client";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type ImportState = "idle" | "importing" | "done";
@@ -39,7 +40,8 @@ function GitHubImportContent() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [importState, setImportState] = useState<ImportState>("idle");
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
-  const [importedProject, setImportedProject] = useState<SavedProject | null>(null);
+  const [importedProject, setImportedProject] = useState<ImportedGitHubProject | null>(null);
+  const [importMessage, setImportMessage] = useState("Queued repository import");
   const [error, setError] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
 
@@ -120,22 +122,20 @@ function GitHubImportContent() {
   async function importSelectedRepo(repoFullName: string) {
     setImportingRepo(repoFullName);
     setImportState("importing");
+    setImportMessage("Queued repository import");
     setError(null);
 
     try {
-      const imported = await importGitHubRepository(repoFullName);
-      const project = await createProject({
-        name: imported.repoFullName,
-        description: `Imported from GitHub (${imported.defaultBranch})`,
-      });
-      await createProjectFile(project.id, {
-        name: imported.repoFullName,
-        type: "imported_repo",
-        spec: imported,
-      });
+      const job = await importGitHubRepository(repoFullName);
+      setImportMessage(job.message);
+      const completed = await waitForImportJob(job.id, setImportMessage);
+
+      if (!completed.project) {
+        throw new Error("Import finished without a project.");
+      }
 
       window.localStorage.removeItem("opendiagram:pending-github-repo");
-      setImportedProject(project);
+      setImportedProject(completed.project);
       setImportState("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not import GitHub repository.");
@@ -212,7 +212,10 @@ function GitHubImportContent() {
               />
             )}
             {session.data && importState === "importing" && (
-              <ImportingPanel repoFullName={selectedRepo ?? "selected repository"} />
+              <ImportingPanel
+                message={importMessage}
+                repoFullName={selectedRepo ?? "selected repository"}
+              />
             )}
             {session.data && importState === "done" && importedProject && (
               <DonePanel project={importedProject} />
@@ -462,13 +465,14 @@ function RepositoryPicker({
   );
 }
 
-function ImportingPanel({ repoFullName }: { repoFullName: string }) {
+function ImportingPanel({ message, repoFullName }: { message: string; repoFullName: string }) {
   return (
     <div className="flex w-full max-w-[500px] flex-col gap-5 rounded-[24px] border border-[#d9d9d9] bg-white p-6 md:p-8">
       <div className="flex items-center gap-3">
         <Loader2 className="h-5 w-5 animate-spin" />
         <h2 className="text-[28px] font-normal -tracking-[0.04em]">Importing {repoFullName}</h2>
       </div>
+      <p className="text-[14px] leading-[1.7] text-od-ink-muted">{message}</p>
       <div className="flex flex-col gap-3">
         {progressSteps.map((item) => (
           <div
@@ -484,7 +488,7 @@ function ImportingPanel({ repoFullName }: { repoFullName: string }) {
   );
 }
 
-function DonePanel({ project }: { project: SavedProject }) {
+function DonePanel({ project }: { project: ImportedGitHubProject }) {
   return (
     <div className="flex w-full max-w-[480px] flex-col items-center gap-5 rounded-[24px] border border-[#d9d9d9] bg-white p-8 text-center">
       <div className="grid h-14 w-14 place-items-center rounded-full bg-od-green text-white">
@@ -517,4 +521,20 @@ function normalizeRepoTarget(value: string) {
     .replace(/^github\.com\//i, "")
     .replace(/\.git$/i, "")
     .replace(/\/$/, "");
+}
+
+async function waitForImportJob(
+  jobId: string,
+  onMessage: (message: string) => void,
+): Promise<Awaited<ReturnType<typeof getGitHubImportJob>>> {
+  for (let attempt = 0; attempt < 180; attempt++) {
+    await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    const job = await getGitHubImportJob(jobId);
+    onMessage(job.message);
+
+    if (job.status === "done") return job;
+    if (job.status === "failed") throw new Error(job.error ?? "Repository import failed.");
+  }
+
+  throw new Error("Repository import timed out.");
 }

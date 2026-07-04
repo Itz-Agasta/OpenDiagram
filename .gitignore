@@ -50,6 +50,7 @@ coverage
 # Misc
 *.tgz
 .cache
+.opendiagram
 tmp
 temp
 COGNEE_INTEGRATION_PLAN.md

@@ -12,6 +12,8 @@ export const projectMemoryStatuses = [
   "not_ready",
 ] as const;
 
+export const projectSources = ["manual", "github_import"] as const;
+
 export const project = pgTable(
   "project",
   {
@@ -23,6 +25,8 @@ export const project = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
+    source: text("source", { enum: projectSources }).default("manual").notNull(),
+    sourceMetadata: jsonb("source_metadata"),
     memoryDatasetId: text("cognee_dataset_id"),
     memoryStatus: text("cognee_status", { enum: projectMemoryStatuses })
       .default("not_started")

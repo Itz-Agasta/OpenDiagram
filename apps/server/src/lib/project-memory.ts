@@ -10,6 +10,7 @@ import {
   rememberCogneeDocuments,
   searchCognee,
 } from "./cognee-client";
+import type { RepositorySourceDocument } from "./repo-documentation";
 
 const MAX_DOCUMENT_CHARS = 16_000;
 const MAX_CONTEXT_CHARS = 16_000;
@@ -20,6 +21,12 @@ const ARCHITECTURE_EXTRACTION_PROMPT = [
   "Extract software architecture knowledge from this OpenDiagram project.",
   "Prioritize systems, services, data stores, APIs, dependencies, protocols, constraints, requirements, and architecture decisions.",
   "Preserve relationships between components and decisions that explain why the architecture is shaped this way.",
+].join(" ");
+
+const REPOSITORY_EXTRACTION_PROMPT = [
+  "Extract software architecture knowledge from this source repository.",
+  "Prioritize entry points, frameworks, routes, APIs, packages, data models, services, dependencies, deployment config, and key control flow.",
+  "Preserve source file paths and relationships so downstream agents can cite files when generating docs and diagrams.",
 ].join(" ");
 
 export type ProjectMemorySource = {
@@ -138,6 +145,86 @@ export async function reindexProjectMemory(input: { projectId: string; userId: s
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Project memory indexing failed.";
+    await setProjectMemoryState(input, { status: "failed", error: message });
+    throw error;
+  }
+}
+
+export async function indexRepositoryMemory(input: {
+  projectId: string;
+  userId: string;
+  repoFullName: string;
+  branch: string;
+  commitSha: string | null;
+  repoPath: string;
+  sourceDocuments: RepositorySourceDocument[];
+}) {
+  const row = await getOwnedProject(input);
+  if (!row) return null;
+
+  if (!isCogneeConfigured()) {
+    await setProjectMemoryState(input, {
+      status: "not_started",
+      error: "Set COGNEE_BASE_URL and COGNEE_API_KEY to enable repository memory.",
+    });
+
+    return {
+      provider: "cognee",
+      status: "disabled",
+      datasetId: row.memoryDatasetId,
+      datasetName: createProjectDatasetName(input.projectId),
+      error: "Set COGNEE_BASE_URL and COGNEE_API_KEY to enable repository memory.",
+    };
+  }
+
+  const lockedRow = await acquireProjectMemoryIngestLock(input);
+  if (!lockedRow) {
+    return {
+      provider: "cognee",
+      status: "ingesting",
+      datasetId: row.memoryDatasetId,
+      datasetName: createProjectDatasetName(input.projectId),
+      error: "Repository memory indexing is already running.",
+    };
+  }
+
+  try {
+    if (lockedRow.memoryDatasetId) {
+      await deleteCogneeDataset(lockedRow.memoryDatasetId).catch((error) => {
+        if (error instanceof CogneeApiError && [403, 404].includes(error.status)) return;
+        throw error;
+      });
+    }
+
+    const datasetName = createProjectDatasetName(input.projectId);
+    const dataset = await createCogneeDataset(datasetName);
+    const documents = buildRepositoryDocuments(input);
+    const remembered = await rememberCogneeDocuments({
+      datasetId: dataset.id,
+      documents,
+      nodeSet: `repo:${input.repoFullName}:${input.commitSha ?? input.branch}`,
+      customPrompt: REPOSITORY_EXTRACTION_PROMPT,
+      runInBackground: false,
+    });
+    const datasetId = remembered.dataset_id ?? dataset.id;
+
+    await setProjectMemoryState(input, {
+      datasetId,
+      status: "ready",
+      error: null,
+    });
+
+    return {
+      provider: "cognee",
+      status: "ready",
+      datasetId,
+      datasetName,
+      error: null,
+      itemsProcessed: remembered.items_processed ?? documents.length,
+      pipelineRunId: remembered.pipeline_run_id,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Repository memory indexing failed.";
     await setProjectMemoryState(input, { status: "failed", error: message });
     throw error;
   }
@@ -276,6 +363,35 @@ async function buildProjectDocuments(
     ...files.map((file) => ({
       name: safeFileName(`${file.name}-${file.id}.md`),
       content: fileToMarkdown(file),
+    })),
+  ].filter((document) => document.content.trim().length > 0);
+}
+
+function buildRepositoryDocuments(input: {
+  repoFullName: string;
+  branch: string;
+  commitSha: string | null;
+  repoPath: string;
+  sourceDocuments: RepositorySourceDocument[];
+}) {
+  return [
+    {
+      name: "repository-manifest.md",
+      content: [
+        `# Repository: ${input.repoFullName}`,
+        "",
+        `Branch: ${input.branch}`,
+        `Commit: ${input.commitSha ?? "unknown"}`,
+        `Clone path: ${input.repoPath}`,
+        `Indexed source files: ${input.sourceDocuments.length}`,
+        "",
+        "## Source files",
+        ...input.sourceDocuments.map((document) => `- ${document.path} (${document.bytes} bytes)`),
+      ].join("\n"),
+    },
+    ...input.sourceDocuments.map((document) => ({
+      name: document.name,
+      content: document.content,
     })),
   ].filter((document) => document.content.trim().length > 0);
 }
