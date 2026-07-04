@@ -217,7 +217,9 @@ export function WorkspaceLayout() {
     try {
       await updateProjectFile(params.projectId, file.id, { scene: sceneRef.current });
       lastSavedVersionRef.current = versionAtSave;
-      dirtyRef.current = false;
+      // Only clear dirty if no newer edit landed while this save was in flight,
+      // otherwise a pagehide flush would skip the newer unsaved scene.
+      if (versionAtSave === pendingVersionRef.current) dirtyRef.current = false;
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
@@ -309,7 +311,7 @@ export function WorkspaceLayout() {
   }, [excalidrawAPI, initialScene]);
 
   function goToLogin() {
-    const redirect = encodeURIComponent(window.location.pathname);
+    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
     router.push(`/login?redirect=${redirect}`);
   }
 
@@ -430,7 +432,20 @@ export function WorkspaceLayout() {
                 </button>
               )}
             </div>
-            {saveError && <p className="mt-1.5 truncate text-[11px] text-red-600">{saveError}</p>}
+            {saveError && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <p className="min-w-0 flex-1 truncate text-[11px] text-red-600">{saveError}</p>
+                {isSignedIn && draft && !savePending && (
+                  <button
+                    type="button"
+                    onClick={() => void saveDraftAfterLogin()}
+                    className="shrink-0 rounded-[6px] border border-od-border-soft px-2 py-0.5 text-[11px] font-medium text-od-ink hover:bg-od-canvas/40"
+                  >
+                    Retry save
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
         <div className="min-h-0 flex-1">

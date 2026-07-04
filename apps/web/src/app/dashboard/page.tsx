@@ -256,7 +256,7 @@ export default function DashboardPage() {
         project: project.name,
         updated: project.source === "guest" ? "Local draft" : "Saved",
         status: project.source === "guest" ? "Guest" : "Synced",
-        kind: "diagram",
+        kind: project.files[0]?.kind ?? "diagram",
       })),
     [projects],
   );
@@ -352,6 +352,12 @@ export default function DashboardPage() {
     const project = selectedProject;
     const name = fileName.trim();
     if (!project || !name) return;
+
+    if (project.source === "guest") {
+      setFileModalProjectId(null);
+      setProjectError("Log in to save your project before adding files.");
+      return;
+    }
 
     setProjectPending(true);
     setProjectError(null);
