@@ -1,7 +1,7 @@
 import type { Box, PositionedSpec } from "./layout.js";
 import { edgeLabelText } from "./measure.js";
 import type { DiagramEdge, DiagramNode } from "./schema.js";
-import { classicTheme, type Theme } from "./theme/index.js";
+import { classicTheme, type ContainerStyle, type Theme } from "./theme/index.js";
 
 export interface HarnessIconEntry {
   id: string;
@@ -174,8 +174,9 @@ function renderContainer(
   theme: Theme,
   out: RenderSkeleton[],
   overrides?: { strokeColor?: string; backgroundColor?: string },
+  tokensOverride?: ContainerStyle,
 ): void {
-  const tokens = theme.containers[style ?? ""] ?? theme.defaultContainer;
+  const tokens = tokensOverride ?? theme.containers[style ?? ""] ?? theme.defaultContainer;
   const groupId = crypto.randomUUID();
   out.push({
     kind: "container",
@@ -513,9 +514,19 @@ export function renderToExcalidraw(
     renderContainer(`zone-${zone.id}`, zone.label, undefined, zone.style, box, theme, skeletons);
   }
 
+  // Sibling groups cycle through the theme's palette (when it has one) so
+  // adjacent boxes get distinct colors. Boundary-style containers (dashed,
+  // transparent) keep their semantic look and don't consume a palette slot.
+  const palette = theme.containerPalette;
+  let paletteIndex = 0;
   for (const group of positioned.groups ?? []) {
     const box = positioned.groupBoxes[group.id];
     if (!box) continue;
+    const base = theme.containers[group.style ?? ""] ?? theme.defaultContainer;
+    const paletteTokens =
+      palette && palette.length > 0 && base.fill !== "transparent"
+        ? palette[paletteIndex++ % palette.length]
+        : undefined;
     renderContainer(
       `group-${group.id}`,
       group.label,
@@ -525,6 +536,7 @@ export function renderToExcalidraw(
       theme,
       skeletons,
       { strokeColor: group.strokeColor, backgroundColor: group.backgroundColor },
+      paletteTokens,
     );
   }
 

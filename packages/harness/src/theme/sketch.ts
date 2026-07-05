@@ -20,6 +20,18 @@ const sketchCluster: ContainerStyle = {
   strokeStyle: "solid",
   fillStyle: "hachure",
 };
+const sketchAmber: ContainerStyle = {
+  stroke: "#f08c00",
+  fill: "#ffec99",
+  strokeStyle: "solid",
+  fillStyle: "hachure",
+};
+const sketchRose: ContainerStyle = {
+  stroke: "#e03131",
+  fill: "#ffc9c9",
+  strokeStyle: "solid",
+  fillStyle: "hachure",
+};
 
 // ────────────────────────────────────────────────────────────────────────────
 // TUNABLES -- same rules as classic.ts: every number is safe to play with.
@@ -72,6 +84,9 @@ export const sketchTheme: Theme = {
     boundary: sketchBoundary,
   },
   defaultContainer: sketchTier,
+  // Sibling groups rotate through Excalidraw's stock palette so "Frontend /
+  // Backend / Data" boxes don't all come out the same blue.
+  containerPalette: [sketchTier, sketchCluster, sketchAmber, sketchRose],
   edge: {
     stroke: "#475569",
     strokeWidth: 2, // bold arrows

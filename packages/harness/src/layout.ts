@@ -117,10 +117,13 @@ function sanitize(spec: DiagramSpec): Sanitized {
       warnings.push(`dropping edge with unknown endpoint (${edge.from} -> ${edge.to})`);
       return;
     }
-    const reverse = edge.from !== edge.to ? byEndpoints.get(`${edge.to}->${edge.from}`) : undefined;
+    // JSON key — plain `${from}->${to}` could collide when ids contain "->".
+    const reverse =
+      edge.from !== edge.to ? byEndpoints.get(JSON.stringify([edge.to, edge.from])) : undefined;
     if (reverse) {
       reverse.direction = "bi";
       reverse.label = [reverse.label, edge.label].filter(Boolean).join(" / ") || undefined;
+      reverse.protocol = [reverse.protocol, edge.protocol].filter(Boolean).join(" / ") || undefined;
       warnings.push(`merged reciprocal edges ${edge.to}<->${edge.from} into one bidirectional`);
       return;
     }
@@ -129,7 +132,7 @@ function sanitize(spec: DiagramSpec): Sanitized {
     while (usedEdgeIds.has(id)) id = `${id}-${i}`;
     usedEdgeIds.add(id);
     const kept = { ...edge, id };
-    byEndpoints.set(`${edge.from}->${edge.to}`, kept);
+    byEndpoints.set(JSON.stringify([edge.from, edge.to]), kept);
     edges.push(kept);
   });
 

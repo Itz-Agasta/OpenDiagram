@@ -80,6 +80,11 @@ export interface Theme {
   /** Keyed by DiagramGroup["style"] and DiagramZone["style"]. */
   containers: Record<string, ContainerStyle>;
   defaultContainer: ContainerStyle;
+  /**
+   * When set, filled (non-boundary) group boxes cycle through these styles in
+   * order so sibling groups get distinct colors instead of one uniform hue.
+   */
+  containerPalette?: ContainerStyle[];
   edge: {
     stroke: string;
     strokeWidth: number;

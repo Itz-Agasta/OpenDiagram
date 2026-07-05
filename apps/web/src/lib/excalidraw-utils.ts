@@ -150,14 +150,27 @@ export async function applyDiagramToCanvas(
     } else if (kept.length > 0) {
       const keptBounds = contentBounds(kept);
       const newWidth = newBounds.maxX - newBounds.minX;
-      if (keptBounds.maxX + NEW_DIAGRAM_GAP + newWidth - keptBounds.minX > MAX_ROW_WIDTH) {
-        // Row full — wrap to a fresh row under everything so the canvas grows
+      // Wrap decisions come from the ACTIVE row (frames vertically overlapping
+      // the bottom-most frame), not the whole scene — global bounds stay wider
+      // than MAX_ROW_WIDTH after the first wrap, which would force every later
+      // diagram onto its own row.
+      const frames = kept.filter((el) => el.type === "frame");
+      const bottom = frames.reduce<(typeof frames)[number] | null>(
+        (acc, f) => (!acc || f.y + f.height > acc.y + acc.height ? f : acc),
+        null,
+      );
+      const row = bottom
+        ? frames.filter((f) => f.y < bottom.y + bottom.height && f.y + f.height > bottom.y)
+        : [];
+      const rowBounds = row.length > 0 ? contentBounds(row) : keptBounds;
+      if (rowBounds.maxX + NEW_DIAGRAM_GAP + newWidth - rowBounds.minX > MAX_ROW_WIDTH) {
+        // Row full — start a fresh row under everything so the canvas grows
         // in both axes instead of an ever-longer horizontal strip.
         dx = keptBounds.minX - newBounds.minX;
         dy = keptBounds.maxY + NEW_DIAGRAM_GAP - newBounds.minY;
       } else {
-        dx = keptBounds.maxX + NEW_DIAGRAM_GAP - newBounds.minX;
-        dy = keptBounds.minY - newBounds.minY;
+        dx = rowBounds.maxX + NEW_DIAGRAM_GAP - newBounds.minX;
+        dy = rowBounds.minY - newBounds.minY;
       }
     }
     if (dx !== 0 || dy !== 0) {
