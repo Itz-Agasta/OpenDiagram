@@ -41,3 +41,31 @@ export async function consumeSSE<T>(
 
   return last;
 }
+
+// Fallback for the reconnect/already-in-flight case: when a job is already
+// running the server streams one snapshot then closes, so the stream resolves
+// on a non-terminal status. Poll the job's GET endpoint until it reaches a
+// terminal state, forwarding each update.
+export async function pollUntilTerminal<T>(
+  fetchLatest: () => Promise<T>,
+  isTerminal: (value: T) => boolean,
+  onUpdate: (value: T) => void,
+  options?: { signal?: AbortSignal; intervalMs?: number; maxAttempts?: number },
+): Promise<T> {
+  const intervalMs = options?.intervalMs ?? 1200;
+  const maxAttempts = options?.maxAttempts ?? 300;
+  let latest: T | undefined;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (options?.signal?.aborted) break;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    if (options?.signal?.aborted) break;
+
+    latest = await fetchLatest();
+    onUpdate(latest);
+    if (isTerminal(latest)) return latest;
+  }
+
+  if (latest !== undefined) return latest;
+  throw new Error("Timed out waiting for the job to finish.");
+}

@@ -230,7 +230,11 @@ projectsRoute.post("/:projectId/repo-generation", async (c) => {
     const send = (job: RepoGenerationJob) =>
       stream.writeSSE({ event: "status", data: JSON.stringify(job) });
     await send(startedResult.job);
-    await runRepoGenerationWithEmitter(startedResult, (job) => void send(job));
+    // Swallow write errors on a closed stream (client disconnect) so a rejected
+    // writeSSE promise can't become an unhandled rejection.
+    await runRepoGenerationWithEmitter(startedResult, (job) => {
+      send(job).catch(() => {});
+    });
   });
 });
 

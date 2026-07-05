@@ -7,7 +7,7 @@ import { buildIconCatalog } from "./icons/registry";
 // The AI SDK retries retryable errors (429/5xx) with exponential backoff up to
 // this many times. A single provider (Gemini) handles every task — no
 // cross-provider fallback — so a rate-limited call just retries Gemini.
-const LLM_MAX_RETRIES = 3;
+export const LLM_MAX_RETRIES = 3;
 
 const GOOGLE_DEFAULTS = {
   model: "gemini-2.5-flash",

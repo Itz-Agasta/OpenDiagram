@@ -1,5 +1,5 @@
 import { env } from "@OpenDiagram/env/web";
-import { consumeSSE } from "./sse";
+import { consumeSSE, pollUntilTerminal } from "./sse";
 
 export type GitHubRepository = {
   id: number;
@@ -81,8 +81,21 @@ export async function importGitHubRepositoryStream(
     throw new Error(data?.error ?? "Could not import GitHub repository.");
   }
 
-  const last = await consumeSSE<GitHubImportJob>(response, onStatus);
+  let last = await consumeSSE<GitHubImportJob>(response, onStatus);
   if (!last) throw new Error("Import stream ended unexpectedly.");
+
+  // Stream may close on a non-terminal status when an import for this repo is
+  // already in flight; poll until it actually finishes.
+  if (last.status !== "done" && last.status !== "failed") {
+    const jobId = last.id;
+    last = await pollUntilTerminal(
+      () => getGitHubImportJob(jobId, signal),
+      (job) => job.status === "done" || job.status === "failed",
+      onStatus,
+      { signal },
+    );
+  }
+
   if (last.status === "failed") throw new Error(last.error ?? "Repository import failed.");
   return last;
 }

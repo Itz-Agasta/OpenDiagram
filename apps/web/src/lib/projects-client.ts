@@ -1,5 +1,5 @@
 import { env } from "@OpenDiagram/env/web";
-import { consumeSSE } from "./sse";
+import { consumeSSE, pollUntilTerminal } from "./sse";
 
 export type SavedProject = {
   id: string;
@@ -303,8 +303,21 @@ export async function streamRepoGeneration(
     throw new Error(data?.error ?? "Could not start repository generation.");
   }
 
-  const last = await consumeSSE<RepoGenerationJob>(response, onJob);
+  let last = await consumeSSE<RepoGenerationJob>(response, onJob);
   if (!last) throw new Error("Repository generation stream ended unexpectedly.");
+
+  // Stream may close on a non-terminal status when a generation job is already
+  // running (server sends one snapshot then closes); poll until it finishes.
+  if (last.status !== "done" && last.status !== "failed") {
+    const jobId = last.id;
+    last = await pollUntilTerminal(
+      () => getRepoGenerationJob(projectId, jobId),
+      (job) => job.status === "done" || job.status === "failed",
+      onJob,
+      { signal },
+    );
+  }
+
   return last;
 }
 

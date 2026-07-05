@@ -196,7 +196,11 @@ async function importGitHubRepository(c: Context) {
     // client reconnect via GET if needed.
     if (!isNew) return;
 
-    jobEmitters.set(job.id, (current) => void send(current));
+    // Swallow write errors: if the client disconnects, Hono closes the stream
+    // and later writes reject — an unhandled rejection here would crash Node.
+    jobEmitters.set(job.id, (current) => {
+      send(current).catch(() => {});
+    });
     try {
       await runImportJob({ jobId: job.id, repo, token: authResult.token });
     } finally {
