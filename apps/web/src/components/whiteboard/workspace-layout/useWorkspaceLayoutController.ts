@@ -17,9 +17,8 @@ import {
   createProjectFile,
   getProject,
   getProjectFile,
-  getRepoGenerationJob,
   listProjectFiles,
-  startRepoGeneration,
+  streamRepoGeneration,
   updateProjectFile,
   type RepoGenerationJob,
   type SavedProject,
@@ -335,6 +334,7 @@ export function useWorkspaceLayoutController() {
 
     const importedProject = projectRow;
     let cancelled = false;
+    const abortController = new AbortController();
     startedRepoGenerationRef.current = importedProject.id;
     setRepoGenerationError(null);
 
@@ -348,30 +348,19 @@ export function useWorkspaceLayoutController() {
       });
     }
 
-    async function pollJob(jobId: string) {
-      while (!cancelled) {
-        const job = await getRepoGenerationJob(importedProject.id, jobId);
-        if (cancelled) return;
-        setRepoGenerationJob(job);
-        if (job.createdFiles.length > 0) await syncSidebarFiles().catch(() => undefined);
-        if (job.status === "done" || job.status === "failed") {
-          const updatedProj = await getProject(importedProject.id).catch(() => null);
-          if (updatedProj && !cancelled) setProjectRow(updatedProj);
-          return;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 1200));
-      }
-    }
-
     async function start() {
       try {
-        const job = await startRepoGeneration(importedProject.id);
+        const finalJob = await streamRepoGeneration(
+          importedProject.id,
+          (job) => {
+            if (cancelled) return;
+            setRepoGenerationJob(job);
+            if (job.createdFiles.length > 0) void syncSidebarFiles().catch(() => undefined);
+          },
+          abortController.signal,
+        );
         if (cancelled) return;
-        setRepoGenerationJob(job);
-        if (job.createdFiles.length > 0) await syncSidebarFiles().catch(() => undefined);
-        if (job.status !== "done" && job.status !== "failed") {
-          await pollJob(job.id);
-        } else {
+        if (finalJob.status === "done" || finalJob.status === "failed") {
           const updatedProj = await getProject(importedProject.id).catch(() => null);
           if (updatedProj && !cancelled) setProjectRow(updatedProj);
         }
@@ -388,6 +377,7 @@ export function useWorkspaceLayoutController() {
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
   }, [draft, projectRow, session.data?.user, setProjectSnapshot]);
 

@@ -59,6 +59,8 @@ diagramRoute.post("/chat", async (c) => {
     messages: modelMessages,
     tools,
     stopWhen: isStepCount(6),
+    // Retry Gemini on rate-limit/transient errors (exponential backoff).
+    maxRetries: 3,
     // Bounds runaway/repetition-loop generations so a bad completion fails
     // fast instead of hanging (observed with gemini-2.5-flash during testing).
     maxOutputTokens: 16384,

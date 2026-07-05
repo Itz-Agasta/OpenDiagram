@@ -3,6 +3,12 @@ FROM oven/bun:1-slim
 
 WORKDIR /app
 
+# git is required at runtime: repo import shells out to `git clone`.
+# ca-certificates so the HTTPS clone against github.com verifies.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 ENV SKIP_ENV_VALIDATION=1
 
 COPY . .

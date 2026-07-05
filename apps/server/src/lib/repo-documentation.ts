@@ -135,9 +135,11 @@ async function cloneRepository(input: {
   token: string;
   importedAt: string;
 }) {
+  // Default under the OS temp dir: Cloud Run's container filesystem is
+  // read-only except for /tmp, so writing under cwd fails there.
   const baseDir = process.env.OPENDIAGRAM_REPO_CACHE_DIR
     ? path.resolve(process.env.OPENDIAGRAM_REPO_CACHE_DIR)
-    : path.resolve(process.cwd(), ".opendiagram", "repos");
+    : path.join(tmpdir(), "opendiagram-repos");
   await mkdir(baseDir, { recursive: true });
 
   const repoDir = path.join(

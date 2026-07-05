@@ -1,4 +1,5 @@
 import { env } from "@OpenDiagram/env/web";
+import { consumeSSE } from "./sse";
 
 export type GitHubRepository = {
   id: number;
@@ -57,6 +58,33 @@ export async function importGitHubRepository(repoFullName: string): Promise<GitH
   }
 
   return data.job;
+}
+
+// Streams the import: the POST runs the whole job server-side and pushes a
+// status event per step. Resolves with the terminal job. Falls back callers to
+// getGitHubImportJob for reconnects.
+export async function importGitHubRepositoryStream(
+  repoFullName: string,
+  onStatus: (job: GitHubImportJob) => void,
+  signal?: AbortSignal,
+): Promise<GitHubImportJob> {
+  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/import/github`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repoFullName }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? "Could not import GitHub repository.");
+  }
+
+  const last = await consumeSSE<GitHubImportJob>(response, onStatus);
+  if (!last) throw new Error("Import stream ended unexpectedly.");
+  if (last.status === "failed") throw new Error(last.error ?? "Repository import failed.");
+  return last;
 }
 
 export async function getGitHubImportJob(
