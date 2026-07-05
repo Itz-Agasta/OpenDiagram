@@ -6,7 +6,7 @@ interface WorkspacePageProps {
 }
 
 export default async function WorkspacePage({ params }: WorkspacePageProps) {
-  const { projectId: _projectId } = await params;
+  await params;
 
   return (
     <div className="h-screen w-screen overflow-hidden">

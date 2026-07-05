@@ -303,8 +303,9 @@ export default function DashboardPage() {
     try {
       if (user) {
         const project = await createProject({ name });
+        let file = null;
         try {
-          await createProjectFile(project.id, {
+          file = await createProjectFile(project.id, {
             name: "Your first design",
             type: "diagram",
           });
@@ -318,7 +319,11 @@ export default function DashboardPage() {
         setSavedProjects((currentProjects) => [project, ...currentProjects]);
         setProjectModalOpen(false);
         setProjectName("");
-        router.push(`/workspace/${project.id}`);
+        if (file) {
+          router.push(`/project/${project.id}/workspace/${file.id}`);
+        } else {
+          router.push(`/project/${project.id}/workspace`);
+        }
         return;
       }
 
@@ -332,7 +337,7 @@ export default function DashboardPage() {
       setGuestDrafts((currentDrafts) => [draft, ...currentDrafts]);
       setProjectModalOpen(false);
       setProjectName("");
-      router.push(`/workspace/${draft.id}`);
+      router.push(`/project/${draft.id}/workspace`);
     } catch (err) {
       setProjectError(err instanceof Error ? err.message : "Could not create project.");
     } finally {
@@ -375,9 +380,7 @@ export default function DashboardPage() {
       setFileModalProjectId(null);
       setFileName("");
 
-      if (fileKind === "diagram") {
-        router.push(`/workspace/${project.id}?file=${file.id}`);
-      }
+      router.push(`/project/${project.id}/workspace/${file.id}`);
     } catch (err) {
       setProjectError(err instanceof Error ? err.message : "Could not create file.");
     } finally {
@@ -386,10 +389,8 @@ export default function DashboardPage() {
   }
 
   function openFile(file: Pick<ProjectFile, "projectId" | "fileId" | "kind">) {
-    if (file.kind !== "diagram") return;
-
-    const query = file.fileId ? `?file=${file.fileId}` : "";
-    router.push(`/workspace/${file.projectId}${query}`);
+    const fileId = file.fileId ?? "";
+    router.push(`/project/${file.projectId}/workspace/${fileId}`);
   }
 
   function toggleExpand(id: string) {
@@ -591,7 +592,10 @@ export default function DashboardPage() {
                         <>
                           <button
                             type="button"
-                            onClick={() => router.push(`/workspace/${project.id}`)}
+                            onClick={() => {
+                              const fileId = project.files[0]?.fileId ?? "";
+                              router.push(`/project/${project.id}/workspace/${fileId}`);
+                            }}
                             className="min-w-0 flex-1 cursor-pointer truncate text-left"
                           >
                             {project.name}

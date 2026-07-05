@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 const caseStudyImages = [
   "https://framerusercontent.com/images/TWgBR6dpy8VfcVcGIy2oyBYzyY.jpg",
@@ -75,7 +75,7 @@ export function PortfolioSection() {
         <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
           <motion.a
             href="/dashboard"
-            aria-label="Create a new diagram"
+            aria-label="Create a new Vibe Diagram"
             className="flex h-32 w-32 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-colors hover:bg-white/20"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
@@ -102,7 +102,7 @@ export function PortfolioSection() {
           href="/dashboard"
           className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 text-center text-sm text-white/70"
         >
-          <span className="font-serif italic">See Recent Work</span>
+          <span className="font-serif italic">See Vibe Diagrams</span>
         </a>
       </div>
     </section>

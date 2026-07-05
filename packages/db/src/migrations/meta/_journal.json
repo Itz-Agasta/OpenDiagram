@@ -15,6 +15,27 @@
       "when": 1783164377923,
       "tag": "0001_sticky_mole_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783195006857,
+      "tag": "0002_loving_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783219200000,
+      "tag": "0003_github_import_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783247066951,
+      "tag": "0004_legal_sharon_carter",
+      "breakpoints": true
     }
   ]
 }

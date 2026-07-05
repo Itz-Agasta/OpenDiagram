@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 interface ProcessCardProps {
   number: string;
@@ -106,11 +106,11 @@ export function ProcessSection() {
         <div className="flex w-full flex-col items-center gap-2.5 overflow-hidden">
           <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6">
             <span className="h-px w-[69px] bg-black/50" />
-            <span className="font-serif text-2xl italic">Our Process, Explained</span>
+            <span className="font-serif text-2xl italic">The Vibe Diagram Flow</span>
             <span className="h-px w-[69px] bg-black/50" />
           </div>
           <h2 className="w-full text-center text-[48px] font-bold leading-[1.4] -tracking-[0.04em] max-md:text-3xl">
-            Here&apos;s how it works
+            From rough idea to shared architecture
           </h2>
         </div>
 
@@ -121,24 +121,24 @@ export function ProcessSection() {
           <div className="relative z-10 -mr-4 flex w-[36%] flex-col gap-2.5 pt-[62px] max-md:-mr-0 max-md:mb-[-24px] max-md:w-full max-md:pt-0">
             <ProcessCard
               number="1"
-              title="Connect"
-              description="Link your GitHub account and select any public or private repository"
+              title="Prompt"
+              description="Describe the system, feature, or repo you want to turn into a Vibe Diagram."
               rotation={-5}
             />
           </div>
           <div className="relative z-20 -mx-4 flex w-[36%] flex-col gap-2.5 max-md:-mx-0 max-md:mb-[-24px] max-md:w-full max-md:pt-0">
             <ProcessCard
               number="2"
-              title="Analyze"
-              description="Choose a plan and request as many designs as you need."
+              title="Generate"
+              description="OpenDiagram creates a visual first draft with services, flows, and architecture context."
               rotation={9}
             />
           </div>
           <div className="relative z-10 -ml-4 flex w-[36%] flex-col gap-2.5 pt-16 max-md:-ml-0 max-md:w-full max-md:pt-0">
             <ProcessCard
               number="3"
-              title="Get Your Designs"
-              description="Download architecture diagrams, README, API docs, and everything in between"
+              title="Shape the Vibe"
+              description="Edit the canvas, ask the agent for changes, and share a diagram your team can actually use."
               rotation={-3}
             />
           </div>
@@ -147,14 +147,14 @@ export function ProcessSection() {
         <div className="flex w-full items-start gap-24 pt-12 max-md:flex-col max-md:gap-12">
           <Testimony
             paddingTop="80px"
-            quote="Open Diagram saved us hours of onboarding. New contributors understand our architecture on day one — without us writing a single doc manually."
+            quote="OpenDiagram turned a messy architecture conversation into a Vibe Diagram our whole team understood in minutes."
             name="Sophie Lemaire"
             role="Product Lead at Loomi"
           />
           <span className="w-px self-stretch bg-black/25 max-md:hidden" />
           <Testimony
             paddingTop="240px"
-            quote="We had zero documentation. Open Diagram scanned our repo and generated everything — diagrams, API docs, README. It actually understood our codebase."
+            quote="We pasted a repo, asked for the system flow, and got a diagram we could immediately tweak with the agent."
             name="Milan Bakker"
             role="Founder of Drifted Studio"
           />

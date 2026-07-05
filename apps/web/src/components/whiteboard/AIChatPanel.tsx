@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
-import type { UIMessage } from "ai";
+import type { ChatStatus, UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
+import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
+import { orchestrateWorkspaceRequest, runProjectChatAgent } from "@/lib/workspace-agents";
+import { updateProjectFile, type RepoGenerationJob } from "@/lib/projects-client";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -34,6 +36,12 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+}
+
 /** Mirror of the server's draw_diagram tool output (apps/server lib/agent/tools.ts). */
 interface DrawDiagramOutput {
   skeletons: RenderSkeleton[];
@@ -48,6 +56,11 @@ interface AskUserInput {
 
 interface AIChatPanelProps {
   excalidrawAPI: ExcalidrawImperativeAPI | null;
+  projectId?: string;
+  fileId?: string;
+  initialHistory?: ChatMessage[];
+  repoGenerationJob?: RepoGenerationJob | null;
+  repoGenerationError?: string | null;
 }
 
 /** The last assistant message's unanswered ask_user call, if any. */
@@ -62,20 +75,43 @@ function pendingAskUser(messages: UIMessage[]) {
   return null;
 }
 
-export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
+function diagramRequestLikely(text: string) {
+  return /\b(diagram|flowchart|sequence|architecture|system flow|request flow|data flow|canvas|whiteboard|draw|sketch|map)\b/i.test(
+    text,
+  );
+}
+
+export function AIChatPanel({
+  excalidrawAPI,
+  projectId,
+  fileId,
+  initialHistory,
+  repoGenerationJob,
+  repoGenerationError,
+}: AIChatPanelProps) {
   const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
   const frameByTitleRef = useRef(new Map<string, string>());
   const appliedToolCallsRef = useRef(new Set<string>());
   // Serializes canvas applies: each one reads and rewrites the whole scene, so
   // two in flight at once would clobber each other's elements.
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const messageIdRef = useRef(initialHistory?.length ?? 0);
+  const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(initialHistory ?? []);
+  const [projectStatus, setProjectStatus] = useState<ChatStatus>("ready");
+  const [projectError, setProjectError] = useState<string | null>(null);
   const [themeName, setThemeName] = useState<ThemeName>("sketch");
   // Ref mirror so the transport's body() closure always reads the live value.
   const themeRef = useRef<ThemeName>(themeName);
   themeRef.current = themeName;
   const [applyError, setApplyError] = useState<string | null>(null);
 
-  const { messages, sendMessage, addToolOutput, status, error } = useChat({
+  const {
+    messages: diagramMessages,
+    sendMessage,
+    addToolOutput,
+    status: diagramStatus,
+    error: diagramError,
+  } = useChat({
     transport: new DefaultChatTransport({
       api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
       body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
@@ -88,7 +124,7 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
   // replaced in place; otherwise the new frame lands beside existing content.
   useEffect(() => {
     if (!excalidrawAPI) return;
-    for (const message of messages) {
+    for (const message of diagramMessages) {
       if (message.role !== "assistant") continue;
       for (const part of message.parts) {
         if (part.type !== "tool-draw_diagram" || part.state !== "output-available") continue;
@@ -117,7 +153,7 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
         );
       }
     }
-  }, [messages, excalidrawAPI]);
+  }, [diagramMessages, excalidrawAPI]);
 
   const answerAskUser = useCallback(
     (toolCallId: string, answer: string) => {
@@ -126,59 +162,161 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
     [addToolOutput],
   );
 
+  const runProjectChat = useCallback(
+    async (text: string) => {
+      if (!projectId) return false;
+
+      const userMessage: ChatMessage = {
+        id: `msg-${messageIdRef.current++}`,
+        role: "user",
+        text,
+      };
+      setProjectMessages((prev) => [...prev, userMessage]);
+      setProjectStatus("submitted");
+      setProjectError(null);
+
+      try {
+        const result = await runProjectChatAgent({ text, projectId });
+        setProjectMessages((prev) => {
+          const updated = [
+            ...prev,
+            {
+              id: `msg-${messageIdRef.current++}`,
+              role: "assistant" as const,
+              text: result.message,
+            },
+          ];
+
+          if (fileId) {
+            window.setTimeout(() => {
+              void updateProjectFile(projectId, fileId, { history: updated });
+            }, 0);
+          }
+
+          return updated;
+        });
+        setProjectStatus("ready");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Project chat failed";
+        setProjectMessages((prev) => [
+          ...prev,
+          { id: `msg-${messageIdRef.current++}`, role: "assistant", text: `Error: ${message}` },
+        ]);
+        setProjectError(message);
+        setProjectStatus("ready");
+      }
+
+      return true;
+    },
+    [fileId, projectId],
+  );
+
   const handleSubmit = useCallback(
-    (msg: PromptInputMessage) => {
+    async (msg: PromptInputMessage) => {
       const text = msg.text.trim();
-      if (!text || !excalidrawAPI || (status !== "ready" && status !== "error")) return;
+      const status = projectStatus !== "ready" ? projectStatus : diagramStatus;
+      if (!text || (status !== "ready" && status !== "error")) return;
+
       setApplyError(null);
-      // A typed reply while a question is pending answers the question.
-      const pending = pendingAskUser(messages);
+      const pending = pendingAskUser(diagramMessages);
       if (pending) {
         answerAskUser(pending.toolCallId, text);
         return;
       }
+
+      let useProjectChat = Boolean(projectId) && !diagramRequestLikely(text);
+      if (projectId && excalidrawAPI) {
+        try {
+          const route = await orchestrateWorkspaceRequest({ text, projectId });
+          useProjectChat = route.intent === "project_chat";
+        } catch {
+          useProjectChat = !diagramRequestLikely(text);
+        }
+      }
+
+      if (useProjectChat) {
+        await runProjectChat(text);
+        return;
+      }
+
+      if (!excalidrawAPI) {
+        await runProjectChat(text);
+        return;
+      }
+
       void sendMessage({ text });
     },
-    [excalidrawAPI, status, messages, sendMessage, answerAskUser],
+    [
+      answerAskUser,
+      diagramMessages,
+      diagramStatus,
+      excalidrawAPI,
+      projectId,
+      projectStatus,
+      runProjectChat,
+      sendMessage,
+    ],
   );
 
+  const messagesEmpty = projectMessages.length === 0 && diagramMessages.length === 0;
+  const submitStatus = projectStatus !== "ready" ? projectStatus : diagramStatus;
+
   return (
-    <div className="flex flex-col h-full border-l border-border bg-background">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-        <Sparkles className="size-4 text-primary" />
-        <span className="text-sm font-semibold">AI Assistant</span>
+    <div className="flex min-h-0 flex-1 flex-col border-l border-od-border-soft bg-white text-od-ink">
+      <div className="shrink-0 border-b border-od-border-soft bg-[radial-gradient(circle_at_top_left,rgba(232,229,216,0.9),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,249,245,0.9))] px-4 py-3">
+        <div>
+          <p className="text-[13px] font-semibold leading-none">Picasso</p>
+          <p className="mt-1 truncate text-[11px] text-od-ink-faint">OpenDiagram agent</p>
+        </div>
       </div>
 
-      {/* Messages */}
-      <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="px-4 py-4 space-y-4">
-          {messages.length === 0 ? (
+      <Conversation className="min-h-0 flex-1">
+        <ConversationContent className="flex flex-col gap-4 px-4 py-4">
+          <RepoGenerationProgress
+            error={repoGenerationError ?? null}
+            job={repoGenerationJob ?? null}
+          />
+          {messagesEmpty ? (
             <ConversationEmptyState
               title="Start a conversation"
-              description="Describe your architecture and I'll generate a diagram for you."
+              description={
+                projectId
+                  ? "Ask about this project's diagrams, docs, and workspace context."
+                  : "Describe your architecture and I'll generate a diagram for you."
+              }
               icon={<Sparkles className="size-6 text-muted-foreground" />}
             />
           ) : (
-            messages.map((message) => (
-              <Message key={message.id} from={message.role === "user" ? "user" : "assistant"}>
-                <MessageContent>
-                  {message.parts.map((part, i) => renderPart(message, part, i, answerAskUser))}
-                </MessageContent>
-              </Message>
-            ))
+            <>
+              {projectMessages.map((message) => (
+                <Message key={message.id} from={message.role}>
+                  <MessageContent>
+                    <MessageResponse>{message.text}</MessageResponse>
+                  </MessageContent>
+                </Message>
+              ))}
+              {diagramMessages.map((message) => (
+                <Message key={message.id} from={message.role === "user" ? "user" : "assistant"}>
+                  <MessageContent>
+                    {message.parts.map((part, i) => renderPart(message, part, i, answerAskUser))}
+                  </MessageContent>
+                </Message>
+              ))}
+            </>
           )}
-          {status === "submitted" && (
+          {(diagramStatus === "submitted" || projectStatus === "submitted") && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="size-3 animate-spin" />
-              Thinking…
+              {projectStatus === "submitted" ? "Reading project memory…" : "Thinking…"}
             </div>
           )}
-          {status === "error" && (
+          {diagramStatus === "error" && (
             <p className="text-xs text-destructive">
-              Something went wrong{error?.message ? ` — ${error.message}` : ""}. Try again.
+              Something went wrong{diagramError?.message ? ` — ${diagramError.message}` : ""}. Try
+              again.
             </p>
           )}
+          {projectError && <p className="text-xs text-destructive">{projectError}</p>}
           {applyError && (
             <p className="text-xs text-destructive">Couldn't draw on canvas — {applyError}</p>
           )}
@@ -186,14 +324,16 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
         <ConversationScrollButton />
       </Conversation>
 
-      {/* Input */}
-      <div className="shrink-0 p-3 border-t border-border">
+      <div className="shrink-0 border-t border-od-border-soft bg-od-surface p-3">
         <PromptInputProvider>
-          <PromptInput onSubmit={handleSubmit} className="w-full">
+          <PromptInput
+            onSubmit={handleSubmit}
+            className="w-full border-od-border-soft bg-white text-od-ink shadow-[0_18px_80px_-56px_rgba(24,24,21,0.35)]"
+          >
             <PromptInputBody>
               <PromptInputTextarea
-                placeholder="Describe your architecture…"
-                className="min-h-40 max-h-40 resize-none"
+                placeholder="Ask, plan, or generate a diagram…"
+                className="min-h-32 max-h-40 resize-none text-od-ink placeholder:text-od-ink-faint"
               />
             </PromptInputBody>
             <PromptInputFooter>
@@ -206,14 +346,74 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
                   <SelectItem value="classic">Classic</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground flex-1 text-right pr-2">
-                Gemini 2.5 Flash
+              <p className="flex-1 pr-2 text-right text-xs text-od-ink-faint">
+                {projectStatus === "submitted" ? "Reading project memory" : "Gemini 2.5 Flash"}
               </p>
-              <PromptInputSubmit status={status} />
+              <PromptInputSubmit status={submitStatus} />
             </PromptInputFooter>
           </PromptInput>
         </PromptInputProvider>
       </div>
+    </div>
+  );
+}
+
+function RepoGenerationProgress({
+  error,
+  job,
+}: {
+  error: string | null;
+  job: RepoGenerationJob | null;
+}) {
+  if (!job && !error) return null;
+
+  const activeTask = job?.tasks.find((task) => task.status === "active");
+
+  return (
+    <div className="mb-2 rounded-[12px] border border-od-border-soft bg-white p-3 shadow-[0_12px_36px_-28px_rgba(0,0,0,0.45)]">
+      <div className="flex items-center gap-2">
+        {job?.status === "done" ? (
+          <CheckCircle2 className="size-5 text-od-green" />
+        ) : error || job?.status === "failed" ? (
+          <span className="grid size-5 place-items-center rounded-full bg-red-50 text-[11px] font-semibold text-red-600">
+            !
+          </span>
+        ) : (
+          <Loader2 className="size-5 animate-spin text-od-ink" />
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-medium text-od-ink">
+            {error ?? job?.message ?? "Generating repository files"}
+          </p>
+          {job && job.status !== "done" && job.status !== "failed" && (
+            <p className="text-[11px] text-od-ink-faint">
+              {activeTask?.message ?? "Preparing agents"}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {job?.tasks.length ? (
+        <div className="mt-3 grid gap-1.5">
+          {job.tasks.map((task) => (
+            <div key={task.id} className="flex items-center gap-2 text-[11px] text-od-ink-muted">
+              <span
+                className={`size-1.5 rounded-full ${
+                  task.status === "complete"
+                    ? "bg-od-green"
+                    : task.status === "active"
+                      ? "bg-od-ink"
+                      : task.status === "failed"
+                        ? "bg-red-500"
+                        : "bg-od-border-soft"
+                }`}
+              />
+              <span className="min-w-0 flex-1 truncate">{task.name}</span>
+              <span className="shrink-0 text-od-ink-faint">{task.status}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

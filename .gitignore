@@ -26,6 +26,7 @@ apps/web/src/routeTree.gen.ts
 *.swo
 *~
 .DS_Store
+.antigravitycli
 
 # Logs
 logs
@@ -50,5 +51,7 @@ coverage
 # Misc
 *.tgz
 .cache
+.opendiagram
 tmp
 temp
+COGNEE_INTEGRATION_PLAN.md

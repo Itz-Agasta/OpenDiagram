@@ -3,11 +3,21 @@ import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { project } from "@OpenDiagram/db/schema/project";
 import { Hono } from "hono";
 import { z } from "zod";
+import { generateGroundedProjectAnswer } from "../lib/repo-ai";
+import {
+  getProjectMemoryContext,
+  getProjectMemoryStatus,
+  markProjectMemoryPending,
+  reindexProjectMemory,
+} from "../lib/project-memory";
+import { getRepoGenerationJob, startRepoGeneration } from "../lib/repo-generation";
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
+  source: z.enum(["manual", "github_import"]).optional(),
+  sourceMetadata: z.unknown().optional(),
 });
 
 const updateSchema = z
@@ -17,7 +27,7 @@ const updateSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No fields to update" });
 
-const fileTypeSchema = z.enum(["diagram", "doc", "readme", "imported_repo", "ai_diagram"]);
+const fileTypeSchema = z.enum(["diagram", "doc"]);
 
 const createFileSchema = z.object({
   name: z.string().min(1).max(200),
@@ -25,6 +35,7 @@ const createFileSchema = z.object({
   scene: z.unknown().optional(),
   spec: z.unknown().optional(),
   content: z.unknown().optional(),
+  history: z.array(z.unknown()).optional(),
 });
 
 const updateFileSchema = z
@@ -34,8 +45,30 @@ const updateFileSchema = z
     scene: z.unknown().optional(),
     spec: z.unknown().optional(),
     content: z.unknown().optional(),
+    history: z.array(z.unknown()).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No fields to update" });
+
+const chatSchema = z.object({
+  message: z.string().min(1).max(4000),
+});
+
+const contextQuerySchema = z.object({
+  query: z.string().min(1).max(2000),
+});
+
+function markProjectMemoryPendingSafely(projectId: string, userId: string) {
+  void markProjectMemoryPending(projectId, userId).catch((error) => {
+    console.error("Failed to mark project memory pending:", error);
+  });
+}
+
+function markDocSpecUserEdited(spec: unknown) {
+  if (!spec || typeof spec !== "object" || !("kind" in spec)) return spec;
+  if ((spec as { kind?: unknown }).kind !== "repo_documentation") return spec;
+
+  return { ...(spec as Record<string, unknown>), userEditedAt: new Date().toISOString() };
+}
 
 export const projectsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -48,6 +81,9 @@ projectsRoute.get("/", async (c) => {
       id: project.id,
       name: project.name,
       description: project.description,
+      source: project.source,
+      sourceMetadata: project.sourceMetadata,
+      generationStatus: project.generationStatus,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
     })
@@ -72,7 +108,122 @@ projectsRoute.post("/", async (c) => {
     .values({ ...parsed.data, userId })
     .returning();
 
+  if (!row) {
+    return c.json({ error: "Could not create project" }, 500);
+  }
+
   return c.json({ project: row }, 201);
+});
+
+projectsRoute.get("/:projectId/memory/status", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const status = await getProjectMemoryStatus({ projectId, userId });
+
+  if (!status) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  return c.json({ memory: status });
+});
+
+projectsRoute.post("/:projectId/memory/reindex", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  try {
+    const status = await reindexProjectMemory({ projectId, userId });
+
+    if (!status) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    return c.json({ memory: status });
+  } catch {
+    return c.json({ error: "Could not index project memory." }, 502);
+  }
+});
+
+projectsRoute.post("/:projectId/memory/context", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const body = await c.req.json().catch(() => null);
+  const parsed = contextQuerySchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
+  }
+
+  const context = await getProjectMemoryContext({
+    projectId,
+    userId,
+    query: parsed.data.query,
+  });
+
+  if (!context) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  return c.json(context);
+});
+
+projectsRoute.post("/:projectId/chat", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const body = await c.req.json().catch(() => null);
+  const parsed = chatSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
+  }
+
+  const projectContext = await getProjectMemoryContext({
+    projectId,
+    userId,
+    query: parsed.data.message,
+  });
+
+  if (!projectContext) {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  const answer = await generateGroundedProjectAnswer({
+    message: parsed.data.message,
+    context: projectContext.context,
+  });
+
+  return c.json({
+    answer,
+    sources: projectContext.sources,
+    provider: projectContext.provider,
+  });
+});
+
+projectsRoute.post("/:projectId/repo-generation", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+
+  try {
+    const job = await startRepoGeneration({ projectId, userId });
+    if (!job) return c.json({ error: "Not found" }, 404);
+    return c.json({ job }, 202);
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : "Could not start repository generation." },
+      400,
+    );
+  }
+});
+
+projectsRoute.get("/:projectId/repo-generation/:jobId", async (c) => {
+  const userId = c.get("userId");
+  const projectId = c.req.param("projectId");
+  const jobId = c.req.param("jobId");
+  const job = getRepoGenerationJob({ projectId, userId, jobId });
+
+  if (!job) return c.json({ error: "Repository generation job not found." }, 404);
+
+  return c.json({ job });
 });
 
 projectsRoute.get("/:projectId/files", async (c) => {
@@ -127,6 +278,8 @@ projectsRoute.post("/:projectId/files", async (c) => {
     .values({ ...parsed.data, projectId })
     .returning();
 
+  markProjectMemoryPendingSafely(projectId, userId);
+
   return c.json({ file: row }, 201);
 });
 
@@ -143,6 +296,7 @@ projectsRoute.get("/:projectId/files/:fileId", async (c) => {
       scene: projectFile.scene,
       spec: projectFile.spec,
       content: projectFile.content,
+      history: projectFile.history,
       createdAt: projectFile.createdAt,
       updatedAt: projectFile.updatedAt,
     })
@@ -169,7 +323,7 @@ projectsRoute.patch("/:projectId/files/:fileId", async (c) => {
   }
 
   const [ownedFile] = await db
-    .select({ id: projectFile.id })
+    .select({ id: projectFile.id, spec: projectFile.spec, type: projectFile.type })
     .from(projectFile)
     .innerJoin(project, eq(projectFile.projectId, project.id))
     .where(and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)));
@@ -178,11 +332,21 @@ projectsRoute.patch("/:projectId/files/:fileId", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  const update = {
+    ...parsed.data,
+    spec:
+      ownedFile.type === "doc" && "content" in parsed.data
+        ? markDocSpecUserEdited(ownedFile.spec)
+        : parsed.data.spec,
+  };
+
   const [row] = await db
     .update(projectFile)
-    .set(parsed.data)
+    .set(update)
     .where(eq(projectFile.id, fileId))
     .returning();
+
+  markProjectMemoryPendingSafely(projectId, userId);
 
   return c.json({ file: row });
 });
@@ -202,6 +366,7 @@ projectsRoute.delete("/:projectId/files/:fileId", async (c) => {
   }
 
   await db.delete(projectFile).where(eq(projectFile.id, fileId));
+  markProjectMemoryPendingSafely(projectId, userId);
 
   return c.json({ ok: true });
 });
@@ -238,6 +403,8 @@ projectsRoute.patch("/:id", async (c) => {
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
+
+  markProjectMemoryPendingSafely(c.req.param("id"), userId);
 
   return c.json({ project: row });
 });

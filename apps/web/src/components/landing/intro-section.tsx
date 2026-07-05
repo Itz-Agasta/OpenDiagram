@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, type MotionValue } from "motion/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -142,7 +142,7 @@ function WordFade({
   word: string;
   index: number;
   total: number;
-  progress: import("framer-motion").MotionValue<number>;
+  progress: MotionValue<number>;
 }) {
   const start = index / total;
   const end = (index + 1) / total;
@@ -230,7 +230,7 @@ export function IntroSection() {
         </div>
 
         <div className="relative flex w-full max-w-[940px] flex-col items-center gap-12 px-[120px] py-12 max-md:px-6">
-          <TextOpacityWords text="We help open source projects turn complex codebases into clear, beautiful documentation that contributors actually read" />
+          <TextOpacityWords text="We help teams turn fuzzy software ideas into Vibe Diagrams that make architecture feel fast, visual, and alive" />
 
           <SkillChip
             label="Architecture Diagrams"

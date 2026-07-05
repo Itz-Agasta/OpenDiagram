@@ -15,6 +15,8 @@ export type IconRegistry = Record<string, IconEntry>;
 /** The tagged icon registry built offline by scripts/icon-fetcher. */
 export const iconRegistry = registryJson as unknown as IconRegistry;
 
+const catalogCache = new Map<string, string>();
+
 /**
  * Compact icon catalog for LLM system-prompt injection.
  *
@@ -23,18 +25,29 @@ export const iconRegistry = registryJson as unknown as IconRegistry;
  * what the renderer later looks up. Tags (not full element JSON) are all the
  * model needs to choose, which keeps the prompt small.
  */
-export function buildIconCatalog(): string {
+export function buildIconCatalog(categories?: string[] | readonly string[]): string {
+  const cacheKey = categories ? [...categories].sort().join(",") : "all";
+  if (catalogCache.has(cacheKey)) {
+    return catalogCache.get(cacheKey)!;
+  }
+
   const byCategory = new Map<string, string[]>();
+  const filterSet = categories ? new Set(categories) : null;
 
   for (const icon of Object.values(iconRegistry)) {
     if (icon.tags.length === 0) continue; // untagged icons are invisible to the AI
     const cat = icon.category || "other";
+    if (filterSet && !filterSet.has(cat)) continue;
+
     const lines = byCategory.get(cat) ?? [];
     lines.push(`${icon.id}: ${icon.tags.join(", ")}`);
     byCategory.set(cat, lines);
   }
 
-  return [...byCategory.entries()]
+  const result = [...byCategory.entries()]
     .map(([cat, lines]) => `## ${cat}\n${lines.sort().join("\n")}`)
     .join("\n\n");
+
+  catalogCache.set(cacheKey, result);
+  return result;
 }
