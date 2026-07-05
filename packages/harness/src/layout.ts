@@ -3,7 +3,7 @@ import ELK from "elkjs/lib/elk-api.js";
 import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api.js";
 import { edgeLabelText, estimateTextHeight, estimateTextWidth, nodeSize } from "./measure.js";
 import type { DiagramEdge, DiagramSpec } from "./schema.js";
-import { defaultTheme, type Theme } from "./theme.js";
+import { classicTheme, type Theme } from "./theme/index.js";
 
 export interface Box {
   x: number;
@@ -70,7 +70,9 @@ function sanitize(spec: DiagramSpec): Sanitized {
       warnings.push(`dropping group "${group.id}" — id collides with a node id`);
       continue;
     }
-    const contains = group.contains.filter((id) => nodeIds.has(id) && !nodeParent.has(id));
+    const contains = [...new Set(group.contains)].filter(
+      (id) => nodeIds.has(id) && !nodeParent.has(id),
+    );
     if (contains.length === 0) {
       warnings.push(`dropping group "${group.id}" — no valid unclaimed nodes`);
       continue;
@@ -105,12 +107,30 @@ function sanitize(spec: DiagramSpec): Sanitized {
   }
 
   const edges: Sanitized["edges"] = [];
+  const usedEdgeIds = new Set<string>();
+  // Reciprocal request/response pairs (A->B + B->A) merge into ONE
+  // bidirectional edge: layered layout routes every backward edge all the way
+  // around the graph, so pairs render as giant unreadable loops otherwise.
+  const byEndpoints = new Map<string, DiagramEdge & { id: string }>();
   spec.edges.forEach((edge, i) => {
     if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) {
       warnings.push(`dropping edge with unknown endpoint (${edge.from} -> ${edge.to})`);
       return;
     }
-    edges.push({ ...edge, id: edge.id ?? `edge-${i}` });
+    const reverse = edge.from !== edge.to ? byEndpoints.get(`${edge.to}->${edge.from}`) : undefined;
+    if (reverse) {
+      reverse.direction = "bi";
+      reverse.label = [reverse.label, edge.label].filter(Boolean).join(" / ") || undefined;
+      warnings.push(`merged reciprocal edges ${edge.to}<->${edge.from} into one bidirectional`);
+      return;
+    }
+    // Duplicate ids would collapse onto one edgeRoutes entry, losing an edge.
+    let id = edge.id ?? `edge-${i}`;
+    while (usedEdgeIds.has(id)) id = `${id}-${i}`;
+    usedEdgeIds.add(id);
+    const kept = { ...edge, id };
+    byEndpoints.set(`${edge.from}->${edge.to}`, kept);
+    edges.push(kept);
   });
 
   return { nodeParent, groups, zones, edges, warnings };
@@ -176,7 +196,7 @@ function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
       "elk.edgeRouting": "ORTHOGONAL",
       // TUNABLE spacing (px): between columns/rows of nodes and around edges.
-      // Bigger = airier diagram, smaller = denser. 
+      // Bigger = airier diagram, smaller = denser.
       "elk.layered.spacing.nodeNodeBetweenLayers": "96", // gap between flow layers (arrow length lives here)
       "elk.layered.spacing.edgeNodeBetweenLayers": "32",
       "elk.spacing.nodeNode": "48", // gap between siblings in the same layer
@@ -200,7 +220,7 @@ function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
  */
 export async function layoutDiagram(
   spec: DiagramSpec,
-  theme: Theme = defaultTheme,
+  theme: Theme = classicTheme,
 ): Promise<PositionedSpec> {
   const s = sanitize(spec);
   const laidOut = await elk.layout(buildGraph(spec, s, theme));

@@ -1,5 +1,5 @@
 import type { DiagramEdge, DiagramNode } from "./schema.js";
-import type { Theme } from "./theme.js";
+import type { Theme } from "./theme/index.js";
 
 /**
  * Server-safe text metrics: no canvas available, so widths are estimated from
@@ -22,16 +22,31 @@ export function estimateTextHeight(fontSize: number): number {
 }
 
 /**
- * Node footprint. Contained nodes (inside a group/zone) render as cards:
- * box + icon band + label. Top-level nodes render solo: big boxless icon with
- * the label underneath -- so their footprint is just icon + text extents.
+ * Node footprint.
+ * - "card" mode: contained nodes render as cards (box + icon band + label),
+ *   top-level nodes render solo (big boxless icon + label underneath).
+ * - "icon" mode (handdrawn): every node with an icon renders solo; icon-less
+ *   nodes render as a mermaid-style box with the label centered inside.
  */
 export function nodeSize(
   node: DiagramNode,
   theme: Theme,
   contained: boolean,
 ): { width: number; height: number } {
-  if (!contained) {
+  if (theme.nodeMode === "icon" && !node.icon) {
+    const { boxNode, text } = theme;
+    const labelWidth = estimateTextWidth(node.label, text.nodeLabel.size);
+    const sublabelWidth = node.sublabel
+      ? estimateTextWidth(node.sublabel, text.nodeSublabel.size)
+      : 0;
+    return {
+      width: Math.max(boxNode.minWidth, Math.max(labelWidth, sublabelWidth) + boxNode.paddingX * 2),
+      height:
+        boxNode.paddingY * 2 + boxNode.labelHeight + (node.sublabel ? boxNode.sublabelHeight : 0),
+    };
+  }
+
+  if (theme.nodeMode === "icon" || !contained) {
     const { solo, text } = theme;
     const labelWidth = estimateTextWidth(node.label, text.soloLabel.size);
     const sublabelWidth = node.sublabel

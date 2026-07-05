@@ -20,5 +20,5 @@ export type {
   RenderResult,
 } from "./renderer.js";
 
-export { defaultTheme } from "./theme.js";
-export type { Theme } from "./theme.js";
+export { classicTheme, sketchTheme, themes } from "./theme/index.js";
+export type { Theme, ThemeName } from "./theme/index.js";

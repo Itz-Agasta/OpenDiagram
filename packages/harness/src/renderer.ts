@@ -1,7 +1,7 @@
 import type { Box, PositionedSpec } from "./layout.js";
 import { edgeLabelText } from "./measure.js";
 import type { DiagramEdge, DiagramNode } from "./schema.js";
-import { defaultTheme, type Theme } from "./theme.js";
+import { classicTheme, type Theme } from "./theme/index.js";
 
 export interface HarnessIconEntry {
   id: string;
@@ -22,6 +22,8 @@ export type RenderSkeleton =
       strokeColor?: string;
       backgroundColor?: string;
       strokeStyle?: "solid" | "dashed" | "dotted";
+      /** Excalidraw fill pattern — defaults to "solid" when omitted. */
+      fillStyle?: "solid" | "hachure" | "cross-hatch";
       strokeWidth?: number;
       rounded?: boolean;
       roughness?: number;
@@ -171,6 +173,7 @@ function renderContainer(
   box: Box,
   theme: Theme,
   out: RenderSkeleton[],
+  overrides?: { strokeColor?: string; backgroundColor?: string },
 ): void {
   const tokens = theme.containers[style ?? ""] ?? theme.defaultContainer;
   const groupId = crypto.randomUUID();
@@ -179,10 +182,11 @@ function renderContainer(
     id,
     shape: "rectangle",
     ...box,
-    strokeColor: tokens.stroke,
-    backgroundColor: tokens.fill,
+    strokeColor: overrides?.strokeColor ?? tokens.stroke,
+    backgroundColor: overrides?.backgroundColor ?? tokens.fill,
+    fillStyle: tokens.fillStyle,
     strokeStyle: tokens.strokeStyle,
-    strokeWidth: 1,
+    strokeWidth: theme.containerStrokeWidth,
     roughness: theme.roughness,
     groupId,
   });
@@ -194,7 +198,7 @@ function renderContainer(
     y: box.y + 12,
     fontSize: theme.text.containerLabel.size,
     fontFamily: theme.fontFamily,
-    color: tokens.stroke,
+    color: overrides?.strokeColor ?? tokens.stroke,
     textAlign: "left",
     groupId,
   });
@@ -244,7 +248,7 @@ function renderSoloNode(
       strokeColor: category.stroke,
       backgroundColor: category.fill,
       strokeStyle: "solid",
-      strokeWidth: 1,
+      strokeWidth: theme.boxNode.strokeWidth,
       rounded: true,
       roughness: theme.roughness,
       groupId,
@@ -275,6 +279,60 @@ function renderSoloNode(
       fontSize: text.soloSublabel.size,
       fontFamily: theme.fontFamily,
       color: text.soloSublabel.color,
+      textAlign: "center",
+      groupId,
+    });
+  }
+}
+
+/**
+ * Mermaid-style icon-less node ("icon" mode): a box with the label centered
+ * inside — no icon band.
+ */
+function renderBoxNode(node: DiagramNode, box: Box, theme: Theme, out: RenderSkeleton[]): void {
+  const { boxNode, text } = theme;
+  const category = theme.categories[node.category ?? ""] ?? theme.defaultCategory;
+  const groupId = crypto.randomUUID();
+
+  out.push({
+    kind: "container",
+    id: node.id,
+    shape: node.category === "database" || node.category === "storage" ? "ellipse" : "rectangle",
+    ...box,
+    strokeColor: node.style?.strokeColor ?? category.stroke,
+    backgroundColor: node.style?.backgroundColor ?? category.fill,
+    strokeStyle: node.style?.strokeStyle ?? "solid",
+    strokeWidth: node.style?.strokeWidth ?? boxNode.strokeWidth,
+    rounded: true,
+    roughness: theme.roughness,
+    groupId,
+  });
+
+  const centerX = box.x + box.width / 2;
+  const textBlockHeight = boxNode.labelHeight + (node.sublabel ? boxNode.sublabelHeight : 0);
+  const labelY = box.y + (box.height - textBlockHeight) / 2;
+  out.push({
+    kind: "text",
+    id: `${node.id}-label`,
+    text: node.label,
+    x: centerX,
+    y: labelY,
+    fontSize: text.nodeLabel.size,
+    fontFamily: theme.fontFamily,
+    color: text.nodeLabel.color,
+    textAlign: "center",
+    groupId,
+  });
+  if (node.sublabel) {
+    out.push({
+      kind: "text",
+      id: `${node.id}-sublabel`,
+      text: node.sublabel,
+      x: centerX,
+      y: labelY + boxNode.labelHeight,
+      fontSize: text.nodeSublabel.size,
+      fontFamily: theme.fontFamily,
+      color: text.nodeSublabel.color,
       textAlign: "center",
       groupId,
     });
@@ -374,21 +432,30 @@ function renderEdge(
   const [start, ...rest] = route.points;
   if (!start || rest.length === 0) return;
   const strokeStyle = edge.style ?? theme.edge.kind[edge.kind ?? "sync"];
+  // "arrow" from the spec means "the default head" — each theme picks its own.
+  const defaultHead = theme.edge.arrowhead;
+  const normalizeHead = (head: "none" | "arrow" | "circle" | "bar") =>
+    head === "arrow" ? defaultHead : head;
   out.push({
     kind: "arrow",
     id: edge.id,
     x: start.x,
     y: start.y,
+    // ELK's orthogonal route, bends included — labels were measured against
+    // this exact path, so it must be drawn verbatim.
     points: [[0, 0], ...rest.map((p): [number, number] => [p.x - start.x, p.y - start.y])],
     startId: edge.from,
     endId: edge.to,
     strokeColor: theme.edge.stroke,
     strokeStyle,
     strokeWidth: theme.edge.strokeWidth,
-    roughness: theme.roughness,
-    startArrowhead: edge.startArrowhead ?? (edge.direction === "bi" ? "triangle" : "none"),
-    endArrowhead:
-      edge.endArrowhead === "arrow" || !edge.endArrowhead ? "triangle" : edge.endArrowhead,
+    roughness: theme.edge.roughness,
+    startArrowhead: edge.startArrowhead
+      ? normalizeHead(edge.startArrowhead)
+      : edge.direction === "bi"
+        ? defaultHead
+        : "none",
+    endArrowhead: edge.endArrowhead ? normalizeHead(edge.endArrowhead) : defaultHead,
   });
 
   const text = edgeLabelText(edge);
@@ -435,7 +502,7 @@ function renderEdge(
 export function renderToExcalidraw(
   positioned: PositionedSpec,
   icons: HarnessIconRegistry,
-  theme: Theme = defaultTheme,
+  theme: Theme = classicTheme,
 ): RenderResult {
   const skeletons: RenderSkeleton[] = [];
   const rawElements: Record<string, unknown>[] = [];
@@ -457,6 +524,7 @@ export function renderToExcalidraw(
       box,
       theme,
       skeletons,
+      { strokeColor: group.strokeColor, backgroundColor: group.backgroundColor },
     );
   }
 
@@ -464,7 +532,15 @@ export function renderToExcalidraw(
   for (const node of positioned.nodes) {
     const box = positioned.positions[node.id];
     if (!box) continue;
-    if (contained.has(node.id)) {
+    if (theme.nodeMode === "icon") {
+      // Handdrawn: never a card. Icon nodes stand alone; icon-less nodes get
+      // a mermaid-style box. Must mirror the branch in measure.ts nodeSize.
+      if (node.icon) {
+        renderSoloNode(node, box, icons, theme, skeletons, rawElements);
+      } else {
+        renderBoxNode(node, box, theme, skeletons);
+      }
+    } else if (contained.has(node.id)) {
       renderNode(node, box, icons, theme, skeletons, rawElements);
     } else {
       renderSoloNode(node, box, icons, theme, skeletons, rawElements);
