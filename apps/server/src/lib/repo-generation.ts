@@ -107,7 +107,13 @@ function logJob(
   if (data) console.log(`   ${JSON.stringify(data)}`);
 }
 
-export async function startRepoGeneration(input: { projectId: string; userId: string }) {
+export async function startRepoGeneration(
+  input: { projectId: string; userId: string },
+  retryCount = 0,
+) {
+  if (retryCount > 3) {
+    throw new Error("Failed to start repository generation due to concurrent updates.");
+  }
   pruneOldJobs();
   const key = projectKey(input);
   const existingJobId = activeJobByProject.get(key);
@@ -232,7 +238,11 @@ export async function startRepoGeneration(input: { projectId: string; userId: st
         and(
           eq(project.id, input.projectId),
           eq(project.userId, input.userId),
-          or(eq(project.generationStatus, "none"), eq(project.generationStatus, "failed")),
+          or(
+            eq(project.generationStatus, "none"),
+            eq(project.generationStatus, "failed"),
+            eq(project.generationStatus, "done"),
+          ),
         ),
       )
       .returning();
@@ -240,7 +250,7 @@ export async function startRepoGeneration(input: { projectId: string; userId: st
     if (!updatedProject) {
       jobs.delete(lockJobId);
       activeJobByProject.delete(key);
-      return startRepoGeneration(input);
+      return startRepoGeneration(input, retryCount + 1);
     }
 
     const queuedJob: RepoGenerationJob = {
@@ -743,7 +753,7 @@ function isGeneratedFileComplete(file: { spec: unknown }) {
   );
 }
 
-let dbUpdateQueue = Promise.resolve();
+const dbUpdateQueues = new Map<string, Promise<unknown>>();
 
 function updateJob(
   jobId: string,
@@ -754,7 +764,9 @@ function updateJob(
   jobs.set(jobId, { ...job, ...values, updatedAt: new Date().toISOString() });
 
   if (values.status) {
-    dbUpdateQueue = dbUpdateQueue.then(async () => {
+    const queueKey = job.projectId;
+    const currentQueue = dbUpdateQueues.get(queueKey) ?? Promise.resolve();
+    const nextQueue = currentQueue.then(async () => {
       try {
         await db
           .update(project)
@@ -762,6 +774,13 @@ function updateJob(
           .where(and(eq(project.id, job.projectId), eq(project.userId, job.userId)));
       } catch (err) {
         console.error(`Failed to update project generation_status in DB:`, err);
+      }
+    });
+    dbUpdateQueues.set(queueKey, nextQueue);
+
+    nextQueue.finally(() => {
+      if (dbUpdateQueues.get(queueKey) === nextQueue) {
+        dbUpdateQueues.delete(queueKey);
       }
     });
 

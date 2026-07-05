@@ -208,7 +208,6 @@ async function collectSourceFiles(repoPath: string) {
 
   for await (const candidate of walkRepo(repoPath, repoPath)) {
     candidates.push(candidate);
-    if (candidates.length >= 1000) break;
   }
 
   for (const relativePath of rankPaths(candidates)) {
