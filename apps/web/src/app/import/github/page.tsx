@@ -8,8 +8,7 @@ import { ArrowLeft, Check, GitBranch, Loader2, Lock, Search } from "lucide-react
 import { ButtonShaderTexture } from "@/components/button-shader-texture";
 import { authClient } from "@/lib/auth-client";
 import {
-  getGitHubImportJob,
-  importGitHubRepository,
+  importGitHubRepositoryStream,
   listGitHubRepositories,
   type ImportedGitHubProject,
   type GitHubRepository,
@@ -139,10 +138,14 @@ function GitHubImportContent() {
     setError(null);
 
     try {
-      const job = await importGitHubRepository(repoFullName);
-      if (!mountedRef.current || controller.signal.aborted) return;
-      setImportMessage(job.message);
-      const completed = await waitForImportJob(job.id, setImportMessage, controller.signal);
+      const completed = await importGitHubRepositoryStream(
+        repoFullName,
+        (job) => {
+          if (!mountedRef.current || controller.signal.aborted) return;
+          setImportMessage(job.message);
+        },
+        controller.signal,
+      );
       if (!mountedRef.current || controller.signal.aborted) return;
 
       if (!completed.project) {
@@ -539,47 +542,4 @@ function normalizeRepoTarget(value: string) {
     .replace(/^github\.com\//i, "")
     .replace(/\.git$/i, "")
     .replace(/\/$/, "");
-}
-
-async function waitForImportJob(
-  jobId: string,
-  onMessage: (message: string) => void,
-  signal: AbortSignal,
-): Promise<Awaited<ReturnType<typeof getGitHubImportJob>>> {
-  for (let attempt = 0; attempt < 180; attempt++) {
-    await abortableDelay(1000, signal);
-    let job;
-    try {
-      job = await getGitHubImportJob(jobId, signal);
-    } catch (err) {
-      if (signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        throw err;
-      }
-      console.warn("Transient error while fetching import job status, retrying...", err);
-      continue;
-    }
-
-    onMessage(job.message);
-
-    if (job.status === "done") return job;
-    if (job.status === "failed") throw new Error(job.error ?? "Repository import failed.");
-  }
-
-  throw new Error("Repository import timed out.");
-}
-
-function abortableDelay(ms: number, signal: AbortSignal) {
-  if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
-
-  return new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        window.clearTimeout(timeout);
-        reject(new DOMException("Aborted", "AbortError"));
-      },
-      { once: true },
-    );
-  });
 }

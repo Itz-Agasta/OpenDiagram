@@ -5,6 +5,9 @@ import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagra
 import { iconRegistry } from "./icons/registry";
 import { generateArchitectureDoc, generateDiagramSpec } from "./repo-ai";
 import { getProjectMemoryContext } from "./project-memory";
+import { createLogger } from "evlog";
+
+const log = createLogger({ module: "repo-generation" });
 
 type RepoGenerationStatus = "queued" | "planning" | "creating" | "generating" | "done" | "failed";
 type RepoGenerationTaskStatus = "pending" | "active" | "complete" | "failed";
@@ -39,6 +42,9 @@ export type RepoGenerationJob = {
 const jobs = new Map<string, RepoGenerationJob>();
 const activeJobByProject = new Map<string, string>();
 const jobCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// Live SSE listeners keyed by jobId — see jobEmitters in routes/github.ts for
+// the same pattern. Keeps generation running inside the streaming request.
+const genEmitters = new Map<string, (job: RepoGenerationJob) => void>();
 const JOB_RETENTION_MS = 15 * 60 * 1000;
 const MAX_RETAINED_JOBS = 100;
 
@@ -88,23 +94,14 @@ function logJob(
   message: string,
   data?: unknown,
 ) {
-  const timestamp = new Date().toLocaleTimeString();
-  const statusLabel = status.toUpperCase();
-  const emoji =
-    status === "done"
-      ? "✅"
-      : status === "failed" || status === "error"
-        ? "❌"
-        : status === "generating" || status === "active"
-          ? "🧠"
-          : status === "planning"
-            ? "📋"
-            : status === "creating"
-              ? "📄"
-              : "🔷";
-
-  console.log(`${emoji} [repo-gen ${jobId.slice(0, 8)}] ${timestamp} ${statusLabel}: ${message}`);
-  if (data) console.log(`   ${JSON.stringify(data)}`);
+  const fields = {
+    repoGen: { jobId: jobId.slice(0, 8), status, ...(data !== undefined ? { data } : {}) },
+  };
+  if (status === "error" || status === "failed") {
+    log.error(message, fields);
+  } else {
+    log.info(message, fields);
+  }
 }
 
 export async function startRepoGeneration(
@@ -122,8 +119,10 @@ export async function startRepoGeneration(
     existingJob &&
     ["queued", "planning", "creating", "generating", "done"].includes(existingJob.status)
   ) {
-    console.log(`👀 job start skipped for [${existingJob.id.slice(0, 8)}]`);
-    return existingJob;
+    log.info("Repo generation start skipped (already active)", {
+      repoGen: { jobId: existingJob.id.slice(0, 8) },
+    });
+    return { job: existingJob };
   }
 
   // Synchronous process lock
@@ -191,8 +190,10 @@ export async function startRepoGeneration(
       };
       jobs.set(lockJobId, doneJob);
       scheduleJobCleanup(lockJobId);
-      console.log(`👀 job start: returning done job #${lockJobId.slice(0, 8)}`);
-      return doneJob;
+      log.info("Repo generation already complete", {
+        repoGen: { jobId: lockJobId.slice(0, 8) },
+      });
+      return { job: doneJob };
     }
 
     const isAlreadyInProgress = ["queued", "planning", "creating", "generating"].includes(
@@ -220,15 +221,8 @@ export async function startRepoGeneration(
         })),
       };
       jobs.set(lockJobId, resumeJob);
-      console.log(`👀 job resume: respawning job #${lockJobId.slice(0, 8)}`);
-      void runRepoGenerationJob(lockJobId, projectRow).catch((error) => {
-        updateJob(lockJobId, {
-          status: "failed",
-          message: "Repository generation failed",
-          error: error instanceof Error ? error.message : "Repository generation failed.",
-        });
-      });
-      return resumeJob;
+      log.info("Repo generation resuming", { repoGen: { jobId: lockJobId.slice(0, 8) } });
+      return { job: resumeJob, run: () => runGenerationJob(lockJobId, projectRow) };
     }
 
     const [updatedProject] = await db
@@ -259,17 +253,11 @@ export async function startRepoGeneration(
       message: "Queued repository generation",
     };
     jobs.set(lockJobId, queuedJob);
-    console.log(`🚀 job started: #${lockJobId.slice(0, 8)} queued for ${lockJob.projectId}`);
-
-    void runRepoGenerationJob(lockJobId, projectRow).catch((error) => {
-      updateJob(lockJobId, {
-        status: "failed",
-        message: "Repository generation failed",
-        error: error instanceof Error ? error.message : "Repository generation failed.",
-      });
+    log.info("Repo generation queued", {
+      repoGen: { jobId: lockJobId.slice(0, 8), projectId: lockJob.projectId },
     });
 
-    return queuedJob;
+    return { job: queuedJob, run: () => runGenerationJob(lockJobId, projectRow) };
   } catch (error) {
     jobs.delete(lockJobId);
     activeJobByProject.delete(key);
@@ -277,14 +265,109 @@ export async function startRepoGeneration(
   }
 }
 
-export function getRepoGenerationJob(input: { projectId: string; userId: string; jobId: string }) {
-  const job = jobs.get(input.jobId);
-  if (!job || job.projectId !== input.projectId || job.userId !== input.userId) return null;
-  logJob(input.jobId, "retrieved", "Job status retrieved", {
-    status: job.status,
-    tasks: job.tasks.map((t) => ({ id: t.id, status: t.status })),
+function runGenerationJob(jobId: string, projectRow: typeof project.$inferSelect) {
+  return runRepoGenerationJob(jobId, projectRow).catch((error) => {
+    updateJob(jobId, {
+      status: "failed",
+      message: "Repository generation failed",
+      error: error instanceof Error ? error.message : "Repository generation failed.",
+    });
   });
-  return job;
+}
+
+/**
+ * Runs a started generation job while streaming each status change to `emit`.
+ * The route holds the request open (SSE), so the work keeps its Cloud Run CPU
+ * allocation until it finishes.
+ */
+export async function runRepoGenerationWithEmitter(
+  started: { job: RepoGenerationJob; run?: () => Promise<void> },
+  emit: (job: RepoGenerationJob) => void,
+) {
+  if (!started.run) return;
+  genEmitters.set(started.job.id, emit);
+  try {
+    await started.run();
+  } finally {
+    genEmitters.delete(started.job.id);
+  }
+}
+
+export async function getRepoGenerationJob(input: {
+  projectId: string;
+  userId: string;
+  jobId: string;
+}) {
+  const job = jobs.get(input.jobId);
+  if (job && job.projectId === input.projectId && job.userId === input.userId) {
+    logJob(input.jobId, "retrieved", "Job status retrieved", {
+      status: job.status,
+      tasks: job.tasks.map((t) => ({ id: t.id, status: t.status })),
+    });
+    return job;
+  }
+
+  // Map miss: on Cloud Run a status poll can land on a different instance than
+  // the one running the job (in-memory `jobs` is per-instance). Rebuild a
+  // snapshot from DB — project.generationStatus + per-file specs are the
+  // durable source of truth — so polling works across instances.
+  return buildJobSnapshotFromDb(input);
+}
+
+const GENERATION_STATUS_TO_JOB: Record<string, RepoGenerationStatus | null> = {
+  none: null,
+  queued: "queued",
+  planning: "planning",
+  creating: "creating",
+  generating: "generating",
+  done: "done",
+  failed: "failed",
+};
+
+async function buildJobSnapshotFromDb(input: {
+  projectId: string;
+  userId: string;
+  jobId: string;
+}): Promise<RepoGenerationJob | null> {
+  const [projectRow] = await db
+    .select()
+    .from(project)
+    .where(and(eq(project.id, input.projectId), eq(project.userId, input.userId)));
+  if (!projectRow) return null;
+
+  const status = GENERATION_STATUS_TO_JOB[projectRow.generationStatus] ?? null;
+  if (!status) return null;
+
+  const files = await getGeneratedFiles(input.projectId);
+  const tasks: RepoGenerationTask[] = PLAN.map((item) => {
+    const file = files.find((f) => f.name === item.name);
+    const complete = file ? isGeneratedFileComplete(file) : false;
+    return {
+      ...item,
+      status: complete ? "complete" : status === "failed" ? "failed" : "pending",
+      message: complete ? "Generated" : status === "failed" ? "Generation failed" : "Waiting",
+      fileId: file?.id ?? null,
+    };
+  });
+
+  const timestamp = new Date().toISOString();
+  return {
+    id: input.jobId,
+    userId: input.userId,
+    projectId: input.projectId,
+    status,
+    message:
+      status === "done"
+        ? "Repository docs and diagrams generated"
+        : status === "failed"
+          ? "Repository generation failed"
+          : "Repository generation in progress",
+    error: null,
+    tasks,
+    createdFiles: files.map((file) => ({ id: file.id, name: file.name, type: file.type })),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
 }
 
 async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$inferSelect) {
@@ -478,178 +561,11 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
         }
       }
       if (!layoutSucceeded) {
-        let spec: DiagramSpec;
-        if (item.id === "system-context") {
-          spec = {
-            title: item.name,
-            type: "system-design",
-            nodes: [
-              {
-                id: "client",
-                label: "User Client",
-                sublabel: "Web Browser / UI",
-                category: "client",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__device",
-                style: { strokeColor: "#6b7280", backgroundColor: "#f3f4f6" },
-              },
-              {
-                id: "app",
-                label: "Hono Server",
-                sublabel: "Application Core (Bun)",
-                category: "service",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__docker",
-                style: { strokeColor: "#1e40af", backgroundColor: "#dbeafe" },
-              },
-              {
-                id: "db",
-                label: "Database",
-                sublabel: "PostgreSQL (Supabase)",
-                category: "database",
-                shape: "cylinder",
-                icon: "software-logos__software-logos-12",
-                style: { strokeColor: "#166534", backgroundColor: "#dcfce7" },
-              },
-              {
-                id: "ai",
-                label: "AI Gateway",
-                sublabel: "Google Gemini API",
-                category: "external",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__server",
-                style: { strokeColor: "#7c2d12", backgroundColor: "#fed7aa" },
-              },
-            ],
-            edges: [
-              {
-                from: "client",
-                to: "app",
-                label: "Interacts / Designs",
-                protocol: "HTTPS",
-                direction: "bi",
-              },
-              {
-                from: "app",
-                to: "db",
-                label: "Persists diagrams & docs",
-                protocol: "SQL",
-                direction: "bi",
-              },
-              {
-                from: "app",
-                to: "ai",
-                label: "Invokes model completion",
-                protocol: "REST",
-                direction: "uni",
-              },
-            ],
-          };
-        } else if (item.id === "request-flow") {
-          spec = {
-            title: item.name,
-            type: "system-design",
-            nodes: [
-              {
-                id: "client",
-                label: "Web Browser",
-                sublabel: "React SPA Client",
-                category: "client",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__device",
-                style: { strokeColor: "#6b7280", backgroundColor: "#f3f4f6" },
-              },
-              {
-                id: "gateway",
-                label: "App Gateway",
-                sublabel: "Reverse Proxy & CORS",
-                category: "gateway",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__server",
-                style: { strokeColor: "#7c2d12", backgroundColor: "#fed7aa" },
-              },
-              {
-                id: "api",
-                label: "API Server",
-                sublabel: "Hono Backend",
-                category: "service",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__docker",
-                style: { strokeColor: "#1e40af", backgroundColor: "#dbeafe" },
-              },
-              {
-                id: "db",
-                label: "Database",
-                sublabel: "PostgreSQL (Supabase)",
-                category: "database",
-                shape: "cylinder",
-                icon: "software-logos__software-logos-12",
-                style: { strokeColor: "#166534", backgroundColor: "#dcfce7" },
-              },
-            ],
-            edges: [
-              {
-                from: "client",
-                to: "gateway",
-                label: "HTTP Requests",
-                protocol: "HTTPS",
-                direction: "uni",
-              },
-              {
-                from: "gateway",
-                to: "api",
-                label: "Proxy Routing",
-                protocol: "HTTP",
-                direction: "uni",
-              },
-              {
-                from: "api",
-                to: "db",
-                label: "Read/Write Queries",
-                protocol: "SQL",
-                direction: "bi",
-              },
-            ],
-          };
-        } else {
-          spec = {
-            title: item.name,
-            type: "system-design",
-            nodes: [
-              {
-                id: "client",
-                label: "Client",
-                sublabel: "User Client",
-                category: "client",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__device",
-                style: { strokeColor: "#6b7280", backgroundColor: "#f3f4f6" },
-              },
-              {
-                id: "app",
-                label: "Application",
-                sublabel: "Backend Server",
-                category: "service",
-                shape: "rectangle",
-                icon: "architecture-diagram-components__docker",
-                style: { strokeColor: "#1e40af", backgroundColor: "#dbeafe" },
-              },
-              {
-                id: "data",
-                label: "Data Layer",
-                sublabel: "Database",
-                category: "database",
-                shape: "cylinder",
-                icon: "software-logos__software-logos-12",
-                style: { strokeColor: "#166534", backgroundColor: "#dcfce7" },
-              },
-            ],
-            edges: [
-              { from: "client", to: "app", label: "uses", protocol: "HTTPS" },
-              { from: "app", to: "data", label: "reads/writes", protocol: "SQL" },
-            ],
-          };
-        }
+        // Neutral fallback when AI generation/layout fails. Deliberately
+        // generic: the old hardcoded specs described OpenDiagram's own stack
+        // (Hono/Bun/Supabase/Gemini) and were shown for every imported repo,
+        // which is wrong output. The renderer owns colors/icons.
+        const spec = buildFallbackDiagramSpec(item);
         try {
           const positioned = await layoutDiagram(spec);
           const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry);
@@ -718,6 +634,22 @@ async function getGeneratedFiles(projectId: string) {
     .map((file) => ({ id: file.id, name: file.name, type: file.type, spec: file.spec }));
 }
 
+function buildFallbackDiagramSpec(item: RepoGenerationPlanItem): DiagramSpec {
+  return {
+    title: item.name,
+    type: "system-design",
+    nodes: [
+      { id: "client", label: "Client", category: "client", shape: "rectangle" },
+      { id: "app", label: "Application", category: "service", shape: "rectangle" },
+      { id: "data", label: "Data Store", category: "database", shape: "cylinder" },
+    ],
+    edges: [
+      { from: "client", to: "app", label: "request", protocol: "HTTPS" },
+      { from: "app", to: "data", label: "reads / writes" },
+    ],
+  };
+}
+
 function createGeneratedSpec(
   projectRow: typeof project.$inferSelect,
   item: RepoGenerationPlanItem,
@@ -761,7 +693,9 @@ function updateJob(
 ) {
   const job = jobs.get(jobId);
   if (!job) return;
-  jobs.set(jobId, { ...job, ...values, updatedAt: new Date().toISOString() });
+  const nextJob = { ...job, ...values, updatedAt: new Date().toISOString() };
+  jobs.set(jobId, nextJob);
+  genEmitters.get(jobId)?.(nextJob);
 
   if (values.status) {
     const queueKey = job.projectId;
@@ -773,7 +707,7 @@ function updateJob(
           .set({ generationStatus: values.status as any })
           .where(and(eq(project.id, job.projectId), eq(project.userId, job.userId)));
       } catch (err) {
-        console.error(`Failed to update project generation_status in DB:`, err);
+        log.error("Failed to update project generation_status", { error: err });
       }
     });
     dbUpdateQueues.set(queueKey, nextQueue);

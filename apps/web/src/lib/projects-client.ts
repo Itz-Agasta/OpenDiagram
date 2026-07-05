@@ -1,4 +1,5 @@
 import { env } from "@OpenDiagram/env/web";
+import { consumeSSE, pollUntilTerminal } from "./sse";
 
 export type SavedProject = {
   id: string;
@@ -283,6 +284,41 @@ export async function startRepoGeneration(projectId: string): Promise<RepoGenera
   }
 
   return data.job;
+}
+
+// Streams generation: the POST runs the whole job server-side and pushes a job
+// snapshot per status/task change. Resolves with the terminal job.
+export async function streamRepoGeneration(
+  projectId: string,
+  onJob: (job: RepoGenerationJob) => void,
+  signal?: AbortSignal,
+): Promise<RepoGenerationJob> {
+  const response = await fetch(
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/repo-generation`,
+    { method: "POST", credentials: "include", signal },
+  );
+
+  if (!response.ok) {
+    const data = await readProjectResponse(response);
+    throw new Error(data?.error ?? "Could not start repository generation.");
+  }
+
+  let last = await consumeSSE<RepoGenerationJob>(response, onJob);
+  if (!last) throw new Error("Repository generation stream ended unexpectedly.");
+
+  // Stream may close on a non-terminal status when a generation job is already
+  // running (server sends one snapshot then closes); poll until it finishes.
+  if (last.status !== "done" && last.status !== "failed") {
+    const jobId = last.id;
+    last = await pollUntilTerminal(
+      () => getRepoGenerationJob(projectId, jobId),
+      (job) => job.status === "done" || job.status === "failed",
+      onJob,
+      { signal },
+    );
+  }
+
+  return last;
 }
 
 export async function getRepoGenerationJob(

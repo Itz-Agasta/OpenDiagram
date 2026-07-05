@@ -2,6 +2,7 @@ import { and, db, desc, eq } from "@OpenDiagram/db";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { project } from "@OpenDiagram/db/schema/project";
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { generateGroundedProjectAnswer } from "../lib/repo-ai";
 import {
@@ -10,8 +11,16 @@ import {
   markProjectMemoryPending,
   reindexProjectMemory,
 } from "../lib/project-memory";
-import { getRepoGenerationJob, startRepoGeneration } from "../lib/repo-generation";
+import {
+  getRepoGenerationJob,
+  runRepoGenerationWithEmitter,
+  startRepoGeneration,
+  type RepoGenerationJob,
+} from "../lib/repo-generation";
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
+import { createLogger } from "evlog";
+
+const log = createLogger({ module: "projects" });
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
@@ -59,7 +68,7 @@ const contextQuerySchema = z.object({
 
 function markProjectMemoryPendingSafely(projectId: string, userId: string) {
   void markProjectMemoryPending(projectId, userId).catch((error) => {
-    console.error("Failed to mark project memory pending:", error);
+    log.error("Failed to mark project memory pending", { error });
   });
 }
 
@@ -203,23 +212,37 @@ projectsRoute.post("/:projectId/repo-generation", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
 
+  let started: Awaited<ReturnType<typeof startRepoGeneration>>;
   try {
-    const job = await startRepoGeneration({ projectId, userId });
-    if (!job) return c.json({ error: "Not found" }, 404);
-    return c.json({ job }, 202);
+    started = await startRepoGeneration({ projectId, userId });
   } catch (error) {
     return c.json(
       { error: error instanceof Error ? error.message : "Could not start repository generation." },
       400,
     );
   }
+  if (!started) return c.json({ error: "Not found" }, 404);
+  const startedResult = started;
+
+  // Stream generation progress inside the request so the work keeps its CPU
+  // allocation on Cloud Run scale-to-zero (see routes/github.ts import stream).
+  return streamSSE(c, async (stream) => {
+    const send = (job: RepoGenerationJob) =>
+      stream.writeSSE({ event: "status", data: JSON.stringify(job) });
+    await send(startedResult.job);
+    // Swallow write errors on a closed stream (client disconnect) so a rejected
+    // writeSSE promise can't become an unhandled rejection.
+    await runRepoGenerationWithEmitter(startedResult, (job) => {
+      send(job).catch(() => {});
+    });
+  });
 });
 
 projectsRoute.get("/:projectId/repo-generation/:jobId", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
   const jobId = c.req.param("jobId");
-  const job = getRepoGenerationJob({ projectId, userId, jobId });
+  const job = await getRepoGenerationJob({ projectId, userId, jobId });
 
   if (!job) return c.json({ error: "Repository generation job not found." }, 404);
 

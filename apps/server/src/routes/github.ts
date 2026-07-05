@@ -1,11 +1,15 @@
 import { auth } from "@OpenDiagram/auth";
-import { and, db, eq } from "@OpenDiagram/db";
+import { and, db, eq, ne } from "@OpenDiagram/db";
 import { githubImportJob } from "@OpenDiagram/db/schema/github-import-job";
 import { project } from "@OpenDiagram/db/schema/project";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { z } from "zod";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { streamSSE } from "hono/streaming";
+import { createLogger } from "evlog";
+
+const log = createLogger({ module: "github-import" });
 import { indexRepositoryMemory } from "../lib/project-memory";
 import { cleanupRepositoryClone, cloneAndBuildRepositoryDoc } from "../lib/repo-documentation";
 
@@ -46,6 +50,10 @@ export const githubRoute = new Hono();
 export const githubImportRoute = new Hono();
 
 const importJobs = new Map<string, GitHubImportJob>();
+// Live SSE listeners keyed by jobId: while a client holds the streaming POST
+// open, updateImportJob pushes each status change to it. This keeps the work
+// running inside the request (CPU stays allocated on Cloud Run scale-to-zero).
+const jobEmitters = new Map<string, (job: GitHubImportJob) => void>();
 const IMPORT_JOB_STALE_MS = 30 * 60 * 1000;
 
 githubRoute.get("/repositories", async (c) => {
@@ -169,10 +177,36 @@ async function importGitHubRepository(c: Context) {
     return c.json({ error: "Invalid response from GitHub." }, 502);
   }
 
-  const job = await createImportJob({ repoFullName: repo.full_name, userId: authResult.userId });
-  void runImportJob({ jobId: job.id, repo, token: authResult.token });
+  const { job, isNew } = await createImportJob({
+    repoFullName: repo.full_name,
+    userId: authResult.userId,
+  });
 
-  return c.json({ job: toPublicJob(job) }, 202);
+  // Run the import INSIDE this request and stream progress. On Cloud Run
+  // scale-to-zero, detached work after the response loses its CPU allocation;
+  // holding the request open keeps the clone + index alive until done.
+  return streamSSE(c, async (stream) => {
+    const send = (current: GitHubImportJob) =>
+      stream.writeSSE({ event: "status", data: JSON.stringify(toPublicJob(current)) });
+
+    await send(job);
+
+    // Not new = another import for this repo is already in flight (double
+    // submit). Its own request drives it; report current state and let this
+    // client reconnect via GET if needed.
+    if (!isNew) return;
+
+    // Swallow write errors: if the client disconnects, Hono closes the stream
+    // and later writes reject — an unhandled rejection here would crash Node.
+    jobEmitters.set(job.id, (current) => {
+      send(current).catch(() => {});
+    });
+    try {
+      await runImportJob({ jobId: job.id, repo, token: authResult.token });
+    } finally {
+      jobEmitters.delete(job.id);
+    }
+  });
 }
 
 async function getGitHubAccessToken(headers: Headers) {
@@ -205,7 +239,7 @@ async function getGitHubAuth(headers: Headers) {
 async function createImportJob(input: {
   repoFullName: string;
   userId: string;
-}): Promise<GitHubImportJob> {
+}): Promise<{ job: GitHubImportJob; isNew: boolean }> {
   const now = new Date().toISOString();
   const job: GitHubImportJob = {
     id: crypto.randomUUID(),
@@ -218,9 +252,46 @@ async function createImportJob(input: {
     createdAt: now,
     updatedAt: now,
   };
+
+  try {
+    await db.insert(githubImportJob).values(toJobRow(job));
+  } catch (error) {
+    // The partial unique index (user_id, repo_full_name WHERE status NOT IN
+    // done/failed) rejects a second in-flight import of the same repo — e.g. a
+    // double-click. Return the existing job instead of surfacing a 500.
+    if (isUniqueViolation(error)) {
+      const existing = await getInFlightImportJob(input);
+      if (existing) return { job: existing, isNew: false };
+    }
+    throw error;
+  }
+
   importJobs.set(job.id, job);
-  await db.insert(githubImportJob).values(toJobRow(job));
-  return job;
+  return { job, isNew: true };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
+  );
+}
+
+async function getInFlightImportJob(input: { repoFullName: string; userId: string }) {
+  const [row] = await db
+    .select()
+    .from(githubImportJob)
+    .where(
+      and(
+        eq(githubImportJob.userId, input.userId),
+        eq(githubImportJob.repoFullName, input.repoFullName),
+        ne(githubImportJob.status, "done"),
+        ne(githubImportJob.status, "failed"),
+      ),
+    );
+  return row ? fromJobRow(row) : null;
 }
 
 async function runImportJob(input: { jobId: string; repo: GitHubRepository; token: string }) {
@@ -303,12 +374,12 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
         error: error instanceof Error ? error.message : "Repository import failed.",
       });
     } catch (updateError) {
-      console.error("Failed to update import job status on failure:", updateError);
+      log.error("Failed to update import job status on failure", { error: updateError });
     }
   } finally {
     if (repoPathToCleanup) {
       await cleanupRepositoryClone(repoPathToCleanup).catch((error) => {
-        console.error("Failed to clean up repository clone:", error);
+        log.error("Failed to clean up repository clone", { error });
       });
     }
   }
@@ -327,6 +398,8 @@ async function updateImportJob(
   } else {
     importJobs.set(jobId, nextJob);
   }
+
+  jobEmitters.get(jobId)?.(nextJob);
 
   await db
     .update(githubImportJob)

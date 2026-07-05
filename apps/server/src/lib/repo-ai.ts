@@ -1,236 +1,26 @@
 import { createGoogle } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
-import {
-  diagramSpecSchema,
-  diagramTypeSchema,
-  type DiagramSpec,
-  type DiagramType,
-} from "@OpenDiagram/harness";
+import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import { generateObject, generateText } from "ai";
-import { z } from "zod";
 import { buildIconCatalog } from "./icons/registry";
+
+// The AI SDK retries retryable errors (429/5xx) with exponential backoff up to
+// this many times. A single provider (Gemini) handles every task — no
+// cross-provider fallback — so a rate-limited call just retries Gemini.
+export const LLM_MAX_RETRIES = 3;
 
 const GOOGLE_DEFAULTS = {
   model: "gemini-2.5-flash",
   maxTokens: 8192,
 };
 
-const CUSTOM_DEFAULTS = {
-  model: "gpt-4o",
-  baseURL: "https://api.openai.com/v1",
-  maxTokens: 8192,
-};
-
-const kimiNodeCategorySchema = z.enum([
-  "service",
-  "database",
-  "queue",
-  "gateway",
-  "client",
-  "external",
-  "storage",
-  "cache",
-  "function",
-  "user",
-]);
-
-const kimiDiagramNodeSchema = z.object({
-  id: z.string(),
-  label: z.string().optional(),
-  title: z.string().optional(),
-  description: z.string().optional(),
-  sublabel: z.string().optional(),
-  icon: z.string().optional(),
-  contains: z.array(z.string()).optional(),
-  shape: z.enum(["rectangle", "ellipse", "diamond", "cylinder", "document"]).optional(),
-  category: kimiNodeCategorySchema.optional(),
-  type: z.string().optional(),
-  style: z
-    .object({
-      strokeColor: z.string().optional(),
-      backgroundColor: z.string().optional(),
-      strokeStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
-      strokeWidth: z.number().optional(),
-    })
-    .optional(),
-});
-
-const kimiDiagramEdgeSchema = z.object({
-  id: z.string().optional(),
-  from: z.string(),
-  to: z.string(),
-  label: z.string().optional(),
-  protocol: z.string().optional(),
-  direction: z.enum(["uni", "bi"]).optional(),
-  style: z.unknown().optional(),
-  startArrowhead: z.enum(["none", "arrow", "circle", "bar"]).optional(),
-  endArrowhead: z.enum(["none", "arrow", "circle", "bar"]).optional(),
-});
-
-const kimiDiagramGroupSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  sublabel: z.string().optional(),
-  contains: z.array(z.string()).optional(),
-  style: z.unknown().optional(),
-  strokeColor: z.string().optional(),
-  backgroundColor: z.string().optional(),
-});
-
-const kimiDiagramZoneSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  contains: z.array(z.string()),
-  style: z.enum(["aws-region", "gcp-region", "availability-zone", "boundary"]).optional(),
-});
-
-const kimiRawDiagramSpecSchema = z.object({
-  type: diagramTypeSchema.optional(),
-  diagramType: diagramTypeSchema.optional(),
-  title: z.string().optional(),
-  description: z.string().optional(),
-  layout: z.unknown().optional(),
-  nodes: z.array(kimiDiagramNodeSchema),
-  edges: z.array(kimiDiagramEdgeSchema),
-  groups: z.array(kimiDiagramGroupSchema).optional(),
-  zones: z.array(kimiDiagramZoneSchema).optional(),
-  meta: z
-    .object({
-      theme: z.enum(["light", "dark"]).optional(),
-      direction: z.enum(["LR", "TB", "BT", "RL"]).optional(),
-    })
-    .optional(),
-});
-
-const kimiDiagramSpecSchema = z.union([
-  diagramSpecSchema,
-  kimiRawDiagramSpecSchema,
-  z.object({ diagram: kimiRawDiagramSpecSchema }),
-]);
-
-function normalizeKimiDiagramSpec(
-  object: z.infer<typeof kimiDiagramSpecSchema>,
-  diagramType?: DiagramType,
-): DiagramSpec {
-  const raw = "diagram" in object ? object.diagram : object;
-  const rawNodes = raw.nodes as z.infer<typeof kimiDiagramNodeSchema>[];
-  const textNodeIds = new Set(
-    rawNodes.filter((node) => isKimiTextNode(node)).map((node) => node.id),
-  );
-  const groupedNodes = rawNodes.filter((node) => node.type === "group" && node.contains?.length);
-  const regularNodes = rawNodes.filter(
-    (node) => node.type !== "group" && !textNodeIds.has(node.id),
-  );
-  const spec: DiagramSpec = {
-    type: raw.type ?? raw.diagramType ?? diagramType ?? "system-design",
-    title: raw.title ?? "Generated Diagram",
-    description: raw.description,
-    nodes: regularNodes.map((rawNode) => {
-      const { contains, description, title, type, ...node } = rawNode as z.infer<
-        typeof kimiDiagramNodeSchema
-      >;
-      void contains;
-      void description;
-      return {
-        ...node,
-        label: node.label ?? title ?? node.id,
-        category: node.category ?? toKimiNodeCategory(type),
-      };
-    }),
-    edges: raw.edges
-      .filter((edge) => !textNodeIds.has(edge.from) && !textNodeIds.has(edge.to))
-      .map(({ style, ...edge }) => ({
-        ...edge,
-        style: toKimiEdgeStyle(style),
-      })),
-    groups: [
-      ...(raw.groups ?? [])
-        .filter((group) => group.contains?.length)
-        .map((group) => ({
-          id: group.id,
-          label: group.label,
-          sublabel: group.sublabel,
-          contains: group.contains ?? [],
-          style: toKimiGroupStyle(group.style),
-          strokeColor: group.strokeColor ?? getKimiStyleColor(group.style, "strokeColor"),
-          backgroundColor:
-            group.backgroundColor ?? getKimiStyleColor(group.style, "backgroundColor"),
-        })),
-      ...groupedNodes.map((node) => ({
-        id: node.id,
-        label: node.label ?? node.title ?? node.id,
-        sublabel: node.sublabel,
-        contains: node.contains ?? [],
-        style: "vpc" as const,
-        strokeColor: node.style?.strokeColor,
-        backgroundColor: node.style?.backgroundColor,
-      })),
-    ],
-    zones: raw.zones,
-    meta: raw.meta,
-  };
-
-  return diagramSpecSchema.parse(spec);
-}
-
-function toKimiNodeCategory(value?: string): z.infer<typeof kimiNodeCategorySchema> | undefined {
-  const parsed = kimiNodeCategorySchema.safeParse(value);
-  return parsed.success ? parsed.data : undefined;
-}
-
-function isKimiTextNode(node: z.infer<typeof kimiDiagramNodeSchema>): boolean {
-  const type = node.type?.toLowerCase();
-  if (!type) return false;
-  return [
-    "text",
-    "label",
-    "note",
-    "annotation",
-    "caption",
-    "legend",
-    "title",
-    "description",
-  ].includes(type);
-}
-
-function toKimiEdgeStyle(value: unknown): DiagramSpec["edges"][number]["style"] {
-  return value === "solid" || value === "dashed" || value === "dotted" ? value : undefined;
-}
-
-function toKimiGroupStyle(value: unknown): NonNullable<DiagramSpec["groups"]>[number]["style"] {
-  if (value === "vpc" || value === "region" || value === "subnet" || value === "cluster")
-    return value;
-  if (value === "swimlane" || value === "box") return value;
-  return "box";
-}
-
-function getKimiStyleColor(
-  value: unknown,
-  key: "strokeColor" | "backgroundColor",
-): string | undefined {
-  if (!value || typeof value !== "object" || !(key in value)) return undefined;
-  const color = (value as Record<string, unknown>)[key];
-  return typeof color === "string" ? color : undefined;
-}
-
+// Gemini — used for every LLM task (diagrams, docs, analysis, project chat).
 function createGeminiModel() {
   if (!env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is required when AI_PROVIDER is set to 'google'");
+    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is required.");
   }
   const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
   return google(GOOGLE_DEFAULTS.model);
-}
-
-function createKimiModel() {
-  if (!env.CUSTOM_AI_API_KEY) {
-    throw new Error("CUSTOM_AI_API_KEY is required when AI_PROVIDER is set to 'custom'");
-  }
-  const openai = createOpenAI({
-    apiKey: env.CUSTOM_AI_API_KEY,
-    baseURL: env.CUSTOM_AI_BASE_URL ?? CUSTOM_DEFAULTS.baseURL,
-  });
-  return openai.chat(env.CUSTOM_AI_MODEL ?? CUSTOM_DEFAULTS.model);
 }
 
 const DIAGRAM_TYPE_GUIDE = `Diagram type guide:
@@ -316,18 +106,8 @@ function buildSystemPrompt(diagramType?: DiagramType): string {
   return parts.join("\n\n");
 }
 
-function buildKimiSystemPrompt(diagramType?: DiagramType): string {
-  return [
-    buildSystemPrompt(diagramType),
-    "Kimi/OpenAI-compatible gateway instructions:",
-    "- Return the DiagramSpec object at the top level whenever possible.",
-    "- Do not wrap the object in keys like diagram, data, result, or output.",
-    "- Do not add node.type fields; use only fields present in the schema.",
-    "- Do not create text, label, note, annotation, caption, legend, or title nodes.",
-  ].join("\n\n");
-}
-
-async function generateGeminiDiagramSpec(input: {
+// Diagram generation. Retries on rate limit.
+export async function generateDiagramSpec(input: {
   prompt: string;
   diagramType?: DiagramType;
   context?: string;
@@ -341,6 +121,7 @@ async function generateGeminiDiagramSpec(input: {
     schema: diagramSpecSchema,
     system: buildSystemPrompt(input.diagramType),
     prompt: userPrompt,
+    maxRetries: LLM_MAX_RETRIES,
     // Bounds runaway/repetition-loop generations (observed during testing:
     // gemini-2.5-flash occasionally gets stuck dumping a huge repeated string
     // into a field instead of terminating) so a bad completion fails fast
@@ -351,44 +132,13 @@ async function generateGeminiDiagramSpec(input: {
   return result.object;
 }
 
-async function generateKimiDiagramSpec(input: {
-  prompt: string;
-  diagramType?: DiagramType;
-  context?: string;
-}): Promise<DiagramSpec> {
-  const userPrompt = input.context
-    ? `Project context:\n${input.context}\n\nUser request:\n${input.prompt}`
-    : input.prompt;
-
-  const result = await generateObject({
-    model: createKimiModel(),
-    schema: kimiDiagramSpecSchema,
-    system: buildKimiSystemPrompt(input.diagramType),
-    prompt: userPrompt,
-    maxOutputTokens: CUSTOM_DEFAULTS.maxTokens,
-    providerOptions: { openai: { structuredOutputs: false } },
-  });
-  return normalizeKimiDiagramSpec(
-    result.object as z.infer<typeof kimiDiagramSpecSchema>,
-    input.diagramType,
-  );
-}
-
-export async function generateDiagramSpec(input: {
-  prompt: string;
-  diagramType?: DiagramType;
-  context?: string;
-}): Promise<DiagramSpec> {
-  if (env.AI_PROVIDER === "custom") return generateKimiDiagramSpec(input);
-  return generateGeminiDiagramSpec(input);
-}
-
+// Project chat — grounded in project memory. Retries on rate limit.
 export async function generateGroundedProjectAnswer(input: {
   message: string;
   context: string;
 }): Promise<string> {
   const result = await generateText({
-    model: env.AI_PROVIDER === "custom" ? createKimiModel() : createGeminiModel(),
+    model: createGeminiModel(),
     system: [
       "You are OpenDiagram's project assistant.",
       "Answer using only the provided project context.",
@@ -396,12 +146,14 @@ export async function generateGroundedProjectAnswer(input: {
       "Keep answers concise, specific, and grounded in the project's diagrams, docs, and files.",
     ].join("\n"),
     prompt: `Project context:\n${input.context}\n\nUser question:\n${input.message}`,
+    maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 1200,
   });
 
   return result.text;
 }
 
+// Architecture docs / repo analysis. Retries on rate limit.
 export async function generateArchitectureDoc(input: {
   context: string;
   goal: string;
@@ -411,7 +163,7 @@ export async function generateArchitectureDoc(input: {
   commitSha: string;
 }): Promise<string> {
   const result = await generateText({
-    model: env.AI_PROVIDER === "custom" ? createKimiModel() : createGeminiModel(),
+    model: createGeminiModel(),
     system: [
       "You are an expert software architect writing technical documentation.",
       "Write detailed, structured markdown using only the provided project context.",
@@ -434,6 +186,7 @@ export async function generateArchitectureDoc(input: {
       `Write the document "${input.title}" based on the goal and context above.`,
       "Return valid markdown only — no wrapper explanations.",
     ].join("\n"),
+    maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 4096,
   });
 
