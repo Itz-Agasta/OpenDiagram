@@ -1,8 +1,10 @@
 import {
+  classicTheme,
   diagramSpecSchema,
   layoutDiagram,
   renderToExcalidraw,
   type RenderSkeleton,
+  type Theme,
 } from "@OpenDiagram/harness";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
@@ -23,7 +25,11 @@ export const askUserTool: Tool<AskUserInput, string> = tool({
     "Ask the user ONE clarifying question before drawing. Use only when the request is genuinely ambiguous (scope, cloud provider, detail level). Never ask more than one round.",
   inputSchema: z.object({
     question: z.string(),
-    options: z.array(z.string()).describe("2-4 short answer options for quick-reply chips"),
+    options: z
+      .array(z.string())
+      .min(2)
+      .max(4)
+      .describe("2-4 short answer options for quick-reply chips"),
   }),
   outputSchema: z.string().describe("The user's answer"),
 });
@@ -42,14 +48,15 @@ export interface DrawDiagramOutput {
 /** Server-side tool: validate spec -> layout (ELK) -> render -> canvas payload. */
 export function createDrawDiagramTool(
   log: RequestLogger,
+  theme: Theme = classicTheme,
 ): Tool<z.infer<typeof diagramSpecSchema>, DrawDiagramOutput> {
   return tool({
     description:
       "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat.",
     inputSchema: diagramSpecSchema,
     execute: async (spec): Promise<DrawDiagramOutput> => {
-      const positioned = await layoutDiagram(spec);
-      const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry);
+      const positioned = await layoutDiagram(spec, theme);
+      const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry, theme);
       if (positioned.warnings.length > 0) {
         log.warn("layoutDiagram sanitized malformed LLM output", {
           diagram: { layoutWarnings: positioned.warnings },
@@ -60,7 +67,8 @@ export function createDrawDiagramTool(
           title: spec.title,
           diagramType: spec.type,
           nodeCount: spec.nodes.length,
-          edgeCount: spec.edges.length,
+          // Post-sanitize count -- matches what actually renders on canvas.
+          edgeCount: positioned.edges.length,
           elementCount: skeletons.length + rawElements.length,
         },
       });
@@ -70,7 +78,7 @@ export function createDrawDiagramTool(
         summary: {
           title: spec.title,
           nodes: spec.nodes.length,
-          edges: spec.edges.length,
+          edges: positioned.edges.length,
           warnings: positioned.warnings,
         },
       };

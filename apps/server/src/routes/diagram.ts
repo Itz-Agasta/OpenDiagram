@@ -1,5 +1,5 @@
 import { createGoogle } from "@ai-sdk/google";
-import { diagramSpecSchema } from "@OpenDiagram/harness";
+import { diagramSpecSchema, themes } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import {
   convertToModelMessages,
@@ -22,6 +22,7 @@ const chatRequestSchema = z.object({
   // structurally by convertToModelMessages below.
   messages: z.array(z.looseObject({})).min(1).max(50),
   currentSpec: diagramSpecSchema.optional(),
+  theme: z.enum(["classic", "sketch"]).optional(),
 });
 
 export const diagramRoute = new Hono<EvlogVariables>();
@@ -33,17 +34,29 @@ diagramRoute.post("/chat", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
-  const { messages, currentSpec } = parsed.data;
+  const { messages, currentSpec, theme: themeName = "sketch" } = parsed.data;
+
+  // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
+  // client payload, not a server fault, so surface it as a 400.
+  let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+  try {
+    modelMessages = await convertToModelMessages(messages as unknown as UIMessage[]);
+  } catch (err) {
+    return c.json(
+      { error: "Invalid messages", detail: err instanceof Error ? err.message : String(err) },
+      400,
+    );
+  }
 
   const tools = {
     ask_user: askUserTool,
-    draw_diagram: createDrawDiagramTool(log),
+    draw_diagram: createDrawDiagramTool(log, themes[themeName]),
   };
 
   const result = streamText({
     model: google("gemini-2.5-flash"),
     instructions: buildSystemPrompt(currentSpec),
-    messages: await convertToModelMessages(messages as unknown as UIMessage[]),
+    messages: modelMessages,
     tools,
     stopWhen: isStepCount(6),
     // Bounds runaway/repetition-loop generations so a bad completion fails
@@ -54,6 +67,7 @@ diagramRoute.post("/chat", async (c) => {
         chat: {
           messageCount: messages.length,
           hasCurrentSpec: currentSpec !== undefined,
+          theme: themeName,
           steps: steps.length,
           toolCalls: steps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
           totalTokens: totalUsage.totalTokens,
