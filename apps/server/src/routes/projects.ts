@@ -3,7 +3,7 @@ import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { project } from "@OpenDiagram/db/schema/project";
 import { Hono } from "hono";
 import { z } from "zod";
-import { generateGroundedProjectAnswer } from "../lib/llm";
+import { generateGroundedProjectAnswer } from "../lib/repo-ai";
 import {
   getProjectMemoryContext,
   getProjectMemoryStatus,

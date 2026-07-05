@@ -3,7 +3,7 @@ import { project } from "@OpenDiagram/db/schema/project";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagram/harness";
 import { iconRegistry } from "./icons/registry";
-import { generateArchitectureDoc, generateDiagramSpec } from "./llm";
+import { generateArchitectureDoc, generateDiagramSpec } from "./repo-ai";
 import { getProjectMemoryContext } from "./project-memory";
 
 type RepoGenerationStatus = "queued" | "planning" | "creating" | "generating" | "done" | "failed";
