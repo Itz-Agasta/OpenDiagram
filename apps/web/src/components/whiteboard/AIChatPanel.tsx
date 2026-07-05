@@ -1,23 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Circle, CircleAlert, Sparkles } from "lucide-react";
-import type { ChatStatus } from "ai";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
+import type { ChatStatus, UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import {
-  orchestrateWorkspaceRequest,
-  runDiagramAgent,
-  runProjectChatAgent,
-  type WorkspaceAgentId,
-  type WorkspaceAgentProgress,
-  type WorkspaceAgentRoute,
-} from "@/lib/workspace-agents";
+import { env } from "@OpenDiagram/env/web";
+import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
+import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
+import { orchestrateWorkspaceRequest, runProjectChatAgent } from "@/lib/workspace-agents";
 import { updateProjectFile, type RepoGenerationJob } from "@/lib/projects-client";
-import { cn } from "@/lib/utils";
-import { Diamond } from "@/components/loading-ui/diamond";
-import { MorphingInfinity } from "@/components/loading-ui/morphing-infinity";
-import { SquareSnake } from "@/components/loading-ui/square-snake";
-import { TextDots } from "@/components/loading-ui/text-dots";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Conversation,
   ConversationContent,
@@ -41,24 +42,17 @@ interface ChatMessage {
   text: string;
 }
 
-type AgentStepStatus = "pending" | "active" | "complete" | "failed";
+/** Mirror of the server's draw_diagram tool output (apps/server lib/agent/tools.ts). */
+interface DrawDiagramOutput {
+  skeletons: RenderSkeleton[];
+  rawElements: unknown[];
+  summary: { title: string; nodes: number; edges: number; warnings: string[] };
+}
 
-type AgentStep = {
-  id: WorkspaceAgentId;
-  label: string;
-  detail: string;
-  status: AgentStepStatus;
-};
-
-type LoaderKind = "diamond" | "infinity" | "snake";
-
-type AgentRun = {
-  id: string;
-  intent?: WorkspaceAgentRoute["intent"];
-  loader: LoaderKind;
-  activeMessage: string;
-  steps: AgentStep[];
-};
+interface AskUserInput {
+  question: string;
+  options: string[];
+}
 
 interface AIChatPanelProps {
   excalidrawAPI: ExcalidrawImperativeAPI | null;
@@ -69,70 +63,22 @@ interface AIChatPanelProps {
   repoGenerationError?: string | null;
 }
 
-const loaderKinds: LoaderKind[] = ["diamond", "infinity", "snake"];
-
-const agentLabels: Record<WorkspaceAgentId, string> = {
-  router: "Router",
-  memory: "Cognee Agent",
-  diagram: "Diagram Agent",
-  canvas: "Canvas Agent",
-  answer: "Answer Agent",
-};
-
-const agentStatusCopy: Record<WorkspaceAgentId, string[]> = {
-  router: [
-    "Routing the request",
-    "Choosing the right workspace agent",
-    "Reading intent from your prompt",
-  ],
-  memory: [
-    "Reading project memory",
-    "Checking Cognee context",
-    "Looking through architecture notes",
-    "Finding relevant workspace details",
-  ],
-  diagram: [
-    "Sketching service boundaries",
-    "Drafting diagram structure",
-    "Resolving architecture nodes",
-    "Planning the canvas layout",
-  ],
-  canvas: [
-    "Applying changes to canvas",
-    "Positioning diagram shapes",
-    "Updating Excalidraw elements",
-  ],
-  answer: ["Composing a grounded answer", "Summarizing findings", "Preparing the response"],
-};
-
-function createSteps(intent?: WorkspaceAgentRoute["intent"], hasProject = false): AgentStep[] {
-  const ids: WorkspaceAgentId[] = ["router"];
-
-  if (intent === "diagram") {
-    if (hasProject) ids.push("memory");
-    ids.push("diagram", "canvas");
-  } else if (intent === "project_chat") {
-    ids.push("memory", "answer");
+/** The last assistant message's unanswered ask_user call, if any. */
+function pendingAskUser(messages: UIMessage[]) {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return null;
+  for (const part of last.parts) {
+    if (part.type === "tool-ask_user" && part.state === "input-available") {
+      return { toolCallId: part.toolCallId, input: part.input as AskUserInput };
+    }
   }
-
-  return ids.map((id, index) => ({
-    id,
-    label: agentLabels[id],
-    detail: index === 0 ? "Waiting" : "Queued",
-    status: index === 0 ? "active" : "pending",
-  }));
+  return null;
 }
 
-function randomItem<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)] ?? items[0];
-}
-
-function randomStatus(agent: WorkspaceAgentId) {
-  return randomItem(agentStatusCopy[agent]);
-}
-
-function randomLoader() {
-  return randomItem(loaderKinds);
+function diagramRequestLikely(text: string) {
+  return /\b(diagram|flowchart|sequence|architecture|system flow|request flow|data flow|canvas|whiteboard|draw|sketch|map)\b/i.test(
+    text,
+  );
 }
 
 export function AIChatPanel({
@@ -143,187 +89,177 @@ export function AIChatPanel({
   repoGenerationJob,
   repoGenerationError,
 }: AIChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialHistory ?? []);
-  const [status, setStatus] = useState<ChatStatus>("ready");
-  const [agentRun, setAgentRun] = useState<AgentRun | null>(null);
-  const idRef = useRef(initialHistory?.length ?? 0);
+  const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
+  const frameByTitleRef = useRef(new Map<string, string>());
+  const appliedToolCallsRef = useRef(new Set<string>());
+  // Serializes canvas applies: each one reads and rewrites the whole scene, so
+  // two in flight at once would clobber each other's elements.
+  const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const messageIdRef = useRef(initialHistory?.length ?? 0);
+  const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(initialHistory ?? []);
+  const [projectStatus, setProjectStatus] = useState<ChatStatus>("ready");
+  const [projectError, setProjectError] = useState<string | null>(null);
+  const [themeName, setThemeName] = useState<ThemeName>("sketch");
+  // Ref mirror so the transport's body() closure always reads the live value.
+  const themeRef = useRef<ThemeName>(themeName);
+  themeRef.current = themeName;
+  const [applyError, setApplyError] = useState<string | null>(null);
 
+  const {
+    messages: diagramMessages,
+    sendMessage,
+    addToolOutput,
+    status: diagramStatus,
+    error: diagramError,
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
+      body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
+    }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  });
+
+  // Apply each finished draw_diagram call to the canvas exactly once. If the
+  // agent redraws a diagram it already drew (same title), the old frame is
+  // replaced in place; otherwise the new frame lands beside existing content.
   useEffect(() => {
-    if (!agentRun) return;
+    if (!excalidrawAPI) return;
+    for (const message of diagramMessages) {
+      if (message.role !== "assistant") continue;
+      for (const part of message.parts) {
+        if (part.type !== "tool-draw_diagram" || part.state !== "output-available") continue;
+        if (appliedToolCallsRef.current.has(part.toolCallId)) continue;
+        appliedToolCallsRef.current.add(part.toolCallId);
 
-    const activeStep = agentRun.steps.find((step) => step.status === "active");
-    if (!activeStep) return;
-
-    const timer = window.setInterval(() => {
-      setAgentRun((current) => {
-        if (!current) return current;
-        const nextActiveStep = current.steps.find((step) => step.status === "active");
-        if (!nextActiveStep) return current;
-        return {
-          ...current,
-          activeMessage: randomStatus(nextActiveStep.id),
-        };
-      });
-    }, 1800);
-
-    return () => window.clearInterval(timer);
-  }, [agentRun]);
-
-  const updateAgentProgress = useCallback((event: WorkspaceAgentProgress) => {
-    setAgentRun((current) => {
-      if (!current) return current;
-
-      return {
-        ...current,
-        loader: event.status === "active" ? randomLoader() : current.loader,
-        activeMessage:
-          event.status === "active"
-            ? (event.message ?? randomStatus(event.agent))
-            : current.activeMessage,
-        steps: current.steps.map((step) => {
-          if (step.id !== event.agent) return step;
-
-          return {
-            ...step,
-            detail: event.message ?? step.detail,
-            status: event.status,
-          };
-        }),
-      };
-    });
-  }, []);
-
-  const handleSubmit = useCallback(
-    async (msg: PromptInputMessage) => {
-      const text = msg.text.trim();
-      if (!text || status !== "ready") return;
-      if (!projectId && !excalidrawAPI) return;
-
-      setStatus("submitted");
-      setAgentRun({
-        id: `run-${Date.now()}`,
-        loader: randomLoader(),
-        activeMessage: randomStatus("router"),
-        steps: createSteps(undefined, Boolean(projectId)),
-      });
-
-      let route: WorkspaceAgentRoute;
-      try {
-        route = await orchestrateWorkspaceRequest({ text, projectId });
-        setAgentRun((current) =>
-          current
-            ? {
-                ...current,
-                intent: route.intent,
-                activeMessage:
-                  route.intent === "diagram" ? randomStatus("diagram") : randomStatus("memory"),
-                steps: createSteps(route.intent, Boolean(projectId)).map((step) =>
-                  step.id === "router"
-                    ? {
-                        ...step,
-                        detail: `Routed to ${route.intent === "diagram" ? "Diagram" : "Cognee"} Agent`,
-                        status: "complete",
-                      }
-                    : step,
-                ),
-              }
-            : current,
-        );
-      } catch {
-        route = projectId
-          ? { intent: "project_chat", pendingMessage: "Reading project context…" }
-          : { intent: "diagram", pendingMessage: "Generating diagram…" };
-        setAgentRun((current) =>
-          current
-            ? {
-                ...current,
-                intent: route.intent,
-                activeMessage: randomStatus(route.intent === "diagram" ? "diagram" : "memory"),
-                steps: createSteps(route.intent, Boolean(projectId)).map((step) =>
-                  step.id === "router"
-                    ? {
-                        ...step,
-                        detail:
-                          route.intent === "diagram"
-                            ? "Used default diagram route"
-                            : "Used default project chat route",
-                        status: "complete",
-                      }
-                    : step,
-                ),
-              }
-            : current,
+        const spec = part.input as DiagramSpec;
+        const output = part.output as DrawDiagramOutput;
+        const toolCallId = part.toolCallId;
+        currentSpecRef.current = spec;
+        applyChainRef.current = applyChainRef.current.then(() =>
+          // replaceFrameId is resolved inside the chain so it sees frame ids
+          // recorded by the apply that ran just before this one.
+          applyDiagramToCanvas(excalidrawAPI, output.skeletons, output.rawElements, {
+            replaceFrameId: frameByTitleRef.current.get(spec.title) ?? null,
+          })
+            .then(({ frameId }) => {
+              if (frameId) frameByTitleRef.current.set(spec.title, frameId);
+            })
+            .catch((err: unknown) => {
+              // Un-mark so the next messages update can retry after a
+              // transient failure instead of dropping the diagram forever.
+              appliedToolCallsRef.current.delete(toolCallId);
+              setApplyError(err instanceof Error ? err.message : "Failed to draw on canvas");
+            }),
         );
       }
+    }
+  }, [diagramMessages, excalidrawAPI]);
 
-      const userMessageId = `msg-${idRef.current++}`;
-      setMessages((prev) => [...prev, { id: userMessageId, role: "user", text }]);
+  const answerAskUser = useCallback(
+    (toolCallId: string, answer: string) => {
+      addToolOutput({ tool: "ask_user", toolCallId, output: answer });
+    },
+    [addToolOutput],
+  );
+
+  const runProjectChat = useCallback(
+    async (text: string) => {
+      if (!projectId) return false;
+
+      const userMessage: ChatMessage = {
+        id: `msg-${messageIdRef.current++}`,
+        role: "user",
+        text,
+      };
+      setProjectMessages((prev) => [...prev, userMessage]);
+      setProjectStatus("submitted");
+      setProjectError(null);
 
       try {
-        const result =
-          route.intent === "diagram"
-            ? await runDiagramAgent({
-                text,
-                excalidrawAPI,
-                projectId,
-                onProgress: updateAgentProgress,
-              })
-            : await runProjectChatAgent({ text, projectId, onProgress: updateAgentProgress });
-
-        setMessages((prev) => {
+        const result = await runProjectChatAgent({ text, projectId });
+        setProjectMessages((prev) => {
           const updated = [
             ...prev,
-            { id: `msg-${idRef.current++}`, role: "assistant" as const, text: result.message },
+            {
+              id: `msg-${messageIdRef.current++}`,
+              role: "assistant" as const,
+              text: result.message,
+            },
           ];
 
-          if (projectId && fileId) {
-            setTimeout(() => {
-              void updateProjectFile(projectId, fileId, {
-                history: updated,
-                spec: result.spec,
-              });
+          if (fileId) {
+            window.setTimeout(() => {
+              void updateProjectFile(projectId, fileId, { history: updated });
             }, 0);
           }
 
           return updated;
         });
-        setAgentRun((current) =>
-          current
-            ? {
-                ...current,
-                activeMessage: "Done",
-                steps: current.steps.map((step) =>
-                  step.status === "active"
-                    ? { ...step, status: "complete", detail: "Complete" }
-                    : step,
-                ),
-              }
-            : current,
-        );
-        setStatus("ready");
-        window.setTimeout(() => setAgentRun(null), 1200);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Diagram generation failed";
-        setAgentRun((current) =>
-          current
-            ? {
-                ...current,
-                activeMessage: message,
-                steps: current.steps.map((step) =>
-                  step.status === "active" ? { ...step, status: "failed", detail: message } : step,
-                ),
-              }
-            : current,
-        );
-        setMessages((prev) => [
+        setProjectStatus("ready");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Project chat failed";
+        setProjectMessages((prev) => [
           ...prev,
-          { id: `msg-${idRef.current++}`, role: "assistant", text: `Error: ${message}` },
+          { id: `msg-${messageIdRef.current++}`, role: "assistant", text: `Error: ${message}` },
         ]);
-        setStatus("ready");
+        setProjectError(message);
+        setProjectStatus("ready");
       }
+
+      return true;
     },
-    [excalidrawAPI, projectId, fileId, status, updateAgentProgress],
+    [fileId, projectId],
   );
+
+  const handleSubmit = useCallback(
+    async (msg: PromptInputMessage) => {
+      const text = msg.text.trim();
+      const status = projectStatus !== "ready" ? projectStatus : diagramStatus;
+      if (!text || (status !== "ready" && status !== "error")) return;
+
+      setApplyError(null);
+      const pending = pendingAskUser(diagramMessages);
+      if (pending) {
+        answerAskUser(pending.toolCallId, text);
+        return;
+      }
+
+      let useProjectChat = Boolean(projectId) && !diagramRequestLikely(text);
+      if (projectId && excalidrawAPI) {
+        try {
+          const route = await orchestrateWorkspaceRequest({ text, projectId });
+          useProjectChat = route.intent === "project_chat";
+        } catch {
+          useProjectChat = !diagramRequestLikely(text);
+        }
+      }
+
+      if (useProjectChat) {
+        await runProjectChat(text);
+        return;
+      }
+
+      if (!excalidrawAPI) {
+        await runProjectChat(text);
+        return;
+      }
+
+      void sendMessage({ text });
+    },
+    [
+      answerAskUser,
+      diagramMessages,
+      diagramStatus,
+      excalidrawAPI,
+      projectId,
+      projectStatus,
+      runProjectChat,
+      sendMessage,
+    ],
+  );
+
+  const messagesEmpty = projectMessages.length === 0 && diagramMessages.length === 0;
+  const submitStatus = projectStatus !== "ready" ? projectStatus : diagramStatus;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border-l border-od-border-soft bg-white text-od-ink">
@@ -334,13 +270,13 @@ export function AIChatPanel({
         </div>
       </div>
 
-      <Conversation className="flex-1 min-h-0">
+      <Conversation className="min-h-0 flex-1">
         <ConversationContent className="flex flex-col gap-4 px-4 py-4">
           <RepoGenerationProgress
             error={repoGenerationError ?? null}
             job={repoGenerationJob ?? null}
           />
-          {messages.length === 0 ? (
+          {messagesEmpty ? (
             <ConversationEmptyState
               title="Start a conversation"
               description={
@@ -351,15 +287,39 @@ export function AIChatPanel({
               icon={<Sparkles className="size-6 text-muted-foreground" />}
             />
           ) : (
-            messages.map((msg) => (
-              <Message key={msg.id} from={msg.role}>
-                <MessageContent>
-                  <MessageResponse>{msg.text}</MessageResponse>
-                </MessageContent>
-              </Message>
-            ))
+            <>
+              {projectMessages.map((message) => (
+                <Message key={message.id} from={message.role}>
+                  <MessageContent>
+                    <MessageResponse>{message.text}</MessageResponse>
+                  </MessageContent>
+                </Message>
+              ))}
+              {diagramMessages.map((message) => (
+                <Message key={message.id} from={message.role === "user" ? "user" : "assistant"}>
+                  <MessageContent>
+                    {message.parts.map((part, i) => renderPart(message, part, i, answerAskUser))}
+                  </MessageContent>
+                </Message>
+              ))}
+            </>
           )}
-          {agentRun && <AgentRunCard run={agentRun} />}
+          {(diagramStatus === "submitted" || projectStatus === "submitted") && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
+              {projectStatus === "submitted" ? "Reading project memory…" : "Thinking…"}
+            </div>
+          )}
+          {diagramStatus === "error" && (
+            <p className="text-xs text-destructive">
+              Something went wrong{diagramError?.message ? ` — ${diagramError.message}` : ""}. Try
+              again.
+            </p>
+          )}
+          {projectError && <p className="text-xs text-destructive">{projectError}</p>}
+          {applyError && (
+            <p className="text-xs text-destructive">Couldn't draw on canvas — {applyError}</p>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -377,87 +337,25 @@ export function AIChatPanel({
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <p className="flex-1 text-xs text-od-ink-faint">
-                {agentRun ? (
-                  <TextDots>{agentRun.activeMessage}</TextDots>
-                ) : (
-                  "Router + memory + diagram agents"
-                )}
+              <Select value={themeName} onValueChange={(v) => setThemeName(v as ThemeName)}>
+                <SelectTrigger className="h-7 w-30 text-xs" aria-label="Diagram theme">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sketch">Sketch</SelectItem>
+                  <SelectItem value="classic">Classic</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="flex-1 pr-2 text-right text-xs text-od-ink-faint">
+                {projectStatus === "submitted" ? "Reading project memory" : "Gemini 2.5 Flash"}
               </p>
-              <PromptInputSubmit status={status} />
+              <PromptInputSubmit status={submitStatus} />
             </PromptInputFooter>
           </PromptInput>
         </PromptInputProvider>
       </div>
     </div>
   );
-}
-
-function AgentRunCard({ run }: { run: AgentRun }) {
-  const activeStep = run.steps.find((step) => step.status === "active");
-
-  return (
-    <div className="rounded-[16px] border border-od-border-soft bg-od-surface p-3 shadow-[0_18px_80px_-58px_rgba(24,24,21,0.4)]">
-      <div className="flex items-center justify-between gap-3 border-b border-od-border-soft pb-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-9 place-items-center text-od-ink">
-            <RandomLoader kind={run.loader} />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold text-od-ink">
-              {activeStep?.label ?? "Agent run"}
-            </p>
-            <p className="mt-1 truncate text-[11px] text-od-ink-faint">
-              <TextDots>{run.activeMessage}</TextDots>
-            </p>
-          </div>
-        </div>
-        <span className="shrink-0 rounded-full border border-od-border-soft bg-white px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-od-ink-faint">
-          {run.intent === "diagram" ? "draw" : "ask"}
-        </span>
-      </div>
-
-      <div className="mt-3 flex flex-col gap-2">
-        {run.steps.map((step) => (
-          <AgentStepRow key={step.id} step={step} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AgentStepRow({ step }: { step: AgentStep }) {
-  return (
-    <div className="grid grid-cols-[20px_1fr] items-start gap-2 text-[12px]">
-      <span className="mt-0.5 grid size-5 place-items-center text-od-ink-faint">
-        {step.status === "complete" && <Check className="size-3.5 text-od-green" />}
-        {step.status === "failed" && <CircleAlert className="size-3.5 text-red-600" />}
-        {step.status === "active" && (
-          <Circle className="size-2.5 animate-pulse fill-od-ink text-od-ink" />
-        )}
-        {step.status === "pending" && <Circle className="size-2.5 text-od-border-strong" />}
-      </span>
-      <span className="min-w-0">
-        <span
-          className={cn(
-            "block truncate font-medium",
-            step.status === "pending" ? "text-od-ink-faint" : "text-od-ink",
-          )}
-        >
-          {step.label}
-        </span>
-        <span className="mt-0.5 block truncate text-[11px] italic text-black/50">
-          {step.detail}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-function RandomLoader({ kind }: { kind: LoaderKind }) {
-  if (kind === "diamond") return <Diamond className="size-5" />;
-  if (kind === "infinity") return <MorphingInfinity className="size-5" />;
-  return <SquareSnake className="text-[5px]" size={4} />;
 }
 
 function RepoGenerationProgress({
@@ -470,18 +368,18 @@ function RepoGenerationProgress({
   if (!job && !error) return null;
 
   const activeTask = job?.tasks.find((task) => task.status === "active");
-  const loaderIndex = job ? job.tasks.findIndex((task) => task.status === "active") : 0;
-  const Loader = [Diamond, MorphingInfinity, SquareSnake][Math.max(loaderIndex, 0) % 3] ?? Diamond;
 
   return (
     <div className="mb-2 rounded-[12px] border border-od-border-soft bg-white p-3 shadow-[0_12px_36px_-28px_rgba(0,0,0,0.45)]">
       <div className="flex items-center gap-2">
-        {job?.status === "done" ? null : error || job?.status === "failed" ? (
+        {job?.status === "done" ? (
+          <CheckCircle2 className="size-5 text-od-green" />
+        ) : error || job?.status === "failed" ? (
           <span className="grid size-5 place-items-center rounded-full bg-red-50 text-[11px] font-semibold text-red-600">
             !
           </span>
         ) : (
-          <Loader className="size-5 text-od-ink" />
+          <Loader2 className="size-5 animate-spin text-od-ink" />
         )}
         <div className="min-w-0">
           <p className="truncate text-[12px] font-medium text-od-ink">
@@ -490,7 +388,6 @@ function RepoGenerationProgress({
           {job && job.status !== "done" && job.status !== "failed" && (
             <p className="text-[11px] text-od-ink-faint">
               {activeTask?.message ?? "Preparing agents"}
-              <TextDots />
             </p>
           )}
         </div>
@@ -519,4 +416,72 @@ function RepoGenerationProgress({
       ) : null}
     </div>
   );
+}
+
+function renderPart(
+  message: UIMessage,
+  part: UIMessage["parts"][number],
+  index: number,
+  answerAskUser: (toolCallId: string, answer: string) => void,
+) {
+  const key = `${message.id}-${index}`;
+
+  if (part.type === "text") {
+    return part.text ? <MessageResponse key={key}>{part.text}</MessageResponse> : null;
+  }
+
+  if (part.type === "tool-ask_user") {
+    const input = part.input as AskUserInput | undefined;
+    if (!input?.question) return null;
+    const answered = part.state === "output-available" ? (part.output as string) : null;
+    return (
+      <div key={key} className="space-y-2">
+        <p className="text-sm">{input.question}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {(input.options ?? []).map((option) => (
+            <Button
+              key={option}
+              size="sm"
+              variant={answered === option ? "default" : "outline"}
+              className="h-7 text-xs"
+              disabled={answered !== null}
+              onClick={() => answerAskUser(part.toolCallId, option)}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (part.type === "tool-draw_diagram") {
+    const title = (part.input as Partial<DiagramSpec> | undefined)?.title;
+    if (part.state === "output-available") {
+      const summary = (part.output as DrawDiagramOutput).summary;
+      return (
+        <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
+          <CheckCircle2 className="size-3.5 text-primary" />
+          <span>
+            {summary.title} — {summary.nodes} nodes, {summary.edges} edges
+          </span>
+        </div>
+      );
+    }
+    if (part.state === "output-error") {
+      return (
+        <p key={key} className="text-xs text-destructive">
+          Drawing failed: {part.errorText}
+        </p>
+      );
+    }
+    return (
+      <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="size-3 animate-spin" />
+        Drawing {title ? `“${title}”` : "diagram"}…
+      </div>
+    );
+  }
+
+  return null;
 }

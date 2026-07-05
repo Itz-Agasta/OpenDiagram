@@ -2,8 +2,8 @@ import { z } from "zod";
 
 /**
  * Runtime zod mirror of `DiagramSpec` (schema.ts), used as the `schema` param
- * for `generateObject`/`streamObject`. Kept loose — no `.refine()`, `.transform()`,
- * `.default()`, or string constraints — Gemini's structured output only supports
+ * for `generateObject`/`streamObject`. Kept loose -- no `.refine()`, `.transform()`,
+ * `.default()`, or string constraints -- Gemini's structured output only supports
  * an OpenAPI 3.0 subset. Extra validation happens after the object resolves.
  */
 
@@ -55,6 +55,7 @@ const diagramEdgeSchema = z.object({
   label: z.string().optional(),
   protocol: z.string().optional(),
   direction: z.enum(["uni", "bi"]).optional(),
+  kind: z.enum(["sync", "async", "replication"]).optional(),
   style: z.enum(["solid", "dashed", "dotted"]).optional(),
   startArrowhead: z.enum(["none", "arrow", "circle", "bar"]).optional(),
   endArrowhead: z.enum(["none", "arrow", "circle", "bar"]).optional(),

@@ -434,7 +434,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
 
       if (diagramResult) {
         try {
-          const positioned = layoutDiagram(diagramResult);
+          const positioned = await layoutDiagram(diagramResult);
           const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry);
           diagram = { spec: diagramResult, scene: { skeletons, rawElements } };
           layoutSucceeded = true;
@@ -620,7 +620,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
           };
         }
         try {
-          const positioned = layoutDiagram(spec);
+          const positioned = await layoutDiagram(spec);
           const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry);
           diagram = { spec, scene: { skeletons, rawElements } };
         } catch (fallbackError) {

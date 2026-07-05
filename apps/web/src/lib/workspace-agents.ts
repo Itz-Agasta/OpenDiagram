@@ -1,9 +1,6 @@
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
-import { generateDiagram } from "@/lib/diagram-client";
-import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
-import { chatWithProject, getProjectContext } from "@/lib/projects-client";
+import { chatWithProject } from "@/lib/projects-client";
 
 export type WorkspaceAgentIntent = "diagram" | "project_chat";
 
@@ -61,53 +58,6 @@ export async function orchestrateWorkspaceRequest(input: {
 
 function isLikelyDiagramRequest(text: string) {
   return DIAGRAM_NOUNS.test(text) || (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text));
-}
-
-export async function runDiagramAgent(input: {
-  text: string;
-  excalidrawAPI: ExcalidrawImperativeAPI | null;
-  projectId?: string;
-  onProgress?: (event: WorkspaceAgentProgress) => void;
-}): Promise<WorkspaceAgentResult> {
-  if (!input.excalidrawAPI) {
-    throw new Error("Canvas is still loading. Please try again in a moment.");
-  }
-
-  let context: string | undefined;
-  if (input.projectId) {
-    input.onProgress?.({ agent: "memory", status: "active", message: "Loading project memory" });
-    context = await getProjectContext(input.projectId, input.text)
-      .then((result) => {
-        input.onProgress?.({
-          agent: "memory",
-          status: "complete",
-          message: result.provider === "cognee" ? "Cognee context loaded" : "Local context loaded",
-        });
-        return result.context;
-      })
-      .catch(() => {
-        input.onProgress?.({
-          agent: "memory",
-          status: "complete",
-          message: "Skipped memory context",
-        });
-        return undefined;
-      });
-  }
-
-  input.onProgress?.({ agent: "diagram", status: "active", message: "Generating diagram spec" });
-  const { spec, skeletons, rawElements } = await generateDiagram(input.text, undefined, context);
-  input.onProgress?.({
-    agent: "diagram",
-    status: "complete",
-    message: `Generated ${spec.nodes.length} nodes`,
-  });
-
-  input.onProgress?.({ agent: "canvas", status: "active", message: "Applying shapes to canvas" });
-  await applyDiagramToCanvas(input.excalidrawAPI, skeletons, rawElements);
-  input.onProgress?.({ agent: "canvas", status: "complete", message: "Canvas updated" });
-
-  return { message: `Done — "${spec.title}" (${spec.nodes.length} nodes).`, spec };
 }
 
 export async function runProjectChatAgent(input: {
