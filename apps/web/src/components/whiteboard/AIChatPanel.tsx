@@ -1,11 +1,22 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
-import type { ChatStatus } from "ai";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
+import type { UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { generateDiagram } from "@/lib/diagram-client";
+import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
+import { env } from "@OpenDiagram/env/web";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Conversation,
   ConversationContent,
@@ -23,55 +34,112 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
+/** Mirror of the server's draw_diagram tool output (apps/server lib/agent/tools.ts). */
+interface DrawDiagramOutput {
+  skeletons: RenderSkeleton[];
+  rawElements: unknown[];
+  summary: { title: string; nodes: number; edges: number; warnings: string[] };
+}
+
+interface AskUserInput {
+  question: string;
+  options: string[];
 }
 
 interface AIChatPanelProps {
   excalidrawAPI: ExcalidrawImperativeAPI | null;
 }
 
+/** The last assistant message's unanswered ask_user call, if any. */
+function pendingAskUser(messages: UIMessage[]) {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return null;
+  for (const part of last.parts) {
+    if (part.type === "tool-ask_user" && part.state === "input-available") {
+      return { toolCallId: part.toolCallId, input: part.input as AskUserInput };
+    }
+  }
+  return null;
+}
+
 export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [status, setStatus] = useState<ChatStatus>("ready");
-  const idRef = useRef(0);
+  const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
+  const frameByTitleRef = useRef(new Map<string, string>());
+  const appliedToolCallsRef = useRef(new Set<string>());
+  // Serializes canvas applies: each one reads and rewrites the whole scene, so
+  // two in flight at once would clobber each other's elements.
+  const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const [themeName, setThemeName] = useState<ThemeName>("sketch");
+  // Ref mirror so the transport's body() closure always reads the live value.
+  const themeRef = useRef<ThemeName>(themeName);
+  themeRef.current = themeName;
+  const [applyError, setApplyError] = useState<string | null>(null);
+
+  const { messages, sendMessage, addToolOutput, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
+      body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
+    }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  });
+
+  // Apply each finished draw_diagram call to the canvas exactly once. If the
+  // agent redraws a diagram it already drew (same title), the old frame is
+  // replaced in place; otherwise the new frame lands beside existing content.
+  useEffect(() => {
+    if (!excalidrawAPI) return;
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      for (const part of message.parts) {
+        if (part.type !== "tool-draw_diagram" || part.state !== "output-available") continue;
+        if (appliedToolCallsRef.current.has(part.toolCallId)) continue;
+        appliedToolCallsRef.current.add(part.toolCallId);
+
+        const spec = part.input as DiagramSpec;
+        const output = part.output as DrawDiagramOutput;
+        const toolCallId = part.toolCallId;
+        currentSpecRef.current = spec;
+        applyChainRef.current = applyChainRef.current.then(() =>
+          // replaceFrameId is resolved inside the chain so it sees frame ids
+          // recorded by the apply that ran just before this one.
+          applyDiagramToCanvas(excalidrawAPI, output.skeletons, output.rawElements, {
+            replaceFrameId: frameByTitleRef.current.get(spec.title) ?? null,
+          })
+            .then(({ frameId }) => {
+              if (frameId) frameByTitleRef.current.set(spec.title, frameId);
+            })
+            .catch((err: unknown) => {
+              // Un-mark so the next messages update can retry after a
+              // transient failure instead of dropping the diagram forever.
+              appliedToolCallsRef.current.delete(toolCallId);
+              setApplyError(err instanceof Error ? err.message : "Failed to draw on canvas");
+            }),
+        );
+      }
+    }
+  }, [messages, excalidrawAPI]);
+
+  const answerAskUser = useCallback(
+    (toolCallId: string, answer: string) => {
+      addToolOutput({ tool: "ask_user", toolCallId, output: answer });
+    },
+    [addToolOutput],
+  );
 
   const handleSubmit = useCallback(
-    async (msg: PromptInputMessage) => {
+    (msg: PromptInputMessage) => {
       const text = msg.text.trim();
-      if (!text || !excalidrawAPI || status !== "ready") return;
-
-      const userMessageId = `msg-${idRef.current++}`;
-      const assistantMessageId = `msg-${idRef.current++}`;
-      setMessages((prev) => [
-        ...prev,
-        { id: userMessageId, role: "user", text },
-        { id: assistantMessageId, role: "assistant", text: "Generating diagram…" },
-      ]);
-      setStatus("submitted");
-
-      try {
-        const { spec, skeletons, rawElements } = await generateDiagram(text);
-        await applyDiagramToCanvas(excalidrawAPI, skeletons, rawElements);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? { ...m, text: `Done — "${spec.title}" (${spec.nodes.length} nodes).` }
-              : m,
-          ),
-        );
-        setStatus("ready");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Diagram generation failed";
-        setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMessageId ? { ...m, text: `Error: ${message}` } : m)),
-        );
-        setStatus("ready");
+      if (!text || !excalidrawAPI || (status !== "ready" && status !== "error")) return;
+      setApplyError(null);
+      // A typed reply while a question is pending answers the question.
+      const pending = pendingAskUser(messages);
+      if (pending) {
+        answerAskUser(pending.toolCallId, text);
+        return;
       }
+      void sendMessage({ text });
     },
-    [excalidrawAPI, status],
+    [excalidrawAPI, status, messages, sendMessage, answerAskUser],
   );
 
   return (
@@ -92,13 +160,27 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
               icon={<Sparkles className="size-6 text-muted-foreground" />}
             />
           ) : (
-            messages.map((msg) => (
-              <Message key={msg.id} from={msg.role}>
+            messages.map((message) => (
+              <Message key={message.id} from={message.role === "user" ? "user" : "assistant"}>
                 <MessageContent>
-                  <MessageResponse>{msg.text}</MessageResponse>
+                  {message.parts.map((part, i) => renderPart(message, part, i, answerAskUser))}
                 </MessageContent>
               </Message>
             ))
+          )}
+          {status === "submitted" && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
+              Thinking…
+            </div>
+          )}
+          {status === "error" && (
+            <p className="text-xs text-destructive">
+              Something went wrong{error?.message ? ` — ${error.message}` : ""}. Try again.
+            </p>
+          )}
+          {applyError && (
+            <p className="text-xs text-destructive">Couldn't draw on canvas — {applyError}</p>
           )}
         </ConversationContent>
         <ConversationScrollButton />
@@ -115,7 +197,18 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <p className="text-xs text-muted-foreground flex-1">Gemini 2.5 Flash</p>
+              <Select value={themeName} onValueChange={(v) => setThemeName(v as ThemeName)}>
+                <SelectTrigger className="h-7 w-30 text-xs" aria-label="Diagram theme">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sketch">Sketch</SelectItem>
+                  <SelectItem value="classic">Classic</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground flex-1 text-right pr-2">
+                Gemini 2.5 Flash
+              </p>
               <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>
@@ -123,4 +216,72 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
       </div>
     </div>
   );
+}
+
+function renderPart(
+  message: UIMessage,
+  part: UIMessage["parts"][number],
+  index: number,
+  answerAskUser: (toolCallId: string, answer: string) => void,
+) {
+  const key = `${message.id}-${index}`;
+
+  if (part.type === "text") {
+    return part.text ? <MessageResponse key={key}>{part.text}</MessageResponse> : null;
+  }
+
+  if (part.type === "tool-ask_user") {
+    const input = part.input as AskUserInput | undefined;
+    if (!input?.question) return null;
+    const answered = part.state === "output-available" ? (part.output as string) : null;
+    return (
+      <div key={key} className="space-y-2">
+        <p className="text-sm">{input.question}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {(input.options ?? []).map((option) => (
+            <Button
+              key={option}
+              size="sm"
+              variant={answered === option ? "default" : "outline"}
+              className="h-7 text-xs"
+              disabled={answered !== null}
+              onClick={() => answerAskUser(part.toolCallId, option)}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (part.type === "tool-draw_diagram") {
+    const title = (part.input as Partial<DiagramSpec> | undefined)?.title;
+    if (part.state === "output-available") {
+      const summary = (part.output as DrawDiagramOutput).summary;
+      return (
+        <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
+          <CheckCircle2 className="size-3.5 text-primary" />
+          <span>
+            {summary.title} — {summary.nodes} nodes, {summary.edges} edges
+          </span>
+        </div>
+      );
+    }
+    if (part.state === "output-error") {
+      return (
+        <p key={key} className="text-xs text-destructive">
+          Drawing failed: {part.errorText}
+        </p>
+      );
+    }
+    return (
+      <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="size-3 animate-spin" />
+        Drawing {title ? `“${title}”` : "diagram"}…
+      </div>
+    );
+  }
+
+  return null;
 }

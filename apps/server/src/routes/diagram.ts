@@ -1,68 +1,84 @@
+import { createGoogle } from "@ai-sdk/google";
+import { diagramSpecSchema, themes } from "@OpenDiagram/harness";
+import { env } from "@OpenDiagram/env/server";
 import {
-  diagramTypeSchema,
-  layoutDiagram,
-  renderToExcalidraw,
-  type DiagramSpec,
-} from "@OpenDiagram/harness";
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  isStepCount,
+  streamText,
+  toUIMessageStream,
+  type UIMessage,
+} from "ai";
 import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
-import { iconRegistry } from "../lib/icons/registry";
-import { generateDiagramSpec } from "../lib/llm";
+import { buildSystemPrompt } from "../lib/agent/prompt";
+import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
 
-const generateRequestSchema = z.object({
-  prompt: z.string().min(1).max(2000),
-  diagramType: diagramTypeSchema.optional(),
+const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
+
+const chatRequestSchema = z.object({
+  // UIMessage shape is owned by the AI SDK and too deep to mirror — validated
+  // structurally by convertToModelMessages below.
+  messages: z.array(z.looseObject({})).min(1).max(50),
+  currentSpec: diagramSpecSchema.optional(),
+  theme: z.enum(["classic", "sketch"]).optional(),
 });
 
 export const diagramRoute = new Hono<EvlogVariables>();
 
-const MAX_ATTEMPTS = 2;
-
-diagramRoute.post("/generate", async (c) => {
+diagramRoute.post("/chat", async (c) => {
   const log = c.get("log");
   const body = await c.req.json().catch(() => null);
-  const parsed = generateRequestSchema.safeParse(body);
+  const parsed = chatRequestSchema.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
+  const { messages, currentSpec, theme: themeName = "sketch" } = parsed.data;
 
-  const { prompt, diagramType } = parsed.data;
-
-  let spec: DiagramSpec | undefined;
-  let lastError: unknown;
-  let attempts = 0;
-
-  for (; attempts < MAX_ATTEMPTS && !spec; attempts++) {
-    try {
-      spec = await generateDiagramSpec({ prompt, diagramType });
-    } catch (error) {
-      lastError = error;
-    }
+  // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
+  // client payload, not a server fault, so surface it as a 400.
+  let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+  try {
+    modelMessages = await convertToModelMessages(messages as unknown as UIMessage[]);
+  } catch (err) {
+    return c.json(
+      { error: "Invalid messages", detail: err instanceof Error ? err.message : String(err) },
+      400,
+    );
   }
 
-  if (!spec) {
-    log.set({ diagram: { promptLength: prompt.length, diagramType, attempts } });
-    log.error(lastError instanceof Error ? lastError : new Error("Diagram generation failed"));
-    return c.json({ error: "Diagram generation failed. Please try again." }, 502);
-  }
+  const tools = {
+    ask_user: askUserTool,
+    draw_diagram: createDrawDiagramTool(log, themes[themeName]),
+  };
 
-  const positioned = layoutDiagram(spec);
-  const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry);
-  log.set({
-    diagram: {
-      promptLength: prompt.length,
-      diagramType,
-      attempts,
-      nodeCount: spec.nodes.length,
-      edgeCount: spec.edges.length,
+  const result = streamText({
+    model: google("gemini-2.5-flash"),
+    instructions: buildSystemPrompt(currentSpec),
+    messages: modelMessages,
+    tools,
+    stopWhen: isStepCount(6),
+    // Bounds runaway/repetition-loop generations so a bad completion fails
+    // fast instead of hanging (observed with gemini-2.5-flash during testing).
+    maxOutputTokens: 16384,
+    onFinish: ({ steps, totalUsage }) => {
+      log.set({
+        chat: {
+          messageCount: messages.length,
+          hasCurrentSpec: currentSpec !== undefined,
+          theme: themeName,
+          steps: steps.length,
+          toolCalls: steps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
+          totalTokens: totalUsage.totalTokens,
+        },
+      });
     },
   });
-  if (positioned.warnings.length > 0) {
-    log.warn("layoutDiagram sanitized malformed LLM output", {
-      diagram: { layoutWarnings: positioned.warnings },
-    });
-  }
 
-  return c.json({ spec, skeletons, rawElements });
+  return createUIMessageStreamResponse({
+    // `tools` makes tool parts stream as static `tool-<name>` parts (the chat
+    // panel matches on those) instead of generic `dynamic-tool` parts.
+    stream: toUIMessageStream({ stream: result.stream, tools }),
+  });
 });
