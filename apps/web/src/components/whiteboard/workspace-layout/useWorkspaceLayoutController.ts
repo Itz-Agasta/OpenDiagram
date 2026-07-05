@@ -91,9 +91,9 @@ export function useWorkspaceLayoutController() {
   const [firstFileName, setFirstFileName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
-  const [savePending, setSavePending] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const savePending = saveStatus === "saving";
 
   const draftRef = useRef<GuestProjectDraft | null>(null);
   const sceneRef = useRef<unknown>(null);
@@ -274,7 +274,7 @@ export function useWorkspaceLayoutController() {
     const currentDraft = draftRef.current;
     if (!currentDraft || !session.data?.user) return;
 
-    setSavePending(true);
+    setSaveStatus("saving");
     setSaveError(null);
 
     try {
@@ -312,8 +312,9 @@ export function useWorkspaceLayoutController() {
       router.replace(`/project/${project.id}/workspace/${activeFile.id}`);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Could not save project.");
+      setSaveStatus("error");
     } finally {
-      setSavePending(false);
+      setSaveStatus((prev) => (prev === "saving" ? "idle" : prev));
     }
   }, [router, session.data?.user]);
 
@@ -567,7 +568,6 @@ export function useWorkspaceLayoutController() {
     const file = activeFile;
     if (!file) return;
 
-    setSavePending(true);
     setSaveError(null);
     setSaveStatus("saving");
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
@@ -589,8 +589,6 @@ export function useWorkspaceLayoutController() {
     } catch (err) {
       setSaveStatus("error");
       setSaveError(err instanceof Error ? err.message : "Could not save file.");
-    } finally {
-      setSavePending(false);
     }
   }
 

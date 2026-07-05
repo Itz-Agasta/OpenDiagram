@@ -67,7 +67,7 @@ export async function getGitHubImportJob(
     credentials: "include",
     signal,
   });
-  const data = await response.json().catch(() => null);
+  const data = await response.json();
 
   if (!response.ok) {
     throw new Error(data?.error ?? "Could not load import status.");

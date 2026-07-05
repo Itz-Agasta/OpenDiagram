@@ -204,7 +204,12 @@ async function getCommitSha(repoPath: string) {
 async function collectSourceFiles(repoPath: string) {
   const files: SourceFile[] = [];
   let totalChars = 0;
-  const candidates = await walkRepo(repoPath, repoPath);
+  const candidates: string[] = [];
+
+  for await (const candidate of walkRepo(repoPath, repoPath)) {
+    candidates.push(candidate);
+    if (candidates.length >= 1000) break;
+  }
 
   for (const relativePath of rankPaths(candidates)) {
     if (files.length >= MAX_FILES || totalChars >= MAX_TOTAL_CHARS) break;
@@ -224,9 +229,15 @@ async function collectSourceFiles(repoPath: string) {
   return files;
 }
 
-async function walkRepo(root: string, current: string): Promise<string[]> {
+async function* walkRepo(root: string, current: string): AsyncGenerator<string> {
   const entries = await readdir(current, { withFileTypes: true }).catch(() => []);
-  const paths: string[] = [];
+
+  // Sort entries: files first, then directories to yield root/important files early
+  entries.sort((a, b) => {
+    if (a.isFile() && b.isDirectory()) return -1;
+    if (a.isDirectory() && b.isFile()) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   for (const entry of entries) {
     if (entry.name.startsWith(".") && entry.name !== ".github") continue;
@@ -235,17 +246,14 @@ async function walkRepo(root: string, current: string): Promise<string[]> {
 
     const absolutePath = path.join(current, entry.name);
     if (entry.isDirectory()) {
-      paths.push(...(await walkRepo(root, absolutePath)));
-      continue;
-    }
-
-    if (entry.isFile()) {
+      yield* walkRepo(root, absolutePath);
+    } else if (entry.isFile()) {
       const relativePath = path.relative(root, absolutePath);
-      if (shouldIncludeFile(relativePath)) paths.push(relativePath);
+      if (shouldIncludeFile(relativePath)) {
+        yield relativePath;
+      }
     }
   }
-
-  return paths;
 }
 
 function shouldSkipFile(fileName: string) {

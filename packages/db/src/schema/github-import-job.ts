@@ -1,4 +1,5 @@
-import { index, pgTable, text } from "drizzle-orm/pg-core";
+import { index, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 import { user } from "./auth";
 import { project } from "./project";
@@ -33,5 +34,8 @@ export const githubImportJob = pgTable(
   (table) => [
     index("github_import_job_user_id_idx").on(table.userId),
     index("github_import_job_status_idx").on(table.status),
+    uniqueIndex("github_import_job_user_repo_partial_idx")
+      .on(table.userId, table.repoFullName)
+      .where(sql`status NOT IN ('done', 'failed')`),
   ],
 );

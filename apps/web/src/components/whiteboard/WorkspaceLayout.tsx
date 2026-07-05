@@ -48,7 +48,6 @@ export function WorkspaceLayout() {
           onSignIn={actions.signInToSave}
           projectName={state.sidebarProjectName}
           saveError={state.saveError}
-          savePending={state.savePending}
           saveStatus={state.saveStatus}
         />
         <WorkspaceEditorPane

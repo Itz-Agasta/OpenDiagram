@@ -272,11 +272,40 @@ const DIAGRAM_TYPE_PROMPT_ADDITIONS: Partial<Record<DiagramType, string>> = {
 };
 
 function buildSystemPrompt(diagramType?: DiagramType): string {
+  let categories: string[] | undefined;
+  if (diagramType === "erd") {
+    categories = ["database", "storage"];
+  } else if (diagramType === "cloud-architecture") {
+    categories = [
+      "service",
+      "network",
+      "queue",
+      "gateway",
+      "database",
+      "storage",
+      "cache",
+      "function",
+    ];
+  } else if (diagramType === "system-design") {
+    categories = [
+      "client",
+      "service",
+      "external",
+      "network",
+      "queue",
+      "gateway",
+      "database",
+      "storage",
+      "cache",
+      "function",
+    ];
+  }
+
   const parts = [
     "You are an expert software architect generating engineering diagrams.",
     "Output a DiagramSpec matching the provided schema. No markdown, no explanation, just the structured object.",
     DIAGRAM_TYPE_GUIDE,
-    `Available icons (use exact key in node.icon field):\n${buildIconCatalog()}`,
+    `Available icons (use exact key in node.icon field):\n${buildIconCatalog(categories)}`,
     COLOR_CONVENTIONS,
     RULES,
   ];

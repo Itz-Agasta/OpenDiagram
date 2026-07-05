@@ -9,7 +9,7 @@ import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { Slice } from "@milkdown/kit/prose/model";
 import { Selection } from "@milkdown/kit/prose/state";
 import throttle from "lodash.throttle";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
 type CrepeAPI = {
   update: (markdown: string) => void;
@@ -33,6 +33,10 @@ export function MilkdownDocEditor({ value, onChange }: MilkdownDocEditorProps) {
   const setCrepeAPI = useCallback((api: CrepeAPI) => {
     crepeAPIRef.current = api;
   }, []);
+
+  useEffect(() => {
+    crepeAPIRef.current.update(value);
+  }, [value]);
 
   return (
     <div className="min-h-0 flex-1 overflow-hidden border-y border-gray-300 bg-white">
@@ -103,19 +107,26 @@ function CrepePane({
     if (!rootRef.current || loadingRef.current) return;
 
     let mounted = true;
+    let destroyed = false;
     loadingRef.current = true;
     const crepe = new Crepe({
       defaultValue: initialValue,
       root: rootRef.current,
     });
 
+    const safeDestroy = () => {
+      if (destroyed) return;
+      destroyed = true;
+      void crepe.destroy();
+    };
+
+    const throttledOnChange = throttle((_: unknown, markdown: string) => {
+      if (mounted) onChange(markdown);
+    }, 200);
+
     crepe.editor
       .config((ctx) => {
-        ctx.get(listenerCtx).markdownUpdated(
-          throttle((_, markdown) => {
-            onChange(markdown);
-          }, 200),
-        );
+        ctx.get(listenerCtx).markdownUpdated(throttledOnChange);
       })
       .use(listener);
 
@@ -130,7 +141,7 @@ function CrepePane({
       })
       .finally(() => {
         loadingRef.current = false;
-        if (!mounted) void crepe.destroy();
+        if (!mounted) safeDestroy();
       });
 
     setAPI({
@@ -159,7 +170,8 @@ function CrepePane({
       mounted = false;
       loadingRef.current = false;
       crepeRef.current = null;
-      void crepe.destroy();
+      throttledOnChange.cancel();
+      safeDestroy();
       setAPI({ update: () => undefined });
     };
   }, [initialValue, onChange, setAPI]);

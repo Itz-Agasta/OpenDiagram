@@ -5,7 +5,7 @@ import { z } from "zod";
 import { env } from "@OpenDiagram/env/server";
 
 const requestSchema = z.object({
-  text: z.string().min(1).max(2000),
+  text: z.string().trim().min(1).max(2000),
 });
 
 const DIAGRAM_NOUNS =

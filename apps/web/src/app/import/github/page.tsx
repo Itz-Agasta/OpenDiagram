@@ -548,7 +548,17 @@ async function waitForImportJob(
 ): Promise<Awaited<ReturnType<typeof getGitHubImportJob>>> {
   for (let attempt = 0; attempt < 180; attempt++) {
     await abortableDelay(1000, signal);
-    const job = await getGitHubImportJob(jobId, signal);
+    let job;
+    try {
+      job = await getGitHubImportJob(jobId, signal);
+    } catch (err) {
+      if (signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        throw err;
+      }
+      console.warn("Transient error while fetching import job status, retrying...", err);
+      continue;
+    }
+
     onMessage(job.message);
 
     if (job.status === "done") return job;

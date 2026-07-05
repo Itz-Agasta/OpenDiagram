@@ -9,7 +9,6 @@ type WorkspaceHeaderProps = {
   nameDraft: string;
   projectName: string;
   saveError: string | null;
-  savePending: boolean;
   saveStatus: SaveStatus;
   hasWorkspace: boolean;
   onBeginEditName: () => void;
@@ -29,7 +28,6 @@ export function WorkspaceHeader({
   nameDraft,
   projectName,
   saveError,
-  savePending,
   saveStatus,
   hasWorkspace,
   onBeginEditName,
@@ -40,6 +38,7 @@ export function WorkspaceHeader({
   onSave,
   onSignIn,
 }: WorkspaceHeaderProps) {
+  const savePending = saveStatus === "saving";
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-od-border-soft bg-white px-4">
       <div className="min-w-0">

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 const caseStudyImages = [
   "https://framerusercontent.com/images/TWgBR6dpy8VfcVcGIy2oyBYzyY.jpg",

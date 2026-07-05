@@ -1,4 +1,4 @@
-import { and, db, desc, eq } from "@OpenDiagram/db";
+import { and, db, desc, eq, or } from "@OpenDiagram/db";
 import { project } from "@OpenDiagram/db/schema/project";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagram/harness";
@@ -109,7 +109,8 @@ function logJob(
 
 export async function startRepoGeneration(input: { projectId: string; userId: string }) {
   pruneOldJobs();
-  const existingJobId = activeJobByProject.get(projectKey(input));
+  const key = projectKey(input);
+  const existingJobId = activeJobByProject.get(key);
   const existingJob = existingJobId ? jobs.get(existingJobId) : null;
   if (
     existingJob &&
@@ -119,131 +120,151 @@ export async function startRepoGeneration(input: { projectId: string; userId: st
     return existingJob;
   }
 
-  const [projectRow] = await db
-    .select()
-    .from(project)
-    .where(and(eq(project.id, input.projectId), eq(project.userId, input.userId)));
-
-  if (!projectRow) return null;
-  if (projectRow.source !== "github_import") {
-    throw new Error("Repository generation is only available for GitHub imports.");
-  }
-
-  const existingGeneratedFiles = await getGeneratedFiles(input.projectId);
-  const hasCompletedPlan = PLAN.every((item) =>
-    existingGeneratedFiles.some((file) => file.name === item.name && isGeneratedFileComplete(file)),
-  );
-  if (hasCompletedPlan) {
-    if (projectRow.generationStatus === "none") {
-      await db
-        .update(project)
-        .set({ generationStatus: "done" })
-        .where(and(eq(project.id, input.projectId), eq(project.userId, input.userId)));
-    }
-    const now = new Date().toISOString();
-    const job: RepoGenerationJob = {
-      id: crypto.randomUUID(),
-      userId: input.userId,
-      projectId: input.projectId,
-      status: "done",
-      message: "Repository files already generated",
-      error: null,
-      tasks: PLAN.map((item) => ({
-        ...item,
-        status: "complete",
-        message: "Already generated",
-        fileId: existingGeneratedFiles.find((file) => file.name === item.name)?.id ?? null,
-      })),
-      createdFiles: existingGeneratedFiles.map((file) => ({
-        id: file.id,
-        name: file.name,
-        type: file.type,
-      })),
-      createdAt: now,
-      updatedAt: now,
-    };
-    jobs.set(job.id, job);
-    activeJobByProject.set(projectKey(input), job.id);
-    scheduleJobCleanup(job.id);
-    console.log(`👀 job start: returning done job #${job.id.slice(0, 8)}`);
-    return job;
-  }
-
-  const isAlreadyInProgress = ["queued", "planning", "creating", "generating"].includes(
-    projectRow.generationStatus,
-  );
-  if (isAlreadyInProgress) {
-    const now = new Date().toISOString();
-    const job: RepoGenerationJob = {
-      id: crypto.randomUUID(),
-      userId: input.userId,
-      projectId: input.projectId,
-      status: "queued",
-      message: "Resuming repository generation",
-      error: null,
-      tasks: PLAN.map((item) => {
-        const file = existingGeneratedFiles.find((f) => f.name === item.name);
-        const isCompleted = file && (file.spec as any)?.status === "complete";
-        return {
-          ...item,
-          status: isCompleted ? "complete" : "pending",
-          message: isCompleted ? "Already generated" : "Waiting",
-          fileId: file?.id ?? null,
-        };
-      }),
-      createdFiles: existingGeneratedFiles.map((file) => ({
-        id: file.id,
-        name: file.name,
-        type: file.type,
-      })),
-      createdAt: now,
-      updatedAt: now,
-    };
-    jobs.set(job.id, job);
-    activeJobByProject.set(projectKey(input), job.id);
-    console.log(`👀 job resume: respawning job #${job.id.slice(0, 8)}`);
-    void runRepoGenerationJob(job.id, projectRow).catch((error) => {
-      updateJob(job.id, {
-        status: "failed",
-        message: "Repository generation failed",
-        error: error instanceof Error ? error.message : "Repository generation failed.",
-      });
-    });
-    return job;
-  }
-
+  // Synchronous process lock
+  const lockJobId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const job: RepoGenerationJob = {
-    id: crypto.randomUUID(),
+  const lockJob: RepoGenerationJob = {
+    id: lockJobId,
     userId: input.userId,
     projectId: input.projectId,
     status: "queued",
-    message: "Queued repository generation",
+    message: "Initializing...",
     error: null,
     tasks: [],
     createdFiles: [],
     createdAt: now,
     updatedAt: now,
   };
+  jobs.set(lockJobId, lockJob);
+  activeJobByProject.set(key, lockJobId);
 
-  jobs.set(job.id, job);
-  activeJobByProject.set(projectKey(input), job.id);
-  console.log(`🚀 job started: #${job.id.slice(0, 8)} queued for ${job.projectId}`);
+  try {
+    const [projectRow] = await db
+      .select()
+      .from(project)
+      .where(and(eq(project.id, input.projectId), eq(project.userId, input.userId)));
 
-  await db
-    .update(project)
-    .set({ generationStatus: "queued" })
-    .where(and(eq(project.id, input.projectId), eq(project.userId, input.userId)));
+    if (!projectRow) {
+      jobs.delete(lockJobId);
+      activeJobByProject.delete(key);
+      return null;
+    }
+    if (projectRow.source !== "github_import") {
+      jobs.delete(lockJobId);
+      activeJobByProject.delete(key);
+      throw new Error("Repository generation is only available for GitHub imports.");
+    }
 
-  void runRepoGenerationJob(job.id, projectRow).catch((error) => {
-    updateJob(job.id, {
-      status: "failed",
-      message: "Repository generation failed",
-      error: error instanceof Error ? error.message : "Repository generation failed.",
+    const existingGeneratedFiles = await getGeneratedFiles(input.projectId);
+    const hasCompletedPlan = PLAN.every((item) =>
+      existingGeneratedFiles.some(
+        (file) => file.name === item.name && isGeneratedFileComplete(file),
+      ),
+    );
+    if (hasCompletedPlan) {
+      await db
+        .update(project)
+        .set({ generationStatus: "done" })
+        .where(and(eq(project.id, input.projectId), eq(project.userId, input.userId)));
+
+      const doneJob: RepoGenerationJob = {
+        ...lockJob,
+        status: "done",
+        message: "Repository files already generated",
+        tasks: PLAN.map((item) => ({
+          ...item,
+          status: "complete",
+          message: "Already generated",
+          fileId: existingGeneratedFiles.find((file) => file.name === item.name)?.id ?? null,
+        })),
+        createdFiles: existingGeneratedFiles.map((file) => ({
+          id: file.id,
+          name: file.name,
+          type: file.type,
+        })),
+      };
+      jobs.set(lockJobId, doneJob);
+      scheduleJobCleanup(lockJobId);
+      console.log(`👀 job start: returning done job #${lockJobId.slice(0, 8)}`);
+      return doneJob;
+    }
+
+    const isAlreadyInProgress = ["queued", "planning", "creating", "generating"].includes(
+      projectRow.generationStatus,
+    );
+    if (isAlreadyInProgress) {
+      const resumeJob: RepoGenerationJob = {
+        ...lockJob,
+        status: "queued",
+        message: "Resuming repository generation",
+        tasks: PLAN.map((item) => {
+          const file = existingGeneratedFiles.find((f) => f.name === item.name);
+          const isCompleted = file && (file.spec as any)?.status === "complete";
+          return {
+            ...item,
+            status: isCompleted ? "complete" : "pending",
+            message: isCompleted ? "Already generated" : "Waiting",
+            fileId: file?.id ?? null,
+          };
+        }),
+        createdFiles: existingGeneratedFiles.map((file) => ({
+          id: file.id,
+          name: file.name,
+          type: file.type,
+        })),
+      };
+      jobs.set(lockJobId, resumeJob);
+      console.log(`👀 job resume: respawning job #${lockJobId.slice(0, 8)}`);
+      void runRepoGenerationJob(lockJobId, projectRow).catch((error) => {
+        updateJob(lockJobId, {
+          status: "failed",
+          message: "Repository generation failed",
+          error: error instanceof Error ? error.message : "Repository generation failed.",
+        });
+      });
+      return resumeJob;
+    }
+
+    const [updatedProject] = await db
+      .update(project)
+      .set({ generationStatus: "queued" })
+      .where(
+        and(
+          eq(project.id, input.projectId),
+          eq(project.userId, input.userId),
+          or(eq(project.generationStatus, "none"), eq(project.generationStatus, "failed")),
+        ),
+      )
+      .returning();
+
+    if (!updatedProject) {
+      jobs.delete(lockJobId);
+      activeJobByProject.delete(key);
+      return startRepoGeneration(input);
+    }
+
+    const queuedJob: RepoGenerationJob = {
+      ...lockJob,
+      status: "queued",
+      message: "Queued repository generation",
+    };
+    jobs.set(lockJobId, queuedJob);
+    console.log(`🚀 job started: #${lockJobId.slice(0, 8)} queued for ${lockJob.projectId}`);
+
+    void runRepoGenerationJob(lockJobId, projectRow).catch((error) => {
+      updateJob(lockJobId, {
+        status: "failed",
+        message: "Repository generation failed",
+        error: error instanceof Error ? error.message : "Repository generation failed.",
+      });
     });
-  });
 
-  return job;
+    return queuedJob;
+  } catch (error) {
+    jobs.delete(lockJobId);
+    activeJobByProject.delete(key);
+    throw error;
+  }
 }
 
 export function getRepoGenerationJob(input: { projectId: string; userId: string; jobId: string }) {
@@ -423,7 +444,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
     } else {
       const diagramResult = await generateDiagramSpec({
         prompt: `Generate a ${item.name.toLowerCase()} for the imported source repository.\nGoal: ${item.goal}`,
-        diagramType: item.id === "system-context" ? "system-design" : "system-design",
+        diagramType: "system-design",
         context: context?.context ?? "",
       }).catch(() => null);
 
@@ -722,6 +743,8 @@ function isGeneratedFileComplete(file: { spec: unknown }) {
   );
 }
 
+let dbUpdateQueue = Promise.resolve();
+
 function updateJob(
   jobId: string,
   values: Partial<Omit<RepoGenerationJob, "id" | "userId" | "projectId" | "createdAt">>,
@@ -731,12 +754,16 @@ function updateJob(
   jobs.set(jobId, { ...job, ...values, updatedAt: new Date().toISOString() });
 
   if (values.status) {
-    db.update(project)
-      .set({ generationStatus: values.status as any })
-      .where(and(eq(project.id, job.projectId), eq(project.userId, job.userId)))
-      .catch((err) => {
+    dbUpdateQueue = dbUpdateQueue.then(async () => {
+      try {
+        await db
+          .update(project)
+          .set({ generationStatus: values.status as any })
+          .where(and(eq(project.id, job.projectId), eq(project.userId, job.userId)));
+      } catch (err) {
         console.error(`Failed to update project generation_status in DB:`, err);
-      });
+      }
+    });
 
     if (values.status === "done" || values.status === "failed") {
       scheduleJobCleanup(jobId);

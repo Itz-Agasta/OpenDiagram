@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, type MotionValue } from "motion/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -142,7 +142,7 @@ function WordFade({
   word: string;
   index: number;
   total: number;
-  progress: import("framer-motion").MotionValue<number>;
+  progress: MotionValue<number>;
 }) {
   const start = index / total;
   const end = (index + 1) / total;

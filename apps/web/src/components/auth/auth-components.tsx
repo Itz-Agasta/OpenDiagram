@@ -69,7 +69,6 @@ export function PasswordInput({
         type="button"
         className="input-suffix"
         onClick={() => setVisible((v) => !v)}
-        tabIndex={-1}
         aria-label={visible ? "Hide password" : "Show password"}
       >
         {visible ? <IconEyeOff size={16} /> : <IconEye size={16} />}

@@ -131,6 +131,7 @@ export function WorkspaceSidebar({
                     key={file.id}
                     type="button"
                     onClick={() => onOpenFile(file.id)}
+                    aria-current={active ? "page" : undefined}
                     className={`flex h-8 items-center gap-2 rounded-[8px] px-2 text-left text-[13px] transition ${
                       active
                         ? "bg-od-canvas/75 text-od-ink"

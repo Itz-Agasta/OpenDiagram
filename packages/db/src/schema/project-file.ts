@@ -1,5 +1,5 @@
-import { relations } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { index, jsonb, pgTable, text, timestamp, check } from "drizzle-orm/pg-core";
 
 import { project } from "./project";
 
@@ -19,7 +19,9 @@ export const projectFile = pgTable(
     scene: jsonb("scene"),
     spec: jsonb("spec"),
     content: jsonb("content"),
-    history: jsonb("history").$default(() => []),
+    history: jsonb("history")
+      .$default(() => [])
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -29,6 +31,7 @@ export const projectFile = pgTable(
   (table) => [
     index("project_file_projectId_idx").on(table.projectId),
     index("project_file_type_idx").on(table.type),
+    check("project_file_type_check", sql`${table.type} IN ('diagram', 'doc')`),
   ],
 );
 

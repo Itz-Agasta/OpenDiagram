@@ -46,7 +46,7 @@ export const githubRoute = new Hono();
 export const githubImportRoute = new Hono();
 
 const importJobs = new Map<string, GitHubImportJob>();
-const IMPORT_JOB_STALE_MS = 10 * 60 * 1000;
+const IMPORT_JOB_STALE_MS = 30 * 60 * 1000;
 
 githubRoute.get("/repositories", async (c) => {
   const token = await getGitHubAccessToken(c.req.raw.headers);
@@ -243,31 +243,35 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
       status: "documenting",
       message: "Creating documentation file",
     });
-    const [projectRow] = await db
-      .insert(project)
-      .values({
-        userId: job.userId,
-        name: input.repo.full_name,
-        description: `Imported from GitHub (${input.repo.default_branch})`,
-        source: "github_import",
-        sourceMetadata: {
-          repoFullName: input.repo.full_name,
-          defaultBranch: input.repo.default_branch,
-          htmlUrl: input.repo.html_url,
-          importedAt,
-          commitSha: documentation.commitSha,
-        },
-      })
-      .returning();
+    const projectRow = await db.transaction(async (tx) => {
+      const [pRow] = await tx
+        .insert(project)
+        .values({
+          userId: job.userId,
+          name: input.repo.full_name,
+          description: `Imported from GitHub (${input.repo.default_branch})`,
+          source: "github_import",
+          sourceMetadata: {
+            repoFullName: input.repo.full_name,
+            defaultBranch: input.repo.default_branch,
+            htmlUrl: input.repo.html_url,
+            importedAt,
+            commitSha: documentation.commitSha,
+          },
+        })
+        .returning();
 
-    if (!projectRow) throw new Error("Could not create imported project.");
+      if (!pRow) throw new Error("Could not create imported project.");
 
-    await db.insert(projectFile).values({
-      projectId: projectRow.id,
-      name: "Repository overview.md",
-      type: "doc",
-      content: documentation.markdown,
-      spec: documentation.provenance,
+      await tx.insert(projectFile).values({
+        projectId: pRow.id,
+        name: "Repository overview.md",
+        type: "doc",
+        content: documentation.markdown,
+        spec: documentation.provenance,
+      });
+
+      return pRow;
     });
 
     await updateImportJob(job.id, { status: "indexing", message: "Indexing repository memory" });
@@ -292,11 +296,15 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
       project: { id: projectRow.id, name: projectRow.name },
     });
   } catch (error) {
-    await updateImportJob(job.id, {
-      status: "failed",
-      message: "Repository import failed",
-      error: error instanceof Error ? error.message : "Repository import failed.",
-    });
+    try {
+      await updateImportJob(job.id, {
+        status: "failed",
+        message: "Repository import failed",
+        error: error instanceof Error ? error.message : "Repository import failed.",
+      });
+    } catch (updateError) {
+      console.error("Failed to update import job status on failure:", updateError);
+    }
   } finally {
     if (repoPathToCleanup) {
       await cleanupRepositoryClone(repoPathToCleanup).catch((error) => {
@@ -314,7 +322,11 @@ async function updateImportJob(
   if (!job) return;
 
   const nextJob = { ...job, ...values, updatedAt: new Date().toISOString() };
-  importJobs.set(jobId, nextJob);
+  if (nextJob.status === "done" || nextJob.status === "failed") {
+    importJobs.delete(jobId);
+  } else {
+    importJobs.set(jobId, nextJob);
+  }
 
   await db
     .update(githubImportJob)
@@ -346,12 +358,15 @@ async function getImportJob(jobId: string, userId: string) {
   if (!row) return null;
 
   const job = fromJobRow(row);
-  importJobs.set(job.id, job);
+  if (job.status !== "done" && job.status !== "failed") {
+    importJobs.set(job.id, job);
+  }
   return job;
 }
 
 async function failStaleImportJob(job: GitHubImportJob) {
   if (job.status === "done" || job.status === "failed") return job;
+  if (importJobs.has(job.id)) return job;
   if (Date.now() - Date.parse(job.updatedAt) < IMPORT_JOB_STALE_MS) return job;
 
   await updateImportJob(job.id, {
