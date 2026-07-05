@@ -32,7 +32,8 @@ const faqItems = [
   },
   {
     question: "Is OpenDiagram free to try?",
-    answer: "Yes. You can start creating Vibe Diagrams from the dashboard and save work when you sign in.",
+    answer:
+      "Yes. You can start creating Vibe Diagrams from the dashboard and save work when you sign in.",
   },
   {
     question: "Do you support complex repos?",

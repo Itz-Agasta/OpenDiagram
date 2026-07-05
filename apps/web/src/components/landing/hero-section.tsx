@@ -158,8 +158,8 @@ export function HeroSection() {
           </div>
 
           <p className="hero-copy max-w-[434px] text-center text-base leading-[1.7]">
-            Turn prompts, repos, and rough architecture ideas into expressive diagrams you can
-            edit, explain, and share.
+            Turn prompts, repos, and rough architecture ideas into expressive diagrams you can edit,
+            explain, and share.
           </p>
         </div>
 

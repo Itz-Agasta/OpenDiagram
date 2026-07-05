@@ -36,8 +36,8 @@ export function Footer() {
 
           <div className="flex w-full max-w-[620px] flex-col items-center justify-center gap-2.5 overflow-hidden">
             <p className="text-center text-xl font-normal leading-[1.6] -tracking-[0.02em] text-white/80 max-md:text-xl">
-              Start from a prompt or connect GitHub to generate expressive architecture diagrams
-              you can edit in seconds.
+              Start from a prompt or connect GitHub to generate expressive architecture diagrams you
+              can edit in seconds.
             </p>
           </div>
 
