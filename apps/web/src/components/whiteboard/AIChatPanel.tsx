@@ -6,10 +6,17 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import type { UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import type { DiagramSpec, RenderSkeleton } from "@OpenDiagram/harness";
+import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Conversation,
   ConversationContent,
@@ -59,12 +66,19 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
   const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
   const frameByTitleRef = useRef(new Map<string, string>());
   const appliedToolCallsRef = useRef(new Set<string>());
+  // Serializes canvas applies: each one reads and rewrites the whole scene, so
+  // two in flight at once would clobber each other's elements.
+  const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const [themeName, setThemeName] = useState<ThemeName>("sketch");
+  // Ref mirror so the transport's body() closure always reads the live value.
+  const themeRef = useRef<ThemeName>(themeName);
+  themeRef.current = themeName;
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const { messages, sendMessage, addToolOutput, status, error } = useChat({
     transport: new DefaultChatTransport({
       api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
-      body: () => ({ currentSpec: currentSpecRef.current }),
+      body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   });
@@ -83,16 +97,24 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
 
         const spec = part.input as DiagramSpec;
         const output = part.output as DrawDiagramOutput;
+        const toolCallId = part.toolCallId;
         currentSpecRef.current = spec;
-        applyDiagramToCanvas(excalidrawAPI, output.skeletons, output.rawElements, {
-          replaceFrameId: frameByTitleRef.current.get(spec.title) ?? null,
-        })
-          .then(({ frameId }) => {
-            if (frameId) frameByTitleRef.current.set(spec.title, frameId);
+        applyChainRef.current = applyChainRef.current.then(() =>
+          // replaceFrameId is resolved inside the chain so it sees frame ids
+          // recorded by the apply that ran just before this one.
+          applyDiagramToCanvas(excalidrawAPI, output.skeletons, output.rawElements, {
+            replaceFrameId: frameByTitleRef.current.get(spec.title) ?? null,
           })
-          .catch((err: unknown) => {
-            setApplyError(err instanceof Error ? err.message : "Failed to draw on canvas");
-          });
+            .then(({ frameId }) => {
+              if (frameId) frameByTitleRef.current.set(spec.title, frameId);
+            })
+            .catch((err: unknown) => {
+              // Un-mark so the next messages update can retry after a
+              // transient failure instead of dropping the diagram forever.
+              appliedToolCallsRef.current.delete(toolCallId);
+              setApplyError(err instanceof Error ? err.message : "Failed to draw on canvas");
+            }),
+        );
       }
     }
   }, [messages, excalidrawAPI]);
@@ -175,7 +197,18 @@ export function AIChatPanel({ excalidrawAPI }: AIChatPanelProps) {
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <p className="text-xs text-muted-foreground flex-1">Gemini 2.5 Flash</p>
+              <Select value={themeName} onValueChange={(v) => setThemeName(v as ThemeName)}>
+                <SelectTrigger className="h-7 w-30 text-xs" aria-label="Diagram theme">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sketch">Sketch</SelectItem>
+                  <SelectItem value="classic">Classic</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground flex-1 text-right pr-2">
+                Gemini 2.5 Flash
+              </p>
               <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>

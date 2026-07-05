@@ -3,6 +3,9 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { RenderSkeleton } from "@OpenDiagram/harness";
 
 const NEW_DIAGRAM_GAP = 160;
+// TUNABLE: when the current row of diagrams is wider than this, the next
+// diagram starts a new row below instead of extending the canvas rightward.
+const MAX_ROW_WIDTH = 3600;
 
 function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton {
   switch (skeleton.kind) {
@@ -16,7 +19,7 @@ function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton 
         height: skeleton.height,
         strokeColor: skeleton.strokeColor,
         backgroundColor: skeleton.backgroundColor,
-        fillStyle: "solid",
+        fillStyle: skeleton.fillStyle ?? "solid",
         strokeStyle: skeleton.strokeStyle,
         strokeWidth: skeleton.strokeWidth,
         roughness: skeleton.roughness,
@@ -71,12 +74,14 @@ function contentBounds(
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
+  let maxY = -Infinity;
   for (const el of elements) {
     minX = Math.min(minX, el.x);
     minY = Math.min(minY, el.y);
     maxX = Math.max(maxX, el.x + el.width);
+    maxY = Math.max(maxY, el.y + el.height);
   }
-  return { minX, minY, maxX };
+  return { minX, minY, maxX, maxY };
 }
 
 export interface ApplyDiagramResult {
@@ -110,19 +115,56 @@ export async function applyDiagramToCanvas(
     ...(rawElements as ExcalidrawElementSkeleton[]),
   ]);
 
+  // Excalidraw dev builds assert linear elements are "normalized" (first point
+  // at [0,0]); binding snap during conversion can shift it. Re-anchor so
+  // editing an arrow later doesn't log "Linear element is not normalized".
+  for (const el of converted) {
+    if (el.type !== "arrow" && el.type !== "line") continue;
+    const points = (el as unknown as { points?: [number, number][] }).points;
+    const p0 = points?.[0];
+    if (!points || !p0 || (p0[0] === 0 && p0[1] === 0)) continue;
+    Object.assign(el, {
+      x: el.x + p0[0],
+      y: el.y + p0[1],
+      points: points.map(([px, py]): [number, number] => [px - p0[0], py - p0[1]]),
+    });
+  }
+
   const scene = api.getSceneElements();
+  const oldFrame = opts?.replaceFrameId
+    ? scene.find((el) => el.id === opts.replaceFrameId)
+    : undefined;
   const kept = opts?.replaceFrameId
     ? scene.filter((el) => el.id !== opts.replaceFrameId && el.frameId !== opts.replaceFrameId)
     : scene;
 
-  if (kept.length > 0 && converted.length > 0) {
-    const keptBounds = contentBounds(kept);
+  if (converted.length > 0) {
     const newBounds = contentBounds(converted);
-    const dx = keptBounds.maxX + NEW_DIAGRAM_GAP - newBounds.minX;
-    const dy = keptBounds.minY - newBounds.minY;
-    for (const el of converted) {
-      // Fresh conversion output — safe to mutate before it enters the scene.
-      Object.assign(el, { x: el.x + dx, y: el.y + dy });
+    let dx = 0;
+    let dy = 0;
+    if (oldFrame) {
+      // Replacement stays where the old frame was instead of jumping to the
+      // right of the remaining content like an additive insert would.
+      dx = oldFrame.x - newBounds.minX;
+      dy = oldFrame.y - newBounds.minY;
+    } else if (kept.length > 0) {
+      const keptBounds = contentBounds(kept);
+      const newWidth = newBounds.maxX - newBounds.minX;
+      if (keptBounds.maxX + NEW_DIAGRAM_GAP + newWidth - keptBounds.minX > MAX_ROW_WIDTH) {
+        // Row full — wrap to a fresh row under everything so the canvas grows
+        // in both axes instead of an ever-longer horizontal strip.
+        dx = keptBounds.minX - newBounds.minX;
+        dy = keptBounds.maxY + NEW_DIAGRAM_GAP - newBounds.minY;
+      } else {
+        dx = keptBounds.maxX + NEW_DIAGRAM_GAP - newBounds.minX;
+        dy = keptBounds.minY - newBounds.minY;
+      }
+    }
+    if (dx !== 0 || dy !== 0) {
+      for (const el of converted) {
+        // Fresh conversion output — safe to mutate before it enters the scene.
+        Object.assign(el, { x: el.x + dx, y: el.y + dy });
+      }
     }
   }
 
