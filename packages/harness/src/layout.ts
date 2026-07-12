@@ -1,38 +1,20 @@
 import { createRequire } from "node:module";
 import ELK from "elkjs/lib/elk-api.js";
 import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api.js";
-import { edgeLabelText, estimateTextHeight, estimateTextWidth, nodeSize } from "./measure.js";
-import type { DiagramEdge, DiagramSpec } from "./schema.js";
+import type { Box, EdgeRoute, PositionedSpec } from "./geometry.js";
+import { alignColumns } from "./layout/align.js";
+import { sanitize, type Sanitized } from "./layout/sanitize.js";
+import {
+  countTextLines,
+  edgeLabelText,
+  estimateTextHeight,
+  estimateTextWidth,
+  nodeSize,
+} from "./measure.js";
+import type { DiagramSpec } from "./schema.js";
 import { classicTheme, type Theme } from "./theme/index.js";
 
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface EdgeRoute {
-  /** Absolute orthogonal polyline: start, bends, end. */
-  points: { x: number; y: number }[];
-  /** Absolute box ELK reserved for the edge label, if any. */
-  label?: Box;
-}
-
-export interface PositionedSpec extends DiagramSpec {
-  positions: Record<string, Box>;
-  groupBoxes: Record<string, Box>;
-  zoneBoxes: Record<string, Box>;
-  /** Keyed by edge id — layout assigns ids to edges that lack one. */
-  edgeRoutes: Record<string, EdgeRoute>;
-  /**
-   * Nodes that live inside a group/zone. The renderer draws these as cards;
-   * top-level nodes render as boxless solo icons. Exported so renderer and
-   * layout agree even when sanitization dropped a malformed container.
-   */
-  containedNodeIds: string[];
-  warnings: string[];
-}
+export type { Box, EdgeRoute, PositionedSpec } from "./geometry.js";
 
 const DIRECTION: Record<string, string> = { LR: "RIGHT", TB: "DOWN", BT: "UP", RL: "LEFT" };
 // TUNABLE: room inside group/zone boxes; top holds the Medium-20 label row.
@@ -44,100 +26,6 @@ const CONTAINER_PADDING = "[top=56,left=24,bottom=24,right=24]";
 const elk = new ELK({
   workerUrl: createRequire(import.meta.url).resolve("elkjs/lib/elk-worker.min.js"),
 });
-
-interface Sanitized {
-  nodeParent: Map<string, string>; // node id -> group/zone id
-  groups: { id: string; contains: string[] }[];
-  zones: { id: string; contains: string[] }[]; // group ids + direct node ids
-  edges: (DiagramEdge & { id: string })[];
-  warnings: string[];
-}
-
-/**
- * LLM output can reference ids that don't exist (hallucinated endpoints, a node
- * claimed by two groups, a group inside two zones) — sanitized defensively so
- * bad output degrades gracefully instead of throwing. Notes land in `warnings`;
- * this package has no logger dependency, callers decide how to surface them.
- */
-function sanitize(spec: DiagramSpec): Sanitized {
-  const warnings: string[] = [];
-  const nodeIds = new Set(spec.nodes.map((n) => n.id));
-  const nodeParent = new Map<string, string>();
-
-  const groups: Sanitized["groups"] = [];
-  for (const group of spec.groups ?? []) {
-    if (nodeIds.has(group.id)) {
-      warnings.push(`dropping group "${group.id}" — id collides with a node id`);
-      continue;
-    }
-    const contains = [...new Set(group.contains)].filter(
-      (id) => nodeIds.has(id) && !nodeParent.has(id),
-    );
-    if (contains.length === 0) {
-      warnings.push(`dropping group "${group.id}" — no valid unclaimed nodes`);
-      continue;
-    }
-    for (const id of contains) nodeParent.set(id, group.id);
-    groups.push({ id: group.id, contains });
-  }
-
-  const groupIds = new Set(groups.map((g) => g.id));
-  const claimedGroups = new Set<string>();
-  const zones: Sanitized["zones"] = [];
-  for (const zone of spec.zones ?? []) {
-    if (nodeIds.has(zone.id) || groupIds.has(zone.id)) {
-      warnings.push(`dropping zone "${zone.id}" — id collides with a node/group id`);
-      continue;
-    }
-    const contains: string[] = [];
-    for (const id of zone.contains) {
-      if (groupIds.has(id) && !claimedGroups.has(id)) {
-        claimedGroups.add(id);
-        contains.push(id);
-      } else if (nodeIds.has(id) && !nodeParent.has(id)) {
-        nodeParent.set(id, zone.id);
-        contains.push(id);
-      }
-    }
-    if (contains.length === 0) {
-      warnings.push(`dropping zone "${zone.id}" — no valid members`);
-      continue;
-    }
-    zones.push({ id: zone.id, contains });
-  }
-
-  const edges: Sanitized["edges"] = [];
-  const usedEdgeIds = new Set<string>();
-  // Reciprocal request/response pairs (A->B + B->A) merge into ONE
-  // bidirectional edge: layered layout routes every backward edge all the way
-  // around the graph, so pairs render as giant unreadable loops otherwise.
-  const byEndpoints = new Map<string, DiagramEdge & { id: string }>();
-  spec.edges.forEach((edge, i) => {
-    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) {
-      warnings.push(`dropping edge with unknown endpoint (${edge.from} -> ${edge.to})`);
-      return;
-    }
-    // JSON key — plain `${from}->${to}` could collide when ids contain "->".
-    const reverse =
-      edge.from !== edge.to ? byEndpoints.get(JSON.stringify([edge.to, edge.from])) : undefined;
-    if (reverse) {
-      reverse.direction = "bi";
-      reverse.label = [reverse.label, edge.label].filter(Boolean).join(" / ") || undefined;
-      reverse.protocol = [reverse.protocol, edge.protocol].filter(Boolean).join(" / ") || undefined;
-      warnings.push(`merged reciprocal edges ${edge.to}<->${edge.from} into one bidirectional`);
-      return;
-    }
-    // Duplicate ids would collapse onto one edgeRoutes entry, losing an edge.
-    let id = edge.id ?? `edge-${i}`;
-    while (usedEdgeIds.has(id)) id = `${id}-${i}`;
-    usedEdgeIds.add(id);
-    const kept = { ...edge, id };
-    byEndpoints.set(JSON.stringify([edge.from, edge.to]), kept);
-    edges.push(kept);
-  });
-
-  return { nodeParent, groups, zones, edges, warnings };
-}
 
 function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
   const elkNodes = new Map<string, ElkNode>();
@@ -182,8 +70,8 @@ function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
         ? [
             {
               text,
-              width: estimateTextWidth(text, theme.text.edgeLabel.size) + 8,
-              height: estimateTextHeight(theme.text.edgeLabel.size) + 4,
+              width: estimateTextWidth(text, theme.text.edgeLabel.size, theme.fontFamily) + 8,
+              height: estimateTextHeight(theme.text.edgeLabel.size, countTextLines(text)) + 4,
               layoutOptions: { "elk.edgeLabels.inline": "true" },
             },
           ]
@@ -195,17 +83,22 @@ function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
     id: "root",
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": DIRECTION[spec.meta?.direction ?? "LR"] ?? "RIGHT",
+      // ERDs read best top-down (parent tables above children); flows read LR.
+      "elk.direction":
+        DIRECTION[spec.meta?.direction ?? (spec.type === "erd" ? "TB" : "LR")] ?? "RIGHT",
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
       "elk.edgeRouting": "ORTHOGONAL",
       // TUNABLE spacing (px): between columns/rows of nodes and around edges.
       // Bigger = airier diagram, smaller = denser.
-      "elk.layered.spacing.nodeNodeBetweenLayers": "96", // gap between flow layers (arrow length lives here)
+      "elk.layered.spacing.nodeNodeBetweenLayers": "110", // gap between flow layers (arrow length + label corridors live here)
       "elk.layered.spacing.edgeNodeBetweenLayers": "32",
       "elk.spacing.nodeNode": "48", // gap between siblings in the same layer
       "elk.spacing.edgeNode": "32", // how close an edge may run past a node
-      "elk.spacing.edgeEdge": "24", // gap between parallel edges
+      "elk.spacing.edgeEdge": "30", // gap between parallel edges (label chips need air)
       "elk.spacing.edgeLabel": "8",
+      // Strip zero-benefit doglegs from orthogonal routes. (NETWORK_SIMPLEX
+      // node placement was tried here and made routing WORSE — see future.md.)
+      "elk.layered.unnecessaryBendpoints": "true",
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
       // Edge/section/label coordinates come back relative to the root instead
       // of each edge's containing node -- saves offset bookkeeping below.
@@ -268,6 +161,8 @@ export async function layoutDiagram(
           : undefined,
     };
   }
+
+  alignColumns(spec, s.edges, positions, edgeRoutes);
 
   return {
     ...spec,

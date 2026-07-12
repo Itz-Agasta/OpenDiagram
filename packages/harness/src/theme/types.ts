@@ -63,6 +63,16 @@ export interface Theme {
     labelHeight: number;
     sublabelHeight: number;
   };
+  /** ERD entity: table box with a header band + one row per column. */
+  entity: {
+    minWidth: number;
+    paddingX: number;
+    headerHeight: number;
+    rowHeight: number;
+    /** Column row text size (name left, type right). */
+    fontSize: number;
+    padBottom: number;
+  };
   /** Mermaid-style icon-less node: box with the label centered inside. */
   boxNode: {
     minWidth: number;
@@ -71,6 +81,8 @@ export interface Theme {
     labelHeight: number;
     sublabelHeight: number;
     strokeWidth: number;
+    /** Box background fill pattern — hachure gives the sketchy look. */
+    fillStyle?: "solid" | "hachure" | "cross-hatch";
   };
   /** Group/zone outline weight. */
   containerStrokeWidth: number;
@@ -93,7 +105,14 @@ export interface Theme {
     /** Default arrowhead when the spec doesn't pick one explicitly. */
     arrowhead: "arrow" | "triangle";
     labelBackground: string;
+    /** Stroke color for kind "error" arrows (failure responses). */
+    errorStroke: string;
+    /** Stroke color for kind "success" arrows (confirmations, 2xx replies). */
+    successStroke: string;
     /** DiagramEdge["kind"] -> Excalidraw strokeStyle. */
-    kind: Record<"sync" | "async" | "replication", "solid" | "dashed" | "dotted">;
+    kind: Record<
+      "sync" | "async" | "replication" | "error" | "success",
+      "solid" | "dashed" | "dotted"
+    >;
   };
 }
