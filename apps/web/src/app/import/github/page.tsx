@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import { ArrowLeft, Check, GitBranch, Loader2, Lock, Search } from "lucide-react";
 import { ButtonShaderTexture } from "@/components/button-shader-texture";
-import { authClient } from "@/lib/auth-client";
+import { authClient, frontendCallbackURL } from "@/lib/auth-client";
 import {
   importGitHubRepositoryStream,
   listGitHubRepositories,
@@ -118,7 +118,7 @@ function GitHubImportContent() {
     try {
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: new URL(callbackPath, window.location.origin).toString(),
+        callbackURL: frontendCallbackURL(callbackPath),
       });
     } catch {
       setError("Could not start GitHub sign in.");

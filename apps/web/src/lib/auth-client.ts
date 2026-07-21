@@ -10,3 +10,12 @@ if (!baseURL) {
 }
 
 export const authClient = createAuthClient({ baseURL });
+
+/**
+ * Builds an absolute URL on the frontend origin for OAuth redirects.
+ * Relative callbacks otherwise resolve against the Better Auth API host.
+ */
+export function frontendCallbackURL(path = "/dashboard"): string {
+  if (typeof window === "undefined") return path;
+  return new URL(path, window.location.origin).toString();
+}
