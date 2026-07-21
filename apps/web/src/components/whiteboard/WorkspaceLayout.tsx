@@ -13,26 +13,18 @@ import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/Workspace
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
 import { WorkspaceHeader } from "./workspace-layout/WorkspaceHeader";
 import { WorkspaceSidebar } from "./workspace-layout/WorkspaceSidebar";
+import { hasDiagramScene } from "./workspace-layout/helpers";
 import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLayoutController";
-
-function hasDiagramScene(scene: unknown) {
-  if (!scene || typeof scene !== "object") return false;
-  const value = scene as { elements?: unknown; skeletons?: unknown; rawElements?: unknown };
-  return (
-    (Array.isArray(value.elements) && value.elements.length > 0) ||
-    (Array.isArray(value.skeletons) && value.skeletons.length > 0) ||
-    (Array.isArray(value.rawElements) && value.rawElements.length > 0)
-  );
-}
 
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
-  const activeHistory = state.activeFile?.history as
-    | { id: string; role: "user" | "assistant"; text: string }[]
-    | undefined;
+  const activeHistory = state.activeFile?.history;
   const agentProjectId = state.isSignedIn ? state.activeFile?.projectId : undefined;
   const agentFileId = state.activeFile?.id ?? state.currentFileId ?? undefined;
+  const agentFileIdentity = state.activeFile
+    ? `${state.activeFile.projectId}:${state.activeFile.id}`
+    : undefined;
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-od-surface text-od-ink">
@@ -82,14 +74,16 @@ export function WorkspaceLayout() {
 
       {state.isAgentOpen && (
         <WorkspaceAgentSidebar
-          activeFileId={state.activeFile?.id}
           activeFileType={state.activeFile?.type}
           agentWidth={state.agentWidth}
           excalidrawAPI={state.excalidrawAPI}
+          fileIdentity={agentFileIdentity}
           fileId={agentFileId}
           initialHistory={activeHistory}
-          hasExistingScene={hasDiagramScene(state.initialScene) || Boolean(state.activeFile?.spec)}
+          hasExistingScene={hasDiagramScene(state.initialScene)}
+          isContextPending={state.agentContextPending}
           onClose={actions.closeAgent}
+          onHistoryChange={actions.handleAgentHistoryChange}
           onQuotaError={setQuotaMessage}
           onResizeStart={actions.handleResizeStart}
           projectId={agentProjectId}

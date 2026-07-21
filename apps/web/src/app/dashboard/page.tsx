@@ -1064,7 +1064,7 @@ function deriveAgentProjectNames(prompt: string, kind: FileKind) {
     .trim();
   const significantWords = cleaned
     .split(" ")
-    .map((word) => word.replace(/[^a-zA-Z0-9-]/g, ""))
+    .map((word) => word.replace(/[^\p{L}\p{N}-]/gu, ""))
     .filter(Boolean)
     .filter((word) => !agentNameStopWords.has(word.toLowerCase()))
     .slice(0, 5);
@@ -1088,9 +1088,10 @@ function titleCase(value: string) {
 function clampName(value: string, fallback: string) {
   const trimmed = value.trim();
   if (!trimmed) return fallback;
-  if (trimmed.length <= 64) return trimmed;
+  const characters = Array.from(trimmed);
+  if (characters.length <= 64) return trimmed;
 
-  return trimmed.slice(0, 61).trimEnd() + "...";
+  return characters.slice(0, 61).join("").trimEnd() + "...";
 }
 
 const agentNameStopWords = new Set([

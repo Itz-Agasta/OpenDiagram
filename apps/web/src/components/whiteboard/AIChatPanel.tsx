@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
@@ -8,6 +8,14 @@ import type { ChatStatus, UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { env } from "@OpenDiagram/env/web";
 import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
+import {
+  normalizeStoredChatHistory,
+  storedChatMessageToUIMessage,
+  uiMessagesToStoredChatHistory,
+  uiMessageText,
+  type StoredAskUserInput,
+  type StoredChatMessage,
+} from "@/lib/chat-history";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import { orchestrateWorkspaceRequest, runProjectChatAgent } from "@/lib/workspace-agents";
 import {
@@ -41,11 +49,8 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-}
+type ChatMessage = StoredChatMessage;
+type AskUserInput = StoredAskUserInput;
 
 /** Mirror of the server's draw_diagram tool output (apps/server lib/agent/tools.ts). */
 interface DrawDiagramOutput {
@@ -54,48 +59,18 @@ interface DrawDiagramOutput {
   summary: { title: string; nodes: number; edges: number; warnings: string[] };
 }
 
-interface AskUserInput {
-  question: string;
-  options: string[];
-}
-
 interface AIChatPanelProps {
   activeFileType?: "diagram" | "doc";
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   projectId?: string;
   fileId?: string;
-  initialHistory?: ChatMessage[];
+  initialHistory?: unknown[];
   hasExistingScene?: boolean;
+  allowSeedAutoRun?: boolean;
   repoGenerationJob?: RepoGenerationJob | null;
   repoGenerationError?: string | null;
   onQuotaError?: (message: string) => void;
-}
-
-function chatMessageToUIMessage(message: ChatMessage): UIMessage {
-  return {
-    id: message.id,
-    role: message.role,
-    parts: [{ type: "text", text: message.text }],
-  };
-}
-
-function uiMessageText(message: UIMessage) {
-  return message.parts
-    .filter(
-      (part): part is Extract<(typeof message.parts)[number], { type: "text" }> =>
-        part.type === "text",
-    )
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
-}
-
-function uiMessagesToChatHistory(messages: UIMessage[]): ChatMessage[] {
-  return messages.flatMap((message) => {
-    if (message.role !== "user" && message.role !== "assistant") return [];
-    const text = uiMessageText(message);
-    return text ? [{ id: message.id, role: message.role, text }] : [];
-  });
+  onHistoryChange?: (history: StoredChatMessage[]) => void;
 }
 
 async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestInit) {
@@ -170,9 +145,11 @@ export function AIChatPanel({
   fileId,
   initialHistory,
   hasExistingScene,
+  allowSeedAutoRun = true,
   repoGenerationJob,
   repoGenerationError,
   onQuotaError,
+  onHistoryChange,
 }: AIChatPanelProps) {
   const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
   const frameByTitleRef = useRef(new Map<string, string>());
@@ -180,15 +157,19 @@ export function AIChatPanel({
   // Serializes canvas applies: each one reads and rewrites the whole scene, so
   // two in flight at once would clobber each other's elements.
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const normalizedHistory = useMemo(
+    () => normalizeStoredChatHistory(initialHistory),
+    [initialHistory],
+  );
   const initialDiagramMessages =
-    activeFileType === "diagram" ? (initialHistory ?? []).map(chatMessageToUIMessage) : [];
+    activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];
   const initialDiagramPrompt =
     activeFileType === "diagram"
-      ? (initialHistory ?? []).find((message) => message.role === "user")
+      ? normalizedHistory.find((message) => message.role === "user")
       : undefined;
-  const messageIdRef = useRef(initialHistory?.length ?? 0);
+  const messageIdRef = useRef(normalizedHistory.length);
   const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(
-    activeFileType === "diagram" ? [] : (initialHistory ?? []),
+    activeFileType === "diagram" ? [] : normalizedHistory,
   );
   const [projectStatus, setProjectStatus] = useState<ChatStatus>("ready");
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -213,14 +194,25 @@ export function AIChatPanel({
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onFinish: ({ messages }) => {
-      if (!projectId || !fileId) return;
-      void updateProjectFile(projectId, fileId, { history: uiMessagesToChatHistory(messages) });
+      const history = uiMessagesToStoredChatHistory(messages);
+      onHistoryChange?.(history);
+      if (projectId && fileId) {
+        void updateProjectFile(projectId, fileId, { history });
+      }
     },
   });
 
   useEffect(() => {
     const hasAssistant = diagramMessages.some((message) => message.role === "assistant");
-    if (!initialDiagramPrompt || !excalidrawAPI || hasAssistant || hasExistingScene) return;
+    if (
+      !allowSeedAutoRun ||
+      !initialDiagramPrompt ||
+      !excalidrawAPI ||
+      hasAssistant ||
+      hasExistingScene
+    ) {
+      return;
+    }
 
     const key = `opendiagram:auto-diagram:${projectId ?? "guest"}:${fileId ?? "file"}:${initialDiagramPrompt.id}`;
     if (window.sessionStorage.getItem(key)) return;
@@ -240,6 +232,7 @@ export function AIChatPanel({
     fileId,
     hasExistingScene,
     initialDiagramPrompt,
+    allowSeedAutoRun,
     projectId,
     sendMessage,
   ]);

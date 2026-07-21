@@ -5,6 +5,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useParams, useRouter } from "next/navigation";
 import { env } from "@OpenDiagram/env/web";
 import { authClient } from "@/lib/auth-client";
+import type { StoredChatMessage } from "@/lib/chat-history";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import {
   deleteGuestProjectDraft,
@@ -34,6 +35,7 @@ import {
   SIDEBAR_MIN_WIDTH,
   fileContentToText,
   initialElementsVersion,
+  resolveDiagramScene,
   sanitizeSceneAppState,
   sceneElementsVersion,
   toSidebarFile,
@@ -511,27 +513,17 @@ export function useWorkspaceLayoutController() {
   useEffect(() => {
     if (!excalidrawAPI) return;
 
-    if (!initialScene || typeof initialScene !== "object") return;
-    const scene = initialScene as {
-      elements?: unknown;
-      appState?: unknown;
-      files?: unknown;
-      rawElements?: unknown;
-      skeletons?: unknown;
-    };
-
-    if (!Array.isArray(scene.elements) && Array.isArray(scene.skeletons)) {
-      void applyDiagramToCanvas(
-        excalidrawAPI,
-        scene.skeletons as never[],
-        Array.isArray(scene.rawElements) ? scene.rawElements : [],
-      );
+    const scene = resolveDiagramScene(initialScene);
+    if (scene.kind === "legacy") {
+      void applyDiagramToCanvas(excalidrawAPI, scene.skeletons as never[], scene.rawElements);
       return;
     }
 
+    if (scene.kind === "empty") return;
+
     const appState = sanitizeSceneAppState(scene.appState);
     excalidrawAPI.updateScene({
-      elements: Array.isArray(scene.elements) ? scene.elements : [],
+      elements: scene.elements as never[],
       appState: appState && typeof appState === "object" ? appState : undefined,
     });
 
@@ -607,9 +599,28 @@ export function useWorkspaceLayoutController() {
   }
 
   function openWorkspaceFile(fileId: string) {
+    if (fileId === currentFileIdRef.current) return;
+    setFileLoading(true);
     setStoredActiveFileId(fileId);
     router.push(`/project/${params.projectId}/workspace/${fileId}`);
   }
+
+  const handleAgentHistoryChange = useCallback((history: StoredChatMessage[]) => {
+    const currentDraft = draftRef.current;
+    if (!currentDraft || isSignedInRef.current) return;
+
+    const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
+    if (!fileId) return;
+
+    const nextDraft = {
+      ...currentDraft,
+      files: currentDraft.files.map((file) => (file.id === fileId ? { ...file, history } : file)),
+    };
+    draftRef.current = nextDraft;
+    saveGuestProjectDraft(nextDraft);
+    setDraft(nextDraft);
+    setActiveFile((current) => (current?.id === fileId ? { ...current, history } : current));
+  }, []);
 
   function beginEditName() {
     setNameDraft(activeFile?.name ?? draft?.name ?? "Your first design");
@@ -751,6 +762,16 @@ export function useWorkspaceLayoutController() {
     activeFile?.name ??
     sidebarFilesForProject.find((file) => file.id === activeFileId)?.name ??
     "Untitled file";
+  const agentContextPending =
+    session.isPending ||
+    fileLoading ||
+    Boolean(draft && isSignedIn) ||
+    Boolean(
+      isSignedIn &&
+      (!activeFile ||
+        activeFile.projectId !== params.projectId ||
+        (params.workspaceId && activeFile.id !== params.workspaceId)),
+    );
 
   return {
     state: {
@@ -759,6 +780,7 @@ export function useWorkspaceLayoutController() {
       activeFile,
       activeFileId,
       activeFileName,
+      agentContextPending,
       agentWidth,
       docContent,
       draft,
@@ -794,6 +816,7 @@ export function useWorkspaceLayoutController() {
       handleCreateFirstFile,
       handleDocChange,
       handleExcalidrawAPI,
+      handleAgentHistoryChange,
       handleResizeStart,
       handleSceneChange,
       leaveWithoutSaving,

@@ -10,6 +10,51 @@ export const AUTOSAVE_DELAY_MS = 800;
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
+type DiagramSceneFields = {
+  appState?: unknown;
+  files?: unknown;
+};
+
+export type ResolvedDiagramScene =
+  | (DiagramSceneFields & { kind: "elements"; elements: unknown[] })
+  | (DiagramSceneFields & { kind: "legacy"; skeletons: unknown[]; rawElements: unknown[] })
+  | (DiagramSceneFields & { kind: "empty" });
+
+export function resolveDiagramScene(scene: unknown): ResolvedDiagramScene {
+  if (!scene || typeof scene !== "object") return { kind: "empty" };
+
+  const value = scene as {
+    elements?: unknown;
+    appState?: unknown;
+    files?: unknown;
+    rawElements?: unknown;
+    skeletons?: unknown;
+  };
+  const fields = { appState: value.appState, files: value.files };
+
+  // An elements array is the canonical Excalidraw representation. An empty
+  // array can mean the user intentionally cleared the canvas, so it must take
+  // precedence over any stale legacy renderer payload on the same record.
+  if (Array.isArray(value.elements)) {
+    return { kind: "elements", elements: value.elements, ...fields };
+  }
+
+  const skeletons = Array.isArray(value.skeletons) ? value.skeletons : [];
+  const rawElements = Array.isArray(value.rawElements) ? value.rawElements : [];
+  if (skeletons.length > 0 || rawElements.length > 0) {
+    return { kind: "legacy", skeletons, rawElements, ...fields };
+  }
+
+  return { kind: "empty", ...fields };
+}
+
+export function hasDiagramScene(scene: unknown) {
+  const resolved = resolveDiagramScene(scene);
+  return (
+    resolved.kind === "legacy" || (resolved.kind === "elements" && resolved.elements.length > 0)
+  );
+}
+
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
 

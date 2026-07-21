@@ -1,10 +1,5 @@
 import type { ProjectFileType } from "@/lib/projects-client";
-
-export type GuestDraftMessage = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-};
+import type { StoredChatMessage } from "@/lib/chat-history";
 
 export type GuestDraftFile = {
   id: string;
@@ -13,7 +8,7 @@ export type GuestDraftFile = {
   scene?: unknown;
   spec?: unknown;
   content?: unknown;
-  history?: GuestDraftMessage[];
+  history?: StoredChatMessage[];
 };
 
 export type GuestProjectDraft = {
@@ -70,7 +65,7 @@ export function createGuestProjectDraft(
   fileName?: string,
   fileType: ProjectFileType = "diagram",
   content?: unknown,
-  history?: GuestDraftMessage[],
+  history?: StoredChatMessage[],
 ): GuestProjectDraft {
   const now = new Date().toISOString();
 
