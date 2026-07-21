@@ -112,6 +112,36 @@ export type RepoGenerationJob = {
   updatedAt: string;
 };
 
+export type CreationQuota = {
+  actorType: "guest" | "user";
+  limit: number;
+  used: number;
+  remaining: number;
+  resetAt: string | null;
+};
+
+export class CreationQuotaError extends Error {
+  quota?: CreationQuota;
+
+  constructor(message: string, quota?: CreationQuota) {
+    super(message);
+    this.name = "CreationQuotaError";
+    this.quota = quota;
+  }
+}
+
+function projectResponseError(data: unknown, fallback: string): Error {
+  const payload = data as
+    | { error?: string; code?: string; quota?: CreationQuota }
+    | null
+    | undefined;
+  const message = payload?.error ?? fallback;
+
+  return payload?.code === "creation_quota_exceeded"
+    ? new CreationQuotaError(message, payload.quota)
+    : new Error(message);
+}
+
 async function readProjectResponse(response: Response) {
   const contentType = response.headers.get("content-type");
 
@@ -230,6 +260,19 @@ export async function createProjectFile(
   return data.file;
 }
 
+export async function getCreationQuota(): Promise<CreationQuota> {
+  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/usage/creation-quota`, {
+    credentials: "include",
+  });
+  const data = await readProjectResponse(response);
+
+  if (!response.ok) {
+    throw projectResponseError(data, "Could not load creation quota.");
+  }
+
+  return data.quota;
+}
+
 export async function updateProjectFile(
   projectId: string,
   fileId: string,
@@ -280,7 +323,7 @@ export async function startRepoGeneration(projectId: string): Promise<RepoGenera
   const data = await readProjectResponse(response);
 
   if (!response.ok) {
-    throw new Error(data?.error ?? "Could not start repository generation.");
+    throw projectResponseError(data, "Could not start repository generation.");
   }
 
   return data.job;
@@ -300,7 +343,7 @@ export async function streamRepoGeneration(
 
   if (!response.ok) {
     const data = await readProjectResponse(response);
-    throw new Error(data?.error ?? "Could not start repository generation.");
+    throw projectResponseError(data, "Could not start repository generation.");
   }
 
   let last = await consumeSSE<RepoGenerationJob>(response, onJob);
@@ -392,7 +435,7 @@ export async function chatWithProject(
   const data = await readProjectResponse(response);
 
   if (!response.ok) {
-    throw new Error(data?.error ?? "Could not ask project assistant.");
+    throw projectResponseError(data, "Could not ask project assistant.");
   }
 
   return data;

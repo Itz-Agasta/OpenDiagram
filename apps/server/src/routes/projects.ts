@@ -6,6 +6,13 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { generateGroundedProjectAnswer } from "../lib/repo-ai";
 import {
+  applyCreationQuotaHeaders,
+  consumeCreationQuota,
+  creationQuotaExceededResponse,
+  CreationQuotaExceededError,
+  getCreationQuotaActor,
+} from "../lib/creation-quota";
+import {
   getProjectMemoryContext,
   getProjectMemoryStatus,
   markProjectMemoryPending,
@@ -196,6 +203,16 @@ projectsRoute.post("/:projectId/chat", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  try {
+    const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
+    applyCreationQuotaHeaders(c, quota);
+  } catch (error) {
+    if (error instanceof CreationQuotaExceededError) {
+      return creationQuotaExceededResponse(c, error);
+    }
+    throw error;
+  }
+
   const answer = await generateGroundedProjectAnswer({
     message: parsed.data.message,
     context: projectContext.context,
@@ -211,6 +228,27 @@ projectsRoute.post("/:projectId/chat", async (c) => {
 projectsRoute.post("/:projectId/repo-generation", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
+  const [projectRow] = await db
+    .select({ source: project.source, generationStatus: project.generationStatus })
+    .from(project)
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)));
+
+  if (!projectRow) return c.json({ error: "Not found" }, 404);
+  if (projectRow.source !== "github_import") {
+    return c.json({ error: "Repository generation is only available for GitHub imports." }, 400);
+  }
+
+  if (projectRow.generationStatus === "none" || projectRow.generationStatus === "failed") {
+    try {
+      const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
+      applyCreationQuotaHeaders(c, quota);
+    } catch (error) {
+      if (error instanceof CreationQuotaExceededError) {
+        return creationQuotaExceededResponse(c, error);
+      }
+      throw error;
+    }
+  }
 
   let started: Awaited<ReturnType<typeof startRepoGeneration>>;
   try {
