@@ -16,6 +16,11 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 ENV NODE_ENV=production
 RUN bun run build --filter=server
+# ELK worker must be resolvable from dist/ after bundling.
+# createRequire(import.meta.url) resolves from dist/index.mjs, so symlink
+# elkjs into server's node_modules where it can walk up to find it.
+RUN mkdir -p /app/apps/server/node_modules && \
+    ln -s /app/node_modules/elkjs /app/apps/server/node_modules/elkjs
 ENV SKIP_ENV_VALIDATION=
 
 EXPOSE 3000
