@@ -5,7 +5,11 @@ export type {
   DiagramEdge,
   DiagramGroup,
   DiagramZone,
+  EntityColumn,
 } from "./schema.js";
+
+export { renderSequenceDiagram } from "./layout/sequence.js";
+export type { SequenceRenderResult } from "./layout/sequence.js";
 
 export { diagramSpecSchema, diagramTypeSchema } from "./diagram-schema.js";
 
@@ -14,6 +18,7 @@ export type { Box, EdgeRoute, PositionedSpec } from "./layout.js";
 
 export { renderToExcalidraw } from "./renderer.js";
 export type {
+  ArrowheadStyle,
   HarnessIconEntry,
   HarnessIconRegistry,
   RenderSkeleton,

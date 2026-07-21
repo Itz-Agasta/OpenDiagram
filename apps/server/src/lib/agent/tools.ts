@@ -2,7 +2,9 @@ import {
   classicTheme,
   diagramSpecSchema,
   layoutDiagram,
+  renderSequenceDiagram,
   renderToExcalidraw,
+  type DiagramSpec,
   type RenderSkeleton,
   type Theme,
 } from "@OpenDiagram/harness";
@@ -54,12 +56,45 @@ export function createDrawDiagramTool(
     description:
       "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat.",
     inputSchema: diagramSpecSchema,
-    execute: async (spec): Promise<DrawDiagramOutput> => {
-      const positioned = await layoutDiagram(spec, theme);
-      const { skeletons, rawElements } = renderToExcalidraw(positioned, iconRegistry, theme);
-      if (positioned.warnings.length > 0) {
-        log.warn("layoutDiagram sanitized malformed LLM output", {
-          diagram: { layoutWarnings: positioned.warnings },
+    execute: async (rawSpec): Promise<DrawDiagramOutput> => {
+      // Icon keys the registry doesn't know are stripped BEFORE layout so both
+      // sizing and rendering fall back to the theme's icon-less node (a box
+      // with the label inside), never an empty glyph band.
+      const unknownIcons = new Set<string>();
+      const spec: DiagramSpec = {
+        ...rawSpec,
+        nodes: rawSpec.nodes.map((node) => {
+          if (node.icon && !iconRegistry[node.icon]) {
+            unknownIcons.add(node.icon);
+            return { ...node, icon: undefined };
+          }
+          return node;
+        }),
+      };
+      const warnings = [...unknownIcons].map((key) => `unknown icon "${key}" — drawn as a box`);
+
+      // Sequence diagrams use their own lifeline grid, not ELK.
+      let skeletons: RenderSkeleton[];
+      let rawElements: Record<string, unknown>[];
+      let edgeCount = spec.edges.length;
+      if (spec.type === "sequence") {
+        const result = renderSequenceDiagram(spec, theme);
+        skeletons = result.skeletons;
+        rawElements = result.rawElements;
+        warnings.push(...result.warnings);
+      } else {
+        const positioned = await layoutDiagram(spec, theme);
+        const result = renderToExcalidraw(positioned, iconRegistry, theme);
+        skeletons = result.skeletons;
+        rawElements = result.rawElements;
+        warnings.push(...positioned.warnings);
+        // Post-sanitize count -- matches what actually renders on canvas.
+        edgeCount = positioned.edges.length;
+      }
+
+      if (warnings.length > 0) {
+        log.warn("draw_diagram sanitized malformed LLM output", {
+          diagram: { layoutWarnings: warnings },
         });
       }
       log.set({
@@ -67,8 +102,7 @@ export function createDrawDiagramTool(
           title: spec.title,
           diagramType: spec.type,
           nodeCount: spec.nodes.length,
-          // Post-sanitize count -- matches what actually renders on canvas.
-          edgeCount: positioned.edges.length,
+          edgeCount,
           elementCount: skeletons.length + rawElements.length,
         },
       });
@@ -78,8 +112,8 @@ export function createDrawDiagramTool(
         summary: {
           title: spec.title,
           nodes: spec.nodes.length,
-          edges: positioned.edges.length,
-          warnings: positioned.warnings,
+          edges: edgeCount,
+          warnings,
         },
       };
     },

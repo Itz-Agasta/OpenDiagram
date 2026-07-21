@@ -60,6 +60,14 @@ export const sketchTheme: Theme = {
     labelHeight: 26,
     sublabelHeight: 20,
   },
+  entity: {
+    minWidth: 210,
+    paddingX: 16,
+    headerHeight: 40,
+    rowHeight: 30, // Excalifont is taller/wider — roomier rows
+    fontSize: 16,
+    padBottom: 10,
+  },
   boxNode: {
     minWidth: 150,
     paddingX: 22,
@@ -67,6 +75,7 @@ export const sketchTheme: Theme = {
     labelHeight: 26,
     sublabelHeight: 20,
     strokeWidth: 2, // "bold" — Excalidraw's 2nd stroke width
+    fillStyle: "hachure", // sketchy fill, matching the containers
   },
   containerStrokeWidth: 2,
   categories,
@@ -93,6 +102,14 @@ export const sketchTheme: Theme = {
     roughness: 1, // artist — sketchy like the boxes
     arrowhead: "arrow",
     labelBackground: "#ffffff",
-    kind: { sync: "solid", async: "dashed", replication: "dotted" },
+    errorStroke: "#e03131", // Excalidraw's stock red
+    successStroke: "#2f9e44", // Excalidraw's stock green
+    kind: {
+      sync: "solid",
+      async: "dashed",
+      replication: "dotted",
+      error: "dashed",
+      success: "dashed",
+    },
   },
 };

@@ -18,11 +18,21 @@ export const diagramTypeSchema = z.enum([
   "cloud-architecture",
 ]);
 
+const entityColumnSchema = z.object({
+  name: z.string(),
+  type: z.string().optional().describe("SQL type, e.g. 'uuid', 'varchar(255)'"),
+  key: z.enum(["pk", "fk"]).optional(),
+});
+
 const diagramNodeSchema = z.object({
   id: z.string(),
   label: z.string(),
   sublabel: z.string().optional(),
   icon: z.string().optional(),
+  columns: z
+    .array(entityColumnSchema)
+    .optional()
+    .describe("erd only: table columns rendered as rows inside the entity box"),
   shape: z.enum(["rectangle", "ellipse", "diamond", "cylinder", "document"]).optional(),
   category: z
     .enum([
@@ -55,7 +65,11 @@ const diagramEdgeSchema = z.object({
   label: z.string().optional(),
   protocol: z.string().optional(),
   direction: z.enum(["uni", "bi"]).optional(),
-  kind: z.enum(["sync", "async", "replication"]).optional(),
+  kind: z.enum(["sync", "async", "replication", "error", "success"]).optional(),
+  cardinality: z
+    .enum(["one-to-one", "one-to-many", "many-to-one", "many-to-many"])
+    .optional()
+    .describe("erd only: relationship cardinality, drawn as crow-foot arrowheads"),
   style: z.enum(["solid", "dashed", "dotted"]).optional(),
   startArrowhead: z.enum(["none", "arrow", "circle", "bar"]).optional(),
   endArrowhead: z.enum(["none", "arrow", "circle", "bar"]).optional(),
@@ -66,6 +80,12 @@ const diagramGroupSchema = z.object({
   label: z.string(),
   sublabel: z.string().optional(),
   contains: z.array(z.string()),
+  sections: z
+    .array(z.object({ label: z.string(), startsAt: z.string() }))
+    .optional()
+    .describe(
+      "sequence fragments only: alt/else branches — each section starts at the message edge id in startsAt",
+    ),
   style: z.enum(["vpc", "region", "subnet", "cluster", "swimlane", "box"]).optional(),
   strokeColor: z.string().optional(),
   backgroundColor: z.string().optional(),

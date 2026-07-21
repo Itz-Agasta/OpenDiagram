@@ -51,6 +51,14 @@ export const classicTheme: Theme = {
     labelHeight: 26,
     sublabelHeight: 20,
   },
+  entity: {
+    minWidth: 200, // narrowest an entity table can be
+    paddingX: 14, // air between row text and the table border
+    headerHeight: 36, // colored band holding the table name
+    rowHeight: 26, // one column per row
+    fontSize: 14, // column name/type text
+    padBottom: 8,
+  },
   boxNode: {
     minWidth: 140,
     paddingX: 20,
@@ -81,6 +89,14 @@ export const classicTheme: Theme = {
     roughness: 0,
     arrowhead: "triangle",
     labelBackground: "#ffffff",
-    kind: { sync: "solid", async: "dashed", replication: "dotted" },
+    errorStroke: "#dc2626",
+    successStroke: "#16a34a",
+    kind: {
+      sync: "solid",
+      async: "dashed",
+      replication: "dotted",
+      error: "dashed",
+      success: "dashed",
+    },
   },
 };
