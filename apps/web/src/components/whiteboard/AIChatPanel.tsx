@@ -75,6 +75,35 @@ function pendingAskUser(messages: UIMessage[]) {
   return null;
 }
 
+/** One-click starter prompts — each exercises a different diagram type. */
+const DIAGRAM_TEMPLATES: { label: string; prompt: string }[] = [
+  {
+    label: "Microservices on AWS",
+    prompt:
+      "Design a microservices architecture for an e-commerce platform on AWS: client → API gateway → core services (orders, products, users) → databases, cache and an SQS event queue. Everything except the client sits inside a VPC, with the services in their own cluster.",
+  },
+  {
+    label: "CI/CD pipeline",
+    prompt:
+      "Draw a CI/CD pipeline: developer pushes to GitHub, CI runs tests and builds a Docker image, the image is pushed to a registry, then deployed to Kubernetes staging and production.",
+  },
+  {
+    label: "Login sequence",
+    prompt:
+      "Draw a sequence diagram of an OAuth login flow with browser, web app, auth service and database — include token validation and the reply messages.",
+  },
+  {
+    label: "E-commerce ERD",
+    prompt:
+      "Draw an ERD for an e-commerce database: users, orders, order_items, products and payments tables with their key columns and foreign-key relationships.",
+  },
+  {
+    label: "RAG pipeline",
+    prompt:
+      "Diagram a RAG pipeline: documents get chunked and embedded into a vector database; at query time the app retrieves context and calls an LLM to answer.",
+  },
+];
+
 function diagramRequestLikely(text: string) {
   return /\b(diagram|flowchart|sequence|architecture|system flow|request flow|data flow|canvas|whiteboard|draw|sketch|map)\b/i.test(
     text,
@@ -277,15 +306,36 @@ export function AIChatPanel({
             job={repoGenerationJob ?? null}
           />
           {messagesEmpty ? (
-            <ConversationEmptyState
-              title="Start a conversation"
-              description={
-                projectId
-                  ? "Ask about this project's diagrams, docs, and workspace context."
-                  : "Describe your architecture and I'll generate a diagram for you."
-              }
-              icon={<Sparkles className="size-6 text-muted-foreground" />}
-            />
+            <div className="flex flex-col">
+              <ConversationEmptyState
+                title="Start a conversation"
+                description={
+                  projectId
+                    ? "Ask about this project's diagrams, docs, and workspace context."
+                    : "Describe your architecture and I'll generate a diagram for you."
+                }
+                icon={<Sparkles className="size-6 text-muted-foreground" />}
+              />
+              {excalidrawAPI && (
+                <div className="flex flex-wrap justify-center gap-1.5 px-2 pb-4">
+                  {DIAGRAM_TEMPLATES.map((template) => (
+                    <Button
+                      key={template.label}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={submitStatus !== "ready"}
+                      onClick={() => {
+                        setApplyError(null);
+                        void sendMessage({ text: template.prompt });
+                      }}
+                    >
+                      {template.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {projectMessages.map((message) => (

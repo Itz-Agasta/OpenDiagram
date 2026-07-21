@@ -5,6 +5,7 @@ import {
   convertToModelMessages,
   createUIMessageStreamResponse,
   isStepCount,
+  NoSuchToolError,
   streamText,
   toUIMessageStream,
   type UIMessage,
@@ -25,6 +26,38 @@ const chatRequestSchema = z.object({
   currentSpec: diagramSpecSchema.optional(),
   theme: z.enum(["classic", "sketch"]).optional(),
 });
+
+// gemini-2.5-flash reliably mangles edge keys in draw_diagram calls (emits
+// "from1" instead of "from" on the first attempt of nearly every session).
+// Deterministic repair: rename the known-bad keys and revalidate — saves a
+// full model retry round-trip. Returns null (= normal tool-error flow) when
+// the input still doesn't parse.
+const EDGE_KEY_FIXUPS: [string, string][] = [
+  ["from1", "from"],
+  ["to1", "to"],
+  ["source", "from"],
+  ["target", "to"],
+];
+
+function repairDrawDiagramInput(rawInput: unknown): string | null {
+  try {
+    const input: unknown = typeof rawInput === "string" ? JSON.parse(rawInput) : rawInput;
+    const edges = (input as { edges?: unknown })?.edges;
+    if (!Array.isArray(edges)) return null;
+    for (const edge of edges as Record<string, unknown>[]) {
+      if (!edge || typeof edge !== "object") continue;
+      for (const [bad, good] of EDGE_KEY_FIXUPS) {
+        if (edge[bad] !== undefined && edge[good] === undefined) {
+          edge[good] = edge[bad];
+          delete edge[bad];
+        }
+      }
+    }
+    return diagramSpecSchema.safeParse(input).success ? JSON.stringify(input) : null;
+  } catch {
+    return null;
+  }
+}
 
 export const diagramRoute = new Hono<EvlogVariables>();
 
@@ -60,6 +93,15 @@ diagramRoute.post("/chat", async (c) => {
     messages: modelMessages,
     tools,
     stopWhen: isStepCount(6),
+    experimental_repairToolCall: async ({ toolCall, error }) => {
+      if (NoSuchToolError.isInstance(error) || toolCall.toolName !== "draw_diagram") return null;
+      const repaired = repairDrawDiagramInput(toolCall.input);
+      if (!repaired) return null;
+      log.warn("repaired malformed draw_diagram tool call (edge key fixups)", {
+        diagram: { repairedToolCall: true },
+      });
+      return { ...toolCall, input: repaired };
+    },
     // Retry Gemini on rate-limit/transient errors (exponential backoff).
     maxRetries: LLM_MAX_RETRIES,
     // Bounds runaway/repetition-loop generations so a bad completion fails

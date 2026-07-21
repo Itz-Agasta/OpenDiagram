@@ -57,6 +57,7 @@ function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton 
         roughness: skeleton.roughness,
         startArrowhead: skeleton.startArrowhead === "none" ? null : skeleton.startArrowhead,
         endArrowhead: skeleton.endArrowhead === "none" ? null : skeleton.endArrowhead,
+        groupIds: skeleton.groupId ? [skeleton.groupId] : undefined,
       } as ExcalidrawElementSkeleton;
     case "frame":
       return {
@@ -109,11 +110,18 @@ export async function applyDiagramToCanvas(
 ): Promise<ApplyDiagramResult> {
   // Dynamic import: @excalidraw/excalidraw touches `window` at module scope,
   // so it can only be evaluated in the browser, never during Next.js SSR.
-  const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
-  const converted = convertToExcalidrawElements([
-    ...skeletons.map(toElementSkeleton),
-    ...(rawElements as ExcalidrawElementSkeleton[]),
-  ]);
+  const { convertToExcalidrawElements, restoreElements } = await import("@excalidraw/excalidraw");
+  // restoreElements applies the same normalization a page reload does. Without
+  // it, freshly inserted elements occasionally exist in the scene (selectable,
+  // saved to drafts) but are skipped by the static canvas paint until reload —
+  // observed with larger diagrams appended to an already-populated canvas.
+  const converted = restoreElements(
+    convertToExcalidrawElements([
+      ...skeletons.map(toElementSkeleton),
+      ...(rawElements as ExcalidrawElementSkeleton[]),
+    ]),
+    null,
+  );
 
   // Excalidraw dev builds assert linear elements are "normalized" (first point
   // at [0,0]); binding snap during conversion can shift it. Re-anchor so
