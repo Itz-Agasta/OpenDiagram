@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { ArrowLeft, FileText, LogIn, LogOut, PenTool, Settings } from "lucide-react";
 import {
@@ -13,6 +13,8 @@ import {
 import { getCreationQuota, type CreationQuota, type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import { getInitials } from "./helpers";
+
+const QUOTA_CACHE_TTL_MS = 15_000;
 
 type WorkspaceSidebarProps = {
   accountImage?: string | null;
@@ -50,20 +52,37 @@ export function WorkspaceSidebar({
   const [quota, setQuota] = useState<CreationQuota | null>(null);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const [quotaPending, setQuotaPending] = useState(false);
+  const quotaCacheRef = useRef<{ quota: CreationQuota; fetchedAt: number } | null>(null);
+  const quotaRequestRef = useRef<Promise<CreationQuota> | null>(null);
   const quotaRemainingPercent = quota?.limit
     ? Math.max(0, Math.min(100, (quota.remaining / quota.limit) * 100))
     : 0;
 
   async function handleMenuOpen(open: boolean) {
     if (!open) return;
+
+    const cached = quotaCacheRef.current;
+    if (cached && Date.now() - cached.fetchedAt < QUOTA_CACHE_TTL_MS) {
+      setQuotaError(null);
+      setQuota(cached.quota);
+      return;
+    }
+
+    if (quotaRequestRef.current) return;
+
     setQuotaPending(true);
     setQuotaError(null);
+    const request = getCreationQuota();
+    quotaRequestRef.current = request;
 
     try {
-      setQuota(await getCreationQuota());
+      const nextQuota = await request;
+      quotaCacheRef.current = { quota: nextQuota, fetchedAt: Date.now() };
+      setQuota(nextQuota);
     } catch (error) {
       setQuotaError(error instanceof Error ? error.message : "Could not load quota.");
     } finally {
+      if (quotaRequestRef.current === request) quotaRequestRef.current = null;
       setQuotaPending(false);
     }
   }

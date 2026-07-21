@@ -31,9 +31,11 @@ export class CreationQuotaExceededError extends Error {
 
   constructor(snapshot: CreationQuotaSnapshot) {
     super(
-      snapshot.actorType === "guest"
-        ? "You've used all 3 free beta creation requests. Sign in to get 10 beta requests."
-        : "You've used all 10 beta creation requests.",
+      snapshot.limit <= 0
+        ? "Beta creation requests are currently unavailable for this account."
+        : snapshot.actorType === "guest"
+          ? `You've used all ${snapshot.limit} free beta creation requests. Sign in to get ${USER_LIMIT} beta requests.`
+          : `You've used all ${snapshot.limit} beta creation requests.`,
     );
     this.name = "CreationQuotaExceededError";
     this.snapshot = snapshot;
@@ -96,6 +98,10 @@ export async function getCreationQuotaSnapshot(
 }
 
 export async function consumeCreationQuota(actor: CreationQuotaActor) {
+  if (actor.limit <= 0) {
+    throw new CreationQuotaExceededError(toSnapshot(actor, 0));
+  }
+
   const [row] = await db
     .insert(creationUsage)
     .values({
