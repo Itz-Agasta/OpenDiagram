@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FooterGodRaysBackground } from "./footer-god-rays-background";
+import { WaitlistForm } from "./waitlist-form";
 
 function FooterBackground() {
   return <div className="pointer-events-none absolute inset-0 z-0 bg-zinc-950" />;
@@ -62,6 +63,7 @@ export function Footer() {
               </svg>
             </Link>
           </div>
+          <WaitlistForm />
         </div>
 
         <div className="flex w-full items-center justify-between gap-2.5 overflow-hidden max-md:flex-col max-md:items-start max-md:gap-6">
