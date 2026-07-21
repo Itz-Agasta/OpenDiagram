@@ -4,3 +4,4 @@ export * from "./github-import-job";
 export * from "./project";
 export * from "./project-file";
 export * from "./waitlist";
+export * from "./waitlist-rate-limit";

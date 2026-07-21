@@ -7,6 +7,7 @@ export type WaitlistJoinStatus = "idle" | "joining" | "joined" | "error";
 
 export function useWaitlistJoin() {
   const requestGenerationRef = useRef(0);
+  const requestInFlightRef = useRef(false);
   const [status, setStatus] = useState<WaitlistJoinStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -24,6 +25,8 @@ export function useWaitlistJoin() {
   }, []);
 
   const join = useCallback(async (email?: string) => {
+    if (requestInFlightRef.current) return false;
+    requestInFlightRef.current = true;
     const requestGeneration = ++requestGenerationRef.current;
     setStatus("joining");
     setErrorMessage(null);
@@ -38,6 +41,8 @@ export function useWaitlistJoin() {
       setErrorMessage(error instanceof Error ? error.message : "Could not join waitlist.");
       setStatus("error");
       return false;
+    } finally {
+      requestInFlightRef.current = false;
     }
   }, []);
 

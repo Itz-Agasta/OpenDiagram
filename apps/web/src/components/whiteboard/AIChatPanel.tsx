@@ -154,6 +154,7 @@ export function AIChatPanel({
   const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
   const frameByTitleRef = useRef(new Map<string, string>());
   const appliedToolCallsRef = useRef(new Set<string>());
+  const seedAutoRunKeyRef = useRef<string | null>(null);
   // Serializes canvas applies: each one reads and rewrites the whole scene, so
   // two in flight at once would clobber each other's elements.
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -193,7 +194,13 @@ export function AIChatPanel({
       fetch: fetchDiagramChat,
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
-    onFinish: ({ messages }) => {
+    onFinish: ({ messages, isAbort, isError }) => {
+      const seedAutoRunKey = seedAutoRunKeyRef.current;
+      if (seedAutoRunKey) {
+        if (isAbort || isError) window.sessionStorage.removeItem(seedAutoRunKey);
+        seedAutoRunKeyRef.current = null;
+      }
+
       const history = uiMessagesToStoredChatHistory(messages);
       onHistoryChange?.(history);
       if (projectId && fileId) {
@@ -214,10 +221,11 @@ export function AIChatPanel({
       return;
     }
 
-    const key = `opendiagram:auto-diagram:${projectId ?? "guest"}:${fileId ?? "file"}:${initialDiagramPrompt.id}`;
+    const key = `opendiagram:auto-diagram:v2:${projectId ?? "guest"}:${fileId ?? "file"}:${initialDiagramPrompt.id}`;
     if (window.sessionStorage.getItem(key)) return;
 
     window.sessionStorage.setItem(key, "1");
+    seedAutoRunKeyRef.current = key;
     const seedMessage = diagramMessages.find(
       (message) => message.role === "user" && uiMessageText(message) === initialDiagramPrompt.text,
     );
@@ -225,7 +233,11 @@ export function AIChatPanel({
       seedMessage
         ? { text: initialDiagramPrompt.text, messageId: seedMessage.id }
         : { text: initialDiagramPrompt.text },
-    );
+    ).catch(() => {
+      if (seedAutoRunKeyRef.current !== key) return;
+      window.sessionStorage.removeItem(key);
+      seedAutoRunKeyRef.current = null;
+    });
   }, [
     diagramMessages,
     excalidrawAPI,

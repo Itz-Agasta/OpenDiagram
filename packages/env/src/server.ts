@@ -8,6 +8,11 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.string().min(1),
+    // Only configure this when the deployment proxy overwrites the selected
+    // header. Otherwise rate limits use Bun's server-derived remote address.
+    TRUSTED_PROXY_IP_HEADER: z
+      .enum(["cf-connecting-ip", "x-real-ip", "x-forwarded-for"])
+      .optional(),
     GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
     // Prod split deploy: set to the shared parent domain (e.g. ".vyse.site") so
