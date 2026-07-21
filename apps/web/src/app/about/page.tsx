@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { MarketingPage } from "@/components/marketing/marketing-page";
 import { GITHUB_URL } from "@/lib/site";
 
@@ -89,12 +88,12 @@ export default function AboutPage() {
               prompt or repository, shape the visual draft, and keep the context close enough for
               the next engineer to understand.
             </p>
-            <Link
+            <a
               href={GITHUB_URL}
               className="inline-flex w-fit border-b border-black pb-1 text-sm font-semibold transition-colors hover:text-black/55"
             >
               Inspect the source on GitHub&nbsp; ↗
-            </Link>
+            </a>
           </div>
         </div>
       </section>

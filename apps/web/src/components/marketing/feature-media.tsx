@@ -46,8 +46,8 @@ export function FeatureMedia({ media }: { media: FeatureMediaProps }) {
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/42">Prompt</p>
           <p className="mt-4 text-lg font-semibold leading-[1.35] text-black/88">{media.prompt}</p>
           <ul className="mt-5 space-y-2 text-sm leading-[1.45] text-black/62">
-            {media.requirements.map((requirement) => (
-              <li key={requirement} className="flex gap-2.5">
+            {media.requirements.map((requirement, index) => (
+              <li key={index} className="flex gap-2.5">
                 <span className="mt-[0.48em] h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff4a2c]" />
                 <span>{requirement}</span>
               </li>

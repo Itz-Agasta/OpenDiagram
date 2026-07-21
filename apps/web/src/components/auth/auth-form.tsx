@@ -3,21 +3,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { authClient, frontendCallbackURL } from "@/lib/auth-client";
+import { authClient, frontendCallbackURL, safeFrontendPath } from "@/lib/auth-client";
 import { IconMail, IconCheck, IconArrowRight, IconBrandGithubFilled } from "@tabler/icons-react";
 import { Field, PasswordInput, scoreStrength, VisualPane, Checkbox } from "./auth-components";
-
-function safeRedirect(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
-    return "/dashboard";
-  }
-  return raw;
-}
 
 export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = safeRedirect(searchParams.get("redirect"));
+  const redirectTo = safeFrontendPath(searchParams.get("redirect"));
   const [tab, setTab] = useState<"signin" | "signup">(initialTab);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
