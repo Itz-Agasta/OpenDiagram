@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
-import { ButtonShaderTexture } from "@/components/button-shader-texture";
 
 const faqItems = [
   {
     question: "What is a Vibe Diagram?",
     answer:
-      "A Vibe Diagram is a fast, editable architecture diagram that starts from a prompt or repo and helps your team see how a system should work.",
+      "A Vibe Diagram is living software architecture created through conversation. Describe how a system should work, get an editable visual draft, and refine it with AI as your thinking evolves.",
   },
   {
-    question: "How fast can I create one?",
+    question: "How does vibe diagramming work?",
     answer:
-      "Most first drafts generate in seconds. You can keep shaping the canvas with the editor and AI agent after the first pass.",
+      "Start by describing the system, its constraints, and the behavior you need. OpenDiagram creates a visual first draft that you can shape with the editor and AI agent.",
   },
   {
     question: "Can I start from a GitHub repo?",
@@ -36,9 +36,9 @@ const faqItems = [
       "Yes. You can start creating Vibe Diagrams from the dashboard and save work when you sign in.",
   },
   {
-    question: "Do you support complex repos?",
+    question: "Does a Vibe Diagram replace engineering review?",
     answer:
-      "OpenDiagram is built for real software projects, including larger repos. Generated diagrams are a strong first draft, not a replacement for engineering review.",
+      "No. A Vibe Diagram gives your team an editable starting point for discussion and design. Engineers should review it before treating it as authoritative architecture documentation.",
   },
 ];
 
@@ -50,10 +50,17 @@ interface AccordionItemProps {
 }
 
 function AccordionItem({ question, answer, isOpen, onToggle }: AccordionItemProps) {
+  const buttonId = useId();
+  const contentId = useId();
+
   return (
     <div className="border-b border-black/10 pb-6">
       <button
+        id={buttonId}
+        type="button"
         onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
         className="flex w-full items-center justify-between py-4 text-left text-lg font-semibold transition-colors hover:text-black/70"
       >
         {question}
@@ -74,6 +81,9 @@ function AccordionItem({ question, answer, isOpen, onToggle }: AccordionItemProp
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
+            id={contentId}
+            role="region"
+            aria-labelledby={buttonId}
             key="content"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -127,10 +137,12 @@ export function FaqSection() {
             className="flex w-full max-w-[400px] origin-center flex-col gap-20 rounded-2xl bg-white/50 p-10 max-md:max-w-full"
           >
             <div className="flex items-center gap-6">
-              <img
-                src="https://framerusercontent.com/images/zRVCa2eOgJIf1mJK5PYcBLrYI.png"
+              <Image
+                src="/faq-maintainer.webp"
                 alt=""
-                className="h-20 w-20 rounded-full"
+                width={80}
+                height={80}
+                className="h-20 w-20 shrink-0 rounded-full object-cover"
               />
               <h3 className="text-2xl font-bold leading-[1.6] -tracking-[0.02em]">
                 Have more questions? Check out our GitHub
@@ -140,9 +152,8 @@ export function FaqSection() {
               <div className="inline-flex w-full items-center gap-6 rounded-[33px] bg-white p-2">
                 <a
                   href="https://github.com/Itz-Agasta/OpenDiagram"
-                  className="relative isolate inline-flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
+                  className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition-[opacity,transform] hover:opacity-80 active:translate-y-px"
                 >
-                  <ButtonShaderTexture />
                   Raise an issue
                   <svg
                     width="16"
@@ -160,10 +171,10 @@ export function FaqSection() {
                 </a>
               </div>
               <a
-                href="mailto:hello@opendiagram.dev"
+                href="mailto:support@opendiagram.ink"
                 className="text-base leading-[1.7] underline underline-offset-2 transition-colors hover:text-black/60"
               >
-                Or, email me at hello@opendiagram.dev
+                Or, email us at support@opendiagram.ink
               </a>
             </div>
           </motion.div>

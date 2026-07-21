@@ -1,6 +1,5 @@
 import { Header } from "./header";
 import { HeroSection } from "./hero-section";
-import { PortfolioSection } from "./portfolio-section";
 import { IntroSection } from "./intro-section";
 import { ProcessSection } from "./process-section";
 import { FaqSection } from "./faq-section";
@@ -10,9 +9,15 @@ import { GodRaysBackground } from "./god-rays-background";
 export function LandingPage() {
   return (
     <div className="bg-[#d9d9d9]">
+      <a
+        href="#main-content"
+        className="sr-only z-50 bg-white px-4 py-3 text-sm font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Skip to content
+      </a>
       <Header />
 
-      <main className="relative min-h-screen overflow-hidden">
+      <main id="main-content" className="relative min-h-screen overflow-hidden">
         <div
           className="pointer-events-none fixed inset-0 z-50 opacity-[0.04]"
           style={{
@@ -80,7 +85,6 @@ export function LandingPage() {
 
         <div className="relative z-10">
           <HeroSection />
-          <PortfolioSection />
           <div id="about" className="scroll-mt-20">
             <IntroSection />
           </div>

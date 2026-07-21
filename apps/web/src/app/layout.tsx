@@ -33,6 +33,10 @@ export const metadata: Metadata = {
   creator: SITE_NAME,
   publisher: SITE_NAME,
   category: "technology",
+  icons: {
+    icon: "/new_logo.png",
+    apple: "/new_logo.png",
+  },
 };
 
 export default function RootLayout({

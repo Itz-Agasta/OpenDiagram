@@ -6,12 +6,13 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import gsap from "gsap";
 
 const slideshowImages = [
-  "https://framerusercontent.com/images/jSslhcqo8HKNjUvPEceq7bhbY.jpg",
-  "https://framerusercontent.com/images/wWjLitV3mnO3fgL2J1WnS6WKDU.jpg",
-  "https://framerusercontent.com/images/0Y1cjcOdQp68PBw6G3HHfHz6TYo.jpg",
+  "/slideshow/vibediagram1.png",
+  "/slideshow/diagram2.webp",
+  "/slideshow/diagram3.webp",
+  "/slideshow/diagram4.webp",
 ];
 
-const projectNames = ["Cal.com", "Dub", "Hono", "Supabase", "Storybook"];
+const systemConcepts = ["APIs", "Services", "Queues", "Databases", "Events"];
 
 function Slideshow({ className = "" }: { className?: string }) {
   const [index, setIndex] = useState(0);
@@ -25,7 +26,8 @@ function Slideshow({ className = "" }: { className?: string }) {
   }, [shouldReduceMotion]);
 
   return (
-    <div
+    <span
+      aria-hidden="true"
       className={`relative inline-flex h-[108px] w-[144px] -rotate-2 overflow-hidden rounded-[36px] border-2 border-black bg-black max-md:h-20 max-md:w-28 ${className}`}
     >
       <AnimatePresence mode="wait">
@@ -40,18 +42,19 @@ function Slideshow({ className = "" }: { className?: string }) {
           transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.7, ease: "easeInOut" }}
         />
       </AnimatePresence>
-    </div>
+    </span>
   );
 }
 
-function ProjectNames({ className = "" }: { className?: string }) {
+function SystemConcepts({ className = "" }: { className?: string }) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div
+    <span
+      aria-hidden="true"
       className={`relative inline-flex h-[108px] w-[220px] rotate-2 items-center overflow-hidden rounded-[36px] border-2 border-black bg-[#262626] max-md:h-20 max-md:w-40 ${className}`}
     >
-      <motion.div
+      <motion.span
         className="absolute flex items-center whitespace-nowrap"
         animate={shouldReduceMotion ? undefined : { x: ["0%", "-50%"] }}
         transition={
@@ -65,19 +68,19 @@ function ProjectNames({ className = "" }: { className?: string }) {
         }
       >
         {[0, 1].map((group) => (
-          <div
+          <span
             key={group}
-            className="flex items-center gap-8 pr-8 font-serif text-3xl italic leading-none text-white/85 max-md:gap-6 max-md:pr-6 max-md:text-xl"
+            className="flex items-center gap-8 pr-8 font-serif text-3xl italic leading-none tracking-[0.06em] text-white/85 max-md:gap-6 max-md:pr-6 max-md:text-xl"
           >
-            {projectNames.map((project) => (
-              <span key={`${group}-${project}`} className="shrink-0">
-                {project}
+            {systemConcepts.map((concept) => (
+              <span key={`${group}-${concept}`} className="shrink-0">
+                {concept}
               </span>
             ))}
-          </div>
+          </span>
         ))}
-      </motion.div>
-    </div>
+      </motion.span>
+    </span>
   );
 }
 
@@ -91,6 +94,25 @@ const avatarImages = [
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (shouldReduceMotion) {
+      video.pause();
+      video.currentTime = 0;
+      video.load();
+      return;
+    }
+
+    video.defaultMuted = true;
+    video.muted = true;
+
+    void video.play().catch(() => undefined);
+  }, [shouldReduceMotion]);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -137,29 +159,20 @@ export function HeroSection() {
               className="h-[9px] w-[6px] rounded-full"
               style={{ backgroundColor: "rgb(12, 179, 0)" }}
             />
-            <span className="text-base">Powered by Cognee</span>
+            <span className="text-base">Open source · Built for system design</span>
           </div>
 
-          <div className="flex w-full flex-wrap items-center justify-center gap-3">
-            <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              Create{" "}
-            </h1>
+          <h1 className="hero-copy flex w-full flex-wrap items-center justify-center gap-3 text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
+            <span>Vibe diagram</span>
             <Slideshow className="hero-media-box" />
-            <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              <span className="text-black/50">Vibe</span>
-            </h1>
-            <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              <span className="text-black/50">Diagrams for </span>
-            </h1>
-            <ProjectNames className="hero-media-box" />
-            <h1 className="hero-copy text-center text-[78px] font-normal leading-[1.15] -tracking-[0.06em] max-md:text-5xl max-sm:text-4xl">
-              Software Teams
-            </h1>
-          </div>
+            <span className="text-black/50">your next</span>
+            <SystemConcepts className="hero-media-box" />
+            <span>system.</span>
+          </h1>
 
-          <p className="hero-copy max-w-[434px] text-center text-base leading-[1.7]">
-            Turn prompts, repos, and rough architecture ideas into expressive diagrams you can edit,
-            explain, and share.
+          <p className="hero-copy max-w-[620px] text-center text-base leading-[1.7]">
+            Turn a rough idea into editable software architecture. Describe the system, shape it
+            with AI, and keep every decision connected as the design evolves.
           </p>
         </div>
 
@@ -168,7 +181,7 @@ export function HeroSection() {
             href="/dashboard"
             className="group inline-flex h-14 cursor-pointer items-center justify-center gap-3 rounded-full bg-black px-12 text-base font-medium text-white shadow-[0_16px_60px_-36px_rgba(0,0,0,0.55)] transition-all hover:bg-black/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
           >
-            Try for free
+            Create Your Vibe Diagram
             <svg
               width="18"
               height="18"
@@ -198,8 +211,30 @@ export function HeroSection() {
                 />
               ))}
             </div>
-            <span className="text-xs">Made for Vibe Diagrammers</span>
+            <span className="text-xs">Built for teams designing systems</span>
           </div>
+        </div>
+
+        <div className="hero-copy mt-12 w-full max-w-[1200px] overflow-hidden rounded-lg border border-black/10 shadow-2xl">
+          <video
+            ref={videoRef}
+            className="aspect-video w-full rounded-lg bg-white object-cover"
+            autoPlay={!shouldReduceMotion}
+            loop
+            muted
+            playsInline
+            preload="auto"
+            poster="/hero-media/opendiagram-creation-flow-poster.jpg"
+            aria-label="Creating and editing a chat app architecture diagram in OpenDiagram"
+            onLoadedData={() => {
+              if (!shouldReduceMotion) {
+                void videoRef.current?.play().catch(() => undefined);
+              }
+            }}
+          >
+            <source src="/hero-media/opendiagram-creation-flow-trimmed.webm" type="video/webm" />
+            <source src="/hero-media/opendiagram-creation-flow-trimmed.mp4" type="video/mp4" />
+          </video>
         </div>
       </div>
     </section>
