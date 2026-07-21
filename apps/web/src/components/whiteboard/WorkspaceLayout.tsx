@@ -1,5 +1,13 @@
 "use client";
 
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
@@ -9,6 +17,7 @@ import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLay
 
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
+  const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
   const activeHistory = state.activeFile?.history as
     | { id: string; role: "user" | "assistant"; text: string }[]
     | undefined;
@@ -69,6 +78,7 @@ export function WorkspaceLayout() {
           fileId={agentFileId}
           initialHistory={activeHistory}
           onClose={actions.closeAgent}
+          onQuotaError={setQuotaMessage}
           onResizeStart={actions.handleResizeStart}
           projectId={agentProjectId}
           repoGenerationError={state.repoGenerationError}
@@ -88,6 +98,21 @@ export function WorkspaceLayout() {
         onSignIn={actions.signInToSave}
         open={state.leavePromptOpen}
       />
+      <Dialog
+        open={quotaMessage !== null}
+        onOpenChange={(open) => {
+          if (!open) setQuotaMessage(null);
+        }}
+      >
+        <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-od-ink">Beta creation limit reached</DialogTitle>
+            <DialogDescription className="leading-6 text-od-ink-muted">
+              {quotaMessage}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

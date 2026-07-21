@@ -15,6 +15,13 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { buildSystemPrompt } from "../lib/agent/prompt";
 import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
+import {
+  applyCreationQuotaHeaders,
+  consumeCreationQuota,
+  creationQuotaExceededResponse,
+  CreationQuotaExceededError,
+  getCreationQuotaActor,
+} from "../lib/creation-quota";
 import { LLM_MAX_RETRIES } from "../lib/repo-ai";
 
 const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
@@ -80,6 +87,16 @@ diagramRoute.post("/chat", async (c) => {
       { error: "Invalid messages", detail: err instanceof Error ? err.message : String(err) },
       400,
     );
+  }
+
+  try {
+    const quota = await consumeCreationQuota(await getCreationQuotaActor(c));
+    applyCreationQuotaHeaders(c, quota);
+  } catch (error) {
+    if (error instanceof CreationQuotaExceededError) {
+      return creationQuotaExceededResponse(c, error);
+    }
+    throw error;
   }
 
   const tools = {

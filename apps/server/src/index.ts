@@ -10,6 +10,7 @@ import { diagramRoute } from "./routes/diagram";
 import { githubImportRoute, githubRoute } from "./routes/github";
 import { orchestrateRoute } from "./routes/orchestrate";
 import { projectsRoute } from "./routes/projects";
+import { usageRoute } from "./routes/usage";
 
 initLogger({
   env: { service: "OpenDiagram-server" },
@@ -40,6 +41,7 @@ app.use(
     origin: origins,
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["X-CreationQuota-Limit", "X-CreationQuota-Used", "X-CreationQuota-Remaining"],
     credentials: true,
   }),
 );
@@ -50,6 +52,7 @@ app.route("/api/orchestrate", orchestrateRoute);
 app.route("/api/github", githubRoute);
 app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
+app.route("/api/usage", usageRoute);
 
 export default {
   // Two slow paths share this: GitHub's OAuth token exchange (>10s on slow

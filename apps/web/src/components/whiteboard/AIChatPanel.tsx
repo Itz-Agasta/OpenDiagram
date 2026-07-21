@@ -10,7 +10,12 @@ import { env } from "@OpenDiagram/env/web";
 import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import { orchestrateWorkspaceRequest, runProjectChatAgent } from "@/lib/workspace-agents";
-import { updateProjectFile, type RepoGenerationJob } from "@/lib/projects-client";
+import {
+  CreationQuotaError,
+  updateProjectFile,
+  type CreationQuota,
+  type RepoGenerationJob,
+} from "@/lib/projects-client";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -61,6 +66,25 @@ interface AIChatPanelProps {
   initialHistory?: ChatMessage[];
   repoGenerationJob?: RepoGenerationJob | null;
   repoGenerationError?: string | null;
+  onQuotaError?: (message: string) => void;
+}
+
+async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestInit) {
+  const response = await fetch(input, { ...init, credentials: "include" });
+  if (response.ok) return response;
+
+  const data = (await response.json().catch(() => null)) as {
+    error?: string;
+    code?: string;
+    quota?: CreationQuota;
+  } | null;
+  const message = data?.error ?? "The diagram agent is unavailable. Try again.";
+
+  if (data?.code === "creation_quota_exceeded") {
+    throw new CreationQuotaError(message, data.quota);
+  }
+
+  throw new Error(message);
 }
 
 /** The last assistant message's unanswered ask_user call, if any. */
@@ -117,6 +141,7 @@ export function AIChatPanel({
   initialHistory,
   repoGenerationJob,
   repoGenerationError,
+  onQuotaError,
 }: AIChatPanelProps) {
   const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
   const frameByTitleRef = useRef(new Map<string, string>());
@@ -144,9 +169,15 @@ export function AIChatPanel({
     transport: new DefaultChatTransport({
       api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
       body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
+      fetch: fetchDiagramChat,
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   });
+
+  useEffect(() => {
+    if (!(diagramError instanceof CreationQuotaError)) return;
+    onQuotaError?.(diagramError.message);
+  }, [diagramError, onQuotaError]);
 
   // Apply each finished draw_diagram call to the canvas exactly once. If the
   // agent redraws a diagram it already drew (same title), the old frame is
@@ -227,6 +258,7 @@ export function AIChatPanel({
         setProjectStatus("ready");
       } catch (err) {
         const message = err instanceof Error ? err.message : "Project chat failed";
+        if (err instanceof CreationQuotaError) onQuotaError?.(message);
         setProjectMessages((prev) => [
           ...prev,
           { id: `msg-${messageIdRef.current++}`, role: "assistant", text: `Error: ${message}` },
@@ -237,7 +269,7 @@ export function AIChatPanel({
 
       return true;
     },
-    [fileId, projectId],
+    [fileId, onQuotaError, projectId],
   );
 
   const handleSubmit = useCallback(
@@ -362,8 +394,7 @@ export function AIChatPanel({
           )}
           {diagramStatus === "error" && (
             <p className="text-xs text-destructive">
-              Something went wrong{diagramError?.message ? ` — ${diagramError.message}` : ""}. Try
-              again.
+              {diagramError?.message ?? "Something went wrong. Try again."}
             </p>
           )}
           {projectError && <p className="text-xs text-destructive">{projectError}</p>}

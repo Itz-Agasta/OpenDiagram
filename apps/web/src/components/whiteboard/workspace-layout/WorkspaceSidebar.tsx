@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { ArrowLeft, FileText, LogIn, LogOut, PenTool, Settings } from "lucide-react";
 import {
@@ -6,11 +6,15 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { SavedProjectFile } from "@/lib/projects-client";
+import { getCreationQuota, type CreationQuota, type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import { getInitials } from "./helpers";
+
+const QUOTA_CACHE_TTL_MS = 15_000;
 
 type WorkspaceSidebarProps = {
   accountImage?: string | null;
@@ -45,6 +49,44 @@ export function WorkspaceSidebar({
   onSignIn,
   onSignOut,
 }: WorkspaceSidebarProps) {
+  const [quota, setQuota] = useState<CreationQuota | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
+  const [quotaPending, setQuotaPending] = useState(false);
+  const quotaCacheRef = useRef<{ quota: CreationQuota; fetchedAt: number } | null>(null);
+  const quotaRequestRef = useRef<Promise<CreationQuota> | null>(null);
+  const quotaRemainingPercent = quota?.limit
+    ? Math.max(0, Math.min(100, (quota.remaining / quota.limit) * 100))
+    : 0;
+
+  async function handleMenuOpen(open: boolean) {
+    if (!open) return;
+
+    const cached = quotaCacheRef.current;
+    if (cached && Date.now() - cached.fetchedAt < QUOTA_CACHE_TTL_MS) {
+      setQuotaError(null);
+      setQuota(cached.quota);
+      return;
+    }
+
+    if (quotaRequestRef.current) return;
+
+    setQuotaPending(true);
+    setQuotaError(null);
+    const request = getCreationQuota();
+    quotaRequestRef.current = request;
+
+    try {
+      const nextQuota = await request;
+      quotaCacheRef.current = { quota: nextQuota, fetchedAt: Date.now() };
+      setQuota(nextQuota);
+    } catch (error) {
+      setQuotaError(error instanceof Error ? error.message : "Could not load quota.");
+    } finally {
+      if (quotaRequestRef.current === request) quotaRequestRef.current = null;
+      setQuotaPending(false);
+    }
+  }
+
   return (
     <aside
       className="group/sidebar relative hidden h-full shrink-0 flex-col border-r border-od-border-soft bg-od-surface lg:flex"
@@ -82,7 +124,7 @@ export function WorkspaceSidebar({
             {isSignedIn ? "Signed in" : "Guest session"}
           </p>
         </div>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(open) => void handleMenuOpen(open)}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -92,8 +134,41 @@ export function WorkspaceSidebar({
               <Settings className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuGroup>
+              <DropdownMenuLabel className="flex flex-col gap-1.5 px-2 py-2">
+                <span className="block text-[12px] font-semibold text-od-ink">Beta quota</span>
+                <span aria-live="polite" className="block text-[11px] font-normal leading-4">
+                  {quotaPending ? (
+                    <span className="text-od-ink-faint">Loading…</span>
+                  ) : quotaError ? (
+                    <span className="text-red-600">{quotaError}</span>
+                  ) : quota ? (
+                    <span className="text-od-ink-muted">
+                      {quota.remaining} of {quota.limit} creation requests left
+                      {quota.actorType === "guest" ? ". Sign in to get 10." : "."}
+                    </span>
+                  ) : (
+                    <span className="text-od-ink-faint">Open settings to check usage.</span>
+                  )}
+                </span>
+                {quota ? (
+                  <div
+                    role="progressbar"
+                    aria-label={`${quota.remaining} of ${quota.limit} beta creation requests left`}
+                    aria-valuemin={0}
+                    aria-valuemax={quota.limit}
+                    aria-valuenow={quota.remaining}
+                    className="h-1.5 overflow-hidden rounded-full bg-od-canvas"
+                  >
+                    <div
+                      className="h-full rounded-full bg-od-ink"
+                      style={{ width: `${quotaRemainingPercent}%` }}
+                    />
+                  </div>
+                ) : null}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
               {isSignedIn ? (
                 <DropdownMenuItem onSelect={onSignOut} className="cursor-pointer">
                   <LogOut className="h-4 w-4" />
