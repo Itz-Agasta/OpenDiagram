@@ -1,14 +1,23 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient, frontendCallbackURL } from "@/lib/auth-client";
 import { IconMail, IconCheck, IconArrowRight, IconBrandGithubFilled } from "@tabler/icons-react";
 import { Field, PasswordInput, scoreStrength, VisualPane, Checkbox } from "./auth-components";
 
+function safeRedirect(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
+    return "/dashboard";
+  }
+  return raw;
+}
+
 export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirect(searchParams.get("redirect"));
   const [tab, setTab] = useState<"signin" | "signup">(initialTab);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,9 +28,9 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
   useEffect(() => {
     if (isPending) return;
     if (session?.user) {
-      router.replace("/dashboard");
+      router.replace(redirectTo);
     }
-  }, [isPending, session, router]);
+  }, [isPending, redirectTo, router, session]);
 
   // Sign-in fields
   const [siEmail, setSiEmail] = useState("");
@@ -94,7 +103,7 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
             onSuccess: () => {
               setSuccess(true);
               setTimeout(() => {
-                router.push("/dashboard");
+                router.push(redirectTo);
                 router.refresh();
               }, 500);
             },
@@ -109,7 +118,13 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
           { email: suEmail, password: suPwd, name: `${suFirst} ${suLast}`.trim() },
           {
             onRequest: () => setLoading(true),
-            onSuccess: () => setSuccess(true),
+            onSuccess: () => {
+              setSuccess(true);
+              setTimeout(() => {
+                router.push(redirectTo);
+                router.refresh();
+              }, 500);
+            },
             onError: (ctx) => {
               setLoading(false);
               alert(ctx.error.message || "Failed to create account");
@@ -146,11 +161,7 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
                 <IconCheck width={28} height={28} />
               </div>
               <h2>{tab === "signin" ? "Welcome back" : "You're in"}</h2>
-              <p>
-                {tab === "signin"
-                  ? "Redirecting to your dashboard…"
-                  : "Check your inbox to verify your email."}
-              </p>
+              <p>Redirecting to your workspace…</p>
             </div>
           ) : (
             <>
@@ -335,7 +346,10 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
                 onClick={() =>
                   authClient.signIn.social({
                     provider: "github",
-                    callbackURL: frontendCallbackURL("/dashboard"),
+                    callbackURL: frontendCallbackURL(redirectTo),
+                    errorCallbackURL: frontendCallbackURL(
+                      `/login?redirect=${encodeURIComponent(redirectTo)}`,
+                    ),
                   })
                 }
               >
