@@ -1,8 +1,19 @@
+import type { ProjectFileType } from "@/lib/projects-client";
+
+export type GuestDraftMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+};
+
 export type GuestDraftFile = {
   id: string;
   name: string;
+  type?: ProjectFileType;
   scene?: unknown;
   spec?: unknown;
+  content?: unknown;
+  history?: GuestDraftMessage[];
 };
 
 export type GuestProjectDraft = {
@@ -28,6 +39,7 @@ function migrateDraft(raw: Record<string, unknown>): GuestProjectDraft | null {
     {
       id: raw.id as string,
       name: "Your first design",
+      type: "diagram",
       scene: raw.scene,
       spec: raw.spec,
     },
@@ -53,7 +65,13 @@ function parseDraft(raw: string): GuestProjectDraft | null {
   }
 }
 
-export function createGuestProjectDraft(name: string, fileName?: string): GuestProjectDraft {
+export function createGuestProjectDraft(
+  name: string,
+  fileName?: string,
+  fileType: ProjectFileType = "diagram",
+  content?: unknown,
+  history?: GuestDraftMessage[],
+): GuestProjectDraft {
   const now = new Date().toISOString();
 
   return {
@@ -63,6 +81,9 @@ export function createGuestProjectDraft(name: string, fileName?: string): GuestP
       {
         id: crypto.randomUUID(),
         name: fileName?.trim() || "Your first design",
+        type: fileType,
+        content: fileType === "doc" ? content : undefined,
+        history,
       },
     ],
     createdAt: now,

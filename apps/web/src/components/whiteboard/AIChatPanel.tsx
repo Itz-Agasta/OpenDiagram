@@ -60,13 +60,42 @@ interface AskUserInput {
 }
 
 interface AIChatPanelProps {
+  activeFileType?: "diagram" | "doc";
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   projectId?: string;
   fileId?: string;
   initialHistory?: ChatMessage[];
+  hasExistingScene?: boolean;
   repoGenerationJob?: RepoGenerationJob | null;
   repoGenerationError?: string | null;
   onQuotaError?: (message: string) => void;
+}
+
+function chatMessageToUIMessage(message: ChatMessage): UIMessage {
+  return {
+    id: message.id,
+    role: message.role,
+    parts: [{ type: "text", text: message.text }],
+  };
+}
+
+function uiMessageText(message: UIMessage) {
+  return message.parts
+    .filter(
+      (part): part is Extract<(typeof message.parts)[number], { type: "text" }> =>
+        part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+}
+
+function uiMessagesToChatHistory(messages: UIMessage[]): ChatMessage[] {
+  return messages.flatMap((message) => {
+    if (message.role !== "user" && message.role !== "assistant") return [];
+    const text = uiMessageText(message);
+    return text ? [{ id: message.id, role: message.role, text }] : [];
+  });
 }
 
 async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestInit) {
@@ -135,10 +164,12 @@ function diagramRequestLikely(text: string) {
 }
 
 export function AIChatPanel({
+  activeFileType,
   excalidrawAPI,
   projectId,
   fileId,
   initialHistory,
+  hasExistingScene,
   repoGenerationJob,
   repoGenerationError,
   onQuotaError,
@@ -149,8 +180,16 @@ export function AIChatPanel({
   // Serializes canvas applies: each one reads and rewrites the whole scene, so
   // two in flight at once would clobber each other's elements.
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const initialDiagramMessages =
+    activeFileType === "diagram" ? (initialHistory ?? []).map(chatMessageToUIMessage) : [];
+  const initialDiagramPrompt =
+    activeFileType === "diagram"
+      ? (initialHistory ?? []).find((message) => message.role === "user")
+      : undefined;
   const messageIdRef = useRef(initialHistory?.length ?? 0);
-  const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(initialHistory ?? []);
+  const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(
+    activeFileType === "diagram" ? [] : (initialHistory ?? []),
+  );
   const [projectStatus, setProjectStatus] = useState<ChatStatus>("ready");
   const [projectError, setProjectError] = useState<string | null>(null);
   const [themeName, setThemeName] = useState<ThemeName>("sketch");
@@ -166,13 +205,44 @@ export function AIChatPanel({
     status: diagramStatus,
     error: diagramError,
   } = useChat({
+    messages: initialDiagramMessages,
     transport: new DefaultChatTransport({
       api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
       body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
       fetch: fetchDiagramChat,
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    onFinish: ({ messages }) => {
+      if (!projectId || !fileId) return;
+      void updateProjectFile(projectId, fileId, { history: uiMessagesToChatHistory(messages) });
+    },
   });
+
+  useEffect(() => {
+    const hasAssistant = diagramMessages.some((message) => message.role === "assistant");
+    if (!initialDiagramPrompt || !excalidrawAPI || hasAssistant || hasExistingScene) return;
+
+    const key = `opendiagram:auto-diagram:${projectId ?? "guest"}:${fileId ?? "file"}:${initialDiagramPrompt.id}`;
+    if (window.sessionStorage.getItem(key)) return;
+
+    window.sessionStorage.setItem(key, "1");
+    const seedMessage = diagramMessages.find(
+      (message) => message.role === "user" && uiMessageText(message) === initialDiagramPrompt.text,
+    );
+    void sendMessage(
+      seedMessage
+        ? { text: initialDiagramPrompt.text, messageId: seedMessage.id }
+        : { text: initialDiagramPrompt.text },
+    );
+  }, [
+    diagramMessages,
+    excalidrawAPI,
+    fileId,
+    hasExistingScene,
+    initialDiagramPrompt,
+    projectId,
+    sendMessage,
+  ]);
 
   useEffect(() => {
     if (!(diagramError instanceof CreationQuotaError)) return;

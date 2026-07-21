@@ -10,6 +10,7 @@ type WorkspaceAgentSidebarProps = {
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   fileId?: string;
   initialHistory?: { id: string; role: "user" | "assistant"; text: string }[];
+  hasExistingScene?: boolean;
   projectId?: string;
   repoGenerationError: string | null;
   repoGenerationJob: RepoGenerationJob | null;
@@ -19,11 +20,13 @@ type WorkspaceAgentSidebarProps = {
 };
 
 export function WorkspaceAgentSidebar({
+  activeFileId,
   activeFileType,
   agentWidth,
   excalidrawAPI,
   fileId,
   initialHistory,
+  hasExistingScene,
   projectId,
   repoGenerationError,
   repoGenerationJob,
@@ -54,10 +57,13 @@ export function WorkspaceAgentSidebar({
         </button>
       </div>
       <AIChatPanel
+        key={activeFileId ?? fileId}
+        activeFileType={activeFileType}
         excalidrawAPI={activeFileType === "doc" ? null : excalidrawAPI}
         projectId={projectId}
         fileId={fileId}
         initialHistory={initialHistory}
+        hasExistingScene={hasExistingScene}
         repoGenerationJob={repoGenerationJob}
         repoGenerationError={repoGenerationError}
         onQuotaError={onQuotaError}

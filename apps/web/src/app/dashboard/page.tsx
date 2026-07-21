@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight,
   ChevronDown,
   FileText,
-  Import,
   LogIn,
   LogOut,
   Pencil,
@@ -17,6 +15,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { GithubLogoIcon } from "@phosphor-icons/react";
 import { env } from "@OpenDiagram/env/web";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -43,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 type FileKind = "diagram" | "doc";
 
@@ -64,16 +64,8 @@ type Project = {
   source: "guest" | "saved";
 };
 
-type RecentFile = {
-  id: string;
-  projectId: string;
-  fileId: string | null;
-  title: string;
-  type: string;
-  description: string;
-  project: string;
-  updated: string;
-  status: string;
+type AgentInputSubmit = {
+  prompt: string;
   kind: FileKind;
 };
 
@@ -90,34 +82,163 @@ function SidebarProjectSkeletons() {
   );
 }
 
-function RecentFilesSkeleton() {
+function AgentInputPanelSkeleton() {
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-od-border-soft bg-od-surface">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-od-border-soft p-4 md:p-5">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-4 w-56" />
-        </div>
-        <Skeleton className="hidden h-9 w-20 rounded-[8px] sm:block" />
-      </div>
-
-      <div className="divide-y divide-od-border-soft">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-[auto_1fr] gap-3 p-4 md:grid-cols-[auto_1fr_150px_100px] md:items-center md:p-5"
-          >
-            <Skeleton className="size-10 rounded-[8px]" />
-            <span className="flex min-w-0 flex-col gap-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-full max-w-[360px]" />
-            </span>
-            <Skeleton className="col-start-2 h-4 w-20 md:col-start-auto" />
-            <Skeleton className="col-start-2 h-7 w-16 rounded-[8px] md:col-start-auto" />
+    <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-0 py-6 md:px-6 md:py-8">
+      <Skeleton className="mb-4 h-8 w-full max-w-[520px] md:mb-5" />
+      <div className="w-full max-w-[680px] overflow-hidden rounded-[20px] border border-black/10 bg-white shadow-[0_14px_28px_-24px_rgba(0,0,0,0.7)] md:rounded-[24px]">
+        <div className="px-4 pb-4 pt-4 md:px-5">
+          <div className="flex gap-2 overflow-hidden pb-1">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <Skeleton key={index} className="h-9 w-[96px] shrink-0 rounded-[10px]" />
+            ))}
           </div>
-        ))}
+          <Skeleton className="mt-4 h-6 w-full max-w-[420px]" />
+          <Skeleton className="mt-3 h-6 w-full max-w-[260px]" />
+          <div className="mt-6 flex items-center justify-end">
+            <Skeleton className="h-7 w-36 rounded-[10px]" />
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+const agentModes = [
+  { label: "Canvas", icon: PenTool, kind: "diagram" as const },
+  { label: "Doc", icon: FileText, kind: "doc" as const },
+];
+
+const agentCtas = [
+  "Describe it, watch it draw itself.",
+  "Your repo has a story, let it vibe out a diagram.",
+  "Type a vibe, get an architecture.",
+  "Skip the whiteboard, vibe the diagram instead.",
+  "Diagrams, vibed into existence.",
+];
+
+const presetTags = [
+  "Netflix system design",
+  "WhatsApp architecture",
+  "Uber backend architecture",
+  "Twitter architecture",
+  "YouTube system design",
+  "Slack architecture",
+  "Amazon shopping flow",
+  "Spotify streaming architecture",
+];
+
+function AgentInputPanel({
+  creating,
+  onSubmit,
+}: {
+  creating: boolean;
+  onSubmit: (input: AgentInputSubmit) => void;
+}) {
+  const [selectedMode, setSelectedMode] = useState<FileKind>(agentModes[0]?.kind ?? "diagram");
+  const [prompt, setPrompt] = useState("");
+  const [ctaIndex, setCtaIndex] = useState(0);
+
+  useEffect(() => {
+    setCtaIndex(Math.floor(Math.random() * agentCtas.length));
+  }, []);
+
+  function submitPrompt(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = prompt.trim();
+    if (!text || creating) return;
+    onSubmit({ prompt: text, kind: selectedMode });
+  }
+
+  return (
+    <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-0 py-4 md:px-6 md:py-5">
+      <p className="mb-3 max-w-[680px] px-2 text-center text-[20px] font-serif italic leading-tight text-od-ink md:mb-4 md:text-[24px]">
+        {agentCtas[ctaIndex]}
+      </p>
+      <form
+        onSubmit={submitPrompt}
+        className="w-full max-w-[680px] overflow-hidden rounded-[20px] border border-black/10 bg-white shadow-[0_14px_28px_-24px_rgba(0,0,0,0.7)] md:rounded-[24px]"
+      >
+        <div className="rounded-t-[20px] border-t border-black/5 px-4 pb-4 pt-4 md:rounded-t-[24px] md:px-5">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {agentModes.map(({ label, icon: Icon, kind }) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={selectedMode === kind}
+                disabled={creating}
+                onClick={() => setSelectedMode(kind)}
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-black/10 bg-white px-3 text-[13px] font-semibold text-[#151515] transition hover:bg-black/[0.03] aria-pressed:border-black/20 aria-pressed:bg-black/[0.04] md:text-[14px]"
+              >
+                <Icon className="h-4 w-4 text-black/55" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <label className="mt-4 block">
+            <span className="sr-only">Describe what OpenDiagram should create</span>
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              disabled={creating}
+              placeholder="Make a system design for a collaborative AI workspace"
+              className="min-h-[48px] w-full resize-none border-0 bg-transparent px-1 text-[15px] leading-[1.35] text-[#242424] outline-none placeholder:text-black/45 disabled:cursor-wait disabled:opacity-70 md:min-h-[56px] md:text-[17px]"
+            />
+          </label>
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="inline-flex min-w-0 items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-[13px] font-semibold text-[#9ca3af]">
+              <Sparkles className="h-4 w-4 shrink-0" />
+              <span className="truncate">Picasso</span>
+            </div>
+            <button
+              type="submit"
+              disabled={creating || prompt.trim().length === 0}
+              className="h-9 rounded-[10px] bg-od-ink px-4 text-[13px] font-semibold text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "Create"}
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function PresetTagRow({
+  creating,
+  onSubmit,
+}: {
+  creating: boolean;
+  onSubmit: (input: AgentInputSubmit) => void;
+}) {
+  const [tags, setTags] = useState(() => presetTags.slice(0, 4));
+
+  useEffect(() => {
+    setTags([...presetTags].sort(() => Math.random() - 0.5).slice(0, 4));
+  }, []);
+
+  return (
+    <div className="flex flex-wrap justify-center gap-2">
+      {tags.map((tag) => (
+        <button
+          key={tag}
+          type="button"
+          disabled={creating}
+          onClick={() => onSubmit({ prompt: tag, kind: "diagram" })}
+          className="inline-flex h-7 shrink-0 items-center rounded-full border border-od-border-soft bg-od-surface-elevated px-3 text-[12px] font-medium text-od-ink-muted transition hover:border-od-ink/20 hover:text-od-ink disabled:cursor-wait disabled:opacity-40"
+        >
+          {tag}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -132,15 +253,16 @@ export default function DashboardPage() {
   const [fileName, setFileName] = useState("");
   const [fileKind, setFileKind] = useState<FileKind>("diagram");
   const [projectPending, setProjectPending] = useState(false);
+  const [agentCreatePending, setAgentCreatePending] = useState(false);
   const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
   const [savedProjectsLoaded, setSavedProjectsLoaded] = useState(false);
   const [signOutPending, setSignOutPending] = useState(false);
-  const [projectError, setProjectError] = useState<string | null>(null);
   const [filesByProject, setFilesByProject] = useState<Record<string, SavedProjectFile[]>>({});
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingFileKey, setEditingFileKey] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [projectSearch, setProjectSearch] = useState("");
   const skipCommitRef = useRef(false);
   const expandInitRef = useRef(false);
 
@@ -161,7 +283,6 @@ export default function DashboardPage() {
     async function loadSavedProjects() {
       setSavedProjectsLoading(true);
       setSavedProjectsLoaded(false);
-      setProjectError(null);
 
       try {
         const projects = await listProjects();
@@ -184,7 +305,7 @@ export default function DashboardPage() {
         }
       } catch (err) {
         if (active) {
-          setProjectError(
+          toast.error(
             err instanceof Error && err.message !== "Internal Server Error"
               ? err.message
               : "Could not load saved projects.",
@@ -241,25 +362,12 @@ export default function DashboardPage() {
     });
   }, [filesByProject, guestDrafts, isSignedIn, savedProjects]);
 
-  const recentFiles = useMemo<RecentFile[]>(
-    () =>
-      projects.map((project) => ({
-        id: `recent-${project.id}`,
-        projectId: project.id,
-        fileId: project.files[0]?.fileId ?? null,
-        title: project.files[0]?.name ?? "Your first design",
-        type: "Diagram file",
-        description:
-          project.source === "guest"
-            ? "Guest draft saved in this browser"
-            : "Saved project in your workspace",
-        project: project.name,
-        updated: project.source === "guest" ? "Local draft" : "Saved",
-        status: project.source === "guest" ? "Guest" : "Synced",
-        kind: project.files[0]?.kind ?? "diagram",
-      })),
-    [projects],
-  );
+  const filteredProjects = useMemo(() => {
+    const query = projectSearch.trim().toLowerCase();
+    if (!query) return projects;
+
+    return projects.filter((project) => project.name.toLowerCase().includes(query));
+  }, [projectSearch, projects]);
 
   // Open the first project by default; after that, expansion is user-controlled.
   useEffect(() => {
@@ -274,7 +382,6 @@ export default function DashboardPage() {
 
   function openProjectModal() {
     setProjectName("");
-    setProjectError(null);
     setProjectModalOpen(true);
   }
 
@@ -298,7 +405,6 @@ export default function DashboardPage() {
     if (!name) return;
 
     setProjectPending(true);
-    setProjectError(null);
 
     try {
       if (user) {
@@ -328,7 +434,7 @@ export default function DashboardPage() {
       }
 
       if (guestDrafts.length >= 1) {
-        setProjectError("You can try one project as a guest. Log in to save it and create more.");
+        toast.error("You can try one project as a guest. Log in to save it and create more.");
         return;
       }
 
@@ -339,9 +445,71 @@ export default function DashboardPage() {
       setProjectName("");
       router.push(`/project/${draft.id}/workspace`);
     } catch (err) {
-      setProjectError(err instanceof Error ? err.message : "Could not create project.");
+      toast.error(err instanceof Error ? err.message : "Could not create project.");
     } finally {
       setProjectPending(false);
+    }
+  }
+
+  async function createProjectFromAgent({ prompt, kind }: AgentInputSubmit) {
+    if (agentCreatePending) return;
+
+    const { projectName: nextProjectName, fileName: nextFileName } = deriveAgentProjectNames(
+      prompt,
+      kind,
+    );
+    const firstMessage = { id: crypto.randomUUID(), role: "user" as const, text: prompt };
+    const docContent = kind === "doc" ? `# ${nextFileName}\n\n${prompt}\n` : undefined;
+
+    setAgentCreatePending(true);
+
+    try {
+      if (user) {
+        const project = await createProject({
+          name: nextProjectName,
+          description: prompt,
+        });
+
+        let file: SavedProjectFile | null = null;
+        try {
+          file = await createProjectFile(project.id, {
+            name: nextFileName,
+            type: kind === "diagram" ? "diagram" : "doc",
+            content: docContent,
+            history: [firstMessage],
+          });
+        } catch (fileErr) {
+          fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${project.id}`, {
+            method: "DELETE",
+            credentials: "include",
+          }).catch(() => {});
+          throw fileErr;
+        }
+
+        setSavedProjects((currentProjects) => [project, ...currentProjects]);
+        setFilesByProject((current) => ({
+          ...current,
+          [project.id]: file ? [file] : [],
+        }));
+        router.push(`/project/${project.id}/workspace/${file.id}`);
+        return;
+      }
+
+      if (guestDrafts.length >= 1) {
+        toast.error("You can try one project as a guest. Log in to save it and create more.");
+        return;
+      }
+
+      const draft = createGuestProjectDraft(nextProjectName, nextFileName, kind, docContent, [
+        firstMessage,
+      ]);
+      saveGuestProjectDraft(draft);
+      setGuestDrafts((currentDrafts) => [draft, ...currentDrafts]);
+      router.push(`/project/${draft.id}/workspace/${draft.files[0]?.id ?? ""}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create project.");
+    } finally {
+      setAgentCreatePending(false);
     }
   }
 
@@ -360,12 +528,11 @@ export default function DashboardPage() {
 
     if (project.source === "guest") {
       setFileModalProjectId(null);
-      setProjectError("Log in to save your project before adding files.");
+      toast.error("Log in to save your project before adding files.");
       return;
     }
 
     setProjectPending(true);
-    setProjectError(null);
 
     try {
       const file = await createProjectFile(project.id, {
@@ -382,7 +549,7 @@ export default function DashboardPage() {
 
       router.push(`/project/${project.id}/workspace/${file.id}`);
     } catch (err) {
-      setProjectError(err instanceof Error ? err.message : "Could not create file.");
+      toast.error(err instanceof Error ? err.message : "Could not create file.");
     } finally {
       setProjectPending(false);
     }
@@ -441,7 +608,7 @@ export default function DashboardPage() {
         }
       }
     } catch (err) {
-      setProjectError(err instanceof Error ? err.message : "Could not rename project.");
+      toast.error(err instanceof Error ? err.message : "Could not rename project.");
     }
   }
 
@@ -466,7 +633,7 @@ export default function DashboardPage() {
         ),
       }));
     } catch (err) {
-      setProjectError(err instanceof Error ? err.message : "Could not rename file.");
+      toast.error(err instanceof Error ? err.message : "Could not rename file.");
     }
   }
 
@@ -530,10 +697,12 @@ export default function DashboardPage() {
           <div className="px-3 py-3">
             <label className="flex h-9 items-center gap-2 rounded-full border border-od-border-soft bg-od-surface-elevated px-3 text-[13px] text-od-ink-faint focus-within:border-od-ink">
               <Search className="h-4 w-4" />
-              <span className="sr-only">Search workspace</span>
+              <span className="sr-only">Search projects</span>
               <input
                 type="search"
                 placeholder="Search"
+                value={projectSearch}
+                onChange={(event) => setProjectSearch(event.target.value)}
                 className="w-full bg-transparent text-od-ink outline-none placeholder:text-od-ink-faint"
               />
             </label>
@@ -560,8 +729,10 @@ export default function DashboardPage() {
                   <Plus className="h-3.5 w-3.5 shrink-0" />
                   Your first project
                 </button>
+              ) : filteredProjects.length === 0 ? (
+                <p className="px-2 py-2 text-[13px] text-od-ink-faint">No projects found.</p>
               ) : (
-                projects.map((project) => (
+                filteredProjects.map((project) => (
                   <div key={project.id} className="mb-1">
                     <div
                       className={`group/prow flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-[14px] transition ${
@@ -692,172 +863,54 @@ export default function DashboardPage() {
         <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-od-surface">
           <header className="z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-od-border-soft bg-od-surface px-4 md:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-[8px] bg-od-ink text-[13px] font-semibold text-od-on-dark lg:hidden">
+              <Link
+                href="/"
+                aria-label="OpenDiagram home"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] bg-od-ink text-[12px] font-semibold text-od-on-dark lg:hidden"
+              >
                 OD
-              </div>
+              </Link>
               <div className="min-w-0">
-                <h1 className="truncate text-[18px] font-semibold leading-tight md:text-[20px]">
-                  Dashboard
+                <h1 className="flex items-center gap-2 truncate text-[18px] font-semibold leading-tight md:text-[20px]">
+                  <span className="hidden h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-od-ink text-[10px] font-semibold text-od-on-dark lg:grid">
+                    OD
+                  </span>
+                  OpenDiagram
                 </h1>
               </div>
             </div>
-
-            <label className="hidden h-9 min-w-[280px] cursor-text items-center gap-2 rounded-full border border-od-border-soft bg-od-surface px-3 text-[13px] text-od-ink-faint focus-within:border-od-ink md:flex">
-              <Search className="h-4 w-4" />
-              <span className="sr-only">Search projects and files</span>
-              <input
-                type="search"
-                placeholder="Search projects and files"
-                className="min-w-0 flex-1 cursor-text bg-transparent text-od-ink outline-none placeholder:text-od-ink-faint"
-              />
-            </label>
           </header>
 
           <div className="mx-auto flex min-h-0 w-full max-w-[1360px] flex-1 flex-col gap-4 overflow-hidden bg-od-surface p-4 md:p-8">
-            {recentFiles.length > 0 && (
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <button
-                  type="button"
-                  onClick={openProjectModal}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-od-ink px-4 text-[13px] font-medium text-od-on-dark transition hover:bg-[#2a2a2a] active:translate-y-px"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Generate AI diagram
-                </button>
-                <button
-                  type="button"
-                  onClick={openProjectModal}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-od-surface px-4 text-[13px] font-medium text-od-ink ring-1 ring-od-border-soft transition hover:bg-white active:translate-y-px"
-                >
-                  <Plus className="h-4 w-4" />
-                  New project
-                </button>
-                <Link
-                  href="/import/github"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-od-surface px-4 text-[13px] font-medium text-od-ink ring-1 ring-od-border-soft transition hover:bg-white active:translate-y-px"
-                >
-                  <Import className="h-4 w-4" />
-                  Import project
-                </Link>
-              </div>
-            )}
-
-            {projectError && (
-              <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-                {projectError}
-              </div>
-            )}
-
             {projectsLoading ? (
-              <RecentFilesSkeleton />
-            ) : recentFiles.length === 0 ? (
-              <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-12 text-center">
-                <h2 className="max-w-[18ch] text-[32px] font-semibold leading-[1.1] -tracking-[0.03em] text-od-ink md:text-[44px]">
-                  Start with your first design
-                </h2>
-                <p className="mt-4 max-w-[52ch] text-[15px] leading-[1.7] text-od-ink-muted">
-                  Create locally without signing in, then save it to your workspace when you are
-                  ready.
-                </p>
-
-                <div className="mt-8 grid w-full max-w-[680px] grid-cols-1 gap-3 sm:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={openProjectModal}
-                    className="flex min-h-[128px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[14px] border border-od-border-soft bg-white p-5 text-center transition hover:bg-od-surface-elevated"
-                  >
-                    <Sparkles className="h-7 w-7 text-od-ink" />
-                    <span className="text-[14px] font-medium leading-tight text-od-ink">
-                      Generate AI diagram
+              <AgentInputPanelSkeleton />
+            ) : (
+              <>
+                <AgentInputPanel
+                  creating={agentCreatePending}
+                  onSubmit={(input) => void createProjectFromAgent(input)}
+                />
+                <PresetTagRow
+                  creating={agentCreatePending}
+                  onSubmit={(input) => void createProjectFromAgent(input)}
+                />
+                <div className="mt-8 flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="h-px w-16 bg-od-border-soft" />
+                    <span className="text-[12px] font-medium uppercase tracking-wider text-od-ink-faint">
+                      Or
                     </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openProjectModal}
-                    className="flex min-h-[128px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[14px] border border-od-border-soft bg-white p-5 text-center transition hover:bg-od-surface-elevated"
-                  >
-                    <PenTool className="h-7 w-7 text-od-ink" />
-                    <span className="text-[14px] font-medium leading-tight text-od-ink">
-                      Blank canvas
-                    </span>
-                  </button>
+                    <span className="h-px w-16 bg-od-border-soft" />
+                  </div>
                   <Link
                     href="/import/github"
-                    className="flex min-h-[128px] flex-col items-center justify-center gap-3 rounded-[14px] border border-od-border-soft bg-white p-5 text-center transition hover:bg-od-surface-elevated"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-od-border-soft bg-white px-5 py-2.5 text-[14px] font-semibold text-od-ink shadow-sm transition hover:bg-od-surface-elevated"
                   >
-                    <Import className="h-7 w-7 text-od-ink" />
-                    <span className="text-[14px] font-medium leading-tight text-od-ink">
-                      Import from GitHub
-                    </span>
+                    <GithubLogoIcon size={16} weight="regular" />
+                    Import your project from GitHub
                   </Link>
                 </div>
-              </section>
-            ) : (
-              <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-od-border-soft bg-od-surface">
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-od-border-soft p-4 md:p-5">
-                  <div>
-                    <h2 className="text-[18px] font-semibold">Recent files</h2>
-                    <p className="mt-1 text-[13px] text-od-ink-faint">
-                      Diagram files and doc files across projects.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="hidden h-9 items-center gap-2 rounded-[8px] border border-od-border-soft px-3 text-[13px] font-medium transition hover:bg-od-surface-elevated sm:flex"
-                  >
-                    View all
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <div className="divide-y divide-od-border-soft">
-                    {recentFiles.map(
-                      ({
-                        id,
-                        projectId,
-                        fileId,
-                        title,
-                        type,
-                        description,
-                        project,
-                        updated,
-                        status,
-                        kind,
-                      }) => {
-                        const Icon = getFileIcon(kind);
-
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => openFile({ projectId, fileId, kind })}
-                            className="group grid w-full cursor-pointer grid-cols-[auto_1fr] gap-3 p-4 text-left transition hover:bg-od-surface-elevated md:grid-cols-[auto_1fr_150px_100px] md:items-center md:p-5"
-                          >
-                            <span className="grid h-10 w-10 place-items-center rounded-[8px] border border-od-border-soft bg-od-surface-elevated text-od-ink transition group-hover:scale-105">
-                              <Icon className="h-5 w-5" />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block truncate text-[15px] font-medium">
-                                {title}
-                              </span>
-                              <span className="mt-1 block truncate text-[13px] text-od-ink-faint">
-                                {type} · {project} · {description}
-                              </span>
-                            </span>
-                            <span className="col-start-2 text-[13px] text-od-ink-faint md:col-start-auto">
-                              {updated}
-                            </span>
-                            <span className="col-start-2 inline-flex w-fit rounded-[8px] border border-od-border-soft px-2.5 py-1 text-[12px] text-od-ink-muted md:col-start-auto">
-                              {status}
-                            </span>
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-                </div>
-              </section>
+              </>
             )}
           </div>
         </section>
@@ -1002,6 +1055,62 @@ function getInitials(name: string) {
 
   return initials || "PR";
 }
+
+function deriveAgentProjectNames(prompt: string, kind: FileKind) {
+  const fallback = kind === "doc" ? "Architecture Notes" : "Architecture Diagram";
+  const cleaned = prompt
+    .replace(/[`*_#[\](){}<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const significantWords = cleaned
+    .split(" ")
+    .map((word) => word.replace(/[^a-zA-Z0-9-]/g, ""))
+    .filter(Boolean)
+    .filter((word) => !agentNameStopWords.has(word.toLowerCase()))
+    .slice(0, 5);
+
+  const base = titleCase(significantWords.join(" ")) || fallback;
+  const projectName = clampName(base, fallback);
+  const fileSuffix = kind === "doc" ? "Doc" : "Canvas";
+  const fileName = clampName(`${projectName} ${fileSuffix}`, fallback);
+
+  return { projectName, fileName };
+}
+
+function titleCase(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function clampName(value: string, fallback: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+  if (trimmed.length <= 64) return trimmed;
+
+  return trimmed.slice(0, 61).trimEnd() + "...";
+}
+
+const agentNameStopWords = new Set([
+  "a",
+  "an",
+  "and",
+  "architecture",
+  "create",
+  "design",
+  "diagram",
+  "doc",
+  "document",
+  "for",
+  "generate",
+  "make",
+  "of",
+  "system",
+  "the",
+  "with",
+]);
 
 const projectColors = [
   "#0CB300",

@@ -15,6 +15,16 @@ import { WorkspaceHeader } from "./workspace-layout/WorkspaceHeader";
 import { WorkspaceSidebar } from "./workspace-layout/WorkspaceSidebar";
 import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLayoutController";
 
+function hasDiagramScene(scene: unknown) {
+  if (!scene || typeof scene !== "object") return false;
+  const value = scene as { elements?: unknown; skeletons?: unknown; rawElements?: unknown };
+  return (
+    (Array.isArray(value.elements) && value.elements.length > 0) ||
+    (Array.isArray(value.skeletons) && value.skeletons.length > 0) ||
+    (Array.isArray(value.rawElements) && value.rawElements.length > 0)
+  );
+}
+
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
@@ -63,6 +73,7 @@ export function WorkspaceLayout() {
           activeFile={state.activeFile}
           docContent={state.docContent}
           initialScene={state.initialScene}
+          isLoading={state.fileLoading}
           onDocChange={actions.handleDocChange}
           onExcalidrawAPI={actions.handleExcalidrawAPI}
           onSceneChange={actions.handleSceneChange}
@@ -77,6 +88,7 @@ export function WorkspaceLayout() {
           excalidrawAPI={state.excalidrawAPI}
           fileId={agentFileId}
           initialHistory={activeHistory}
+          hasExistingScene={hasDiagramScene(state.initialScene) || Boolean(state.activeFile?.spec)}
           onClose={actions.closeAgent}
           onQuotaError={setQuotaMessage}
           onResizeStart={actions.handleResizeStart}
