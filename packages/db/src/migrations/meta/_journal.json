@@ -15,6 +15,13 @@
       "when": 1784618806312,
       "tag": "0001_puzzling_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784630893471,
+      "tag": "0002_gorgeous_gamma_corps",
+      "breakpoints": true
     }
   ]
 }

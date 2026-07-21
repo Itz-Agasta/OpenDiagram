@@ -5,6 +5,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useParams, useRouter } from "next/navigation";
 import { env } from "@OpenDiagram/env/web";
 import { authClient } from "@/lib/auth-client";
+import type { StoredChatMessage } from "@/lib/chat-history";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import {
   deleteGuestProjectDraft,
@@ -34,6 +35,7 @@ import {
   SIDEBAR_MIN_WIDTH,
   fileContentToText,
   initialElementsVersion,
+  resolveDiagramScene,
   sanitizeSceneAppState,
   sceneElementsVersion,
   toSidebarFile,
@@ -48,31 +50,6 @@ type ResizeState = {
   onUp: () => void;
 };
 
-async function loadWelcomeScene(api: ExcalidrawImperativeAPI) {
-  const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
-  const elements = convertToExcalidrawElements([
-    {
-      type: "text",
-      text: "Create your first vibe diagram today",
-      x: 180,
-      y: 180,
-      fontSize: 28,
-      textAlign: "center",
-      strokeColor: "#888",
-    },
-    {
-      type: "text",
-      text: "Try our agent Picasso",
-      x: 290,
-      y: 225,
-      fontSize: 18,
-      textAlign: "center",
-      strokeColor: "#aaa",
-    },
-  ]);
-  api.updateScene({ elements });
-}
-
 export function useWorkspaceLayoutController() {
   const params = useParams<{ projectId: string; workspaceId?: string }>();
   const router = useRouter();
@@ -81,6 +58,7 @@ export function useWorkspaceLayoutController() {
   const [draft, setDraft] = useState<GuestProjectDraft | null>(null);
   const [projectRow, setProjectRow] = useState<SavedProject | null>(null);
   const [activeFile, setActiveFile] = useState<SavedProjectFile | null>(null);
+  const [fileLoading, setFileLoading] = useState(false);
   const [initialScene, setInitialScene] = useState<unknown>(null);
   const [docContent, setDocContent] = useState("");
   const [repoGenerationJob, setRepoGenerationJob] = useState<RepoGenerationJob | null>(null);
@@ -127,7 +105,6 @@ export function useWorkspaceLayoutController() {
   const agentWidthRef = useRef(agentWidth);
   sidebarWidthRef.current = sidebarWidth;
   agentWidthRef.current = agentWidth;
-  const welcomeSceneRef = useRef(false);
   const isSignedIn = Boolean(session.data?.user);
   const isSignedInRef = useRef(isSignedIn);
   isSignedInRef.current = isSignedIn;
@@ -147,21 +124,41 @@ export function useWorkspaceLayoutController() {
         ? nextDraft.files.find((f) => f.id === params.workspaceId)
         : nextDraft.files[0];
       currentFileIdRef.current = file?.id ?? nextDraft.files[0]?.id ?? null;
-      setActiveFile(null);
+      const fileType = file?.type ?? "diagram";
+      const now = new Date().toISOString();
+      setActiveFile(
+        file
+          ? {
+              id: file.id,
+              projectId: nextDraft.id,
+              type: fileType,
+              name: file.name,
+              scene: file.scene,
+              spec: file.spec,
+              content: file.content,
+              history: file.history ?? [],
+              createdAt: now,
+              updatedAt: now,
+            }
+          : null,
+      );
       setProjectSnapshot({
         projectId: nextDraft.id,
         projectName: nextDraft.name,
         files: nextDraft.files.map((draftFile) => ({
           id: draftFile.id,
           name: draftFile.name,
-          type: "diagram",
+          type: draftFile.type ?? "diagram",
         })),
         activeFileId: currentFileIdRef.current,
       });
-      setDocContent("");
-      contentRef.current = "";
-      setInitialScene(file?.scene ?? null);
-      lastSavedVersionRef.current = initialElementsVersion(file?.scene);
+      const content = fileType === "doc" ? fileContentToText(file?.content) : "";
+      sceneRef.current = fileType === "diagram" ? (file?.scene ?? null) : null;
+      setDocContent(content);
+      contentRef.current = content;
+      setInitialScene(sceneRef.current);
+      lastSavedVersionRef.current = initialElementsVersion(sceneRef.current);
+      setFileLoading(false);
     } else {
       currentFileIdRef.current = null;
       setInitialScene(null);
@@ -200,6 +197,7 @@ export function useWorkspaceLayoutController() {
 
     async function loadActiveFile() {
       setSaveError(null);
+      setFileLoading(true);
 
       try {
         const [project, files] = await Promise.all([
@@ -252,6 +250,8 @@ export function useWorkspaceLayoutController() {
         if (active) {
           setSaveError(err instanceof Error ? err.message : "Could not load project file.");
         }
+      } finally {
+        if (active) setFileLoading(false);
       }
     }
 
@@ -292,9 +292,11 @@ export function useWorkspaceLayoutController() {
       for (const draftFile of currentDraft.files) {
         const file = await createProjectFile(project.id, {
           name: draftFile.name,
-          type: "diagram",
-          scene: draftFile.scene,
+          type: draftFile.type ?? "diagram",
+          scene: (draftFile.type ?? "diagram") === "diagram" ? draftFile.scene : undefined,
           spec: draftFile.spec,
+          content: draftFile.type === "doc" ? draftFile.content : undefined,
+          history: draftFile.history,
         });
         files.push({ draftId: draftFile.id, file });
       }
@@ -512,35 +514,17 @@ export function useWorkspaceLayoutController() {
   useEffect(() => {
     if (!excalidrawAPI) return;
 
-    if (!initialScene || typeof initialScene !== "object") {
-      if (!welcomeSceneRef.current) {
-        welcomeSceneRef.current = true;
-        void loadWelcomeScene(excalidrawAPI);
-      }
+    const scene = resolveDiagramScene(initialScene);
+    if (scene.kind === "legacy") {
+      void applyDiagramToCanvas(excalidrawAPI, scene.skeletons as never[], scene.rawElements);
       return;
     }
 
-    welcomeSceneRef.current = false;
-    const scene = initialScene as {
-      elements?: unknown;
-      appState?: unknown;
-      files?: unknown;
-      rawElements?: unknown;
-      skeletons?: unknown;
-    };
-
-    if (Array.isArray(scene.skeletons)) {
-      void applyDiagramToCanvas(
-        excalidrawAPI,
-        scene.skeletons as never[],
-        Array.isArray(scene.rawElements) ? scene.rawElements : [],
-      );
-      return;
-    }
+    if (scene.kind === "empty") return;
 
     const appState = sanitizeSceneAppState(scene.appState);
     excalidrawAPI.updateScene({
-      elements: Array.isArray(scene.elements) ? scene.elements : [],
+      elements: scene.elements as never[],
       appState: appState && typeof appState === "object" ? appState : undefined,
     });
 
@@ -616,9 +600,28 @@ export function useWorkspaceLayoutController() {
   }
 
   function openWorkspaceFile(fileId: string) {
+    if (fileId === currentFileIdRef.current) return;
+    setFileLoading(true);
     setStoredActiveFileId(fileId);
     router.push(`/project/${params.projectId}/workspace/${fileId}`);
   }
+
+  const handleAgentHistoryChange = useCallback((history: StoredChatMessage[]) => {
+    const currentDraft = draftRef.current;
+    if (!currentDraft || isSignedInRef.current) return;
+
+    const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
+    if (!fileId) return;
+
+    const nextDraft = {
+      ...currentDraft,
+      files: currentDraft.files.map((file) => (file.id === fileId ? { ...file, history } : file)),
+    };
+    draftRef.current = nextDraft;
+    saveGuestProjectDraft(nextDraft);
+    setDraft(nextDraft);
+    setActiveFile((current) => (current?.id === fileId ? { ...current, history } : current));
+  }, []);
 
   function beginEditName() {
     setNameDraft(activeFile?.name ?? draft?.name ?? "Your first design");
@@ -760,6 +763,16 @@ export function useWorkspaceLayoutController() {
     activeFile?.name ??
     sidebarFilesForProject.find((file) => file.id === activeFileId)?.name ??
     "Untitled file";
+  const agentContextPending =
+    session.isPending ||
+    fileLoading ||
+    Boolean(draft && isSignedIn) ||
+    Boolean(
+      isSignedIn &&
+      (!activeFile ||
+        activeFile.projectId !== params.projectId ||
+        (params.workspaceId && activeFile.id !== params.workspaceId)),
+    );
 
   return {
     state: {
@@ -768,10 +781,12 @@ export function useWorkspaceLayoutController() {
       activeFile,
       activeFileId,
       activeFileName,
+      agentContextPending,
       agentWidth,
       docContent,
       draft,
       excalidrawAPI,
+      fileLoading,
       firstFileName,
       initialScene,
       isAgentOpen,
@@ -802,6 +817,7 @@ export function useWorkspaceLayoutController() {
       handleCreateFirstFile,
       handleDocChange,
       handleExcalidrawAPI,
+      handleAgentHistoryChange,
       handleResizeStart,
       handleSceneChange,
       leaveWithoutSaving,

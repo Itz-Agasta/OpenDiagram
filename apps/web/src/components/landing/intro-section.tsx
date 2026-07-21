@@ -225,15 +225,15 @@ export function IntroSection() {
       <div className="relative flex min-h-screen w-full max-w-[1366px] flex-col items-center justify-center py-20">
         <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6">
           <span className="h-px w-[69px] bg-black/50" />
-          <span className="font-serif text-2xl italic">Hello!</span>
+          <span className="font-serif text-2xl italic">What is a Vibe Diagram?</span>
           <span className="h-px w-[69px] bg-black/50" />
         </div>
 
         <div className="relative flex w-full max-w-[940px] flex-col items-center gap-12 px-[120px] py-12 max-md:px-6">
-          <TextOpacityWords text="We help teams turn fuzzy software ideas into Vibe Diagrams that make architecture feel fast, visual, and alive" />
+          <TextOpacityWords text="Vibe diagramming is a faster way to design software systems. Describe how the system should work, get a visual first draft, then refine the architecture through conversation and a real editing canvas." />
 
           <SkillChip
-            label="Architecture Diagrams"
+            label="System Architecture"
             icon="Strategy"
             iconBackground="rgb(255, 213, 0)"
             iconColor="rgb(102, 0, 128)"
@@ -241,7 +241,7 @@ export function IntroSection() {
             className="right-[-78px] bottom-[52px] max-md:hidden"
           />
           <SkillChip
-            label="API Docs"
+            label="Design Decisions"
             icon="SidebarSimple"
             iconBackground="rgb(71, 71, 71)"
             iconColor="rgb(186, 255, 208)"
@@ -249,7 +249,7 @@ export function IntroSection() {
             className="left-[-57px] top-1/2 -translate-y-1/2 max-md:hidden"
           />
           <SkillChip
-            label="README"
+            label="Living Context"
             icon="FileDashed"
             iconBackground="rgb(255, 69, 171)"
             iconColor="rgb(201, 255, 251)"
@@ -265,7 +265,7 @@ export function IntroSection() {
             className="right-[-92px] top-[51px] max-md:hidden"
           />
           <SkillChip
-            label="Changelogs"
+            label="AI Collaboration"
             icon="MagnifyingGlass"
             iconBackground="rgb(5, 169, 255)"
             iconColor="rgb(248, 255, 191)"

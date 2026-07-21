@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,21 +9,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useWaitlistJoin } from "@/lib/use-waitlist-join";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
 import { WorkspaceHeader } from "./workspace-layout/WorkspaceHeader";
 import { WorkspaceSidebar } from "./workspace-layout/WorkspaceSidebar";
+import { hasDiagramScene, hasDiagramSpec } from "./workspace-layout/helpers";
 import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLayoutController";
 
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
-  const activeHistory = state.activeFile?.history as
-    | { id: string; role: "user" | "assistant"; text: string }[]
-    | undefined;
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const {
+    status: waitlistStatus,
+    errorMessage: waitlistError,
+    join: joinWaitlist,
+    reset: resetWaitlist,
+  } = useWaitlistJoin();
+  const activeHistory = state.activeFile?.history;
   const agentProjectId = state.isSignedIn ? state.activeFile?.projectId : undefined;
   const agentFileId = state.activeFile?.id ?? state.currentFileId ?? undefined;
+  const agentFileIdentity = state.activeFile
+    ? `${state.activeFile.projectId}:${state.activeFile.id}`
+    : undefined;
+
+  async function handleJoinWaitlist(event: React.FormEvent) {
+    event.preventDefault();
+    if (!state.isSignedIn && !waitlistEmail.trim()) return;
+
+    await joinWaitlist(state.isSignedIn ? undefined : waitlistEmail.trim());
+  }
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-od-surface text-od-ink">
@@ -63,6 +81,7 @@ export function WorkspaceLayout() {
           activeFile={state.activeFile}
           docContent={state.docContent}
           initialScene={state.initialScene}
+          isLoading={state.fileLoading}
           onDocChange={actions.handleDocChange}
           onExcalidrawAPI={actions.handleExcalidrawAPI}
           onSceneChange={actions.handleSceneChange}
@@ -71,13 +90,18 @@ export function WorkspaceLayout() {
 
       {state.isAgentOpen && (
         <WorkspaceAgentSidebar
-          activeFileId={state.activeFile?.id}
           activeFileType={state.activeFile?.type}
           agentWidth={state.agentWidth}
           excalidrawAPI={state.excalidrawAPI}
+          fileIdentity={agentFileIdentity}
           fileId={agentFileId}
           initialHistory={activeHistory}
+          hasExistingScene={
+            hasDiagramScene(state.initialScene) || hasDiagramSpec(state.activeFile?.spec)
+          }
+          isContextPending={state.agentContextPending}
           onClose={actions.closeAgent}
+          onHistoryChange={actions.handleAgentHistoryChange}
           onQuotaError={setQuotaMessage}
           onResizeStart={actions.handleResizeStart}
           projectId={agentProjectId}
@@ -101,16 +125,63 @@ export function WorkspaceLayout() {
       <Dialog
         open={quotaMessage !== null}
         onOpenChange={(open) => {
-          if (!open) setQuotaMessage(null);
+          if (!open) {
+            setQuotaMessage(null);
+            setWaitlistEmail("");
+            resetWaitlist();
+          }
         }}
       >
         <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-od-ink">Beta creation limit reached</DialogTitle>
+            <DialogTitle className="text-od-ink">
+              {waitlistStatus === "joined"
+                ? "You're on the waitlist"
+                : "Beta creation limit reached"}
+            </DialogTitle>
             <DialogDescription className="leading-6 text-od-ink-muted">
-              {quotaMessage}
+              {waitlistStatus === "joined"
+                ? "We'll let you know when more beta capacity becomes available."
+                : quotaMessage}
             </DialogDescription>
           </DialogHeader>
+          {waitlistStatus !== "joined" && (
+            <form className="mt-2 space-y-3" onSubmit={handleJoinWaitlist}>
+              {!state.isSignedIn && (
+                <div>
+                  <label htmlFor="quota-waitlist-email" className="sr-only">
+                    Email address
+                  </label>
+                  <input
+                    id="quota-waitlist-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="Enter your email"
+                    value={waitlistEmail}
+                    onChange={(event) => {
+                      setWaitlistEmail(event.target.value);
+                      if (waitlistStatus === "error") resetWaitlist();
+                    }}
+                    className="h-10 w-full rounded-lg border border-od-border-soft bg-white px-3 text-sm text-od-ink outline-none transition focus:border-od-ink-muted"
+                  />
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={waitlistStatus === "joining"}
+                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-white transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50"
+              >
+                {waitlistStatus === "joining" && <Loader2 className="size-4 animate-spin" />}
+                {waitlistStatus === "joining" ? "Joining…" : "Join the waitlist"}
+              </button>
+              {waitlistStatus === "error" && (
+                <p aria-live="polite" className="text-center text-xs text-red-600">
+                  {waitlistError}
+                </p>
+              )}
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

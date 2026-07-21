@@ -1,18 +1,22 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { PanelRightClose } from "lucide-react";
+import { Loader2, PanelRightClose } from "lucide-react";
+import type { StoredChatMessage } from "@/lib/chat-history";
 import type { RepoGenerationJob } from "@/lib/projects-client";
 import { AIChatPanel } from "../AIChatPanel";
 
 type WorkspaceAgentSidebarProps = {
-  activeFileId?: string;
   activeFileType?: "diagram" | "doc";
   agentWidth: number;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
+  fileIdentity?: string;
   fileId?: string;
-  initialHistory?: { id: string; role: "user" | "assistant"; text: string }[];
+  initialHistory?: unknown[];
+  hasExistingScene?: boolean;
+  isContextPending: boolean;
   projectId?: string;
   repoGenerationError: string | null;
   repoGenerationJob: RepoGenerationJob | null;
+  onHistoryChange: (history: StoredChatMessage[]) => void;
   onQuotaError: (message: string) => void;
   onClose: () => void;
   onResizeStart: (pane: "sidebar" | "agent", event: React.MouseEvent) => void;
@@ -22,11 +26,15 @@ export function WorkspaceAgentSidebar({
   activeFileType,
   agentWidth,
   excalidrawAPI,
+  fileIdentity,
   fileId,
   initialHistory,
+  hasExistingScene,
+  isContextPending,
   projectId,
   repoGenerationError,
   repoGenerationJob,
+  onHistoryChange,
   onQuotaError,
   onClose,
   onResizeStart,
@@ -53,15 +61,42 @@ export function WorkspaceAgentSidebar({
           <PanelRightClose className="h-4 w-4" />
         </button>
       </div>
-      <AIChatPanel
-        excalidrawAPI={activeFileType === "doc" ? null : excalidrawAPI}
-        projectId={projectId}
-        fileId={fileId}
-        initialHistory={initialHistory}
-        repoGenerationJob={repoGenerationJob}
-        repoGenerationError={repoGenerationError}
-        onQuotaError={onQuotaError}
-      />
+      <div className="relative flex min-h-0 flex-1" aria-busy={isContextPending}>
+        <div
+          aria-hidden={isContextPending}
+          inert={isContextPending}
+          className={`flex min-h-0 flex-1 ${isContextPending ? "invisible" : ""}`}
+        >
+          <AIChatPanel
+            // Context is hidden and seed generation is gated until this loaded
+            // identity is authoritative, so promotion cannot remount a live seed request.
+            key={fileIdentity}
+            activeFileType={activeFileType}
+            allowSeedAutoRun={!isContextPending}
+            excalidrawAPI={activeFileType === "doc" ? null : excalidrawAPI}
+            projectId={projectId}
+            fileId={fileId}
+            initialHistory={initialHistory}
+            hasExistingScene={hasExistingScene}
+            repoGenerationJob={repoGenerationJob}
+            repoGenerationError={repoGenerationError}
+            onHistoryChange={onHistoryChange}
+            onQuotaError={onQuotaError}
+          />
+        </div>
+        {isContextPending && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute inset-0 grid place-items-center bg-white text-od-ink-muted"
+          >
+            <div className="flex items-center gap-2 text-[13px]">
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              Loading agent context...
+            </div>
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

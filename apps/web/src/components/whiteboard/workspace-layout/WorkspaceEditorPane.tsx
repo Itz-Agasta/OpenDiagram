@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { SavedProjectFile } from "@/lib/projects-client";
 import { Whiteboard } from "../Whiteboard";
@@ -21,6 +22,7 @@ type WorkspaceEditorPaneProps = {
   activeFile: SavedProjectFile | null;
   docContent: string;
   initialScene: unknown;
+  isLoading: boolean;
   onDocChange: (value: string) => void;
   onExcalidrawAPI: (api: ExcalidrawImperativeAPI) => void;
   onSceneChange: (elements: readonly unknown[], appState: unknown, files: unknown) => void;
@@ -30,10 +32,22 @@ export function WorkspaceEditorPane({
   activeFile,
   docContent,
   initialScene,
+  isLoading,
   onDocChange,
   onExcalidrawAPI,
   onSceneChange,
 }: WorkspaceEditorPaneProps) {
+  if (isLoading) {
+    return (
+      <div className="grid min-h-0 flex-1 place-items-center bg-white text-od-ink-muted">
+        <div className="flex items-center gap-2 text-[13px]">
+          <Loader2 className="size-4 animate-spin" />
+          Loading file...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-0 flex-1 overflow-hidden">
       {activeFile?.type === "doc" ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
@@ -8,6 +8,14 @@ import type { ChatStatus, UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { env } from "@OpenDiagram/env/web";
 import type { DiagramSpec, RenderSkeleton, ThemeName } from "@OpenDiagram/harness";
+import {
+  normalizeStoredChatHistory,
+  storedChatMessageToUIMessage,
+  uiMessagesToStoredChatHistory,
+  uiMessageText,
+  type StoredAskUserInput,
+  type StoredChatMessage,
+} from "@/lib/chat-history";
 import { applyDiagramToCanvas } from "@/lib/excalidraw-utils";
 import { orchestrateWorkspaceRequest, runProjectChatAgent } from "@/lib/workspace-agents";
 import {
@@ -41,11 +49,8 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-}
+type ChatMessage = StoredChatMessage;
+type AskUserInput = StoredAskUserInput;
 
 /** Mirror of the server's draw_diagram tool output (apps/server lib/agent/tools.ts). */
 interface DrawDiagramOutput {
@@ -54,19 +59,18 @@ interface DrawDiagramOutput {
   summary: { title: string; nodes: number; edges: number; warnings: string[] };
 }
 
-interface AskUserInput {
-  question: string;
-  options: string[];
-}
-
 interface AIChatPanelProps {
+  activeFileType?: "diagram" | "doc";
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   projectId?: string;
   fileId?: string;
-  initialHistory?: ChatMessage[];
+  initialHistory?: unknown[];
+  hasExistingScene?: boolean;
+  allowSeedAutoRun?: boolean;
   repoGenerationJob?: RepoGenerationJob | null;
   repoGenerationError?: string | null;
   onQuotaError?: (message: string) => void;
+  onHistoryChange?: (history: StoredChatMessage[]) => void;
 }
 
 async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestInit) {
@@ -135,22 +139,39 @@ function diagramRequestLikely(text: string) {
 }
 
 export function AIChatPanel({
+  activeFileType,
   excalidrawAPI,
   projectId,
   fileId,
   initialHistory,
+  hasExistingScene,
+  allowSeedAutoRun = true,
   repoGenerationJob,
   repoGenerationError,
   onQuotaError,
+  onHistoryChange,
 }: AIChatPanelProps) {
   const currentSpecRef = useRef<DiagramSpec | undefined>(undefined);
   const frameByTitleRef = useRef(new Map<string, string>());
   const appliedToolCallsRef = useRef(new Set<string>());
+  const seedAutoRunKeyRef = useRef<string | null>(null);
   // Serializes canvas applies: each one reads and rewrites the whole scene, so
   // two in flight at once would clobber each other's elements.
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
-  const messageIdRef = useRef(initialHistory?.length ?? 0);
-  const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(initialHistory ?? []);
+  const normalizedHistory = useMemo(
+    () => normalizeStoredChatHistory(initialHistory),
+    [initialHistory],
+  );
+  const initialDiagramMessages =
+    activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];
+  const initialDiagramPrompt =
+    activeFileType === "diagram"
+      ? normalizedHistory.find((message) => message.role === "user")
+      : undefined;
+  const messageIdRef = useRef(normalizedHistory.length);
+  const [projectMessages, setProjectMessages] = useState<ChatMessage[]>(
+    activeFileType === "diagram" ? [] : normalizedHistory,
+  );
   const [projectStatus, setProjectStatus] = useState<ChatStatus>("ready");
   const [projectError, setProjectError] = useState<string | null>(null);
   const [themeName, setThemeName] = useState<ThemeName>("sketch");
@@ -166,13 +187,67 @@ export function AIChatPanel({
     status: diagramStatus,
     error: diagramError,
   } = useChat({
+    messages: initialDiagramMessages,
     transport: new DefaultChatTransport({
       api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
       body: () => ({ currentSpec: currentSpecRef.current, theme: themeRef.current }),
       fetch: fetchDiagramChat,
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    onFinish: ({ messages, isAbort, isError }) => {
+      const seedAutoRunKey = seedAutoRunKeyRef.current;
+      if (seedAutoRunKey) {
+        if (isAbort || isError) window.sessionStorage.removeItem(seedAutoRunKey);
+        seedAutoRunKeyRef.current = null;
+      }
+
+      const history = uiMessagesToStoredChatHistory(messages);
+      onHistoryChange?.(history);
+      if (projectId && fileId) {
+        void updateProjectFile(projectId, fileId, { history });
+      }
+    },
   });
+
+  useEffect(() => {
+    const hasAssistant = diagramMessages.some((message) => message.role === "assistant");
+    if (
+      !allowSeedAutoRun ||
+      !initialDiagramPrompt ||
+      !excalidrawAPI ||
+      hasAssistant ||
+      hasExistingScene
+    ) {
+      return;
+    }
+
+    const key = `opendiagram:auto-diagram:v2:${projectId ?? "guest"}:${fileId ?? "file"}:${initialDiagramPrompt.id}`;
+    if (window.sessionStorage.getItem(key)) return;
+
+    window.sessionStorage.setItem(key, "1");
+    seedAutoRunKeyRef.current = key;
+    const seedMessage = diagramMessages.find(
+      (message) => message.role === "user" && uiMessageText(message) === initialDiagramPrompt.text,
+    );
+    void sendMessage(
+      seedMessage
+        ? { text: initialDiagramPrompt.text, messageId: seedMessage.id }
+        : { text: initialDiagramPrompt.text },
+    ).catch(() => {
+      if (seedAutoRunKeyRef.current !== key) return;
+      window.sessionStorage.removeItem(key);
+      seedAutoRunKeyRef.current = null;
+    });
+  }, [
+    diagramMessages,
+    excalidrawAPI,
+    fileId,
+    hasExistingScene,
+    initialDiagramPrompt,
+    allowSeedAutoRun,
+    projectId,
+    sendMessage,
+  ]);
 
   useEffect(() => {
     if (!(diagramError instanceof CreationQuotaError)) return;
@@ -512,6 +587,13 @@ function renderPart(
   }
 
   if (part.type === "tool-ask_user") {
+    if (part.state === "output-error") {
+      return (
+        <p key={key} className="text-xs text-destructive">
+          {part.errorText}
+        </p>
+      );
+    }
     const input = part.input as AskUserInput | undefined;
     if (!input?.question) return null;
     const answered = part.state === "output-available" ? (part.output as string) : null;

@@ -11,6 +11,7 @@ import { githubImportRoute, githubRoute } from "./routes/github";
 import { orchestrateRoute } from "./routes/orchestrate";
 import { projectsRoute } from "./routes/projects";
 import { usageRoute } from "./routes/usage";
+import { waitlistRoute } from "./routes/waitlist";
 
 initLogger({
   env: { service: "OpenDiagram-server" },
@@ -53,6 +54,7 @@ app.route("/api/github", githubRoute);
 app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
 app.route("/api/usage", usageRoute);
+app.route("/api/waitlist", waitlistRoute);
 
 export default {
   // Two slow paths share this: GitHub's OAuth token exchange (>10s on slow

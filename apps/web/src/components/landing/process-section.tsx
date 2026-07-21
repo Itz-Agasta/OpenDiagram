@@ -24,20 +24,19 @@ function ProcessCard({ number, title, description, rotation }: ProcessCardProps)
   );
 }
 
-interface TestimonyProps {
+interface PrincipleProps {
   paddingTop: string;
-  quote: string;
-  name: string;
-  role: string;
+  title: string;
+  description: string;
 }
 
-function Testimony({ paddingTop, quote, name, role }: TestimonyProps) {
+function Principle({ paddingTop, title, description }: PrincipleProps) {
   return (
     <div className="flex w-full flex-col gap-6" style={{ paddingTop }}>
-      <p className="text-base leading-[1.7] italic">&ldquo;{quote}&rdquo;</p>
+      <p className="text-base leading-[1.7]">{description}</p>
       <div className="flex flex-col">
-        <span className="font-semibold">{name}</span>
-        <span className="text-sm text-black/50">{role}</span>
+        <span className="font-semibold">{title}</span>
+        <span className="text-sm text-black/50">OpenDiagram principle</span>
       </div>
     </div>
   );
@@ -106,11 +105,11 @@ export function ProcessSection() {
         <div className="flex w-full flex-col items-center gap-2.5 overflow-hidden">
           <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6">
             <span className="h-px w-[69px] bg-black/50" />
-            <span className="font-serif text-2xl italic">The Vibe Diagram Flow</span>
+            <span className="font-serif text-2xl italic">How Vibe Diagramming Works</span>
             <span className="h-px w-[69px] bg-black/50" />
           </div>
           <h2 className="w-full text-center text-[48px] font-bold leading-[1.4] -tracking-[0.04em] max-md:text-3xl">
-            From rough idea to shared architecture
+            From rough idea to living architecture
           </h2>
         </div>
 
@@ -121,42 +120,40 @@ export function ProcessSection() {
           <div className="relative z-10 -mr-4 flex w-[36%] flex-col gap-2.5 pt-[62px] max-md:-mr-0 max-md:mb-[-24px] max-md:w-full max-md:pt-0">
             <ProcessCard
               number="1"
-              title="Prompt"
-              description="Describe the system, feature, or repo you want to turn into a Vibe Diagram."
+              title="Describe"
+              description="Explain the behavior, scale, constraints, and technology behind the system you want to design."
               rotation={-5}
             />
           </div>
           <div className="relative z-20 -mx-4 flex w-[36%] flex-col gap-2.5 max-md:-mx-0 max-md:mb-[-24px] max-md:w-full max-md:pt-0">
             <ProcessCard
               number="2"
-              title="Generate"
-              description="OpenDiagram creates a visual first draft with services, flows, and architecture context."
+              title="Shape"
+              description="OpenDiagram turns your intent into an editable visual draft with services, flows, and system context."
               rotation={9}
             />
           </div>
           <div className="relative z-10 -ml-4 flex w-[36%] flex-col gap-2.5 pt-16 max-md:-ml-0 max-md:w-full max-md:pt-0">
             <ProcessCard
               number="3"
-              title="Shape the Vibe"
-              description="Edit the canvas, ask the agent for changes, and share a diagram your team can actually use."
+              title="Keep It Alive"
+              description="Refine the diagram with AI, connect decisions and context, and evolve it alongside the system."
               rotation={-3}
             />
           </div>
         </div>
 
         <div className="flex w-full items-start gap-24 pt-12 max-md:flex-col max-md:gap-12">
-          <Testimony
+          <Principle
             paddingTop="80px"
-            quote="OpenDiagram turned a messy architecture conversation into a Vibe Diagram our whole team understood in minutes."
-            name="Sophie Lemaire"
-            role="Product Lead at Loomi"
+            title="Start with intent, not boxes"
+            description="Describe the behavior you want before arranging components. OpenDiagram gives the conversation a visual form your team can inspect together."
           />
           <span className="w-px self-stretch bg-black/25 max-md:hidden" />
-          <Testimony
+          <Principle
             paddingTop="240px"
-            quote="We pasted a repo, asked for the system flow, and got a diagram we could immediately tweak with the agent."
-            name="Milan Bakker"
-            role="Founder of Drifted Studio"
+            title="Stay editable from the first draft"
+            description="Move components, redraw connections, and explore alternatives with AI. Your architecture remains a workspace—not a generated screenshot."
           />
         </div>
       </div>
