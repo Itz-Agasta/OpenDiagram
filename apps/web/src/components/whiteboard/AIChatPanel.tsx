@@ -575,6 +575,13 @@ function renderPart(
   }
 
   if (part.type === "tool-ask_user") {
+    if (part.state === "output-error") {
+      return (
+        <p key={key} className="text-xs text-destructive">
+          {part.errorText}
+        </p>
+      );
+    }
     const input = part.input as AskUserInput | undefined;
     if (!input?.question) return null;
     const answered = part.state === "output-available" ? (part.output as string) : null;

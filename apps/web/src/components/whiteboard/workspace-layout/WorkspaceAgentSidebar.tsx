@@ -85,9 +85,13 @@ export function WorkspaceAgentSidebar({
           />
         </div>
         {isContextPending && (
-          <div className="absolute inset-0 grid place-items-center bg-white text-od-ink-muted">
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute inset-0 grid place-items-center bg-white text-od-ink-muted"
+          >
             <div className="flex items-center gap-2 text-[13px]">
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
               Loading agent context...
             </div>
           </div>

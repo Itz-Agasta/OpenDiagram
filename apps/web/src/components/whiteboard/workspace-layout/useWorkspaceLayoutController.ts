@@ -158,6 +158,7 @@ export function useWorkspaceLayoutController() {
       contentRef.current = content;
       setInitialScene(sceneRef.current);
       lastSavedVersionRef.current = initialElementsVersion(sceneRef.current);
+      setFileLoading(false);
     } else {
       currentFileIdRef.current = null;
       setInitialScene(null);

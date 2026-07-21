@@ -55,6 +55,31 @@ export function hasDiagramScene(scene: unknown) {
   );
 }
 
+function isMeaningfulDiagramSpec(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const spec = value as { type?: unknown; title?: unknown; nodes?: unknown; edges?: unknown };
+  return (
+    typeof spec.type === "string" &&
+    typeof spec.title === "string" &&
+    spec.title.trim().length > 0 &&
+    Array.isArray(spec.nodes) &&
+    spec.nodes.length > 0 &&
+    Array.isArray(spec.edges)
+  );
+}
+
+export function hasDiagramSpec(value: unknown) {
+  if (isMeaningfulDiagramSpec(value)) return true;
+  if (!value || typeof value !== "object") return false;
+
+  const generated = value as { kind?: unknown; status?: unknown; diagramSpec?: unknown };
+  return (
+    generated.kind === "repo_generated" &&
+    generated.status === "complete" &&
+    isMeaningfulDiagramSpec(generated.diagramSpec)
+  );
+}
+
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
 

@@ -2,23 +2,17 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { joinWaitlist } from "@/lib/projects-client";
+import { useWaitlistJoin } from "@/lib/use-waitlist-join";
 
 export function WaitlistForm() {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "joining" | "joined" | "error">("idle");
+  const { status, errorMessage, join, reset } = useWaitlistJoin();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!email.trim()) return;
 
-    setStatus("joining");
-    try {
-      await joinWaitlist(email.trim());
-      setStatus("joined");
-    } catch {
-      setStatus("error");
-    }
+    await join(email.trim());
   }
 
   if (status === "joined") {
@@ -45,7 +39,7 @@ export function WaitlistForm() {
           value={email}
           onChange={(event) => {
             setEmail(event.target.value);
-            if (status === "error") setStatus("idle");
+            if (status === "error") reset();
           }}
           className="min-w-0 flex-1 rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm text-white placeholder-white/40 outline-none transition focus:border-white/50"
         />
@@ -60,7 +54,7 @@ export function WaitlistForm() {
       </form>
       {status === "error" && (
         <p aria-live="polite" className="text-center text-xs text-white/50">
-          Could not join. Check your email and try again.
+          {errorMessage}
         </p>
       )}
     </div>

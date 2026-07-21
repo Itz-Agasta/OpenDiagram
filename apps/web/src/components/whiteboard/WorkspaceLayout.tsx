@@ -9,22 +9,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { joinWaitlist } from "@/lib/projects-client";
+import { useWaitlistJoin } from "@/lib/use-waitlist-join";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
 import { WorkspaceHeader } from "./workspace-layout/WorkspaceHeader";
 import { WorkspaceSidebar } from "./workspace-layout/WorkspaceSidebar";
-import { hasDiagramScene } from "./workspace-layout/helpers";
+import { hasDiagramScene, hasDiagramSpec } from "./workspace-layout/helpers";
 import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLayoutController";
 
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
   const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistStatus, setWaitlistStatus] = useState<"idle" | "joining" | "joined" | "error">(
-    "idle",
-  );
+  const {
+    status: waitlistStatus,
+    errorMessage: waitlistError,
+    join: joinWaitlist,
+    reset: resetWaitlist,
+  } = useWaitlistJoin();
   const activeHistory = state.activeFile?.history;
   const agentProjectId = state.isSignedIn ? state.activeFile?.projectId : undefined;
   const agentFileId = state.activeFile?.id ?? state.currentFileId ?? undefined;
@@ -36,13 +39,7 @@ export function WorkspaceLayout() {
     event.preventDefault();
     if (!state.isSignedIn && !waitlistEmail.trim()) return;
 
-    setWaitlistStatus("joining");
-    try {
-      await joinWaitlist(state.isSignedIn ? undefined : waitlistEmail.trim());
-      setWaitlistStatus("joined");
-    } catch {
-      setWaitlistStatus("error");
-    }
+    await joinWaitlist(state.isSignedIn ? undefined : waitlistEmail.trim());
   }
 
   return (
@@ -99,7 +96,9 @@ export function WorkspaceLayout() {
           fileIdentity={agentFileIdentity}
           fileId={agentFileId}
           initialHistory={activeHistory}
-          hasExistingScene={hasDiagramScene(state.initialScene)}
+          hasExistingScene={
+            hasDiagramScene(state.initialScene) || hasDiagramSpec(state.activeFile?.spec)
+          }
           isContextPending={state.agentContextPending}
           onClose={actions.closeAgent}
           onHistoryChange={actions.handleAgentHistoryChange}
@@ -129,7 +128,7 @@ export function WorkspaceLayout() {
           if (!open) {
             setQuotaMessage(null);
             setWaitlistEmail("");
-            setWaitlistStatus("idle");
+            resetWaitlist();
           }
         }}
       >
@@ -162,7 +161,7 @@ export function WorkspaceLayout() {
                     value={waitlistEmail}
                     onChange={(event) => {
                       setWaitlistEmail(event.target.value);
-                      if (waitlistStatus === "error") setWaitlistStatus("idle");
+                      if (waitlistStatus === "error") resetWaitlist();
                     }}
                     className="h-10 w-full rounded-lg border border-od-border-soft bg-white px-3 text-sm text-od-ink outline-none transition focus:border-od-ink-muted"
                   />
@@ -178,7 +177,7 @@ export function WorkspaceLayout() {
               </button>
               {waitlistStatus === "error" && (
                 <p aria-live="polite" className="text-center text-xs text-red-600">
-                  Could not join. Please try again.
+                  {waitlistError}
                 </p>
               )}
             </form>
