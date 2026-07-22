@@ -7,7 +7,7 @@ import type { UserAiProviderKind } from "@OpenDiagram/db/schema/user-ai-provider
 import { env } from "@OpenDiagram/env/server";
 import type { LanguageModel } from "ai";
 import { AiProviderInvalidError } from "./provider-errors";
-import { assertSafeBaseUrl } from "./safe-url";
+import { assertSafeBaseUrl, createSafeFetch } from "./safe-url";
 
 const DEFAULT_GOOGLE_MODEL = "gemini-2.5-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-4.1";
@@ -51,8 +51,12 @@ export async function buildModelFromCredentials(input: {
   if (!baseURL) {
     throw new AiProviderInvalidError("Base URL is required for OpenAI-compatible providers.");
   }
-  await assertSafeBaseUrl(baseURL);
-  const openai = createOpenAI({ apiKey: input.apiKey, baseURL });
+  const safeBaseUrl = await assertSafeBaseUrl(baseURL);
+  const openai = createOpenAI({
+    apiKey: input.apiKey,
+    baseURL,
+    fetch: createSafeFetch(safeBaseUrl) as typeof fetch,
+  });
   return {
     model: openai.chat(modelId),
     provider: "openai_compatible",

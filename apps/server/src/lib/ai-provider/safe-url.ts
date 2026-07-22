@@ -1,5 +1,6 @@
 /** Enforces the deployment policy for user-supplied OpenAI-compatible endpoints. */
 import { env } from "@OpenDiagram/env/server";
+import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 /** Validate custom OpenAI-compatible endpoints used by self-hosted deployments. */
@@ -21,15 +22,33 @@ export async function assertSafeBaseUrl(raw: string): Promise<URL> {
     );
   }
 
-  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (isIP(hostname) !== 4 && isIP(hostname) !== 6) {
-    throw new Error("Base URL must use a public IP address to prevent DNS rebinding.");
-  }
-  if (isNonPublicAddress(hostname)) {
-    throw new Error("Base URL must resolve to a public address.");
-  }
+  await assertSafeHostname(url.hostname);
 
   return url;
+}
+
+/** Revalidates every custom-provider request immediately before fetch. */
+export function createSafeFetch(
+  baseUrl: URL,
+): (input: string | Request | URL, init?: RequestInit) => Promise<Response> {
+  return async (input, init) => {
+    const requestUrl = new URL(
+      typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+      baseUrl,
+    );
+    await assertSafeHostname(requestUrl.hostname);
+    return fetch(input, init);
+  };
+}
+
+async function assertSafeHostname(rawHostname: string): Promise<void> {
+  const hostname = rawHostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const addresses = isIP(hostname)
+    ? [hostname]
+    : (await lookup(hostname, { all: true, verbatim: true })).map(({ address }) => address);
+  if (addresses.length === 0 || addresses.some(isNonPublicAddress)) {
+    throw new Error("Base URL must resolve to a public address.");
+  }
 }
 
 function isNonPublicAddress(address: string): boolean {

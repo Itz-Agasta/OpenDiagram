@@ -2,7 +2,7 @@
 import type { UserAiProviderKind } from "@OpenDiagram/db/schema/user-ai-provider";
 import { env } from "@OpenDiagram/env/server";
 import { OPENROUTER_BASE_URL } from "./model-factory";
-import { assertSafeBaseUrl } from "./safe-url";
+import { assertSafeBaseUrl, createSafeFetch } from "./safe-url";
 
 export type ListedModel = {
   id: string;
@@ -46,13 +46,18 @@ export async function listProviderModels(input: {
   // openai_compatible
   const base = input.baseUrl?.trim();
   if (!base) throw new Error("Base URL is required for OpenAI-compatible providers.");
-  await assertSafeBaseUrl(base);
-  return listOpenAiCompatibleModels(apiKey, base, (ids) =>
-    ids
-      .map((id) => id.trim())
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b))
-      .map((id) => ({ id, label: id })),
+  const safeBaseUrl = await assertSafeBaseUrl(base);
+  return listOpenAiCompatibleModels(
+    apiKey,
+    base,
+    (ids) =>
+      ids
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b))
+        .map((id) => ({ id, label: id })),
+    undefined,
+    createSafeFetch(safeBaseUrl) as typeof fetch,
   );
 }
 
@@ -161,11 +166,12 @@ async function listOpenAiCompatibleModels(
   baseUrl: string,
   filter: (ids: string[]) => ListedModel[],
   extraHeaders?: Record<string, string>,
+  fetchFn: typeof fetch = fetch,
 ): Promise<ListedModel[]> {
   const base = baseUrl.replace(/\/+$/, "");
   const url = `${base}/models`;
 
-  const response = await fetch(url, {
+  const response = await fetchFn(url, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${apiKey}`,
