@@ -21,6 +21,7 @@ import {
   isProviderCreditError,
   applyAiProviderHeaders,
   isProviderCapacityError,
+  isProviderRateLimitErrorForSource,
   providerCapacityMessage,
   providerCreditResponse,
   resolveModel,
@@ -182,9 +183,11 @@ diagramRoute.post("/chat", async (c) => {
         if (resolved.source === "byok" && isProviderCreditError(error)) {
           return providerCreditResponse().error;
         }
-        return isProviderCapacityError(error)
+        return isProviderCapacityError(error, resolved.source)
           ? providerCapacityMessage()
-          : "The diagram agent is unavailable. Try again.";
+          : isProviderRateLimitErrorForSource(error, resolved.source)
+            ? "Your selected AI provider is rate limited. Try again shortly."
+            : "The diagram agent is unavailable. Try again.";
       },
     }),
   });

@@ -28,9 +28,9 @@ export async function validateCredentials(input: {
 }) {
   if (input.provider === "openai_compatible") {
     if (!input.baseUrl) throw new Error("Base URL is required for OpenAI-compatible providers.");
-    assertSafeBaseUrl(input.baseUrl);
+    await assertSafeBaseUrl(input.baseUrl);
   }
-  const { model } = buildModelFromCredentials(input);
+  const { model } = await buildModelFromCredentials(input);
   const options = validationOptionsFor(input.provider, input.modelId);
   const toolResult = await generateText({
     model,

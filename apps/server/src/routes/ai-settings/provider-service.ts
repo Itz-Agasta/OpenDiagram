@@ -1,5 +1,5 @@
 /** Persistence, encryption, validation orchestration, and default-provider invariants. */
-import { and, asc, db, eq } from "@OpenDiagram/db";
+import { and, asc, db, eq, sql } from "@OpenDiagram/db";
 import {
   userAiPreference,
   userAiProvider,
@@ -18,7 +18,10 @@ import type { CreateProviderInput, UpdateProviderInput } from "./schemas";
 import { modelIdFor, validateCredentials } from "./validation";
 
 const MODEL_CACHE_TTL_MS = 10 * 60_000;
+const MODEL_CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const MODEL_CACHE_MAX_ENTRIES = 10_000;
 const modelCache = new Map<string, { expiresAt: number; models: ListedModel[] }>();
+let nextModelCacheCleanupAt = 0;
 
 export class ProviderConfigurationError extends Error {
   code = "ai_provider_invalid" as const;
@@ -67,7 +70,9 @@ export async function getSavedProviderModels(userId: string, id: string) {
   if (!provider) return null;
 
   const cached = modelCache.get(id);
-  if (cached && cached.expiresAt > Date.now()) return cached.models;
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.models;
+  if (cached) modelCache.delete(id);
 
   const apiKey = decryptSecret(provider.encryptedApiKey, {
     userId,
@@ -79,13 +84,25 @@ export async function getSavedProviderModels(userId: string, id: string) {
     apiKey,
     baseUrl: provider.baseUrl,
   });
-  modelCache.set(id, { expiresAt: Date.now() + MODEL_CACHE_TTL_MS, models });
+  const expiresAt = Date.now() + MODEL_CACHE_TTL_MS;
+  if (modelCache.size >= MODEL_CACHE_MAX_ENTRIES && Date.now() >= nextModelCacheCleanupAt) {
+    for (const [cacheKey, value] of modelCache) {
+      if (value.expiresAt <= Date.now()) modelCache.delete(cacheKey);
+    }
+    nextModelCacheCleanupAt = Date.now() + MODEL_CACHE_CLEANUP_INTERVAL_MS;
+  }
+  while (modelCache.size >= MODEL_CACHE_MAX_ENTRIES) {
+    const oldestKey = modelCache.keys().next().value;
+    if (!oldestKey) break;
+    modelCache.delete(oldestKey);
+  }
+  modelCache.set(id, { expiresAt, models });
   return models;
 }
 
 export async function createProvider(userId: string, data: CreateProviderInput) {
   requireEncryptionReady();
-  assertProviderBaseUrl(data.provider, data.baseUrl);
+  await assertProviderBaseUrl(data.provider, data.baseUrl);
   const modelId = modelIdFor(data.provider, data.modelId);
 
   try {
@@ -94,14 +111,6 @@ export async function createProvider(userId: string, data: CreateProviderInput) 
     throw new ProviderConfigurationError(error);
   }
 
-  const existing = await db
-    .select({ isDefault: userAiProvider.isDefault })
-    .from(userAiProvider)
-    .where(eq(userAiProvider.userId, userId));
-  const makeDefault =
-    existing.length === 0 ||
-    !existing.some((provider) => provider.isDefault) ||
-    data.isDefault === true;
   const id = crypto.randomUUID();
   const encryptedApiKey = encryptSecret(data.apiKey, {
     userId,
@@ -110,6 +119,15 @@ export async function createProvider(userId: string, data: CreateProviderInput) 
   });
 
   const [row] = await db.transaction(async (transaction) => {
+    await transaction.execute(sql`select id from "user" where id = ${userId} for update`);
+    const existing = await transaction
+      .select({ isDefault: userAiProvider.isDefault })
+      .from(userAiProvider)
+      .where(eq(userAiProvider.userId, userId));
+    const makeDefault =
+      existing.length === 0 ||
+      !existing.some((provider) => provider.isDefault) ||
+      data.isDefault === true;
     if (makeDefault) await clearDefaultProvider(transaction, userId);
     return transaction
       .insert(userAiProvider)
@@ -140,7 +158,7 @@ export async function updateProvider(userId: string, id: string, data: UpdatePro
 
   const nextModelId = data.modelId ?? existing.modelId;
   const nextBaseUrl = data.baseUrl === undefined ? existing.baseUrl : data.baseUrl;
-  assertProviderBaseUrl(existing.provider, nextBaseUrl);
+  await assertProviderBaseUrl(existing.provider, nextBaseUrl);
 
   let encryptedApiKey = existing.encryptedApiKey;
   let last4 = existing.keyLast4;
@@ -170,6 +188,7 @@ export async function updateProvider(userId: string, id: string, data: UpdatePro
         baseUrl: nextBaseUrl,
       });
     } catch (error) {
+      if (error instanceof ByokEncryptionError) throw error;
       throw new ProviderConfigurationError(error);
     }
   }
@@ -198,18 +217,18 @@ export function updateRequiresValidation(data: UpdateProviderInput) {
 }
 
 export async function deleteProvider(userId: string, id: string) {
-  const [existing] = await db
-    .select()
-    .from(userAiProvider)
-    .where(and(eq(userAiProvider.id, id), eq(userAiProvider.userId, userId)))
-    .limit(1);
-  if (!existing) return null;
-
-  await db.transaction(async (transaction) => {
+  const provider = await db.transaction(async (transaction) => {
+    await transaction.execute(sql`select id from "user" where id = ${userId} for update`);
+    const [existing] = await transaction
+      .select()
+      .from(userAiProvider)
+      .where(and(eq(userAiProvider.id, id), eq(userAiProvider.userId, userId)))
+      .limit(1);
+    if (!existing) return null;
     await transaction
       .delete(userAiProvider)
       .where(and(eq(userAiProvider.id, id), eq(userAiProvider.userId, userId)));
-    if (!existing.isDefault) return;
+    if (!existing.isDefault) return existing.provider;
 
     const [next] = await transaction
       .select()
@@ -223,9 +242,10 @@ export async function deleteProvider(userId: string, id: string) {
         .set({ isDefault: true })
         .where(eq(userAiProvider.id, next.id));
     }
+    return existing.provider;
   });
   modelCache.delete(id);
-  return existing.provider;
+  return provider;
 }
 
 export async function updatePreference(userId: string, preferredSource: PreferredAiSource) {
@@ -249,15 +269,22 @@ function requireEncryptionReady() {
   }
 }
 
-function assertProviderBaseUrl(provider: string, baseUrl?: string | null) {
-  if (provider !== "openai_compatible") return;
+async function assertProviderBaseUrl(provider: string, baseUrl?: string | null) {
+  if (provider !== "openai_compatible") {
+    if (baseUrl) {
+      throw new ProviderConfigurationError(
+        new Error("Base URL is only supported for OpenAI-compatible providers."),
+      );
+    }
+    return;
+  }
   if (!baseUrl) {
     throw new ProviderConfigurationError(
       new Error("Base URL is required for OpenAI-compatible providers."),
     );
   }
   try {
-    assertSafeBaseUrl(baseUrl);
+    await assertSafeBaseUrl(baseUrl);
   } catch (error) {
     throw new ProviderConfigurationError(error);
   }

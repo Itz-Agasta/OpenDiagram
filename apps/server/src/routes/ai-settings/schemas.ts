@@ -4,6 +4,18 @@ import { z } from "zod";
 import { enabledByokProviderKinds } from "../../lib/ai-provider/provider-catalog";
 
 const providerKindSchema = z.enum(enabledByokProviderKinds);
+const rejectUnsupportedBaseUrl = (
+  value: { provider: string; baseUrl?: string | null },
+  ctx: z.RefinementCtx,
+) => {
+  if (value.baseUrl && value.provider !== "openai_compatible") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["baseUrl"],
+      message: "Base URL is only supported for OpenAI-compatible providers.",
+    });
+  }
+};
 
 export const createProviderSchema = z
   .object({
@@ -14,7 +26,8 @@ export const createProviderSchema = z
     baseUrl: z.string().trim().url().optional(),
     isDefault: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(rejectUnsupportedBaseUrl);
 
 export const updateProviderSchema = z
   .object({
@@ -34,7 +47,8 @@ export const validateProviderSchema = z
     modelId: z.string().trim().min(1).max(120).optional(),
     baseUrl: z.string().trim().url().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(rejectUnsupportedBaseUrl);
 
 export const listModelsSchema = z
   .object({
@@ -42,7 +56,8 @@ export const listModelsSchema = z
     apiKey: z.string().trim().min(8).max(512),
     baseUrl: z.string().trim().url().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(rejectUnsupportedBaseUrl);
 
 export const preferenceSchema = z.object({ preferredSource: z.enum(preferredAiSources) }).strict();
 

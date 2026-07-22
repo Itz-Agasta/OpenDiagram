@@ -16,12 +16,12 @@ const DEFAULT_OPENROUTER_MODEL = "openrouter/free";
 const DEFAULT_COMPAT_MODEL = "gpt-4o-mini";
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
-export function buildModelFromCredentials(input: {
+export async function buildModelFromCredentials(input: {
   provider: UserAiProviderKind;
   apiKey: string;
   modelId: string;
   baseUrl?: string | null;
-}): { model: LanguageModel; provider: string; modelId: string } {
+}): Promise<{ model: LanguageModel; provider: string; modelId: string }> {
   const modelId = input.modelId.trim();
   if (!modelId) throw new AiProviderInvalidError("Model id is required.");
 
@@ -51,7 +51,7 @@ export function buildModelFromCredentials(input: {
   if (!baseURL) {
     throw new AiProviderInvalidError("Base URL is required for OpenAI-compatible providers.");
   }
-  assertSafeBaseUrl(baseURL);
+  await assertSafeBaseUrl(baseURL);
   const openai = createOpenAI({ apiKey: input.apiKey, baseURL });
   return {
     model: openai.chat(modelId),

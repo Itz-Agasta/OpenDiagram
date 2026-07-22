@@ -63,12 +63,19 @@ export function createOrchestratorModel(): ReturnType<ReturnType<typeof createGr
   return groq(GROQ_ORCHESTRATOR_MODEL);
 }
 
-export function isProviderCapacityError(error: unknown) {
-  return error instanceof ProviderCapacityError || isProviderRateLimitError(error);
+export function isProviderCapacityError(error: unknown, source: "platform" | "byok" = "platform") {
+  return (
+    source === "platform" &&
+    (error instanceof ProviderCapacityError || isProviderRateLimitError(error))
+  );
+}
+
+export function isProviderRateLimitErrorForSource(error: unknown, source: "platform" | "byok") {
+  return source === "byok" && isProviderRateLimitError(error);
 }
 
 /**
- * Run an LLM call on the resolved model; if a platform fallback exists (Gemini)
+ * Run an LLM call on the resolved model; if a platform fallback exists (Groq)
  * and the primary fails, retry once on the fallback. Non-streaming only.
  */
 export async function runWithPlatformFallback<T>(

@@ -6,6 +6,9 @@ interface RateLimitBucket {
 }
 
 const buckets = new Map<string, RateLimitBucket>();
+const MAX_BUCKETS = 10_000;
+const CLEANUP_INTERVAL_MS = 60_000;
+let nextCleanupAt = 0;
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -25,10 +28,15 @@ export function consumeRateLimit(
   bucket.count += 1;
   buckets.set(key, bucket);
 
-  if (buckets.size > 10_000) {
+  if (buckets.size > MAX_BUCKETS && now >= nextCleanupAt) {
     for (const [bucketKey, value] of buckets) {
       if (value.resetAt <= now) buckets.delete(bucketKey);
     }
+    nextCleanupAt = now + CLEANUP_INTERVAL_MS;
+  }
+  if (buckets.size > MAX_BUCKETS) {
+    const oldestKey = buckets.keys().next().value;
+    if (oldestKey && oldestKey !== key) buckets.delete(oldestKey);
   }
 
   return {
@@ -41,4 +49,5 @@ export function consumeRateLimit(
 
 export function resetRateLimitsForTests() {
   buckets.clear();
+  nextCleanupAt = 0;
 }

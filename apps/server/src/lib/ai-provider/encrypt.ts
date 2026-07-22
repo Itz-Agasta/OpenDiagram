@@ -46,7 +46,9 @@ function loadKeyring(): Map<string, Buffer> {
 
   if (env.BYOK_ENCRYPTION_KEY) {
     const keyId = env.BYOK_ENCRYPTION_KEY_ID ?? LEGACY_KEY_ID;
-    if (!keys.has(keyId)) keys.set(keyId, decodeKey(env.BYOK_ENCRYPTION_KEY, keyId));
+    const decoded = decodeKey(env.BYOK_ENCRYPTION_KEY, keyId);
+    if (!keys.has(keyId)) keys.set(keyId, decoded);
+    if (!keys.has(LEGACY_KEY_ID)) keys.set(LEGACY_KEY_ID, decoded);
   }
   return keys;
 }

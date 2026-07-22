@@ -39,15 +39,27 @@ aiSettingsRoutes.get(
   "/providers/:id/models",
   providerRequestLimit("list_saved_models"),
   async (c) => {
+    const startedAt = performance.now();
+    const operation = "list_saved_models";
     try {
       const models = await getSavedProviderModels(c.get("userId"), c.req.param("id"));
       if (!models) return c.json({ error: "Not found" }, 404);
+      recordByokOutcome(c.get("log"), {
+        operation,
+        result: "success",
+        startedAt,
+        modelCount: models.length,
+      });
       return c.json({ models });
     } catch (error) {
-      return c.json(
-        { error: error instanceof Error ? error.message : "Could not load provider models." },
-        400,
-      );
+      recordByokOutcome(c.get("log"), { operation, result: "error", startedAt });
+      c.get("log").warn("Saved provider model discovery failed", {
+        byok: { operation },
+        error: safeError(error),
+      });
+      const response = providerErrorResponse(c, error);
+      if (response) return response;
+      return c.json({ error: "Could not load provider models.", code: "list_models_failed" }, 400);
     }
   },
 );

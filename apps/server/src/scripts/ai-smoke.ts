@@ -28,7 +28,7 @@ async function main() {
   const positioned = await layoutDiagram(spec);
   const scene = renderToExcalidraw(positioned, iconRegistry);
 
-  if (spec.nodes.length < 4 || spec.edges.length < 3 || scene.skeletons.length === 0) {
+  if (spec.nodes.length < 5 || spec.edges.length < 4 || scene.skeletons.length === 0) {
     throw new Error(
       `AI diagram smoke returned an incomplete renderable diagram: ${spec.nodes.length} nodes, ${spec.edges.length} edges, ${scene.skeletons.length} skeletons.`,
     );
@@ -41,7 +41,10 @@ async function main() {
     maxOutputTokens: 1200,
   });
 
-  if (!doc.text.includes("#") || doc.text.length < 300) {
+  const hasMarkdownHeading =
+    /(?:^|\n) {0,3}#{1,6}\s+\S/.test(doc.text) ||
+    /(?:^|\n) {0,3}\S[^\n]*\n {0,3}(?:=+|-+)\s*(?:\n|$)/.test(doc.text);
+  if (!hasMarkdownHeading || doc.text.length < 300) {
     throw new Error("AI doc smoke returned markdown that was too short or missing headings.");
   }
 

@@ -11,6 +11,7 @@ import {
   isProviderCreditError,
   applyAiProviderHeaders,
   isProviderCapacityError,
+  isProviderRateLimitErrorForSource,
   providerCapacityResponse,
   providerCreditResponse,
   resolveModel,
@@ -75,11 +76,16 @@ const updateFileSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No fields to update" });
 
-const chatSchema = z.object({
-  message: z.string().min(1).max(4000),
-  modelId: z.string().trim().min(1).max(120).optional(),
-  providerId: z.string().uuid().optional(),
-});
+const chatSchema = z
+  .object({
+    message: z.string().min(1).max(4000),
+    modelId: z.string().trim().min(1).max(120).optional(),
+    providerId: z.string().uuid().optional(),
+  })
+  .refine((value) => !value.modelId || Boolean(value.providerId), {
+    message: "providerId is required when modelId is supplied.",
+    path: ["providerId"],
+  });
 
 const contextQuerySchema = z.object({
   query: z.string().min(1).max(2000),
@@ -252,13 +258,24 @@ projectsRoute.post("/:projectId/chat", async (c) => {
       resolvedModel: resolved,
     });
     answer = result.answer;
+    applyAiProviderHeaders(c, result.resolvedModel);
   } catch (error) {
     const mapped = aiProviderErrorResponse(error);
     if (mapped) return c.json(mapped.body, mapped.status);
     if (resolved.source === "byok" && isProviderCreditError(error)) {
       return c.json(providerCreditResponse(), 402);
     }
-    if (isProviderCapacityError(error)) return c.json(providerCapacityResponse(), 429);
+    if (isProviderCapacityError(error, resolved.source))
+      return c.json(providerCapacityResponse(), 429);
+    if (isProviderRateLimitErrorForSource(error, resolved.source)) {
+      return c.json(
+        {
+          error: "Your selected AI provider is rate limited. Try again shortly.",
+          code: "provider_rate_limited",
+        },
+        429,
+      );
+    }
     throw error;
   }
 

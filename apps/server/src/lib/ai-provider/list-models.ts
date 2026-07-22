@@ -46,7 +46,7 @@ export async function listProviderModels(input: {
   // openai_compatible
   const base = input.baseUrl?.trim();
   if (!base) throw new Error("Base URL is required for OpenAI-compatible providers.");
-  assertSafeBaseUrl(base);
+  await assertSafeBaseUrl(base);
   return listOpenAiCompatibleModels(apiKey, base, (ids) =>
     ids
       .map((id) => id.trim())
@@ -57,25 +57,38 @@ export async function listProviderModels(input: {
 }
 
 async function listGoogleModels(apiKey: string): Promise<ListedModel[]> {
-  const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
-  url.searchParams.set("pageSize", "100");
+  const allModels: Array<{
+    name?: string;
+    displayName?: string;
+    supportedGenerationMethods?: string[];
+  }> = [];
+  let pageToken: string | undefined;
+  do {
+    const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
+    url.searchParams.set("pageSize", "100");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json", "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(parseProviderError(response.status, body, "Google Gemini"));
+    }
+    const data = (await response.json()) as {
+      models?: Array<{
+        name?: string;
+        displayName?: string;
+        supportedGenerationMethods?: string[];
+      }>;
+      nextPageToken?: string;
+    };
+    allModels.push(...(data.models ?? []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Accept: "application/json", "x-goog-api-key": apiKey },
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(parseProviderError(response.status, body, "Google Gemini"));
-  }
-
-  const data = (await response.json()) as {
-    models?: Array<{ name?: string; displayName?: string; supportedGenerationMethods?: string[] }>;
-  };
-
-  const models = (data.models ?? [])
+  const models = allModels
     .filter((m) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
     .map((m) => {
       const raw = m.name ?? "";
@@ -96,26 +109,37 @@ async function listGoogleModels(apiKey: string): Promise<ListedModel[]> {
 }
 
 async function listAnthropicModels(apiKey: string): Promise<ListedModel[]> {
-  const response = await fetch("https://api.anthropic.com/v1/models", {
-    method: "GET",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(parseProviderError(response.status, body, "Anthropic"));
+  const allModels: Array<{ id?: string; display_name?: string }> = [];
+  let afterId: string | undefined;
+  let hasMore = true;
+  while (hasMore) {
+    const url = new URL("https://api.anthropic.com/v1/models");
+    url.searchParams.set("limit", "100");
+    if (afterId) url.searchParams.set("after_id", afterId);
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(parseProviderError(response.status, body, "Anthropic"));
+    }
+    const data = (await response.json()) as {
+      data?: Array<{ id?: string; display_name?: string }>;
+      has_more?: boolean;
+      last_id?: string;
+    };
+    allModels.push(...(data.data ?? []));
+    hasMore = Boolean(data.has_more && data.last_id && data.last_id !== afterId);
+    afterId = data.last_id;
   }
 
-  const data = (await response.json()) as {
-    data?: Array<{ id?: string; display_name?: string }>;
-  };
-
-  const models = (data.data ?? [])
+  const models = allModels
     .map((m) => {
       const id = m.id?.trim() ?? "";
       return {

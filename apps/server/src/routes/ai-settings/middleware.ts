@@ -64,6 +64,6 @@ export function recordByokOutcome(
 
 export function safeError(error: unknown) {
   return error instanceof Error
-    ? { name: error.name, message: error.message }
-    : { name: "UnknownError", message: "Unknown provider error" };
+    ? { name: error.name, message: "Provider request failed." }
+    : { name: "UnknownError", message: "Provider request failed." };
 }

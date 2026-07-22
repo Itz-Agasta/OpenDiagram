@@ -150,6 +150,8 @@ async function tryUserByok(
         .orderBy(asc(userAiProvider.createdAt), asc(userAiProvider.id))
         .limit(1);
 
+  if (providerId && !selectedRow) return null;
+
   const [fallbackRow] = defaultRow
     ? [defaultRow]
     : await db
@@ -179,7 +181,7 @@ async function tryUserByok(
     );
   }
 
-  const built = buildModelFromCredentials({
+  const built = await buildModelFromCredentials({
     provider: providerRow.provider,
     apiKey,
     modelId: modelId ?? providerRow.modelId,
