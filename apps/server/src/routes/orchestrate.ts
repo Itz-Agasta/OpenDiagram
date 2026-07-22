@@ -1,8 +1,7 @@
-import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { Hono } from "hono";
 import { z } from "zod";
-import { env } from "@OpenDiagram/env/server";
+import { createOrchestratorModel } from "../lib/ai-provider";
 
 const requestSchema = z.object({
   text: z.string().trim().min(1).max(2000),
@@ -13,6 +12,8 @@ const DIAGRAM_NOUNS =
 const DIAGRAM_VERBS = /\b(create|design|draw|generate|render|sketch|map)\b/i;
 const DIAGRAM_TARGETS =
   /\b(diagram|architecture|system flow|request flow|data flow|sequence|flowchart)\b/i;
+const ARCHITECTURE_INTENT =
+  /\b(how should|what would|help me|can you|design|architect|build|create|model|visuali[sz]e|draw|generate|map)\b[\s\S]{0,100}\b(architecture|system|topology|component|service|api|database|auth|authentication|payment|checkout|event|queue|microservice|infrastructure|flow)\b/i;
 
 const SYSTEM_PROMPT = `You are an orchestrator for an AI architecture workspace. Classify the user's request into one of two intents:
 
@@ -36,13 +37,9 @@ orchestrateRoute.post("/", async (c) => {
     return c.json({ intent: "diagram" });
   }
 
-  if (!env.GROQ_API_KEY) {
-    return c.json({ intent: "project_chat" });
-  }
-
   try {
     const { text: response } = await generateText({
-      model: groq("groq/compound-mini"),
+      model: createOrchestratorModel(),
       system: SYSTEM_PROMPT,
       prompt: text,
       timeout: 15_000,
@@ -51,10 +48,14 @@ orchestrateRoute.post("/", async (c) => {
     const intent = response.trim().toLowerCase() === "diagram" ? "diagram" : "project_chat";
     return c.json({ intent });
   } catch {
-    return c.json({ intent: "project_chat" });
+    return c.json({ intent: "diagram" });
   }
 });
 
 function isLikelyDiagramRequest(text: string) {
-  return DIAGRAM_NOUNS.test(text) || (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text));
+  return (
+    DIAGRAM_NOUNS.test(text) ||
+    (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text)) ||
+    ARCHITECTURE_INTENT.test(text)
+  );
 }

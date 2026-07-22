@@ -1,3 +1,4 @@
+/** Validates all secrets and deployment settings consumed by the API server. */
 import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
@@ -14,16 +15,24 @@ export const env = createEnv({
     // the session cookie is shared across app.* (web) and api.* (server). Leave
     // unset locally -- localhost needs no cross-subdomain sharing.
     COOKIE_DOMAIN: z.string().min(1).optional(),
-    // Orchestrator intent classifier (optional — degrades to regex if unset).
+    // Groq platform models and orchestrator. A comma-separated key list can
+    // spread requests across multiple free-tier accounts.
     GROQ_API_KEY: z.string().min(1).optional(),
-    // All LLM tasks (diagrams, docs, analysis, chat) run on Gemini.
-    // Functionally required in prod.
+    GROQ_API_KEYS: z.string().min(1).optional(),
+    // Gemini remains the platform model/fallback when configured.
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
-    // Kimi / OpenAI-compatible gateway — currently unused (all tasks on Gemini).
-    // Kept for easy re-enable; safe to leave unset.
-    CUSTOM_AI_API_KEY: z.string().min(1).optional(),
-    CUSTOM_AI_BASE_URL: z.url().optional(),
-    CUSTOM_AI_MODEL: z.string().min(1).optional(),
+    // AES-256-GCM key used to encrypt per-user BYOK credentials.
+    BYOK_ENCRYPTION_KEY: z.string().min(1).optional(),
+    // Rotation-ready keyring: comma-separated keyId=base64Key entries.
+    BYOK_ENCRYPTION_KEYS: z.string().min(1).optional(),
+    BYOK_ENCRYPTION_KEY_ID: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .optional(),
+    AI_PLATFORM_ENABLED: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
     COGNEE_BASE_URL: z.url().optional(),
     COGNEE_API_KEY: z.string().min(1).optional(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

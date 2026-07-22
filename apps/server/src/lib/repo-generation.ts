@@ -496,6 +496,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
         repoFullName,
         defaultBranch,
         commitSha,
+        userId: projectRow.userId,
       }).catch(() => {
         return [
           `# ${item.name.replace(/\.md$/i, "")}`,
@@ -539,6 +540,7 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
         prompt: `Generate a ${item.name.toLowerCase()} for the imported source repository.\nGoal: ${item.goal}`,
         diagramType: "system-design",
         context: context?.context ?? "",
+        userId: projectRow.userId,
       }).catch(() => null);
 
       let diagram:

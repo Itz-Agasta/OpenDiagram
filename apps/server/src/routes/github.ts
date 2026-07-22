@@ -97,19 +97,21 @@ githubRoute.get("/repositories", async (c) => {
   }
 
   return c.json({
-    repositories: repositories.map((repo) => ({
-      id: repo.id,
-      name: repo.name,
-      fullName: repo.full_name,
-      private: repo.private,
-      defaultBranch: repo.default_branch,
-      updatedAt: repo.updated_at,
-      htmlUrl: repo.html_url,
-      owner: {
-        login: repo.owner.login,
-        avatarUrl: repo.owner.avatar_url,
-      },
-    })),
+    repositories: repositories
+      .filter((repo) => !repo.private)
+      .map((repo) => ({
+        id: repo.id,
+        name: repo.name,
+        fullName: repo.full_name,
+        private: repo.private,
+        defaultBranch: repo.default_branch,
+        updatedAt: repo.updated_at,
+        htmlUrl: repo.html_url,
+        owner: {
+          login: repo.owner.login,
+          avatarUrl: repo.owner.avatar_url,
+        },
+      })),
   });
 });
 
@@ -175,6 +177,10 @@ async function importGitHubRepository(c: Context) {
     repo = (await repoResponse.json()) as GitHubRepository;
   } catch {
     return c.json({ error: "Invalid response from GitHub." }, 502);
+  }
+
+  if (repo.private) {
+    return c.json({ error: "Private GitHub repositories are not supported yet." }, 403);
   }
 
   const { job, isNew } = await createImportJob({

@@ -1,8 +1,9 @@
+/** Requires a Better Auth session and exposes authenticated route variables. */
 import { auth } from "@OpenDiagram/auth";
 import type { EvlogVariables } from "evlog/hono";
 import { createMiddleware } from "hono/factory";
 
-export type AuthVariables = EvlogVariables & {
+export type AuthVariables = EvlogVariables["Variables"] & {
   userId: string;
 };
 

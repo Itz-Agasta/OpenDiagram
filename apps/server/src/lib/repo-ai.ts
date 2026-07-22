@@ -1,26 +1,28 @@
-import { createGoogle } from "@ai-sdk/google";
+/** Runs capability-aware AI workflows for diagrams, project answers, and docs. */
 import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
-import { env } from "@OpenDiagram/env/server";
 import { generateObject, generateText } from "ai";
+import {
+  resolveModel,
+  runWithPlatformFallback,
+  type AiCapability,
+  type ResolvedModel,
+} from "./ai-provider";
 import { buildIconCatalog } from "./icons/registry";
 
-// The AI SDK retries retryable errors (429/5xx) with exponential backoff up to
-// this many times. A single provider (Gemini) handles every task — no
-// cross-provider fallback — so a rate-limited call just retries Gemini.
+// The AI SDK retries retryable errors (429/5xx) with exponential backoff.
 export const LLM_MAX_RETRIES = 3;
 
-const GOOGLE_DEFAULTS = {
-  model: "gemini-2.5-flash",
+const LLM_DEFAULTS = {
   maxTokens: 8192,
 };
 
-// Gemini — used for every LLM task (diagrams, docs, analysis, project chat).
-function createGeminiModel() {
-  if (!env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is required.");
-  }
-  const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
-  return google(GOOGLE_DEFAULTS.model);
+type ModelContext = {
+  userId?: string;
+  resolvedModel?: ResolvedModel;
+};
+
+async function resolveInputModel(input: ModelContext, capability: AiCapability) {
+  return input.resolvedModel ?? resolveModel({ userId: input.userId, capability });
 }
 
 const DIAGRAM_TYPE_GUIDE = `Diagram type guide:
@@ -111,14 +113,14 @@ export async function generateDiagramSpec(input: {
   prompt: string;
   diagramType?: DiagramType;
   context?: string;
+  userId?: string;
+  resolvedModel?: ResolvedModel;
 }): Promise<DiagramSpec> {
   const userPrompt = input.context
     ? `Project context:\n${input.context}\n\nUser request:\n${input.prompt}`
     : input.prompt;
 
-  const result = await generateObject({
-    model: createGeminiModel(),
-    schema: diagramSpecSchema,
+  const request = {
     system: buildSystemPrompt(input.diagramType),
     prompt: userPrompt,
     maxRetries: LLM_MAX_RETRIES,
@@ -127,8 +129,12 @@ export async function generateDiagramSpec(input: {
     // into a field instead of terminating) so a bad completion fails fast
     // instead of hanging for a minute-plus. 8192 comfortably fits a normal
     // multi-node DiagramSpec while keeping worst-case failures quick.
-    maxOutputTokens: GOOGLE_DEFAULTS.maxTokens,
-  });
+    maxOutputTokens: LLM_DEFAULTS.maxTokens,
+  };
+  const resolved = await resolveInputModel(input, "structured");
+  const { result } = await runWithPlatformFallback(resolved, (model) =>
+    generateObject({ ...request, model, schema: diagramSpecSchema }),
+  );
   return result.object;
 }
 
@@ -136,9 +142,10 @@ export async function generateDiagramSpec(input: {
 export async function generateGroundedProjectAnswer(input: {
   message: string;
   context: string;
-}): Promise<string> {
-  const result = await generateText({
-    model: createGeminiModel(),
+  userId?: string;
+  resolvedModel?: ResolvedModel;
+}): Promise<{ answer: string; resolvedModel: ResolvedModel }> {
+  const request = {
     system: [
       "You are OpenDiagram's project assistant.",
       "Answer using only the provided project context.",
@@ -148,9 +155,13 @@ export async function generateGroundedProjectAnswer(input: {
     prompt: `Project context:\n${input.context}\n\nUser question:\n${input.message}`,
     maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 1200,
-  });
+  };
+  const resolved = await resolveInputModel(input, "text");
+  const { result, used } = await runWithPlatformFallback(resolved, (model) =>
+    generateText({ ...request, model }),
+  );
 
-  return result.text;
+  return { answer: result.text, resolvedModel: used };
 }
 
 // Architecture docs / repo analysis. Retries on rate limit.
@@ -161,9 +172,10 @@ export async function generateArchitectureDoc(input: {
   repoFullName: string;
   defaultBranch: string;
   commitSha: string;
+  userId?: string;
+  resolvedModel?: ResolvedModel;
 }): Promise<string> {
-  const result = await generateText({
-    model: createGeminiModel(),
+  const request = {
     system: [
       "You are an expert software architect writing technical documentation.",
       "Write detailed, structured markdown using only the provided project context.",
@@ -188,7 +200,11 @@ export async function generateArchitectureDoc(input: {
     ].join("\n"),
     maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 4096,
-  });
+  };
+  const resolved = await resolveInputModel(input, "text");
+  const { result } = await runWithPlatformFallback(resolved, (model) =>
+    generateText({ ...request, model }),
+  );
 
   return result.text;
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "user_ai_preference" ALTER COLUMN "preferred_source" SET DEFAULT 'platform';

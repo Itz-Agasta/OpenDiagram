@@ -6,6 +6,7 @@ import { createFsDrain } from "evlog/fs";
 import { evlog, type EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { aiSettingsRoute } from "./routes/ai-settings";
 import { diagramRoute } from "./routes/diagram";
 import { githubImportRoute, githubRoute } from "./routes/github";
 import { orchestrateRoute } from "./routes/orchestrate";
@@ -42,7 +43,14 @@ app.use(
     origin: origins,
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
-    exposeHeaders: ["X-CreationQuota-Limit", "X-CreationQuota-Used", "X-CreationQuota-Remaining"],
+    exposeHeaders: [
+      "X-CreationQuota-Limit",
+      "X-CreationQuota-Used",
+      "X-CreationQuota-Remaining",
+      "X-AI-Provider-Source",
+      "X-AI-Provider-Model",
+      "X-AI-Provider-Name",
+    ],
     credentials: true,
   }),
 );
@@ -55,6 +63,7 @@ app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
 app.route("/api/usage", usageRoute);
 app.route("/api/waitlist", waitlistRoute);
+app.route("/api/settings/ai", aiSettingsRoute);
 
 export default {
   // Two slow paths share this: GitHub's OAuth token exchange (>10s on slow

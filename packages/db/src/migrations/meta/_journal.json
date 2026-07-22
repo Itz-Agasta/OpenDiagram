@@ -22,6 +22,27 @@
       "when": 1784630893471,
       "tag": "0002_gorgeous_gamma_corps",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784640898398,
+      "tag": "0003_sad_phantom_reporter",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784666086621,
+      "tag": "0004_flippant_power_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784715957513,
+      "tag": "0005_fearless_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }

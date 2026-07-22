@@ -35,6 +35,11 @@ export function createAuth() {
     // from flaky pooler writes / `bun --hot` reloads mid-flow.
     account: {
       storeStateStrategy: "cookie",
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["github"],
+        allowDifferentEmails: true,
+      },
     },
     socialProviders: githubProvider,
     secret: env.BETTER_AUTH_SECRET,

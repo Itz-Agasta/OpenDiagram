@@ -1,3 +1,4 @@
+/** Manages projects, repository generation jobs, memory indexing, and grounded project Q&A. */
 import { and, db, desc, eq } from "@OpenDiagram/db";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { project } from "@OpenDiagram/db/schema/project";
@@ -5,6 +6,15 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { generateGroundedProjectAnswer } from "../lib/repo-ai";
+import {
+  aiProviderErrorResponse,
+  isProviderCreditError,
+  applyAiProviderHeaders,
+  isProviderCapacityError,
+  providerCapacityResponse,
+  providerCreditResponse,
+  resolveModel,
+} from "../lib/ai-provider";
 import {
   applyCreationQuotaHeaders,
   consumeCreationQuota,
@@ -67,6 +77,8 @@ const updateFileSchema = z
 
 const chatSchema = z.object({
   message: z.string().min(1).max(4000),
+  modelId: z.string().trim().min(1).max(120).optional(),
+  providerId: z.string().uuid().optional(),
 });
 
 const contextQuerySchema = z.object({
@@ -203,20 +215,52 @@ projectsRoute.post("/:projectId/chat", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
-    const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
-    applyCreationQuotaHeaders(c, quota);
+    resolved = await resolveModel({
+      userId,
+      modelId: parsed.data.modelId,
+      providerId: parsed.data.providerId,
+      capability: "text",
+    });
   } catch (error) {
-    if (error instanceof CreationQuotaExceededError) {
-      return creationQuotaExceededResponse(c, error);
-    }
+    const mapped = aiProviderErrorResponse(error);
+    if (mapped) return c.json(mapped.body, mapped.status);
     throw error;
   }
 
-  const answer = await generateGroundedProjectAnswer({
-    message: parsed.data.message,
-    context: projectContext.context,
-  });
+  applyAiProviderHeaders(c, resolved);
+
+  if (resolved.countsAgainstPlatformQuota) {
+    try {
+      const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
+      applyCreationQuotaHeaders(c, quota);
+    } catch (error) {
+      if (error instanceof CreationQuotaExceededError) {
+        return creationQuotaExceededResponse(c, error);
+      }
+      throw error;
+    }
+  }
+
+  let answer: string;
+  try {
+    const result = await generateGroundedProjectAnswer({
+      message: parsed.data.message,
+      context: projectContext.context,
+      userId,
+      resolvedModel: resolved,
+    });
+    answer = result.answer;
+  } catch (error) {
+    const mapped = aiProviderErrorResponse(error);
+    if (mapped) return c.json(mapped.body, mapped.status);
+    if (resolved.source === "byok" && isProviderCreditError(error)) {
+      return c.json(providerCreditResponse(), 402);
+    }
+    if (isProviderCapacityError(error)) return c.json(providerCapacityResponse(), 429);
+    throw error;
+  }
 
   return c.json({
     answer,
@@ -240,12 +284,20 @@ projectsRoute.post("/:projectId/repo-generation", async (c) => {
 
   if (projectRow.generationStatus === "none" || projectRow.generationStatus === "failed") {
     try {
-      const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
-      applyCreationQuotaHeaders(c, quota);
+      // Resolve before starting work so invalid preferences and quota failures
+      // are returned synchronously instead of failing inside the background job.
+      const resolved = await resolveModel({ userId, capability: "text" });
+      applyAiProviderHeaders(c, resolved);
+      if (resolved.countsAgainstPlatformQuota) {
+        const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
+        applyCreationQuotaHeaders(c, quota);
+      }
     } catch (error) {
       if (error instanceof CreationQuotaExceededError) {
         return creationQuotaExceededResponse(c, error);
       }
+      const mapped = aiProviderErrorResponse(error);
+      if (mapped) return c.json(mapped.body, mapped.status);
       throw error;
     }
   }
