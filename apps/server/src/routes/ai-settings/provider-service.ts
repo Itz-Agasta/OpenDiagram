@@ -194,6 +194,7 @@ export async function updateProvider(userId: string, id: string, data: UpdatePro
   }
 
   const [row] = await db.transaction(async (transaction) => {
+    await transaction.execute(sql`select id from "user" where id = ${userId} for update`);
     if (data.isDefault === true) await clearDefaultProvider(transaction, userId);
     return transaction
       .update(userAiProvider)

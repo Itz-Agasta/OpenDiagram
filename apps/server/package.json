@@ -24,7 +24,6 @@
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
-    "elkjs": "catalog:",
     "evlog": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

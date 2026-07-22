@@ -10,7 +10,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "elkjs": "^0.11.1",
     "typescript": "catalog:"
   }
 }

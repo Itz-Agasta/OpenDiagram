@@ -194,6 +194,8 @@ export function applyAiProviderHeaders(
   c.header("X-AI-Provider-Name", resolved.provider);
   if (resolved.platformFallback) {
     c.header("X-AI-Provider-Fallback", resolved.platformFallback.modelId);
+  } else {
+    c.header("X-AI-Provider-Fallback", "");
   }
 }
 

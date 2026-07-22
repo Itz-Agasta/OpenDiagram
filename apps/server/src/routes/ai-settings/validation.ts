@@ -4,7 +4,6 @@ import { generateObject, generateText, tool } from "ai";
 import { z } from "zod";
 import { buildModelFromCredentials, defaultModelForProvider } from "../../lib/ai-provider";
 import { listProviderModels } from "../../lib/ai-provider/list-models";
-import { assertSafeBaseUrl } from "../../lib/ai-provider/safe-url";
 
 export function modelIdFor(provider: UserAiProviderKind, modelId?: string) {
   return modelId ?? defaultModelForProvider(provider);
@@ -26,10 +25,6 @@ export async function validateCredentials(input: {
   modelId: string;
   baseUrl?: string | null;
 }) {
-  if (input.provider === "openai_compatible") {
-    if (!input.baseUrl) throw new Error("Base URL is required for OpenAI-compatible providers.");
-    await assertSafeBaseUrl(input.baseUrl);
-  }
   const { model } = await buildModelFromCredentials(input);
   const options = validationOptionsFor(input.provider, input.modelId);
   const toolResult = await generateText({
