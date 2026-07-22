@@ -37,7 +37,7 @@ export function createSafeFetch(
       baseUrl,
     );
     await assertSafeHostname(requestUrl.hostname);
-    return fetch(input, init);
+    return fetch(input, { ...init, redirect: "error" });
   };
 }
 
