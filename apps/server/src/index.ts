@@ -50,6 +50,7 @@ app.use(
       "X-AI-Provider-Source",
       "X-AI-Provider-Model",
       "X-AI-Provider-Name",
+      "X-AI-Provider-Fallback",
     ],
     credentials: true,
   }),

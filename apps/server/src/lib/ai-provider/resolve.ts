@@ -49,7 +49,7 @@ export type ResolvedModel = {
   /** When true, platform creation quota should be consumed. */
   countsAgainstPlatformQuota: boolean;
   /**
-   * Alternate platform model when primary fails (typically Gemini after Groq).
+   * Alternate platform model when primary fails (typically Groq after Gemini).
    * Call sites that can retry (non-streaming) should use `runWithPlatformFallback`.
    */
   platformFallback?: ResolvedModel;

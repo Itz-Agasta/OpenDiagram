@@ -48,7 +48,7 @@ orchestrateRoute.post("/", async (c) => {
     const intent = response.trim().toLowerCase() === "diagram" ? "diagram" : "project_chat";
     return c.json({ intent });
   } catch {
-    return c.json({ intent: "diagram" });
+    return c.json({ intent: "project_chat" });
   }
 });
 
