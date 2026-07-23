@@ -30,6 +30,13 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: HOME_DESCRIPTION,
+  keywords: [
+    "vibe diagrams",
+    "AI architecture diagrams",
+    "software architecture",
+    "system design",
+    "OpenDiagram",
+  ],
   authors: [{ name: SITE_NAME, url: GITHUB_URL }],
   creator: SITE_NAME,
   publisher: SITE_NAME,

@@ -48,6 +48,7 @@ export const metadata: Metadata = {
     absolute: HOME_TITLE,
   },
   description: HOME_DESCRIPTION,
+  keywords: ["vibe diagrams", "AI architecture diagrams", "software architecture"],
   alternates: {
     canonical: "/",
   },
