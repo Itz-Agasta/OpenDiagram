@@ -24,6 +24,9 @@ export const env = createEnv({
     CUSTOM_AI_API_KEY: z.string().min(1).optional(),
     CUSTOM_AI_BASE_URL: z.url().optional(),
     CUSTOM_AI_MODEL: z.string().min(1).optional(),
+    // BYOK: base64-encoded 32-byte key that encrypts stored user API keys at rest
+    // (openssl rand -base64 32). BYOK settings are disabled when unset.
+    BYOK_ENCRYPTION_KEY: z.string().min(1).optional(),
     COGNEE_BASE_URL: z.url().optional(),
     COGNEE_API_KEY: z.string().min(1).optional(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
