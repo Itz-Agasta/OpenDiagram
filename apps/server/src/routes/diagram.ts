@@ -1,5 +1,4 @@
-import { createGoogle } from "@ai-sdk/google";
-import { env } from "@OpenDiagram/env/server";
+import { auth } from "@OpenDiagram/auth";
 import { diagramSpecSchema, themes } from "@OpenDiagram/harness";
 import {
   convertToModelMessages,
@@ -22,9 +21,8 @@ import {
   CreationQuotaExceededError,
   getCreationQuotaActor,
 } from "../lib/creation-quota";
+import { resolveModel } from "../lib/ai-provider/resolve";
 import { LLM_MAX_RETRIES } from "../lib/repo-ai";
-
-const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
 
 const chatRequestSchema = z.object({
   // UIMessage shape is owned by the AI SDK and too deep to mirror — validated
@@ -89,14 +87,33 @@ diagramRoute.post("/chat", async (c) => {
     );
   }
 
+  // BYOK: signed-in users with a configured provider run on their own key/model
+  // (and skip the platform quota). Everyone else runs on the platform model.
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
-    const quota = await consumeCreationQuota(await getCreationQuotaActor(c));
-    applyCreationQuotaHeaders(c, quota);
+    resolved = await resolveModel(session?.user.id);
   } catch (error) {
-    if (error instanceof CreationQuotaExceededError) {
-      return creationQuotaExceededResponse(c, error);
+    log.error("Failed to resolve BYOK model", { error });
+    return c.json({ error: "Your saved AI provider key could not be used. Check Settings." }, 502);
+  }
+  if (!resolved) {
+    return c.json({ error: "No AI provider is configured." }, 503);
+  }
+  log.set({
+    ai: { source: resolved.source, provider: resolved.provider, modelId: resolved.modelId },
+  });
+
+  if (resolved.countsAgainstQuota) {
+    try {
+      const quota = await consumeCreationQuota(await getCreationQuotaActor(c));
+      applyCreationQuotaHeaders(c, quota);
+    } catch (error) {
+      if (error instanceof CreationQuotaExceededError) {
+        return creationQuotaExceededResponse(c, error);
+      }
+      throw error;
     }
-    throw error;
   }
 
   const tools = {
@@ -105,7 +122,7 @@ diagramRoute.post("/chat", async (c) => {
   };
 
   const result = streamText({
-    model: google("gemini-2.5-flash"),
+    model: resolved.model,
     instructions: buildSystemPrompt(currentSpec),
     messages: modelMessages,
     tools,
