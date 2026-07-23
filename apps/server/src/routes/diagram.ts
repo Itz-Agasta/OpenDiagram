@@ -89,10 +89,11 @@ diagramRoute.post("/chat", async (c) => {
 
   // BYOK: signed-in users with a configured provider run on their own key/model
   // (and skip the platform quota). Everyone else runs on the platform model.
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
+  const userId = session?.user.id;
   let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
-    resolved = await resolveModel(session?.user.id);
+    resolved = await resolveModel(userId);
   } catch (error) {
     log.error("Failed to resolve BYOK model", { error });
     return c.json({ error: "Your saved AI provider key could not be used. Check Settings." }, 502);
@@ -106,7 +107,7 @@ diagramRoute.post("/chat", async (c) => {
 
   if (resolved.countsAgainstQuota) {
     try {
-      const quota = await consumeCreationQuota(await getCreationQuotaActor(c));
+      const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
       applyCreationQuotaHeaders(c, quota);
     } catch (error) {
       if (error instanceof CreationQuotaExceededError) {
