@@ -187,16 +187,19 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
   const handleAgentHistoryChange = useCallback(
     (history: StoredChatMessage[]) => {
       const currentDraft = draftRef.current;
-      if (!currentDraft || isSignedIn) return;
-      const fileId = currentFileIdRef.current ?? currentDraft.files[0]?.id;
+      const fileId = currentFileIdRef.current ?? currentDraft?.files[0]?.id;
       if (!fileId) return;
-      const nextDraft = {
-        ...currentDraft,
-        files: currentDraft.files.map((file) => (file.id === fileId ? { ...file, history } : file)),
-      };
-      draftRef.current = nextDraft;
-      saveGuestProjectDraft(nextDraft);
-      setDraft(nextDraft);
+      if (!isSignedIn && currentDraft) {
+        const nextDraft = {
+          ...currentDraft,
+          files: currentDraft.files.map((file) =>
+            file.id === fileId ? { ...file, history } : file,
+          ),
+        };
+        draftRef.current = nextDraft;
+        saveGuestProjectDraft(nextDraft);
+        setDraft(nextDraft);
+      }
       setActiveFile((current) => (current?.id === fileId ? { ...current, history } : current));
     },
     [currentFileIdRef, draftRef, isSignedIn, setActiveFile, setDraft],

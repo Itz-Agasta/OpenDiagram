@@ -14,18 +14,21 @@ export function AIChatPanel(props: AIChatPanelProps) {
         answerAskUser={controller.answerAskUser}
         applyError={controller.applyError}
         diagramError={controller.diagramError}
-        diagramMessages={controller.diagramMessages}
         diagramStatus={controller.diagramStatus}
+        messages={controller.conversationMessages}
         projectError={controller.projectError}
         projectId={props.projectId}
-        projectMessages={controller.projectMessages}
         projectStatus={controller.projectStatus}
         repoGenerationError={props.repoGenerationError ?? null}
         repoGenerationJob={props.repoGenerationJob ?? null}
       />
       <AIChatComposer
+        onStop={controller.stop}
         onSubmit={controller.handleSubmit}
         providerUsage={controller.providerUsage}
+        providerId={controller.providerId}
+        providerOptions={controller.providerOptions}
+        setProviderId={controller.setProviderId}
         setTheme={controller.setTheme}
         status={controller.submitStatus}
         theme={controller.theme}

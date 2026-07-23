@@ -24,6 +24,7 @@ export interface AIChatPanelProps {
   repoGenerationError?: string | null;
   onQuotaError?: (message: string) => void;
   onProviderError?: (message: string) => void;
+  onRateLimitError?: (message: string) => void;
   onHistoryChange?: (history: StoredChatMessage[]) => void;
 }
 
@@ -35,6 +36,19 @@ export type AIChatProviderOption = {
   providerLabel?: string;
   modelLabel?: string;
 };
+
+export function isRepoGeneratedSpec(value: unknown) {
+  return Boolean(
+    value && typeof value === "object" && (value as { kind?: unknown }).kind === "repo_generated",
+  );
+}
+
+export function shouldUseDiagramChatDirectly(
+  activeFileType: AIChatPanelProps["activeFileType"],
+  initialSpec: unknown,
+) {
+  return activeFileType === "diagram" && !isRepoGeneratedSpec(initialSpec);
+}
 
 export function parseInitialDiagramSpec(value: unknown): DiagramSpec | undefined {
   const candidate =

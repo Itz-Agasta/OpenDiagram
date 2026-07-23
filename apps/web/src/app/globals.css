@@ -5,6 +5,26 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes od-ai-output-fade {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.od-ai-output-streaming {
+  animation: od-ai-output-fade 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .od-ai-output-streaming {
+    animation: none;
+  }
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

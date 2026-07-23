@@ -56,7 +56,8 @@ export async function chatWithProject(
     signal: AbortSignal.timeout(60_000),
   });
   const data = await readProjectResponse(response);
-  if (!response.ok) throw projectResponseError(data, "Could not ask project assistant.");
+  if (!response.ok)
+    throw projectResponseError(data, "Could not ask project assistant.", response.status);
 
   return { ...data, aiProvider: readAiProviderUsage(response) ?? undefined };
 }

@@ -1,8 +1,4 @@
-"use client";
-
 import Image from "next/image";
-import { useEffect, useRef } from "react";
-import { useReducedMotion } from "motion/react";
 
 type FeatureMediaProps =
   | {
@@ -12,33 +8,9 @@ type FeatureMediaProps =
       prompt: string;
       requirements: string[];
     }
-  | {
-      kind: "video";
-      src: string;
-      fallback: string;
-      poster: string;
-      alt: string;
-    }
   | { kind: "image"; src: string; alt: string; width?: number; height?: number };
 
 export function FeatureMedia({ media }: { media: FeatureMediaProps }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const shouldReduceMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (media.kind !== "video" || !videoRef.current) return;
-    const video = videoRef.current;
-
-    if (shouldReduceMotion) {
-      video.pause();
-      video.currentTime = 0;
-      video.load();
-      return;
-    }
-
-    void video.play().catch(() => undefined);
-  }, [media, shouldReduceMotion]);
-
   if (media.kind === "prompt") {
     return (
       <div className="relative min-h-[500px] overflow-hidden md:min-h-[600px]">
@@ -66,30 +38,6 @@ export function FeatureMedia({ media }: { media: FeatureMediaProps }) {
           />
         </div>
       </div>
-    );
-  }
-
-  if (media.kind === "video") {
-    return (
-      <video
-        ref={videoRef}
-        className="aspect-video w-full rounded-[18px] bg-[#1d1d1b] object-cover shadow-[0_2px_4px_rgba(25,25,24,0.08),0_22px_46px_-20px_rgba(25,25,24,0.28),18px_34px_72px_-38px_rgba(25,25,24,0.3)] ring-1 ring-[rgba(25,25,24,0.06)]"
-        autoPlay={!shouldReduceMotion}
-        loop
-        muted
-        playsInline
-        preload="auto"
-        poster={media.poster}
-        aria-label={media.alt}
-        onLoadedData={() => {
-          if (!shouldReduceMotion) {
-            void videoRef.current?.play().catch(() => undefined);
-          }
-        }}
-      >
-        <source src={media.src} type="video/webm" />
-        <source src={media.fallback} type="video/mp4" />
-      </video>
     );
   }
 

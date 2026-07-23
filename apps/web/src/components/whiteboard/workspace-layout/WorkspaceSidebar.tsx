@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
-import { FileText, PenTool, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, FileText, PanelLeftClose, PenTool, Plus, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +14,6 @@ import { WorkspaceSidebarAccount } from "./WorkspaceSidebarAccount";
 type WorkspaceSidebarProps = {
   accountImage?: string | null;
   accountName: string;
-  isSignedIn: boolean;
   files: WorkspaceSidebarFile[];
   activeFileId?: string | null;
   projectName: string;
@@ -23,7 +23,6 @@ type WorkspaceSidebarProps = {
   onDeleteFile: (fileId: string) => void;
   onResizeStart: (pane: "sidebar" | "agent", event: React.MouseEvent) => void;
   onOpenFile: (fileId: string) => void;
-  onSignIn: () => void;
   onSignOut: () => void;
 };
 
@@ -36,7 +35,6 @@ function getFileIcon(
 export function WorkspaceSidebar({
   accountImage,
   accountName,
-  isSignedIn,
   files,
   activeFileId,
   projectName,
@@ -46,7 +44,6 @@ export function WorkspaceSidebar({
   onDeleteFile,
   onResizeStart,
   onOpenFile,
-  onSignIn,
   onSignOut,
 }: WorkspaceSidebarProps) {
   return (
@@ -61,56 +58,56 @@ export function WorkspaceSidebar({
         <div className="mx-auto h-full w-px bg-od-border-soft" />
       </div>
 
-      <WorkspaceSidebarAccount
-        accountImage={accountImage}
-        accountName={accountName}
-        isSignedIn={isSignedIn}
-        onClose={onClose}
-        onSignIn={onSignIn}
-        onSignOut={onSignOut}
-      />
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-od-border-soft px-3">
+        <Link
+          href="/dashboard"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-od-border-soft text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
+          aria-label="Back to dashboard"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
+          aria-label="Collapse file explorer"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
         <div className="mb-3 flex min-w-0 items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[12px] font-medium uppercase tracking-[0.14em] text-od-ink-faint">
-              {isSignedIn ? "Explorer" : "Guest diagram"}
+              Explorer
             </p>
             <p className="mt-1 truncate text-[14px] font-semibold text-od-ink">{projectName}</p>
           </div>
-          {isSignedIn && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Create file"
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem
-                  onSelect={() => onCreateFile("diagram")}
-                  className="cursor-pointer"
-                >
-                  <PenTool className="h-4 w-4" />
-                  New diagram
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onCreateFile("doc")} className="cursor-pointer">
-                  <FileText className="h-4 w-4" />
-                  New doc
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Create file"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onSelect={() => onCreateFile("diagram")} className="cursor-pointer">
+                <PenTool className="h-4 w-4" />
+                New diagram
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onCreateFile("doc")} className="cursor-pointer">
+                <FileText className="h-4 w-4" />
+                New doc
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="min-h-0 overflow-y-auto pb-4">
-          {!isSignedIn ? (
-            <p className="rounded-[8px] px-2 py-2 text-[13px] leading-5 text-od-ink-faint">
-              One temporary diagram. Sign in to save it and create more files.
-            </p>
-          ) : files.length === 0 ? (
+          {files.length === 0 ? (
             <p className="rounded-[8px] px-2 py-2 text-[13px] text-od-ink-faint">No files yet</p>
           ) : (
             <div className="grid gap-0.5">
@@ -151,6 +148,12 @@ export function WorkspaceSidebar({
           )}
         </div>
       </div>
+
+      <WorkspaceSidebarAccount
+        accountImage={accountImage}
+        accountName={accountName}
+        onSignOut={onSignOut}
+      />
     </aside>
   );
 }

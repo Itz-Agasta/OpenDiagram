@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { deleteGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
@@ -37,6 +37,9 @@ export function useWorkspaceLayoutController() {
   const draftRef = useRef<GuestProjectDraft | null>(null);
   const currentFileIdRef = useRef<string | null>(null);
   const panes = useWorkspacePaneResize();
+  useEffect(() => {
+    panes.closeSidebar();
+  }, [panes.closeSidebar, params.projectId, params.workspaceId]);
   const storedProjectId = useWorkspaceLayoutStore((state) => state.projectId);
   const projectName = useWorkspaceLayoutStore((state) => state.projectName);
   const sidebarFiles = useWorkspaceLayoutStore((state) => state.files);

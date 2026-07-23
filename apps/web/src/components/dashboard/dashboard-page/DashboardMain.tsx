@@ -13,25 +13,16 @@ interface DashboardMainProps {
 export function DashboardMain({ creating, loading, onCreate }: DashboardMainProps) {
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-od-surface">
-      <header className="z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-od-border-soft bg-od-surface px-4 md:px-8">
+      <header className="z-20 flex h-16 shrink-0 items-center gap-3 bg-od-surface px-4 lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/"
             aria-label="OpenDiagram home"
-            className="grid size-9 shrink-0 place-items-center lg:hidden"
+            className="grid size-9 shrink-0 place-items-center"
           >
             <Image src="/new_logo.png" alt="" width={36} height={36} className="size-9" />
           </Link>
-          <h1 className="flex items-center gap-2 truncate text-[18px] font-semibold leading-tight md:text-[20px]">
-            <Image
-              src="/new_logo.png"
-              alt=""
-              width={28}
-              height={28}
-              className="hidden size-7 shrink-0 lg:block"
-            />
-            OpenDiagram
-          </h1>
+          <h1 className="truncate text-[18px] font-semibold leading-tight">OpenDiagram</h1>
         </div>
       </header>
       <div className="mx-auto flex min-h-0 w-full max-w-[1360px] flex-1 flex-col gap-4 overflow-hidden bg-od-surface p-4 md:p-8">

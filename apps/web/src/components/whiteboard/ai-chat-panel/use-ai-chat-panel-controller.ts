@@ -1,11 +1,17 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DiagramSpec, ThemeName } from "@OpenDiagram/harness";
-import { normalizeStoredChatHistory } from "@/lib/chat-history";
+import { normalizeStoredChatHistory, storedChatMessageToUIMessage } from "@/lib/chat-history";
+import {
+  getAiSettings,
+  providerModelOptions,
+  selectProviderModel,
+  type ProviderModelOption,
+} from "@/lib/settings-client";
 import { orchestrateWorkspaceRequest } from "@/lib/workspace-agents";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import type { AIChatPanelProps } from "./types";
-import { parseInitialDiagramSpec } from "./types";
+import type { AIChatPanelProps, AIChatProviderOption } from "./types";
+import { parseInitialDiagramSpec, shouldUseDiagramChatDirectly } from "./types";
 import { diagramRequestLikely, pendingAskUser } from "./utils";
 import { useDiagramCanvas } from "./use-diagram-canvas";
 import { useDiagramChat } from "./use-diagram-chat";
@@ -21,10 +27,12 @@ export function useAIChatPanelController({
   initialSpec,
   onHistoryChange,
   onProviderError,
+  onRateLimitError,
   onQuotaError,
   projectId,
 }: AIChatPanelProps) {
   const parsedInitialSpec = useMemo(() => parseInitialDiagramSpec(initialSpec), [initialSpec]);
+  const useDiagramChatDirectly = shouldUseDiagramChatDirectly(activeFileType, initialSpec);
   const normalizedHistory = useMemo(
     () => normalizeStoredChatHistory(initialHistory),
     [initialHistory],
@@ -32,6 +40,49 @@ export function useAIChatPanelController({
   const currentSpecRef = useRef<DiagramSpec | undefined>(parsedInitialSpec);
   const [theme, setTheme] = useState<ThemeName>("sketch");
   const [providerUsage, setProviderUsage] = useState<AiProviderUsage | null>(null);
+  const [providerId, setProviderIdState] = useState("platform");
+  const [providerOptions, setProviderOptions] = useState<AIChatProviderOption[]>([]);
+  const providerOptionsRef = useRef<ProviderModelOption[]>([]);
+  const providerUpdateRef = useRef<Promise<void>>(Promise.resolve());
+  const providerUpdateFailedRef = useRef(false);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    void getAiSettings()
+      .then((settings) => {
+        if (!active) return;
+        const options = providerModelOptions(settings);
+        providerOptionsRef.current = options;
+        setProviderOptions(options);
+        setProviderIdState(options.find((option) => option.isDefault)?.id ?? "platform");
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  const setProviderId = useCallback(
+    (nextProviderId: string) => {
+      const previousProviderId = providerId;
+      const option = providerOptionsRef.current.find(
+        (candidate) => candidate.id === nextProviderId,
+      );
+      if (!option) return;
+
+      setProviderIdState(nextProviderId);
+      providerUpdateFailedRef.current = false;
+      providerUpdateRef.current = selectProviderModel(option).catch((cause) => {
+        providerUpdateFailedRef.current = true;
+        setProviderIdState(previousProviderId);
+        onProviderError?.(
+          cause instanceof Error ? cause.message : "Could not select this provider.",
+        );
+      });
+    },
+    [onProviderError, providerId],
+  );
   const autoDiagramPrompt =
     activeFileType === "diagram"
       ? normalizedHistory.find((message) => message.role === "user")
@@ -48,6 +99,7 @@ export function useAIChatPanelController({
     onHistoryChange,
     onProviderUsage: setProviderUsage,
     onProviderError,
+    onRateLimitError,
     onQuotaError,
     projectId,
     theme,
@@ -62,14 +114,15 @@ export function useAIChatPanelController({
   });
   const projectChat = useProjectChat({
     activeFileType,
-    diagramMessages: diagramChat.messages,
     fileId,
     normalizedHistory,
     onHistoryChange,
     onProviderUsage: setProviderUsage,
     onProviderError,
+    onRateLimitError,
     onQuotaError,
     projectId,
+    setDiagramMessages: diagramChat.setMessages,
   });
 
   const answerAskUser = useCallback(
@@ -85,10 +138,18 @@ export function useAIChatPanelController({
       const status = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
       if (!text || (status !== "ready" && status !== "error")) return;
 
+      await providerUpdateRef.current;
+      if (providerUpdateFailedRef.current) return;
+
       canvas.setApplyError(null);
       const pending = pendingAskUser(diagramChat.messages);
       if (pending) {
         answerAskUser(pending.toolCallId, text);
+        return;
+      }
+
+      if (useDiagramChatDirectly) {
+        void diagramChat.sendMessage({ text });
         return;
       }
 
@@ -118,23 +179,34 @@ export function useAIChatPanelController({
       projectChat.run,
       projectChat.status,
       projectId,
+      useDiagramChatDirectly,
     ],
   );
 
   const submitStatus = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
+  const stop = useCallback(() => {
+    diagramChat.stop();
+  }, [diagramChat.stop]);
+  const conversationMessages =
+    activeFileType === "diagram"
+      ? diagramChat.messages
+      : projectChat.messages.map(storedChatMessageToUIMessage);
 
   return {
     answerAskUser,
     applyError: canvas.applyError,
+    conversationMessages,
     diagramError: diagramChat.error,
-    diagramMessages: diagramChat.messages,
     diagramStatus: diagramChat.status,
     handleSubmit,
     projectError: projectChat.error,
-    projectMessages: projectChat.messages,
     projectStatus: projectChat.status,
     providerUsage,
+    providerId,
+    providerOptions,
+    setProviderId,
     setTheme,
+    stop,
     submitStatus,
     theme,
   };

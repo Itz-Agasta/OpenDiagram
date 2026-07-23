@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, LogIn, LogOut, PanelLeftClose, Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import {
   DropdownMenu,
@@ -11,7 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getCreationQuota, type CreationQuota } from "@/lib/projects-client";
+import {
+  creationQuotaColorClass,
+  getCreationQuota,
+  type CreationQuota,
+} from "@/lib/projects-client";
 import { getInitials } from "./helpers";
 
 const QUOTA_CACHE_TTL_MS = 15_000;
@@ -19,9 +23,6 @@ const QUOTA_CACHE_TTL_MS = 15_000;
 type WorkspaceSidebarAccountProps = {
   accountImage?: string | null;
   accountName: string;
-  isSignedIn: boolean;
-  onClose: () => void;
-  onSignIn: () => void;
   onSignOut: () => void;
 };
 
@@ -62,31 +63,21 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
   }
 
   return (
-    <div className="flex h-14 shrink-0 items-center gap-3 border-b border-od-border-soft px-3">
-      <Link
-        href="/dashboard"
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-od-border-soft text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
-        aria-label="Back to dashboard"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </Link>
-      {props.isSignedIn &&
-        (props.accountImage ? (
-          <img
-            src={props.accountImage}
-            alt=""
-            className="h-8 w-8 rounded-[8px] border border-od-border-soft object-cover"
-          />
-        ) : (
-          <div className="grid h-8 w-8 place-items-center rounded-[8px] bg-od-ink text-[12px] font-semibold text-od-on-dark">
-            {getInitials(props.accountName)}
-          </div>
-        ))}
+    <div className="flex h-16 shrink-0 items-center gap-3 border-t border-od-border-soft px-3">
+      {props.accountImage ? (
+        <img
+          src={props.accountImage}
+          alt=""
+          className="h-8 w-8 rounded-full border border-od-border-soft object-cover"
+        />
+      ) : (
+        <div className="grid h-8 w-8 place-items-center rounded-full bg-od-ink text-[12px] font-semibold text-od-on-dark">
+          {getInitials(props.accountName)}
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium">{props.accountName}</p>
-        <p className="truncate text-[11px] text-od-ink-faint">
-          {props.isSignedIn ? "Signed in" : "Guest session"}
-        </p>
+        <p className="truncate text-[11px] text-od-ink-faint">Signed in</p>
       </div>
       <DropdownMenu onOpenChange={(open) => void handleMenuOpen(open)}>
         <DropdownMenuTrigger asChild>
@@ -98,7 +89,13 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
             <Settings className="h-4 w-4" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" sideOffset={24} align="end" className="w-64">
+        <DropdownMenuContent
+          side="top"
+          sideOffset={24}
+          align="end"
+          alignOffset={-8}
+          className="w-64"
+        >
           <DropdownMenuGroup>
             <DropdownMenuLabel className="flex flex-col gap-1.5 px-2 py-2">
               <span className="block text-[12px] font-semibold text-od-ink">Beta quota</span>
@@ -126,49 +123,32 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
                   className="h-1.5 overflow-hidden rounded-full bg-od-canvas"
                 >
                   <div
-                    className="h-full rounded-full bg-od-ink"
+                    className={`h-full rounded-full ${creationQuotaColorClass(quota.remaining)}`}
                     style={{ width: `${quotaPercent}%` }}
                   />
                 </div>
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {props.isSignedIn ? (
-              <>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/import/github">
-                    <GithubLogoIcon size={16} weight="regular" />
-                    Connect GitHub
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings">
-                    <Settings className="h-4 w-4" />
-                    AI settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={props.onSignOut} className="cursor-pointer">
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <DropdownMenuItem onSelect={props.onSignIn} className="cursor-pointer">
-                <LogIn className="h-4 w-4" />
-                Sign in
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/import/github">
+                <GithubLogoIcon size={16} weight="regular" />
+                Connect GitHub
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/dashboard/settings">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={props.onSignOut} className="cursor-pointer">
+              <LogOut className="h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <button
-        type="button"
-        onClick={props.onClose}
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/60 hover:text-od-ink"
-        aria-label="Collapse file explorer"
-      >
-        <PanelLeftClose className="h-4 w-4" />
-      </button>
     </div>
   );
 }

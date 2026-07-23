@@ -9,7 +9,8 @@ export async function startRepoGeneration(projectId: string): Promise<RepoGenera
     { method: "POST", credentials: "include" },
   );
   const data = await readProjectResponse(response);
-  if (!response.ok) throw projectResponseError(data, "Could not start repository generation.");
+  if (!response.ok)
+    throw projectResponseError(data, "Could not start repository generation.", response.status);
   return data.job;
 }
 
@@ -25,7 +26,7 @@ export async function streamRepoGeneration(
 
   if (!response.ok) {
     const data = await readProjectResponse(response);
-    throw projectResponseError(data, "Could not start repository generation.");
+    throw projectResponseError(data, "Could not start repository generation.", response.status);
   }
 
   let last = await consumeSSE<RepoGenerationJob>(response, onJob);

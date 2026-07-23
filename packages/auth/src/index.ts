@@ -47,8 +47,11 @@ export function createAuth() {
         ? { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }
         : {}),
       defaultCookieAttributes: {
-        sameSite: "none",
-        secure: true,
+        // Local development runs over HTTP on localhost, so Secure cookies
+        // are rejected by the browser and OAuth state cannot round-trip.
+        // Production uses HTTPS across app/api subdomains and needs None.
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+        secure: env.NODE_ENV === "production",
         httpOnly: true,
       },
     },

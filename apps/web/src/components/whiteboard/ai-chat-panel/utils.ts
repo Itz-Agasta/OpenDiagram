@@ -3,6 +3,7 @@ import type { StoredAskUserInput } from "@/lib/chat-history";
 import {
   AiProviderCreditError,
   CreationQuotaError,
+  UpstreamRateLimitError,
   type CreationQuota,
 } from "@/lib/projects-client";
 
@@ -43,6 +44,7 @@ export async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestI
     throw new CreationQuotaError(message, data.quota);
   }
   if (data?.code === "byok_credit_exhausted") throw new AiProviderCreditError(message);
+  if (response.status === 429) throw new UpstreamRateLimitError(message);
 
   throw new Error(message);
 }

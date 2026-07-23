@@ -1,7 +1,7 @@
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import type { ChatStatus, UIMessage } from "ai";
 import type { DiagramSpec } from "@OpenDiagram/harness";
-import type { StoredAskUserInput, StoredChatMessage } from "@/lib/chat-history";
+import type { StoredAskUserInput } from "@/lib/chat-history";
 import type { RepoGenerationJob } from "@/lib/projects-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,16 +12,16 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import type { DrawDiagramOutput } from "./types";
+import { DotMatrixLoader } from "./DotMatrixLoader";
 
 interface AIChatConversationProps {
   answerAskUser: (toolCallId: string, answer: string) => void;
   applyError: string | null;
   diagramError?: Error;
-  diagramMessages: UIMessage[];
   diagramStatus: ChatStatus;
+  messages: UIMessage[];
   projectError: string | null;
   projectId?: string;
-  projectMessages: StoredChatMessage[];
   projectStatus: ChatStatus;
   repoGenerationError: string | null;
   repoGenerationJob: RepoGenerationJob | null;
@@ -32,16 +32,15 @@ export function AIChatConversation(props: AIChatConversationProps) {
     answerAskUser,
     applyError,
     diagramError,
-    diagramMessages,
     diagramStatus,
+    messages,
     projectError,
     projectId,
-    projectMessages,
     projectStatus,
     repoGenerationError,
     repoGenerationJob,
   } = props;
-  const messagesEmpty = projectMessages.length === 0 && diagramMessages.length === 0;
+  const messagesEmpty = messages.length === 0;
 
   return (
     <Conversation className="min-h-0 flex-1">
@@ -58,29 +57,37 @@ export function AIChatConversation(props: AIChatConversationProps) {
             icon={<Sparkles className="size-6 text-muted-foreground" />}
           />
         ) : (
-          <>
-            {projectMessages.map((message) => (
-              <Message key={message.id} from={message.role}>
+          messages.map((message, index) => {
+            const isCurrentAgentOutput =
+              message.role === "assistant" &&
+              index === messages.length - 1 &&
+              (diagramStatus === "streaming" || projectStatus === "streaming");
+
+            return (
+              <Message
+                key={message.id}
+                from={message.role === "user" ? "user" : "assistant"}
+                className={
+                  message.role === "assistant"
+                    ? isCurrentAgentOutput
+                      ? "od-ai-output-streaming"
+                      : "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+                    : undefined
+                }
+              >
                 <MessageContent>
-                  <MessageResponse>{message.text}</MessageResponse>
-                </MessageContent>
-              </Message>
-            ))}
-            {diagramMessages.map((message) => (
-              <Message key={message.id} from={message.role === "user" ? "user" : "assistant"}>
-                <MessageContent>
-                  {message.parts.map((part, index) =>
-                    renderMessagePart(message, part, index, answerAskUser),
+                  {message.parts.map((part, partIndex) =>
+                    renderMessagePart(message, part, partIndex, answerAskUser),
                   )}
                 </MessageContent>
               </Message>
-            ))}
-          </>
+            );
+          })
         )}
         {(diagramStatus === "submitted" || projectStatus === "submitted") && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3 animate-spin" />
-            {projectStatus === "submitted" ? "Reading project memory…" : "Thinking…"}
+            {projectStatus === "submitted" ? "Reading project memory…" : "Preparing your diagram…"}
           </div>
         )}
         {diagramStatus === "error" && (
@@ -164,7 +171,14 @@ function renderMessagePart(
     return part.text ? <MessageResponse key={key}>{part.text}</MessageResponse> : null;
   }
 
+  if (part.type === "reasoning") {
+    return null;
+  }
+
   if (part.type === "tool-ask_user") {
+    if (part.state === "input-streaming") {
+      return <ToolActivity key={key} label="Preparing a question…" />;
+    }
     if (part.state === "output-error") {
       return (
         <p key={key} className="text-xs text-destructive">
@@ -216,10 +230,18 @@ function renderMessagePart(
       </p>
     );
   }
+  return <ToolActivity key={key} label={title ? `Drawing “${title}”…` : "Drawing diagram…"} />;
+}
+
+function ToolActivity({ label }: { label: string }) {
   return (
-    <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
-      <Loader2 className="size-3 animate-spin" />
-      Drawing {title ? `“${title}”` : "diagram"}…
+    <div
+      className="flex items-center gap-2 text-xs text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      <DotMatrixLoader />
+      <span>{label}</span>
     </div>
   );
 }

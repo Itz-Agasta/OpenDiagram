@@ -15,6 +15,7 @@ type WorkspaceAgentSidebarProps = {
   initialProviderId?: string;
   initialSpec?: unknown;
   hasExistingScene?: boolean;
+  isOpen: boolean;
   isContextPending: boolean;
   projectId?: string;
   repoGenerationError: string | null;
@@ -22,6 +23,7 @@ type WorkspaceAgentSidebarProps = {
   onHistoryChange: (history: StoredChatMessage[]) => void;
   onQuotaError: (message: string) => void;
   onProviderError: (message: string) => void;
+  onRateLimitError: (message: string) => void;
   onClose: () => void;
   onResizeStart: (pane: "sidebar" | "agent", event: React.MouseEvent) => void;
 };
@@ -37,6 +39,7 @@ export function WorkspaceAgentSidebar({
   initialProviderId,
   initialSpec,
   hasExistingScene,
+  isOpen,
   isContextPending,
   projectId,
   repoGenerationError,
@@ -44,12 +47,15 @@ export function WorkspaceAgentSidebar({
   onHistoryChange,
   onQuotaError,
   onProviderError,
+  onRateLimitError,
   onClose,
   onResizeStart,
 }: WorkspaceAgentSidebarProps) {
   return (
     <aside
-      className="group/agent relative hidden h-full shrink-0 flex-col border-l border-od-border-soft bg-white lg:flex"
+      className={`group/agent relative h-full shrink-0 flex-col border-l border-od-border-soft bg-white ${isOpen ? "flex" : "hidden"}`}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       style={{ width: agentWidth }}
     >
       <div
@@ -97,6 +103,7 @@ export function WorkspaceAgentSidebar({
             onHistoryChange={onHistoryChange}
             onQuotaError={onQuotaError}
             onProviderError={onProviderError}
+            onRateLimitError={onRateLimitError}
           />
         </div>
         {isContextPending && (

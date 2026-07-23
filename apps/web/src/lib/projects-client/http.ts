@@ -19,7 +19,14 @@ export class AiProviderCreditError extends Error {
   }
 }
 
-export function projectResponseError(data: unknown, fallback: string): Error {
+export class UpstreamRateLimitError extends Error {
+  constructor(message = "The AI provider is temporarily rate-limited. Please try again shortly.") {
+    super(message);
+    this.name = "UpstreamRateLimitError";
+  }
+}
+
+export function projectResponseError(data: unknown, fallback: string, status?: number): Error {
   const payload = data as
     | { error?: string; code?: string; quota?: CreationQuota }
     | null
@@ -30,6 +37,7 @@ export function projectResponseError(data: unknown, fallback: string): Error {
     return new CreationQuotaError(message, payload.quota);
   }
   if (payload?.code === "byok_credit_exhausted") return new AiProviderCreditError(message);
+  if (status === 429) return new UpstreamRateLimitError(message);
   return new Error(message);
 }
 

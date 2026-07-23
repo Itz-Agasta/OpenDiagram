@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { KeyRound, Loader2 } from "lucide-react";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
+import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +27,7 @@ export function WorkspaceLayout() {
   const searchParams = useSearchParams();
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
   const [providerErrorMessage, setProviderErrorMessage] = useState<string | null>(null);
+  const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   useEffect(() => {
     if (!providerErrorMessage) return;
     const timeout = window.setTimeout(() => setProviderErrorMessage(null), 5000);
@@ -39,6 +42,9 @@ export function WorkspaceLayout() {
     reset: resetWaitlist,
   } = useWaitlistJoin();
   const activeHistory = state.activeFile?.history;
+  const byokSettingsHref = state.isSignedIn
+    ? "/dashboard/settings"
+    : "/login?redirect=%2Fdashboard%2Fsettings";
   const agentProjectId = state.isSignedIn ? state.activeFile?.projectId : undefined;
   const agentFileId = state.activeFile?.id ?? state.currentFileId ?? undefined;
   const agentFileIdentity = state.activeFile
@@ -65,13 +71,11 @@ export function WorkspaceLayout() {
           accountName={state.accountName}
           activeFileId={state.activeFileId}
           files={state.sidebarFilesForProject}
-          isSignedIn={state.isSignedIn}
           onClose={actions.closeSidebar}
           onCreateFile={(type) => void actions.createWorkspaceFile(type)}
           onDeleteFile={(fileId) => void actions.deleteWorkspaceFile(fileId)}
           onOpenFile={actions.openWorkspaceFile}
           onResizeStart={actions.handleResizeStart}
-          onSignIn={actions.signInToSave}
           onSignOut={() => void handleSignOut()}
           projectName={state.sidebarProjectName}
           width={state.sidebarWidth}
@@ -110,31 +114,31 @@ export function WorkspaceLayout() {
         />
       </main>
 
-      {state.isAgentOpen && (
-        <WorkspaceAgentSidebar
-          activeFileType={state.activeFile?.type}
-          agentWidth={state.agentWidth}
-          excalidrawAPI={state.excalidrawAPI}
-          fileIdentity={agentFileIdentity}
-          fileId={agentFileId}
-          initialHistory={activeHistory}
-          initialSpec={state.activeFile?.spec}
-          hasExistingScene={
-            hasDiagramScene(state.initialScene) || hasDiagramSpec(state.activeFile?.spec)
-          }
-          isContextPending={state.agentContextPending}
-          onClose={actions.closeAgent}
-          onHistoryChange={actions.handleAgentHistoryChange}
-          onQuotaError={setQuotaMessage}
-          onProviderError={setProviderErrorMessage}
-          onResizeStart={actions.handleResizeStart}
-          initialModelId={searchParams.get("modelId") ?? undefined}
-          initialProviderId={searchParams.get("providerId") ?? undefined}
-          projectId={agentProjectId}
-          repoGenerationError={state.repoGenerationError}
-          repoGenerationJob={state.repoGenerationJob}
-        />
-      )}
+      <WorkspaceAgentSidebar
+        activeFileType={state.activeFile?.type}
+        agentWidth={state.agentWidth}
+        excalidrawAPI={state.excalidrawAPI}
+        fileIdentity={agentFileIdentity}
+        fileId={agentFileId}
+        initialHistory={activeHistory}
+        initialSpec={state.activeFile?.spec}
+        hasExistingScene={
+          hasDiagramScene(state.initialScene) || hasDiagramSpec(state.activeFile?.spec)
+        }
+        isContextPending={state.agentContextPending}
+        onClose={actions.closeAgent}
+        onHistoryChange={actions.handleAgentHistoryChange}
+        onQuotaError={setQuotaMessage}
+        onProviderError={setProviderErrorMessage}
+        onRateLimitError={setRateLimitMessage}
+        onResizeStart={actions.handleResizeStart}
+        initialModelId={searchParams.get("modelId") ?? undefined}
+        initialProviderId={searchParams.get("providerId") ?? undefined}
+        isOpen={state.isAgentOpen}
+        projectId={agentProjectId}
+        repoGenerationError={state.repoGenerationError}
+        repoGenerationJob={state.repoGenerationJob}
+      />
 
       <FirstFileDialog
         firstFileName={state.firstFileName}
@@ -153,6 +157,7 @@ export function WorkspaceLayout() {
         redirectTo="/dashboard"
         onContinueAsGuest={actions.continueAsGuest}
       />
+      <GuestWelcomeDialog />
       <Dialog
         open={providerErrorMessage !== null}
         onOpenChange={(open) => {
@@ -164,6 +169,21 @@ export function WorkspaceLayout() {
             <DialogTitle className="text-od-ink">Provider credits exhausted</DialogTitle>
             <DialogDescription className="leading-6 text-od-ink-muted">
               {providerErrorMessage}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={rateLimitMessage !== null}
+        onOpenChange={(open) => {
+          if (!open) setRateLimitMessage(null);
+        }}
+      >
+        <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-od-ink">AI provider is rate-limited</DialogTitle>
+            <DialogDescription className="leading-6 text-od-ink-muted">
+              {rateLimitMessage}
             </DialogDescription>
           </DialogHeader>
         </DialogContent>
@@ -191,6 +211,15 @@ export function WorkspaceLayout() {
                 : quotaMessage}
             </DialogDescription>
           </DialogHeader>
+          {waitlistStatus !== "joined" && (
+            <Link
+              href={byokSettingsHref}
+              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
+            >
+              <KeyRound className="size-4" />
+              Configure your BYOK Keys
+            </Link>
+          )}
           {waitlistStatus !== "joined" && (
             <form className="mt-2 space-y-3" onSubmit={handleJoinWaitlist}>
               {!state.isSignedIn && (

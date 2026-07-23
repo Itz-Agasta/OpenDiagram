@@ -11,7 +11,7 @@ import {
   type AiSettings,
   type CatalogProvider,
   type ConnectedProvider,
-} from "@/lib/ai-settings-client";
+} from "@/lib/settings-client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function AiProviders() {
+export function Providers() {
   const [settings, setSettings] = useState<AiSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<CatalogProvider | null>(null);
@@ -42,7 +42,7 @@ export function AiProviders() {
       setSettings(await getAiSettings());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load AI settings.");
+      setError(e instanceof Error ? e.message : "Failed to load Settings.");
     }
   }
 
@@ -62,7 +62,7 @@ export function AiProviders() {
   if (!settings) {
     return (
       <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
-        <p>{error ?? "Couldn't load AI settings."}</p>
+        <p>{error ?? "Couldn't load Settings."}</p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => refresh()}>
           Retry
         </Button>

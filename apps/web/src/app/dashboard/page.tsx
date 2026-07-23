@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import { DashboardDialogs } from "@/components/dashboard/dashboard-page/DashboardDialogs";
 import { DashboardMain } from "@/components/dashboard/dashboard-page/DashboardMain";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-page/DashboardSidebar";
@@ -98,6 +99,7 @@ export default function DashboardPage() {
         setProjectName={creation.setProjectName}
         signedOutDialogOpen={signedOutDialogOpen}
       />
+      <GuestWelcomeDialog />
     </main>
   );
 }

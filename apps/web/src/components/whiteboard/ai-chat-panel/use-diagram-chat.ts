@@ -12,7 +12,11 @@ import {
   uiMessageText,
   type StoredChatMessage,
 } from "@/lib/chat-history";
-import { CreationQuotaError, updateProjectFile } from "@/lib/projects-client";
+import {
+  CreationQuotaError,
+  updateProjectFile,
+  UpstreamRateLimitError,
+} from "@/lib/projects-client";
 import { fetchDiagramChat } from "./utils";
 
 interface UseDiagramChatOptions {
@@ -27,6 +31,7 @@ interface UseDiagramChatOptions {
   onHistoryChange?: (history: StoredChatMessage[]) => void;
   onProviderUsage: (usage: AiProviderUsage | null) => void;
   onProviderError?: (message: string) => void;
+  onRateLimitError?: (message: string) => void;
   onQuotaError?: (message: string) => void;
   projectId?: string;
   providerId?: string;
@@ -47,6 +52,7 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     onHistoryChange,
     onProviderUsage,
     onProviderError,
+    onRateLimitError,
     onQuotaError,
     projectId,
     providerId,
@@ -54,6 +60,7 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     theme,
   } = options;
   const seedAutoRunKeyRef = useRef<string | null>(null);
+  const seedStorageKeyRef = useRef<string | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
 
@@ -101,10 +108,15 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
 
   useEffect(() => {
     if (chat.error instanceof CreationQuotaError) onQuotaError?.(chat.error.message);
+    else if (chat.error instanceof UpstreamRateLimitError) onRateLimitError?.(chat.error.message);
     else if (chat.error?.message.includes("BYOK provider has reached")) {
       onProviderError?.(chat.error.message);
     }
-  }, [chat.error, onProviderError, onQuotaError]);
+    if (chat.error && seedStorageKeyRef.current) {
+      window.localStorage.removeItem(seedStorageKeyRef.current);
+      seedStorageKeyRef.current = null;
+    }
+  }, [chat.error, onProviderError, onQuotaError, onRateLimitError]);
 
   useEffect(() => {
     const hasAssistant = chat.messages.some((message) => message.role === "assistant");
@@ -120,7 +132,11 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
 
     const key = `opendiagram:auto-diagram:v3:${projectId ?? "guest"}:${fileId ?? "file"}:${autoDiagramPrompt.id}`;
     if (seedAutoRunKeyRef.current === key) return;
+    const storageKey = `opendiagram:auto-diagram-complete:v1:${projectId ?? "guest"}:${fileId ?? "file"}:${autoDiagramPrompt.id}`;
+    if (window.localStorage.getItem(storageKey)) return;
     seedAutoRunKeyRef.current = key;
+    seedStorageKeyRef.current = storageKey;
+    window.localStorage.setItem(storageKey, "started");
 
     const seedMessage = chat.messages.find(
       (message) => message.role === "user" && uiMessageText(message) === autoDiagramPrompt.text,
@@ -131,7 +147,13 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
           ? { text: autoDiagramPrompt.text, messageId: seedMessage.id }
           : { text: autoDiagramPrompt.text },
       )
-      .catch(() => undefined);
+      .then(() => {
+        window.localStorage.setItem(storageKey, "complete");
+      })
+      .catch(() => {
+        window.localStorage.removeItem(storageKey);
+        seedStorageKeyRef.current = null;
+      });
   }, [
     allowSeedAutoRun,
     autoDiagramPrompt,

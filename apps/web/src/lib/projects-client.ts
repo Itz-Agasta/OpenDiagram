@@ -6,3 +6,4 @@ export * from "./projects-client/quota";
 export * from "./projects-client/types";
 export * from "./projects-client/waitlist";
 export { AiProviderCreditError } from "./projects-client/http";
+export { UpstreamRateLimitError } from "./projects-client/http";
