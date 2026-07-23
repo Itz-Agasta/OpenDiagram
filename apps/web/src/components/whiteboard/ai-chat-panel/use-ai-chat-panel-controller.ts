@@ -52,6 +52,7 @@ export function useAIChatPanelController({
   const providerIdRef = useRef(providerId);
   const providerRequestIdRef = useRef(0);
   const routingRef = useRef(false);
+  const [routingPending, setRoutingPending] = useState(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -188,6 +189,7 @@ export function useAIChatPanelController({
       if (projectId && excalidrawAPI) {
         if (routingRef.current) return;
         routingRef.current = true;
+        setRoutingPending(true);
         try {
           const route = await orchestrateWorkspaceRequest({ text, projectId });
           useProjectChat = route.intent === "project_chat";
@@ -195,6 +197,7 @@ export function useAIChatPanelController({
           useProjectChat = !diagramRequestLikely(text);
         } finally {
           routingRef.current = false;
+          setRoutingPending(false);
         }
       }
 
@@ -214,11 +217,16 @@ export function useAIChatPanelController({
       projectChat.run,
       projectChat.status,
       projectId,
+      routingPending,
       useDiagramChatDirectly,
     ],
   );
 
-  const submitStatus = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
+  const submitStatus = routingPending
+    ? "submitted"
+    : projectChat.status !== "ready"
+      ? projectChat.status
+      : diagramChat.status;
   const stop = useCallback(() => {
     if (projectChat.status !== "ready") projectChat.stop();
     else diagramChat.stop();

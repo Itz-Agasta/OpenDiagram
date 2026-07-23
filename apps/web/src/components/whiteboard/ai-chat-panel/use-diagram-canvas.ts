@@ -27,11 +27,11 @@ export function useDiagramCanvas({
   const frameByTitleRef = useRef(new Map<string, string>());
   const appliedToolCallsRef = useRef(new Set<string>());
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
-  const skipNextMessagesRef = useRef(false);
+  const skippedMessageIdsRef = useRef(new Set<string>());
   const [applyError, setApplyError] = useState<string | null>(null);
 
   useEffect(() => {
-    skipNextMessagesRef.current = true;
+    skippedMessageIdsRef.current = new Set(diagramMessages.map((message) => message.id));
     currentSpecRef.current = initialSpec;
     frameByTitleRef.current.clear();
     appliedToolCallsRef.current.clear();
@@ -40,12 +40,8 @@ export function useDiagramCanvas({
 
   useEffect(() => {
     if (!excalidrawAPI) return;
-    if (skipNextMessagesRef.current) {
-      skipNextMessagesRef.current = false;
-      return;
-    }
-
     for (const message of diagramMessages) {
+      if (skippedMessageIdsRef.current.has(message.id)) continue;
       if (message.role !== "assistant") continue;
 
       for (const part of message.parts) {

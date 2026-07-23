@@ -105,7 +105,9 @@ export function GitHubImportContent() {
         if (!active) return;
 
         const message = err instanceof Error ? err.message : "Could not load GitHub repositories.";
-        const requiresConnection = message === GITHUB_CONNECTION_REQUIRED_ERROR;
+        const requiresConnection =
+          message === GITHUB_CONNECTION_REQUIRED_ERROR ||
+          (err instanceof Error && "status" in err && err.status === 401);
         setGithubConnected(requiresConnection ? false : true);
         setError(
           requiresConnection ? "Connect GitHub to access your public repositories." : message,

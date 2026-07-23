@@ -37,6 +37,15 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
   const promotionStartedRef = useRef(false);
   const promotionProjectRef = useRef<SavedProject | null>(null);
   const promotedFilesRef = useRef(new Map<string, SavedProjectFile>());
+  const promotionDraftIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (promotionDraftIdRef.current === draft?.id) return;
+    promotionDraftIdRef.current = draft?.id ?? null;
+    promotionStartedRef.current = false;
+    promotionProjectRef.current = null;
+    promotedFilesRef.current = new Map();
+  }, [draft?.id]);
 
   const saveDraftAfterLogin = useCallback(async () => {
     const currentDraft = draftRef.current;

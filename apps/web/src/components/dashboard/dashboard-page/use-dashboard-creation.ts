@@ -182,7 +182,7 @@ async function createFirstFile(
         method: "DELETE",
         credentials: "include",
       });
-      if (!response.ok) {
+      if (!response.ok && response.status !== 404 && response.status !== 410) {
         throw new Error(`Project cleanup failed (${response.status})`);
       }
     } catch (cleanupError) {

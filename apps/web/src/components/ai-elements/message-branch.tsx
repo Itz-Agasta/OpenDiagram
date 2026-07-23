@@ -53,7 +53,7 @@ export const MessageBranch = ({
 
   useEffect(() => {
     setCurrentBranch((branch) => {
-      if (branches.length === 0) return 0;
+      if (branches.length === 0) return branch;
       return Math.min(Math.max(branch, 0), branches.length - 1);
     });
   }, [branches.length]);

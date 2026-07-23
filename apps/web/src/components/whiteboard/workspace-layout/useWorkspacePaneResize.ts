@@ -44,7 +44,7 @@ export function useWorkspacePaneResize() {
         Math.min(SIDEBAR_MAX_WIDTH, viewportMaximum),
       );
     },
-    [],
+    [isAgentOpen],
   );
   const clampAgentWidth = useCallback(
     (width: number, sidebar = isSidebarOpen ? sidebarWidthRef.current : 0) => {
@@ -54,7 +54,7 @@ export function useWorkspacePaneResize() {
       );
       return Math.min(Math.max(width, AGENT_MIN_WIDTH), Math.min(AGENT_MAX_WIDTH, viewportMaximum));
     },
-    [],
+    [isSidebarOpen],
   );
 
   useEffect(() => {
@@ -113,7 +113,14 @@ export function useWorkspacePaneResize() {
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
     },
-    [clampAgentWidth, clampSidebarWidth, setAgentWidth, setSidebarWidth],
+    [
+      clampAgentWidth,
+      clampSidebarWidth,
+      isAgentOpen,
+      isSidebarOpen,
+      setAgentWidth,
+      setSidebarWidth,
+    ],
   );
 
   useEffect(

@@ -128,5 +128,5 @@ export function sceneElementsVersion(elements: readonly unknown[]) {
 
 export function initialElementsVersion(scene: unknown) {
   const elements = (scene as { elements?: unknown })?.elements;
-  return Array.isArray(elements) ? sceneElementsVersion(elements) : "";
+  return Array.isArray(elements) ? sceneElementsVersion(elements) : sceneElementsVersion([]);
 }

@@ -114,7 +114,25 @@ export function useProjectChat({
           });
         }
       } catch (caught) {
-        if (requestController.signal.aborted) return true;
+        if (requestController.signal.aborted) {
+          const persistCancelled = (previous: UIMessage[]) => {
+            if (!fileId) return previous;
+            const history = uiMessagesToStoredChatHistory(previous);
+            onHistoryChange?.(history);
+            void updateProjectFile(projectId, fileId, { history });
+            return previous;
+          };
+          if (activeFileType === "diagram") setDiagramMessages(persistCancelled);
+          else
+            setMessages((previous) => {
+              if (fileId) {
+                onHistoryChange?.(previous);
+                void updateProjectFile(projectId, fileId, { history: previous });
+              }
+              return previous;
+            });
+          return true;
+        }
         const message = caught instanceof Error ? caught.message : "Project chat failed";
         if (caught instanceof CreationQuotaError) onQuotaError?.(message);
         else if (caught instanceof UpstreamRateLimitError) onRateLimitError?.(message);
@@ -144,7 +162,12 @@ export function useProjectChat({
         if (requestControllerRef.current === requestController) {
           requestControllerRef.current = null;
         }
-        setStatus("ready");
+        if (
+          requestControllerRef.current === null ||
+          requestControllerRef.current === requestController
+        ) {
+          setStatus("ready");
+        }
       }
 
       return true;

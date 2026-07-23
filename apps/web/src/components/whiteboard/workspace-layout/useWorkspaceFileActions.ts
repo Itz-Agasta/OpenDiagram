@@ -86,12 +86,12 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       });
       setActiveFile(updated);
       upsertStoredFile(toSidebarFile(updated));
+      persistence.markClean();
       if (updated.type === "doc") {
         const content = fileContentToText(updated.content);
         persistence.initialize(updated.type, null, content);
         setDocContent(content);
       }
-      persistence.markClean();
       setSaveStatus("saved");
     } catch (error) {
       setSaveStatus("error");

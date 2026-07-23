@@ -27,6 +27,7 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
   useEffect(() => {
     if (sessionPending) return;
     if (!user) {
+      setSavedProjectsLoading(false);
       setSavedProjects([]);
       setFilesByProject({});
       setSavedProjectsLoaded(false);
