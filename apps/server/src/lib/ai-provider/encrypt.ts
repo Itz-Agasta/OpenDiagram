@@ -10,7 +10,6 @@ const ALGORITHM = "aes-256-gcm";
 
 export interface SecretContext {
   userId: string;
-  providerId: string;
   provider: string;
 }
 
@@ -45,7 +44,7 @@ export function canEncryptByokKeys(): boolean {
 }
 
 function aad(context: SecretContext): Buffer {
-  return Buffer.from(`${context.userId}\0${context.providerId}\0${context.provider}`, "utf8");
+  return Buffer.from(`${context.userId}\0${context.provider}`, "utf8");
 }
 
 export function encryptSecret(plaintext: string, context: SecretContext): string {
@@ -66,9 +65,14 @@ export function decryptSecret(payload: string, context: SecretContext): string {
   if (!iv || !tag || !ciphertext) {
     throw new ByokEncryptionError("Stored API key is malformed.");
   }
+  const tagBytes = Buffer.from(tag, "base64url");
+  // Reject truncated tags - a short tag weakens GCM's integrity guarantee.
+  if (tagBytes.length !== 16) {
+    throw new ByokEncryptionError("Stored API key is malformed.");
+  }
   const decipher = createDecipheriv(ALGORITHM, encryptionKey(), Buffer.from(iv, "base64url"));
   decipher.setAAD(aad(context));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  decipher.setAuthTag(tagBytes);
   return Buffer.concat([
     decipher.update(Buffer.from(ciphertext, "base64url")),
     decipher.final(),

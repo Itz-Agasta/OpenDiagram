@@ -29,6 +29,13 @@
       "when": 1784788028191,
       "tag": "0003_simple_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784792379667,
+      "tag": "0004_chemical_salo",
+      "breakpoints": true
     }
   ]
 }

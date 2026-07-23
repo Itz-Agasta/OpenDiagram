@@ -34,11 +34,14 @@ async function resolveUserModel(userId: string): Promise<ResolvedModel | null> {
   const provider = getProvider(row.provider);
   if (!provider) return null;
 
-  const apiKey = decryptSecret(row.encryptedApiKey, {
-    userId,
-    providerId: row.id,
-    provider: row.provider,
-  });
+  // If the key can't be decrypted (e.g. BYOK_ENCRYPTION_KEY unset/rotated),
+  // fall back to the platform model rather than failing the whole request.
+  let apiKey: string;
+  try {
+    apiKey = decryptSecret(row.encryptedApiKey, { userId, provider: row.provider });
+  } catch {
+    return null;
+  }
 
   return {
     model: provider.createModel(apiKey, row.modelId),

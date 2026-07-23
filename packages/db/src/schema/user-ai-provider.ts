@@ -1,6 +1,6 @@
 /** Per-user BYOK AI providers: an encrypted API key + chosen model, one default per user. */
 import { relations, sql } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
@@ -28,7 +28,9 @@ export const userAiProvider = pgTable(
       .notNull(),
   },
   (table) => [
-    index("user_ai_provider_user_id_idx").on(table.userId),
+    // One row per provider per user (reconnect updates it). Also serves as the
+    // userId lookup index via its leftmost column.
+    uniqueIndex("user_ai_provider_user_provider_idx").on(table.userId, table.provider),
     // At most one default provider per user.
     uniqueIndex("user_ai_provider_one_default_per_user_idx")
       .on(table.userId)

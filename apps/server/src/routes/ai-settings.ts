@@ -32,7 +32,7 @@ const updateSchema = z
     message: "Nothing to update.",
   });
 
-/** Row shape safe to return to the client — never the encrypted key. */
+/** Row shape safe to return to the client - never the encrypted key. */
 function publicProvider(row: typeof userAiProvider.$inferSelect) {
   return {
     id: row.id,
@@ -67,7 +67,6 @@ aiSettingsRoute.get("/providers", async (c) => {
     catalog: listProviders().map((p) => ({
       id: p.id,
       label: p.label,
-      icon: p.icon,
       docsUrl: p.docsUrl,
       keyPlaceholder: p.keyPlaceholder,
       models: p.models,
@@ -96,32 +95,32 @@ aiSettingsRoute.post("/providers", async (c) => {
   }
 
   const userId = c.get("userId");
-  const id = crypto.randomUUID();
-  const encryptedApiKey = encryptSecret(parsed.data.apiKey, {
-    userId,
-    providerId: id,
-    provider: def.id,
-  });
+  const encryptedApiKey = encryptSecret(parsed.data.apiKey, { userId, provider: def.id });
+  const last4 = keyLast4(parsed.data.apiKey);
 
   const row = await db.transaction(async (tx) => {
     const existing = await tx
       .select({ id: userAiProvider.id })
       .from(userAiProvider)
       .where(eq(userAiProvider.userId, userId));
-    const makeDefault = existing.length === 0;
-    const [inserted] = await tx
+    // First provider becomes the default. Reconnecting an existing provider
+    // updates its key/model in place (one row per user+provider).
+    const [saved] = await tx
       .insert(userAiProvider)
       .values({
-        id,
         userId,
         provider: def.id,
         modelId,
         encryptedApiKey,
-        keyLast4: keyLast4(parsed.data.apiKey),
-        isDefault: makeDefault,
+        keyLast4: last4,
+        isDefault: existing.length === 0,
+      })
+      .onConflictDoUpdate({
+        target: [userAiProvider.userId, userAiProvider.provider],
+        set: { modelId, encryptedApiKey, keyLast4: last4, updatedAt: new Date() },
       })
       .returning();
-    return inserted;
+    return saved;
   });
 
   if (!row) return c.json({ error: "Failed to save provider." }, 500);

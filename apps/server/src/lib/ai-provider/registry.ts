@@ -15,8 +15,6 @@ export type ProviderModel = { id: string; label: string };
 export type ProviderDefinition = {
   id: UserAiProviderKind;
   label: string;
-  /** iconify id for the settings UI, e.g. "simple-icons:openai". */
-  icon: string;
   /** Where users get a key. */
   docsUrl: string;
   keyPlaceholder: string;
@@ -30,7 +28,6 @@ const providers: ProviderDefinition[] = [
   {
     id: "openai",
     label: "OpenAI",
-    icon: "simple-icons:openai",
     docsUrl: "https://platform.openai.com/api-keys",
     keyPlaceholder: "sk-…",
     models: [
@@ -44,7 +41,6 @@ const providers: ProviderDefinition[] = [
   {
     id: "anthropic",
     label: "Anthropic",
-    icon: "simple-icons:anthropic",
     docsUrl: "https://console.anthropic.com/settings/keys",
     keyPlaceholder: "sk-ant-…",
     models: [
@@ -57,7 +53,6 @@ const providers: ProviderDefinition[] = [
   {
     id: "google",
     label: "Google Gemini",
-    icon: "simple-icons:googlegemini",
     docsUrl: "https://aistudio.google.com/apikey",
     keyPlaceholder: "AIza…",
     models: [
@@ -70,7 +65,6 @@ const providers: ProviderDefinition[] = [
   {
     id: "openrouter",
     label: "OpenRouter",
-    icon: "simple-icons:openrouter",
     docsUrl: "https://openrouter.ai/keys",
     keyPlaceholder: "sk-or-…",
     models: [
