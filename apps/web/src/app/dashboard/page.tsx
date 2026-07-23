@@ -673,14 +673,22 @@ export default function DashboardPage() {
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuGroup>
                   {isSignedIn ? (
-                    <DropdownMenuItem
-                      disabled={signOutPending}
-                      onSelect={() => void signOut()}
-                      className="cursor-pointer text-od-ink"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      {signOutPending ? "Logging out..." : "Log out"}
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild className="cursor-pointer text-od-ink">
+                        <Link href="/dashboard/settings">
+                          <Sparkles className="h-4 w-4" />
+                          AI providers
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={signOutPending}
+                        onSelect={() => void signOut()}
+                        className="cursor-pointer text-od-ink"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        {signOutPending ? "Logging out..." : "Log out"}
+                      </DropdownMenuItem>
+                    </>
                   ) : (
                     <DropdownMenuItem asChild className="cursor-pointer text-od-ink">
                       <Link href="/login">

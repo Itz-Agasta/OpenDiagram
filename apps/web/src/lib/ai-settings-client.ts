@@ -5,7 +5,6 @@ export type CatalogModel = { id: string; label: string };
 export type CatalogProvider = {
   id: string;
   label: string;
-  icon: string;
   docsUrl: string;
   keyPlaceholder: string;
   models: CatalogModel[];

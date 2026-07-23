@@ -35,12 +35,14 @@ export function AiProviders() {
   const [settings, setSettings] = useState<AiSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<CatalogProvider | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     try {
       setSettings(await getAiSettings());
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load AI settings.");
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load AI settings.");
     }
   }
 
@@ -57,7 +59,16 @@ export function AiProviders() {
       </div>
     );
   }
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+        <p>{error ?? "Couldn't load AI settings."}</p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => refresh()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   const connectedByProvider = new Map<string, ConnectedProvider>();
   for (const p of settings.providers) {
@@ -170,6 +181,7 @@ function ProviderCard({
         <div className="flex items-center gap-2">
           <Select
             value={connected.modelId}
+            disabled={busy}
             onValueChange={(modelId) =>
               run(() => updateProvider(connected.id, { modelId }), "Model updated.")
             }
