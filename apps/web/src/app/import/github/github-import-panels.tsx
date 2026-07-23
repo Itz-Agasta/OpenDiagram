@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import { Check, GitBranch, Loader2, Lock } from "lucide-react";
