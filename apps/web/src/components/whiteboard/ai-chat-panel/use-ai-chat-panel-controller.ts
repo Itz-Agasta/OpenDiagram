@@ -49,6 +49,8 @@ export function useAIChatPanelController({
   const providerOptionsRef = useRef<ProviderModelOption[]>([]);
   const providerUpdateRef = useRef<Promise<void>>(Promise.resolve());
   const providerUpdateFailedRef = useRef(false);
+  const providerIdRef = useRef(providerId);
+  const providerRequestIdRef = useRef(0);
   const routingRef = useRef(false);
 
   useEffect(() => {
@@ -67,9 +69,10 @@ export function useAIChatPanelController({
                   option.providerId === initialProviderId && option.modelId === initialModelId,
               )
             : undefined;
-        setProviderIdState(
-          initialOption?.id ?? options.find((option) => option.isDefault)?.id ?? "platform",
-        );
+        const nextProviderId =
+          initialOption?.id ?? options.find((option) => option.isDefault)?.id ?? "platform";
+        providerIdRef.current = nextProviderId;
+        setProviderIdState(nextProviderId);
       })
       .catch(() => undefined);
     return () => {
@@ -81,23 +84,31 @@ export function useAIChatPanelController({
 
   const setProviderId = useCallback(
     (nextProviderId: string) => {
-      const previousProviderId = providerId;
       const option = providerOptionsRef.current.find(
         (candidate) => candidate.id === nextProviderId,
       );
       if (!option) return;
 
+      const requestId = ++providerRequestIdRef.current;
+      const previousProviderId = providerIdRef.current;
+      providerIdRef.current = nextProviderId;
       setProviderIdState(nextProviderId);
       providerUpdateFailedRef.current = false;
-      providerUpdateRef.current = selectProviderModel(option).catch((cause) => {
+      const request = providerUpdateRef.current
+        .catch(() => undefined)
+        .then(() => selectProviderModel(option));
+      providerUpdateRef.current = request.catch(() => undefined);
+      void request.catch((cause) => {
+        if (requestId !== providerRequestIdRef.current) return;
         providerUpdateFailedRef.current = true;
+        providerIdRef.current = previousProviderId;
         setProviderIdState(previousProviderId);
         onProviderError?.(
           cause instanceof Error ? cause.message : "Could not select this provider.",
         );
       });
     },
-    [onProviderError, providerId],
+    [onProviderError],
   );
   const autoDiagramPrompt =
     activeFileType === "diagram"
@@ -209,12 +220,13 @@ export function useAIChatPanelController({
 
   const submitStatus = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
   const stop = useCallback(() => {
-    diagramChat.stop();
-  }, [diagramChat.stop]);
+    if (projectChat.status !== "ready") projectChat.stop();
+    else diagramChat.stop();
+  }, [diagramChat.stop, projectChat.status, projectChat.stop]);
   const conversationMessages =
     activeFileType === "diagram"
       ? diagramChat.messages
-      : projectChat.messages.map(storedChatMessageToUIMessage);
+      : [...projectChat.messages.map(storedChatMessageToUIMessage), ...diagramChat.messages];
 
   return {
     answerAskUser,

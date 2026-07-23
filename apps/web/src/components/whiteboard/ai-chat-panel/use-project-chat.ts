@@ -46,6 +46,7 @@ export function useProjectChat({
   );
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [error, setError] = useState<string | null>(null);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messageIdRef.current = normalizedHistory.length;
@@ -71,9 +72,17 @@ export function useProjectChat({
       setStatus("submitted");
       setError(null);
       onProviderUsage(null);
+      const requestController = new AbortController();
+      requestControllerRef.current = requestController;
 
       try {
-        const result = await runProjectChatAgent({ text, projectId, providerId, modelId });
+        const result = await runProjectChatAgent({
+          text,
+          projectId,
+          providerId,
+          modelId,
+          signal: requestController.signal,
+        });
         if (result.aiProvider) onProviderUsage(result.aiProvider);
         const assistantMessage: StoredChatMessage = {
           id: `msg-${messageIdRef.current++}`,
@@ -105,6 +114,7 @@ export function useProjectChat({
           });
         }
       } catch (caught) {
+        if (requestController.signal.aborted) return true;
         const message = caught instanceof Error ? caught.message : "Project chat failed";
         if (caught instanceof CreationQuotaError) onQuotaError?.(message);
         else if (caught instanceof UpstreamRateLimitError) onRateLimitError?.(message);
@@ -117,12 +127,23 @@ export function useProjectChat({
           text: `Error: ${message}`,
         };
         if (activeFileType === "diagram") {
-          setDiagramMessages((previous) => appendStoredChatMessage(previous, errorMessage));
+          setDiagramMessages((previous) => {
+            const updated = appendStoredChatMessage(previous, errorMessage);
+            if (fileId) {
+              const history = uiMessagesToStoredChatHistory(updated);
+              onHistoryChange?.(history);
+              void updateProjectFile(projectId, fileId, { history });
+            }
+            return updated;
+          });
         } else {
           setMessages((previous) => [...previous, errorMessage]);
         }
         setError(message);
       } finally {
+        if (requestControllerRef.current === requestController) {
+          requestControllerRef.current = null;
+        }
         setStatus("ready");
       }
 
@@ -143,5 +164,11 @@ export function useProjectChat({
     ],
   );
 
-  return { error, messages, run, status };
+  const stop = useCallback(() => {
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+    setStatus("ready");
+  }, []);
+
+  return { error, messages, run, status, stop };
 }

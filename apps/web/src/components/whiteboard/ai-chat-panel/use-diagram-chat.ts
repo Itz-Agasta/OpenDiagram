@@ -137,7 +137,7 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     const key = `opendiagram:auto-diagram:v3:${projectId ?? "guest"}:${fileId ?? "file"}:${autoDiagramPrompt.id}`;
     if (seedAutoRunKeyRef.current === key) return;
     const storageKey = `opendiagram:auto-diagram-complete:v1:${projectId ?? "guest"}:${fileId ?? "file"}:${autoDiagramPrompt.id}`;
-    if (window.localStorage.getItem(storageKey)) return;
+    if (window.localStorage.getItem(storageKey) === "complete") return;
     seedAutoRunKeyRef.current = key;
     seedStorageKeyRef.current = storageKey;
     window.localStorage.setItem(storageKey, "started");

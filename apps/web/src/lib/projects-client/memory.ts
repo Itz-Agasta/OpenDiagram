@@ -47,13 +47,16 @@ export async function chatWithProject(
   message: string,
   providerId?: string,
   modelId?: string,
+  signal?: AbortSignal,
 ): Promise<ProjectChatResult> {
   const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/chat`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, modelId, providerId }),
-    signal: AbortSignal.timeout(60_000),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+      : AbortSignal.timeout(60_000),
   });
   const data = await readProjectResponse(response);
   if (!response.ok)

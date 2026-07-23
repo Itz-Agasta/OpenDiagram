@@ -73,6 +73,7 @@ export async function runProjectChatAgent(input: {
   projectId?: string;
   providerId?: string;
   modelId?: string;
+  signal?: AbortSignal;
   onProgress?: (event: WorkspaceAgentProgress) => void;
 }): Promise<WorkspaceAgentResult> {
   if (!input.projectId) {
@@ -85,6 +86,7 @@ export async function runProjectChatAgent(input: {
     input.text,
     input.providerId,
     input.modelId,
+    input.signal,
   );
   input.onProgress?.({
     agent: "memory",
