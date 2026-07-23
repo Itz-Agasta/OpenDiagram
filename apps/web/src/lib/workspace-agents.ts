@@ -54,7 +54,9 @@ export async function orchestrateWorkspaceRequest(input: {
       pendingMessage: intent === "diagram" ? "Generating diagram…" : "Reading project context…",
     };
   } catch {
-    return { intent: "diagram", pendingMessage: "Generating diagram…" };
+    return input.projectId
+      ? { intent: "project_chat", pendingMessage: "Reading project context…" }
+      : { intent: "diagram", pendingMessage: "Generating diagram…" };
   }
 }
 

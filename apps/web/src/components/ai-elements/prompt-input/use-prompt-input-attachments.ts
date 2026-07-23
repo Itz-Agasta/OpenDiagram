@@ -33,7 +33,11 @@ function acceptedFiles(files: File[], options: AttachmentOptions) {
     (file) =>
       patterns.length === 0 ||
       patterns.some((pattern) =>
-        pattern.endsWith("/*") ? file.type.startsWith(pattern.slice(0, -1)) : file.type === pattern,
+        pattern.startsWith(".")
+          ? file.name.toLowerCase().endsWith(pattern.toLowerCase())
+          : pattern.endsWith("/*")
+            ? file.type.startsWith(pattern.slice(0, -1))
+            : file.type === pattern,
       ),
   );
   if (files.length && accepted.length === 0) {
@@ -64,9 +68,11 @@ export function usePromptInputAttachmentsState(options: AttachmentOptions) {
   const [localFiles, setLocalFiles] = useState<(FileUIPart & { id: string })[]>([]);
   const files = controller?.attachments.files ?? localFiles;
   const filesRef = useRef(files);
+  const pendingProviderCountRef = useRef(0);
 
   useEffect(() => {
     filesRef.current = files;
+    pendingProviderCountRef.current = 0;
   }, [files]);
 
   const addLocal = useCallback(
@@ -89,8 +95,15 @@ export function usePromptInputAttachmentsState(options: AttachmentOptions) {
   const addWithProvider = useCallback(
     (fileList: File[] | FileList) => {
       const accepted = acceptedFiles([...fileList], options);
-      const capped = capFiles(accepted, files.length, options);
-      if (capped.length) controller?.attachments.add(capped);
+      const capped = capFiles(
+        accepted,
+        filesRef.current.length + pendingProviderCountRef.current,
+        options,
+      );
+      if (capped.length) {
+        pendingProviderCountRef.current += capped.length;
+        controller?.attachments.add(capped);
+      }
     },
     [controller, files.length, options],
   );

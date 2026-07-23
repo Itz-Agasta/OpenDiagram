@@ -27,9 +27,11 @@ export function useDiagramCanvas({
   const frameByTitleRef = useRef(new Map<string, string>());
   const appliedToolCallsRef = useRef(new Set<string>());
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const skipNextMessagesRef = useRef(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
   useEffect(() => {
+    skipNextMessagesRef.current = true;
     currentSpecRef.current = initialSpec;
     frameByTitleRef.current.clear();
     appliedToolCallsRef.current.clear();
@@ -38,6 +40,10 @@ export function useDiagramCanvas({
 
   useEffect(() => {
     if (!excalidrawAPI) return;
+    if (skipNextMessagesRef.current) {
+      skipNextMessagesRef.current = false;
+      return;
+    }
 
     for (const message of diagramMessages) {
       if (message.role !== "assistant") continue;

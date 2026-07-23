@@ -1,5 +1,6 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec, RenderSkeleton } from "@OpenDiagram/harness";
+import { diagramTypeSchema } from "@OpenDiagram/harness";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import type { RepoGenerationJob } from "@/lib/projects-client";
 
@@ -58,7 +59,7 @@ export function parseInitialDiagramSpec(value: unknown): DiagramSpec | undefined
   if (!candidate || typeof candidate !== "object") return undefined;
 
   const spec = candidate as Partial<DiagramSpec>;
-  return typeof spec.type === "string" &&
+  return diagramTypeSchema.safeParse(spec.type).success &&
     typeof spec.title === "string" &&
     Array.isArray(spec.nodes) &&
     Array.isArray(spec.edges)

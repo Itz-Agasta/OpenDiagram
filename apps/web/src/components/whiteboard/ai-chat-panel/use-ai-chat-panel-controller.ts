@@ -24,7 +24,9 @@ export function useAIChatPanelController({
   fileId,
   hasExistingScene,
   initialHistory,
+  initialModelId,
   initialSpec,
+  initialProviderId,
   onHistoryChange,
   onProviderError,
   onRateLimitError,
@@ -40,11 +42,14 @@ export function useAIChatPanelController({
   const currentSpecRef = useRef<DiagramSpec | undefined>(parsedInitialSpec);
   const [theme, setTheme] = useState<ThemeName>("sketch");
   const [providerUsage, setProviderUsage] = useState<AiProviderUsage | null>(null);
-  const [providerId, setProviderIdState] = useState("platform");
+  const [providerId, setProviderIdState] = useState(
+    initialProviderId && initialModelId ? `${initialProviderId}:${initialModelId}` : "platform",
+  );
   const [providerOptions, setProviderOptions] = useState<AIChatProviderOption[]>([]);
   const providerOptionsRef = useRef<ProviderModelOption[]>([]);
   const providerUpdateRef = useRef<Promise<void>>(Promise.resolve());
   const providerUpdateFailedRef = useRef(false);
+  const routingRef = useRef(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -55,13 +60,24 @@ export function useAIChatPanelController({
         const options = providerModelOptions(settings);
         providerOptionsRef.current = options;
         setProviderOptions(options);
-        setProviderIdState(options.find((option) => option.isDefault)?.id ?? "platform");
+        const initialOption =
+          initialProviderId && initialModelId
+            ? options.find(
+                (option) =>
+                  option.providerId === initialProviderId && option.modelId === initialModelId,
+              )
+            : undefined;
+        setProviderIdState(
+          initialOption?.id ?? options.find((option) => option.isDefault)?.id ?? "platform",
+        );
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [initialModelId, initialProviderId, projectId]);
+
+  const selectedProvider = providerOptions.find((option) => option.id === providerId);
 
   const setProviderId = useCallback(
     (nextProviderId: string) => {
@@ -102,6 +118,8 @@ export function useAIChatPanelController({
     onRateLimitError,
     onQuotaError,
     projectId,
+    providerId: selectedProvider?.providerId,
+    modelId: selectedProvider?.modelId,
     theme,
   });
   const canvas = useDiagramCanvas({
@@ -122,6 +140,8 @@ export function useAIChatPanelController({
     onRateLimitError,
     onQuotaError,
     projectId,
+    providerId: selectedProvider?.providerId,
+    modelId: selectedProvider?.modelId,
     setDiagramMessages: diagramChat.setMessages,
   });
 
@@ -155,11 +175,15 @@ export function useAIChatPanelController({
 
       let useProjectChat = Boolean(projectId) && !diagramRequestLikely(text);
       if (projectId && excalidrawAPI) {
+        if (routingRef.current) return;
+        routingRef.current = true;
         try {
           const route = await orchestrateWorkspaceRequest({ text, projectId });
           useProjectChat = route.intent === "project_chat";
         } catch {
           useProjectChat = !diagramRequestLikely(text);
+        } finally {
+          routingRef.current = false;
         }
       }
 

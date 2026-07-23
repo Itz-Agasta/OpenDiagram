@@ -16,7 +16,7 @@ export function usePromptInputDrop(
     };
     const onDrop = (event: Event) => {
       const dragEvent = event as DragEvent;
-      if (dragEvent.dataTransfer?.types?.includes("Files")) dragEvent.preventDefault();
+      dragEvent.preventDefault();
       if (dragEvent.dataTransfer?.files?.length) add(dragEvent.dataTransfer.files);
     };
 

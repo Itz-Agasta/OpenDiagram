@@ -13,6 +13,7 @@ import {
   type StoredChatMessage,
 } from "@/lib/chat-history";
 import {
+  AiProviderCreditError,
   CreationQuotaError,
   updateProjectFile,
   UpstreamRateLimitError,
@@ -109,7 +110,10 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
   useEffect(() => {
     if (chat.error instanceof CreationQuotaError) onQuotaError?.(chat.error.message);
     else if (chat.error instanceof UpstreamRateLimitError) onRateLimitError?.(chat.error.message);
-    else if (chat.error?.message.includes("BYOK provider has reached")) {
+    else if (
+      chat.error instanceof AiProviderCreditError ||
+      chat.error?.name === "AiProviderCreditError"
+    ) {
       onProviderError?.(chat.error.message);
     }
     if (chat.error && seedStorageKeyRef.current) {

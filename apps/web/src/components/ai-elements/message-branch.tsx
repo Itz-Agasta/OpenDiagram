@@ -5,7 +5,16 @@ import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { cn } from "@/lib/utils";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  Children,
+  createContext,
+  isValidElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 interface MessageBranchContextType {
   currentBranch: number;
@@ -41,6 +50,13 @@ export const MessageBranch = ({
 }: MessageBranchProps) => {
   const [currentBranch, setCurrentBranch] = useState(defaultBranch);
   const [branches, setBranches] = useState<ReactElement[]>([]);
+
+  useEffect(() => {
+    setCurrentBranch((branch) => {
+      if (branches.length === 0) return 0;
+      return Math.min(Math.max(branch, 0), branches.length - 1);
+    });
+  }, [branches.length]);
 
   const handleBranchChange = useCallback(
     (newBranch: number) => {
@@ -81,25 +97,35 @@ export const MessageBranch = ({
 
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
-export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
+export const MessageBranchContent = ({
+  children,
+  className,
+  ...props
+}: MessageBranchContentProps) => {
   const { currentBranch, setBranches, branches } = useMessageBranch();
   const childrenArray = useMemo(
-    () => (Array.isArray(children) ? children : [children]),
+    () => Children.toArray(children).filter(isValidElement) as ReactElement[],
     [children],
   );
 
   // Use useEffect to update branches when they change
   useEffect(() => {
-    if (branches.length !== childrenArray.length) {
+    if (
+      branches.length !== childrenArray.length ||
+      branches.some((branch, index) => branch !== childrenArray[index])
+    ) {
       setBranches(childrenArray);
     }
   }, [childrenArray, branches, setBranches]);
+
+  const visibleBranch = childrenArray.length ? currentBranch % childrenArray.length : 0;
 
   return childrenArray.map((branch, index) => (
     <div
       className={cn(
         "grid gap-2 overflow-hidden [&>div]:pb-0",
-        index === currentBranch ? "block" : "hidden",
+        index === visibleBranch ? "block" : "hidden",
+        className,
       )}
       key={branch.key}
       {...props}
@@ -181,7 +207,7 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
       className={cn("border-none bg-transparent text-muted-foreground shadow-none", className)}
       {...props}
     >
-      {currentBranch + 1} of {totalBranches}
+      {totalBranches ? currentBranch + 1 : 0} of {totalBranches}
     </ButtonGroupText>
   );
 };

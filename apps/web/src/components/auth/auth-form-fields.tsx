@@ -7,11 +7,12 @@ export function SignInFields({ form }: { form: AuthFormController }) {
   const { signIn, setSignIn } = form;
   return (
     <div className="form" data-hidden={form.tab !== "signin"}>
-      <Field label="Email" error={signIn.errors.email}>
+      <Field label="Email" htmlFor="signin-email" error={signIn.errors.email}>
         <div className="input-wrap">
           <IconMail className="input-icon" />
           <input
             className="input"
+            id="signin-email"
             type="email"
             data-has-icon="true"
             value={signIn.email}
@@ -23,8 +24,9 @@ export function SignInFields({ form }: { form: AuthFormController }) {
         </div>
       </Field>
 
-      <Field label="Password" error={signIn.errors.password}>
+      <Field label="Password" htmlFor="signin-password" error={signIn.errors.password}>
         <PasswordInput
+          id="signin-password"
           value={signIn.password}
           onChange={setSignIn.password}
           placeholder="Enter your password"
@@ -46,10 +48,11 @@ export function SignUpFields({ form }: { form: AuthFormController }) {
   return (
     <div className="form" data-hidden={form.tab !== "signup"}>
       <div className="field-row">
-        <Field label="First name" error={signUp.errors.first}>
+        <Field label="First name" htmlFor="signup-first-name" error={signUp.errors.first}>
           <div className="input-wrap">
             <input
               className="input"
+              id="signup-first-name"
               value={signUp.first}
               onChange={(event) => setSignUp.first(event.target.value)}
               placeholder="Sarah"
@@ -58,10 +61,11 @@ export function SignUpFields({ form }: { form: AuthFormController }) {
             />
           </div>
         </Field>
-        <Field label="Last name" error={signUp.errors.last}>
+        <Field label="Last name" htmlFor="signup-last-name" error={signUp.errors.last}>
           <div className="input-wrap">
             <input
               className="input"
+              id="signup-last-name"
               value={signUp.last}
               onChange={(event) => setSignUp.last(event.target.value)}
               placeholder="Chen"
@@ -72,11 +76,12 @@ export function SignUpFields({ form }: { form: AuthFormController }) {
         </Field>
       </div>
 
-      <Field label="Email" error={signUp.errors.email}>
+      <Field label="Email" htmlFor="signup-email" error={signUp.errors.email}>
         <div className="input-wrap">
           <IconMail className="input-icon" />
           <input
             className="input"
+            id="signup-email"
             type="email"
             data-has-icon="true"
             value={signUp.email}
@@ -90,10 +95,12 @@ export function SignUpFields({ form }: { form: AuthFormController }) {
 
       <Field
         label="Password"
+        htmlFor="signup-password"
         hint={signUp.password && <span className="label-hint">{signUp.strength.label}</span>}
         error={signUp.errors.password}
       >
         <PasswordInput
+          id="signup-password"
           value={signUp.password}
           onChange={setSignUp.password}
           placeholder="At least 8 characters"

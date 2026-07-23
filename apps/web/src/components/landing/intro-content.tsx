@@ -63,6 +63,20 @@ function SkillIcon({ icon, color }: { icon: string; color: string }) {
     );
   }
 
+  if (icon === "Strategy") {
+    return (
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="5.5" stroke={color} strokeWidth="1.5" />
+        <path
+          d="m8 4.5 1.1 2.4L11.5 8l-2.4 1.1L8 11.5l-1.1-2.4L4.5 8l2.4-1.1z"
+          stroke={color}
+          strokeWidth="1.25"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path
