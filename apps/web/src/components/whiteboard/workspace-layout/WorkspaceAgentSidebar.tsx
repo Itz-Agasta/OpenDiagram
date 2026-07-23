@@ -11,6 +11,9 @@ type WorkspaceAgentSidebarProps = {
   fileIdentity?: string;
   fileId?: string;
   initialHistory?: unknown[];
+  initialModelId?: string;
+  initialProviderId?: string;
+  initialSpec?: unknown;
   hasExistingScene?: boolean;
   isContextPending: boolean;
   projectId?: string;
@@ -18,6 +21,7 @@ type WorkspaceAgentSidebarProps = {
   repoGenerationJob: RepoGenerationJob | null;
   onHistoryChange: (history: StoredChatMessage[]) => void;
   onQuotaError: (message: string) => void;
+  onProviderError: (message: string) => void;
   onClose: () => void;
   onResizeStart: (pane: "sidebar" | "agent", event: React.MouseEvent) => void;
 };
@@ -29,6 +33,9 @@ export function WorkspaceAgentSidebar({
   fileIdentity,
   fileId,
   initialHistory,
+  initialModelId,
+  initialProviderId,
+  initialSpec,
   hasExistingScene,
   isContextPending,
   projectId,
@@ -36,6 +43,7 @@ export function WorkspaceAgentSidebar({
   repoGenerationJob,
   onHistoryChange,
   onQuotaError,
+  onProviderError,
   onClose,
   onResizeStart,
 }: WorkspaceAgentSidebarProps) {
@@ -51,7 +59,7 @@ export function WorkspaceAgentSidebar({
         <div className="mx-auto h-full w-px bg-od-border-soft" />
       </div>
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-od-border-soft px-3">
-        <p className="truncate text-[13px] font-medium text-od-ink">Agent</p>
+        <p className="truncate text-[13px] font-medium text-od-ink">Picasso</p>
         <button
           type="button"
           onClick={onClose}
@@ -61,11 +69,14 @@ export function WorkspaceAgentSidebar({
           <PanelRightClose className="h-4 w-4" />
         </button>
       </div>
-      <div className="relative flex min-h-0 flex-1" aria-busy={isContextPending}>
+      <div
+        className="relative flex min-h-0 flex-1 bg-od-canvas/30 p-2 pr-3"
+        aria-busy={isContextPending}
+      >
         <div
           aria-hidden={isContextPending}
           inert={isContextPending}
-          className={`flex min-h-0 flex-1 ${isContextPending ? "invisible" : ""}`}
+          className={`flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-od-border-soft bg-white ${isContextPending ? "invisible" : ""}`}
         >
           <AIChatPanel
             // Context is hidden and seed generation is gated until this loaded
@@ -77,18 +88,22 @@ export function WorkspaceAgentSidebar({
             projectId={projectId}
             fileId={fileId}
             initialHistory={initialHistory}
+            initialModelId={initialModelId}
+            initialProviderId={initialProviderId}
+            initialSpec={initialSpec}
             hasExistingScene={hasExistingScene}
             repoGenerationJob={repoGenerationJob}
             repoGenerationError={repoGenerationError}
             onHistoryChange={onHistoryChange}
             onQuotaError={onQuotaError}
+            onProviderError={onProviderError}
           />
         </div>
         {isContextPending && (
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-0 grid place-items-center bg-white text-od-ink-muted"
+            className="absolute inset-2 right-3 grid place-items-center rounded-xl border border-od-border-soft bg-white text-od-ink-muted"
           >
             <div className="flex items-center gap-2 text-[13px]">
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />

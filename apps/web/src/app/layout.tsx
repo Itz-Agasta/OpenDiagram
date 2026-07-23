@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
 import "./globals.css";
 import "lenis/dist/lenis.css";
@@ -54,6 +55,7 @@ export default function RootLayout({
         {children}
         <Toaster position="top-right" />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

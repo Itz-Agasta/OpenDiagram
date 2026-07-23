@@ -1,0 +1,53 @@
+/* Visual pane */
+
+.pane-visual {
+  position: relative;
+}
+
+.visual-image {
+  object-fit: fill;
+}
+
+.visual-label {
+  position: absolute;
+  right: 48px;
+  bottom: 48px;
+  z-index: 1;
+  max-width: 440px;
+  font-family: var(--font-inter-next), sans-serif;
+  text-align: right;
+}
+
+.visual-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.visual-quote {
+  font-size: 30px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+  .stage[data-layout="split"] {
+    grid-template-columns: 1fr;
+  }
+
+  .stage[data-layout="split"] .pane-visual {
+    display: none;
+  }
+}
