@@ -157,7 +157,11 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     if (!window.confirm("Delete this file? This cannot be undone.")) return;
     setSaveError(null);
     setSaveStatus("saving");
-    persistence.clearAutosave();
+    const deletingActiveFile = persistence.activeFileRef.current?.id === fileId;
+    if (deletingActiveFile) {
+      persistence.invalidateFileAutosave(fileId);
+      persistence.clearAutosave();
+    }
     try {
       await deleteProjectFile(projectId, fileId);
       removeStoredFile(fileId);
@@ -179,6 +183,7 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       persistence.markClean();
       setSaveStatus("saved");
     } catch (error) {
+      if (deletingActiveFile) persistence.restoreFileAutosave(fileId);
       setSaveStatus("error");
       setSaveError(error instanceof Error ? error.message : "Could not delete file.");
     }

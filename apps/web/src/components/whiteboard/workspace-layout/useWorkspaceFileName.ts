@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { updateProjectFile, type SavedProjectFile } from "@/lib/projects-client";
@@ -33,7 +33,6 @@ export function useWorkspaceFileName(options: FileNameOptions) {
   } = options;
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
-  const skipCommitRef = useRef(false);
 
   function beginEditName() {
     setNameDraft(activeFile?.name ?? draft?.name ?? "Your first design");
@@ -41,16 +40,10 @@ export function useWorkspaceFileName(options: FileNameOptions) {
   }
 
   function cancelName() {
-    skipCommitRef.current = true;
     setIsEditingName(false);
   }
 
   async function commitName() {
-    if (skipCommitRef.current) {
-      skipCommitRef.current = false;
-      setIsEditingName(false);
-      return;
-    }
     setIsEditingName(false);
     const name = nameDraft.trim();
     if (!name) return;
@@ -75,7 +68,7 @@ export function useWorkspaceFileName(options: FileNameOptions) {
     if (!activeFile || name === activeFile.name) return;
     try {
       const updated = await updateProjectFile(projectId, activeFile.id, { name });
-      setActiveFile(updated);
+      if (currentFileIdRef.current === activeFile.id) setActiveFile(updated);
       upsertStoredFile(toSidebarFile(updated));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not rename file.");

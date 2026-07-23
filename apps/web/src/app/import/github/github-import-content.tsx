@@ -105,11 +105,10 @@ export function GitHubImportContent() {
         if (!active) return;
 
         const message = err instanceof Error ? err.message : "Could not load GitHub repositories.";
-        setGithubConnected(false);
+        const requiresConnection = message === GITHUB_CONNECTION_REQUIRED_ERROR;
+        setGithubConnected(requiresConnection ? false : true);
         setError(
-          message === GITHUB_CONNECTION_REQUIRED_ERROR
-            ? "Connect GitHub to access your public repositories."
-            : message,
+          requiresConnection ? "Connect GitHub to access your public repositories." : message,
         );
         setLoadState("error");
       }

@@ -42,36 +42,66 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   const contentRef = useRef("");
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
-  const lastSavedVersionRef = useRef(0);
-  const pendingVersionRef = useRef(0);
+  const lastSavedVersionRef = useRef("");
+  const pendingVersionRef = useRef("");
   const isSignedInRef = useRef(isSignedIn);
   activeFileRef.current = activeFile;
   isSignedInRef.current = isSignedIn;
 
-  const runAutosave = useCallback(async () => {
+  const invalidatedFileIdsRef = useRef(new Set<string>());
+  type SaveSnapshot = {
+    file: SavedProjectFile;
+    version: string;
+    scene: unknown;
+    content: string;
+  };
+  const saveSnapshot = useCallback(
+    async (snapshot: SaveSnapshot) => {
+      if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
+      try {
+        const updated = await updateProjectFile(projectId, snapshot.file.id, {
+          scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
+          content: snapshot.file.type === "doc" ? snapshot.content : undefined,
+        });
+        if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
+        if (snapshot.file.id === activeFileRef.current?.id) {
+          lastSavedVersionRef.current = String(snapshot.version);
+          if (snapshot.version === pendingVersionRef.current) dirtyRef.current = false;
+          setSaveStatus("saved");
+        }
+        upsertStoredFile(toSidebarFile(updated));
+      } catch {
+        if (snapshot.file.id === activeFileRef.current?.id) setSaveStatus("error");
+      }
+    },
+    [projectId, setSaveStatus, upsertStoredFile],
+  );
+
+  const snapshotCurrent = useCallback((): SaveSnapshot | null => {
     const file = activeFileRef.current;
-    if (!file) return;
-    const versionAtSave = pendingVersionRef.current;
-    try {
-      const updated = await updateProjectFile(projectId, file.id, {
-        scene: file.type === "diagram" ? sceneRef.current : undefined,
-        content: file.type === "doc" ? contentRef.current : undefined,
-      });
-      if (file.type === "diagram") lastSavedVersionRef.current = versionAtSave;
-      if (versionAtSave === pendingVersionRef.current) dirtyRef.current = false;
-      setSaveStatus("saved");
-      upsertStoredFile(toSidebarFile(updated));
-    } catch {
-      setSaveStatus("error");
-    }
-  }, [projectId, setSaveStatus, upsertStoredFile]);
+    if (!file) return null;
+    return {
+      file,
+      version: pendingVersionRef.current,
+      scene: sceneRef.current,
+      content: contentRef.current,
+    };
+  }, []);
+
+  const runAutosave = useCallback(async () => {
+    const snapshot = snapshotRef.current;
+    snapshotRef.current = null;
+    if (snapshot) await saveSnapshot(snapshot);
+  }, [saveSnapshot]);
+  const snapshotRef = useRef<SaveSnapshot | null>(null);
 
   const scheduleAutosave = useCallback(() => {
     dirtyRef.current = true;
     setSaveStatus("saving");
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    snapshotRef.current = snapshotCurrent();
     autosaveTimer.current = setTimeout(() => void runAutosave(), AUTOSAVE_DELAY_MS);
-  }, [runAutosave, setSaveStatus]);
+  }, [runAutosave, setSaveStatus, snapshotCurrent]);
 
   const handleSceneChange = useCallback(
     (elements: readonly unknown[], appState: unknown, files: unknown) => {
@@ -107,7 +137,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           setDraft,
         );
       } else if (activeFileRef.current?.type === "doc" && isSignedInRef.current) {
-        pendingVersionRef.current += 1;
+        pendingVersionRef.current = value;
         scheduleAutosave();
       }
     },
@@ -118,16 +148,21 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
     function flush() {
       const file = activeFileRef.current;
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
-      void fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${file.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        keepalive: true,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scene: file.type === "diagram" ? sceneRef.current : undefined,
-          content: file.type === "doc" ? contentRef.current : undefined,
-        }),
-      });
+      const snapshot = snapshotCurrent();
+      if (!snapshot) return;
+      void fetch(
+        `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          keepalive: true,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
+            content: snapshot.file.type === "doc" ? snapshot.content : undefined,
+          }),
+        },
+      );
     }
     window.addEventListener("pagehide", flush);
     return () => window.removeEventListener("pagehide", flush);
@@ -136,22 +171,41 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   useEffect(
     () => () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      if (dirtyRef.current) {
+        const snapshot = snapshotRef.current ?? snapshotCurrent();
+        if (snapshot) void saveSnapshot(snapshot);
+      }
     },
     [],
   );
 
   const initialize = useCallback(
     (type: SavedProjectFile["type"], scene: unknown, content: string) => {
+      if (dirtyRef.current) {
+        const snapshot = snapshotRef.current ?? snapshotCurrent();
+        if (snapshot) void saveSnapshot(snapshot);
+      }
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      snapshotRef.current = null;
       sceneRef.current = type === "diagram" ? scene : null;
       contentRef.current = type === "doc" ? content : "";
       lastSavedVersionRef.current = initialElementsVersion(sceneRef.current);
+      pendingVersionRef.current = lastSavedVersionRef.current;
       dirtyRef.current = false;
     },
-    [],
+    [saveSnapshot, snapshotCurrent],
   );
 
   const clearAutosave = useCallback(() => {
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    snapshotRef.current = null;
+  }, []);
+  const invalidateFileAutosave = useCallback((fileId: string) => {
+    invalidatedFileIdsRef.current.add(fileId);
+    if (snapshotRef.current?.file.id === fileId) snapshotRef.current = null;
+  }, []);
+  const restoreFileAutosave = useCallback((fileId: string) => {
+    invalidatedFileIdsRef.current.delete(fileId);
   }, []);
   const markClean = useCallback(() => {
     dirtyRef.current = false;
@@ -160,6 +214,8 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   return {
     activeFileRef,
     clearAutosave,
+    invalidateFileAutosave,
+    restoreFileAutosave,
     contentRef,
     handleDocChange,
     handleSceneChange,

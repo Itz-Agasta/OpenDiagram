@@ -33,23 +33,29 @@ export function useWorkspacePaneResize() {
   sidebarWidthRef.current = sidebarWidth;
   agentWidthRef.current = agentWidth;
 
-  const clampSidebarWidth = useCallback((width: number, agent = agentWidthRef.current) => {
-    const viewportMaximum = Math.max(
-      SIDEBAR_MIN_WIDTH,
-      window.innerWidth - agent - CONTENT_MIN_WIDTH,
-    );
-    return Math.min(
-      Math.max(width, SIDEBAR_MIN_WIDTH),
-      Math.min(SIDEBAR_MAX_WIDTH, viewportMaximum),
-    );
-  }, []);
-  const clampAgentWidth = useCallback((width: number, sidebar = sidebarWidthRef.current) => {
-    const viewportMaximum = Math.max(
-      AGENT_MIN_WIDTH,
-      window.innerWidth - sidebar - CONTENT_MIN_WIDTH,
-    );
-    return Math.min(Math.max(width, AGENT_MIN_WIDTH), Math.min(AGENT_MAX_WIDTH, viewportMaximum));
-  }, []);
+  const clampSidebarWidth = useCallback(
+    (width: number, agent = isAgentOpen ? agentWidthRef.current : 0) => {
+      const viewportMaximum = Math.max(
+        SIDEBAR_MIN_WIDTH,
+        window.innerWidth - agent - CONTENT_MIN_WIDTH,
+      );
+      return Math.min(
+        Math.max(width, SIDEBAR_MIN_WIDTH),
+        Math.min(SIDEBAR_MAX_WIDTH, viewportMaximum),
+      );
+    },
+    [],
+  );
+  const clampAgentWidth = useCallback(
+    (width: number, sidebar = isSidebarOpen ? sidebarWidthRef.current : 0) => {
+      const viewportMaximum = Math.max(
+        AGENT_MIN_WIDTH,
+        window.innerWidth - sidebar - CONTENT_MIN_WIDTH,
+      );
+      return Math.min(Math.max(width, AGENT_MIN_WIDTH), Math.min(AGENT_MAX_WIDTH, viewportMaximum));
+    },
+    [],
+  );
 
   useEffect(() => {
     function clampPanesToViewport() {
@@ -64,8 +70,16 @@ export function useWorkspacePaneResize() {
       }
     }
     window.addEventListener("resize", clampPanesToViewport);
+    clampPanesToViewport();
     return () => window.removeEventListener("resize", clampPanesToViewport);
-  }, [clampAgentWidth, clampSidebarWidth, setAgentWidth, setSidebarWidth]);
+  }, [
+    clampAgentWidth,
+    clampSidebarWidth,
+    isAgentOpen,
+    isSidebarOpen,
+    setAgentWidth,
+    setSidebarWidth,
+  ]);
 
   const handleResizeStart = useCallback(
     (pane: "sidebar" | "agent", event: React.MouseEvent) => {

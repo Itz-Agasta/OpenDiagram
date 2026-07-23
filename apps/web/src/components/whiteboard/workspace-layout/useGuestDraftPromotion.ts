@@ -3,7 +3,12 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "better-auth";
 import { deleteGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
-import { createProject, createProjectFile } from "@/lib/projects-client";
+import {
+  createProject,
+  createProjectFile,
+  type SavedProject,
+  type SavedProjectFile,
+} from "@/lib/projects-client";
 import type { SaveStatus } from "./helpers";
 
 interface PromotionOptions {
@@ -30,6 +35,8 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
   } = options;
   const router = useRouter();
   const promotionStartedRef = useRef(false);
+  const promotionProjectRef = useRef<SavedProject | null>(null);
+  const promotedFilesRef = useRef(new Map<string, SavedProjectFile>());
 
   const saveDraftAfterLogin = useCallback(async () => {
     const currentDraft = draftRef.current;
@@ -42,12 +49,20 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
         currentDraft.files.find((file) => file.id === currentFileIdRef.current) ??
         currentDraft.files[0];
       if (!currentFile) return setSaveError("No file to save.");
-      const project = await createProject({
-        name: currentDraft.name,
-        description: currentDraft.description,
-      });
+      const project =
+        promotionProjectRef.current ??
+        (await createProject({
+          name: currentDraft.name,
+          description: currentDraft.description,
+        }));
+      promotionProjectRef.current = project;
       const files = [];
       for (const draftFile of currentDraft.files) {
+        const existingFile = promotedFilesRef.current.get(draftFile.id);
+        if (existingFile) {
+          files.push({ draftId: draftFile.id, file: existingFile });
+          continue;
+        }
         const file = await createProjectFile(project.id, {
           name: draftFile.name,
           type: draftFile.type ?? "diagram",
@@ -56,6 +71,7 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
           content: draftFile.type === "doc" ? draftFile.content : undefined,
           history: draftFile.history,
         });
+        promotedFilesRef.current.set(draftFile.id, file);
         files.push({ draftId: draftFile.id, file });
       }
       const activeFile =
@@ -66,6 +82,9 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
       setDraft(null);
       router.replace(`/project/${project.id}/workspace/${activeFile.id}`);
     } catch (error) {
+      // Keep the draft and created-project bookkeeping so a user-triggered retry
+      // resumes instead of creating duplicate files.
+      promotionStartedRef.current = false;
       setSaveError(error instanceof Error ? error.message : "Could not save project.");
       setSaveStatus("error");
     } finally {

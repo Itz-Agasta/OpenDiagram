@@ -16,13 +16,18 @@ export function useExcalidrawScene(initialScene: unknown) {
       void applyDiagramToCanvas(api, scene.skeletons as never[], scene.rawElements);
       return;
     }
-    if (scene.kind === "empty") return;
+    if (scene.kind === "empty") {
+      api.updateScene({ elements: [] });
+      return;
+    }
     let cancelled = false;
     let frame: number | undefined;
     const appState = sanitizeSceneAppState(scene.appState);
+    const baseline = sceneFingerprint(api.getSceneElements());
     if (scene.files && typeof scene.files === "object") api.addFiles(Object.values(scene.files));
     void restoreSceneElements(scene.elements).then((elements) => {
       if (cancelled) return;
+      if (sceneFingerprint(api.getSceneElements()) !== baseline) return;
       api.updateScene({
         elements,
         appState: appState && typeof appState === "object" ? appState : undefined,
@@ -46,4 +51,8 @@ export function useExcalidrawScene(initialScene: unknown) {
   }, [api, initialScene]);
 
   return { excalidrawAPI: api, handleExcalidrawAPI: handleAPI };
+}
+
+function sceneFingerprint(elements: readonly { id?: string; version?: number }[]) {
+  return JSON.stringify(elements.map((element) => [element.id ?? "", element.version ?? 0]));
 }

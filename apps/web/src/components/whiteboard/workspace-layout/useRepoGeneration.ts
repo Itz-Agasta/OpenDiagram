@@ -53,6 +53,7 @@ export function useRepoGeneration({
     async function syncSidebarFiles() {
       if (!project) return;
       const files = await listProjectFiles(project.id);
+      if (cancelled) return;
       setProjectSnapshot({
         projectId: project.id,
         projectName: project.name,
