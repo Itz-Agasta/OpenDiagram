@@ -75,6 +75,7 @@ export function WorkspaceLayout() {
           onCreateFile={(type) => void actions.createWorkspaceFile(type)}
           onDeleteFile={(fileId) => void actions.deleteWorkspaceFile(fileId)}
           onOpenFile={actions.openWorkspaceFile}
+          onBackToDashboard={actions.navigateToDashboard}
           onResizeStart={actions.handleResizeStart}
           onSignOut={() => void handleSignOut()}
           projectName={state.sidebarProjectName}
@@ -116,6 +117,7 @@ export function WorkspaceLayout() {
 
       <WorkspaceAgentSidebar
         activeFileType={state.activeFile?.type}
+        allowSeedAutoRun={state.isAgentOpen}
         agentWidth={state.agentWidth}
         excalidrawAPI={state.excalidrawAPI}
         fileIdentity={agentFileIdentity}

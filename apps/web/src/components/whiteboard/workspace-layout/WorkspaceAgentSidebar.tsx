@@ -6,6 +6,7 @@ import { AIChatPanel } from "../AIChatPanel";
 
 type WorkspaceAgentSidebarProps = {
   activeFileType?: "diagram" | "doc";
+  allowSeedAutoRun: boolean;
   agentWidth: number;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   fileIdentity?: string;
@@ -30,6 +31,7 @@ type WorkspaceAgentSidebarProps = {
 
 export function WorkspaceAgentSidebar({
   activeFileType,
+  allowSeedAutoRun,
   agentWidth,
   excalidrawAPI,
   fileIdentity,
@@ -89,7 +91,7 @@ export function WorkspaceAgentSidebar({
             // identity is authoritative, so promotion cannot remount a live seed request.
             key={fileIdentity}
             activeFileType={activeFileType}
-            allowSeedAutoRun={!isContextPending}
+            allowSeedAutoRun={!isContextPending && allowSeedAutoRun}
             excalidrawAPI={activeFileType === "doc" ? null : excalidrawAPI}
             projectId={projectId}
             fileId={fileId}

@@ -23,6 +23,7 @@ type WorkspaceSidebarProps = {
   onDeleteFile: (fileId: string) => void;
   onResizeStart: (pane: "sidebar" | "agent", event: React.MouseEvent) => void;
   onOpenFile: (fileId: string) => void;
+  onBackToDashboard: () => void | Promise<void>;
   onSignOut: () => void;
 };
 
@@ -44,6 +45,7 @@ export function WorkspaceSidebar({
   onDeleteFile,
   onResizeStart,
   onOpenFile,
+  onBackToDashboard,
   onSignOut,
 }: WorkspaceSidebarProps) {
   return (
@@ -61,6 +63,10 @@ export function WorkspaceSidebar({
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-od-border-soft px-3">
         <Link
           href="/dashboard"
+          onClick={(event) => {
+            event.preventDefault();
+            void onBackToDashboard();
+          }}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-od-border-soft text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
           aria-label="Back to dashboard"
         >

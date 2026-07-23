@@ -166,6 +166,11 @@ export function useWorkspaceLayoutController() {
     router.push("/dashboard");
   }
 
+  async function navigateToDashboard() {
+    if (isSignedIn) await fileActions.saveActiveFile();
+    router.push("/dashboard");
+  }
+
   const accountName = session.data?.user?.name || session.data?.user?.email || "Guest";
   const hasCurrentProjectSnapshot = storedProjectId === params.projectId;
   const sidebarProjectName = hasCurrentProjectSnapshot ? projectName : "OpenDiagram";
@@ -237,6 +242,7 @@ export function useWorkspaceLayoutController() {
       handleResizeStart: panes.handleResizeStart,
       handleSceneChange: persistence.handleSceneChange,
       leaveWithoutSaving,
+      navigateToDashboard,
       openAgent: panes.openAgent,
       openSidebar: panes.openSidebar,
       openWorkspaceFile: fileActions.openWorkspaceFile,

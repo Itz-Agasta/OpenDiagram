@@ -94,6 +94,7 @@ const avatarImages = [
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -198,7 +199,11 @@ export function HeroSection() {
 
         <div className="hero-copy mt-12 w-full max-w-[1200px] overflow-hidden rounded-lg border border-black/10 shadow-2xl">
           <img
-            src="/hero-media/opendiagram-creation-flow-trimmed-ezgif.com-video-to-gif-converter.gif"
+            src={
+              shouldReduceMotion
+                ? "/slideshow/diagram_sample.png"
+                : "/hero-media/opendiagram-creation-flow-trimmed-ezgif.com-video-to-gif-converter.gif"
+            }
             alt="Creating and editing a chat app architecture diagram in OpenDiagram"
             width={1280}
             height={720}
