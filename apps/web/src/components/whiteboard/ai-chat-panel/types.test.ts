@@ -8,7 +8,9 @@ describe("isRepoGeneratedSpec", () => {
     assert.equal(isRepoGeneratedSpec({ type: "system-design", nodes: [], edges: [] }), false);
     assert.equal(isRepoGeneratedSpec(undefined), false);
   });
+});
 
+describe("shouldUseDiagramChatDirectly", () => {
   test("routes only normal diagram files directly to diagram chat", () => {
     assert.equal(shouldUseDiagramChatDirectly("diagram", { type: "system-design" }), true);
     assert.equal(shouldUseDiagramChatDirectly("diagram", { kind: "repo_generated" }), false);

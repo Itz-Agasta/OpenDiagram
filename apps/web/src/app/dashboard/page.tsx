@@ -48,6 +48,7 @@ export default function DashboardPage() {
     <main className="h-dvh overflow-hidden bg-od-surface text-od-ink">
       <div className="flex h-full w-full overflow-hidden">
         <DashboardSidebar
+          accountId={user?.id}
           accountImage={user?.image}
           accountName={accountName}
           editingFileKey={renaming.editingFileKey}

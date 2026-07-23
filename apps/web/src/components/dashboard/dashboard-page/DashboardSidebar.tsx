@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { LogIn, LogOut, Search, Settings } from "lucide-react";
@@ -22,6 +22,7 @@ import { getInitials } from "./utils";
 
 interface DashboardSidebarProps extends ProjectTreeProps {
   accountImage?: string | null;
+  accountId?: string | null;
   accountName: string;
   isSignedIn: boolean;
   onSignOut: () => void;
@@ -74,6 +75,7 @@ export function DashboardSidebar(props: DashboardSidebarProps) {
         </div>
         <AccountMenu
           isSignedIn={props.isSignedIn}
+          accountId={props.accountId}
           onSignOut={props.onSignOut}
           pending={props.signOutPending}
         />
@@ -84,10 +86,12 @@ export function DashboardSidebar(props: DashboardSidebarProps) {
 
 function AccountMenu({
   isSignedIn,
+  accountId,
   onSignOut,
   pending,
 }: {
   isSignedIn: boolean;
+  accountId?: string | null;
   onSignOut: () => void;
   pending: boolean;
 }) {
@@ -96,6 +100,16 @@ function AccountMenu({
   const [quotaPending, setQuotaPending] = useState(false);
   const quotaCacheRef = useRef<{ quota: CreationQuota; fetchedAt: number } | null>(null);
   const quotaRequestRef = useRef<Promise<CreationQuota> | null>(null);
+  const identityVersionRef = useRef(0);
+
+  useEffect(() => {
+    identityVersionRef.current += 1;
+    quotaCacheRef.current = null;
+    quotaRequestRef.current = null;
+    setQuota(null);
+    setQuotaError(null);
+    setQuotaPending(false);
+  }, [accountId, isSignedIn]);
 
   async function handleMenuOpen(open: boolean) {
     if (!open) return;
@@ -109,17 +123,20 @@ function AccountMenu({
 
     setQuotaPending(true);
     setQuotaError(null);
+    const identityVersion = identityVersionRef.current;
     const request = getCreationQuota();
     quotaRequestRef.current = request;
     try {
       const nextQuota = await request;
+      if (identityVersion !== identityVersionRef.current) return;
       quotaCacheRef.current = { quota: nextQuota, fetchedAt: Date.now() };
       setQuota(nextQuota);
     } catch (error) {
+      if (identityVersion !== identityVersionRef.current) return;
       setQuotaError(error instanceof Error ? error.message : "Could not load quota.");
     } finally {
       if (quotaRequestRef.current === request) quotaRequestRef.current = null;
-      setQuotaPending(false);
+      if (identityVersion === identityVersionRef.current) setQuotaPending(false);
     }
   }
 

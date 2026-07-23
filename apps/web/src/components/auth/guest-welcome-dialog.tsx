@@ -43,6 +43,10 @@ export function GuestWelcomeDialog() {
       .then((nextQuota) => {
         if (!cancelled) setQuota(nextQuota);
       })
+      .catch(() => {
+        // Keep the fallback copy when quota is unavailable; opening the dialog
+        // should never produce an unhandled client-side rejection.
+      })
       .finally(() => {
         if (!cancelled) setQuotaPending(false);
       });

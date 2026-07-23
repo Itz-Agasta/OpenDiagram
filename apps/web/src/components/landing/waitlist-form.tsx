@@ -26,7 +26,7 @@ export function WaitlistForm() {
   return (
     <div className="flex w-full flex-col items-center gap-3">
       <p className="w-full text-left text-sm text-white/50">Try our beta or join the waitlist</p>
-      <form onSubmit={handleSubmit} className="flex w-full max-w-[400px] gap-2 max-sm:flex-col">
+      <form onSubmit={handleSubmit} className="flex w-full max-w-[440px] gap-2 max-sm:flex-col">
         <label htmlFor="footer-waitlist-email" className="sr-only">
           Email address
         </label>

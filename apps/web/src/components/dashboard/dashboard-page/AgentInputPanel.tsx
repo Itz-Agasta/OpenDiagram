@@ -65,7 +65,13 @@ export function AgentInputPanel({ creating, onSubmit }: AgentInputPanelProps) {
         setProviderOptions(options);
         setProviderId(options.find((option) => option.isDefault)?.id ?? "platform");
       })
-      .catch(() => undefined);
+      .catch((cause) => {
+        if (active) {
+          setProviderError(
+            cause instanceof Error ? cause.message : "Could not load configured providers.",
+          );
+        }
+      });
     return () => {
       active = false;
     };
