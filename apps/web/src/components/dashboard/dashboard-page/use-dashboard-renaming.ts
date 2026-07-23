@@ -12,12 +12,14 @@ export function useDashboardRenaming(data: DashboardData) {
   const skipCommitRef = useRef(false);
 
   function beginEditProject(project: Project) {
+    skipCommitRef.current = false;
     setEditingFileKey(null);
     setEditingProjectId(project.id);
     setNameDraft(project.name);
   }
 
   function beginEditFile(file: ProjectFile) {
+    skipCommitRef.current = false;
     setEditingProjectId(null);
     setEditingFileKey(file.key);
     setNameDraft(file.name);

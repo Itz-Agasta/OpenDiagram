@@ -25,7 +25,7 @@ export function DashboardMain({ creating, loading, onCreate }: DashboardMainProp
           <h1 className="truncate text-[18px] font-semibold leading-tight">OpenDiagram</h1>
         </div>
       </header>
-      <div className="mx-auto flex min-h-0 w-full max-w-[1360px] flex-1 flex-col gap-4 overflow-hidden bg-od-surface p-4 md:p-8">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1360px] flex-1 flex-col gap-4 overflow-y-auto bg-od-surface p-4 md:p-8">
         {loading ? (
           <AgentInputPanelSkeleton />
         ) : (

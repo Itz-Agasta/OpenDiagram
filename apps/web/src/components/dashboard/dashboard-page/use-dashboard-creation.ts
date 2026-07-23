@@ -177,10 +177,21 @@ async function createFirstFile(
   try {
     return await createProjectFile(projectId, input);
   } catch (error) {
-    void fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    try {
+      const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`Project cleanup failed (${response.status})`);
+      }
+    } catch (cleanupError) {
+      toast.error(
+        cleanupError instanceof Error
+          ? `Project cleanup failed: ${cleanupError.message}`
+          : "Project cleanup failed. Please remove the empty project from your dashboard.",
+      );
+    }
     throw error;
   }
 }

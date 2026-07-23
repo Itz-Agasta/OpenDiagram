@@ -1,6 +1,7 @@
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { FileText, PenTool } from "lucide-react";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { FileKind, Project } from "./types";
 
 interface DashboardDialogsProps {
@@ -24,8 +25,14 @@ interface DashboardDialogsProps {
 export function DashboardDialogs(props: DashboardDialogsProps) {
   return (
     <>
-      {props.projectModalOpen && (
-        <Modal title="New project" onClose={props.onCloseProject}>
+      <Dialog
+        open={props.projectModalOpen}
+        onOpenChange={(open) => !open && props.onCloseProject()}
+      >
+        <DialogContent className="max-w-[440px] rounded-[16px] border-od-border-soft bg-od-surface p-5">
+          <DialogHeader className="mb-1 text-left">
+            <DialogTitle className="text-[18px]">New project</DialogTitle>
+          </DialogHeader>
           <form onSubmit={props.onCreateProject} className="grid gap-4">
             <TextField
               label="Project name"
@@ -39,10 +46,18 @@ export function DashboardDialogs(props: DashboardDialogsProps) {
               submitLabel="Create project"
             />
           </form>
-        </Modal>
-      )}
-      {props.selectedProject && (
-        <Modal title={`New file in ${props.selectedProject.name}`} onClose={props.onCloseFile}>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(props.selectedProject)}
+        onOpenChange={(open) => !open && props.onCloseFile()}
+      >
+        <DialogContent className="max-w-[440px] rounded-[16px] border-od-border-soft bg-od-surface p-5">
+          <DialogHeader className="mb-1 text-left">
+            <DialogTitle className="text-[18px]">
+              New file in {props.selectedProject?.name}
+            </DialogTitle>
+          </DialogHeader>
           <form onSubmit={props.onCreateFile} className="grid gap-4">
             <TextField
               label="File name"
@@ -70,45 +85,20 @@ export function DashboardDialogs(props: DashboardDialogsProps) {
                 })}
               </div>
             </div>
-            <DialogActions onCancel={props.onCloseFile} submitLabel="Create file" />
+            <DialogActions
+              onCancel={props.onCloseFile}
+              pending={props.projectPending}
+              submitLabel="Create file"
+            />
           </form>
-        </Modal>
-      )}
+        </DialogContent>
+      </Dialog>
       <SignedOutDialog
         open={props.signedOutDialogOpen}
         redirectTo="/dashboard"
         onContinueAsGuest={props.onContinueAsGuest}
       />
     </>
-  );
-}
-
-function Modal({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/20 px-4">
-      <div className="w-full max-w-[440px] rounded-[16px] border border-od-border-soft bg-od-surface p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.55)]">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="text-[18px] font-semibold">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="grid h-8 w-8 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
-          >
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
   );
 }
 

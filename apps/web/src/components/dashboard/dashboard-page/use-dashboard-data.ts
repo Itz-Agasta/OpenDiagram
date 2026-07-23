@@ -25,12 +25,20 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
   useEffect(() => setGuestDrafts(listGuestProjectDrafts()), []);
 
   useEffect(() => {
-    if (sessionPending || !user) return;
+    if (sessionPending) return;
+    if (!user) {
+      setSavedProjects([]);
+      setFilesByProject({});
+      setSavedProjectsLoaded(false);
+      return;
+    }
     let active = true;
 
     async function loadSavedProjects() {
       setSavedProjectsLoading(true);
       setSavedProjectsLoaded(false);
+      setSavedProjects([]);
+      setFilesByProject({});
       try {
         const projects = await listProjects();
         if (!active) return;
@@ -69,10 +77,19 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
 
   const projects = useMemo<Project[]>(
     () =>
-      (isSignedIn ? savedProjects : []).map((project, index) => {
-        const realFiles = filesByProject[project.id] ?? [];
-        const files: ProjectFile[] =
-          realFiles.length > 0
+      (isSignedIn ? savedProjects : guestDrafts).map((project, index) => {
+        const isGuest = !isSignedIn;
+        const realFiles = isGuest ? [] : (filesByProject[project.id] ?? []);
+        const guestFiles = isGuest ? (project as GuestProjectDraft).files : [];
+        const files: ProjectFile[] = isGuest
+          ? guestFiles.map((file) => ({
+              key: file.id,
+              projectId: project.id,
+              fileId: file.id,
+              name: file.name,
+              kind: file.type === "diagram" ? "diagram" : "doc",
+            }))
+          : realFiles.length > 0
             ? realFiles.map((file) => ({
                 key: file.id,
                 projectId: project.id,
@@ -95,11 +112,11 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
           initials: getInitials(project.name),
           color: getProjectColor(project.name),
           active: index === 0,
-          source: "saved",
+          source: isGuest ? "guest" : "saved",
           files,
         };
       }),
-    [filesByProject, isSignedIn, savedProjects],
+    [filesByProject, guestDrafts, isSignedIn, savedProjects],
   );
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
