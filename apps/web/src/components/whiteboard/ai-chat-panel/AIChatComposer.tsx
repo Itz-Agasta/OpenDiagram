@@ -66,7 +66,6 @@ export function AIChatComposer({
     }
     return [...groups.entries()];
   }, [providerOptions]);
-  const providerLabel = selectedProvider?.providerLabel ?? "Picasso";
   const statusColor = providerUsage
     ? "bg-od-green"
     : status === "submitted" || status === "streaming"
@@ -155,7 +154,6 @@ export function AIChatComposer({
               className="flex min-w-0 flex-1 items-center justify-end gap-1.5 pr-2 text-right text-xs text-od-ink-faint"
             >
               <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${statusColor}`} />
-              <span className="truncate">{providerLabel}</span>
             </p>
             <PromptInputSubmit status={status} onStop={onStop} />
           </PromptInputFooter>
