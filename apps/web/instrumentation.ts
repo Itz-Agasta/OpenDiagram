@@ -1,5 +1,23 @@
+import * as Sentry from "@sentry/nextjs";
 import { defineNodeInstrumentation } from "evlog/next/instrumentation";
 
-export const { register, onRequestError } = defineNodeInstrumentation(
-  () => import("./src/lib/evlog"),
-);
+const evlogInstrumentation = defineNodeInstrumentation(() => import("./src/lib/evlog"));
+
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+  }
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./sentry.edge.config");
+  }
+  await evlogInstrumentation.register();
+}
+
+// Next.js allows a single onRequestError export — fan it out to both Sentry
+// (error tracking) and evlog (structured wide-event logging).
+export const onRequestError: typeof Sentry.captureRequestError = (...args) => {
+  Sentry.captureRequestError(...args);
+  void evlogInstrumentation.onRequestError(
+    ...(args as Parameters<typeof evlogInstrumentation.onRequestError>),
+  );
+};
