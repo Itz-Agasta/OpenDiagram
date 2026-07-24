@@ -8,6 +8,8 @@ import { evlog, type EvlogVariables } from "evlog/hono";
 import { createSentryDrain } from "evlog/sentry";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+// Registers the AI SDK's OpenTelemetry integration; must load before any AI call.
+import "./lib/telemetry";
 import { aiSettingsRoute } from "./routes/ai-settings";
 import { diagramRoute } from "./routes/diagram";
 import { githubImportRoute, githubRoute } from "./routes/github";
@@ -39,7 +41,22 @@ const app = new Hono<EvlogVariables>();
 app.use(
   sentry(app, {
     dsn: SENTRY_DSN,
-    tracesSampleRate: env.NODE_ENV === "development" ? 1.0 : 0.1,
+    // Without this the SDK falls back to "production", so local dev traffic
+    // lands in the same bucket as Cloud Run and every env filter is useless.
+    // Release is picked up automatically from SENTRY_RELEASE when deploys set it.
+    environment: env.NODE_ENV,
+    tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
+    // Send spans as they finish instead of buffering until the root span ends.
+    // /api/diagram/chat is a long-lived SSE response, so in transaction mode its
+    // spans are lost whenever the process restarts mid-stream.
+    traceLifecycle: "stream",
+    // Keep the model/token/latency metadata, drop the content — user prompts
+    // and repo context must not leave the server.
+    dataCollection: { genAI: { inputs: false, outputs: false } },
+    // VercelAI is inert on Bun (see lib/telemetry.ts); @ai-sdk/otel emits the
+    // gen_ai spans instead. Drop it so the two never produce duplicate spans
+    // if Sentry later adds Bun support for the diagnostics channel.
+    integrations: (defaults) => defaults.filter((i) => i.name !== "VercelAI"),
   }),
 );
 
@@ -51,13 +68,17 @@ app.use(
 // log drain is supplementary, so a dropped log on a Cloud Run freeze never loses
 // the error itself. Rejections are swallowed to avoid unhandled rejections.
 const fsDrain = createFsDrain();
-const sentryDrain = createSentryDrain({ dsn: SENTRY_DSN });
+const sentryDrain = createSentryDrain({ dsn: SENTRY_DSN, environment: env.NODE_ENV });
 app.use(
   evlog({
     drain: (ctx) => {
       fsDrain(ctx);
       if (ctx.event.level === "warn" || ctx.event.level === "error") {
-        void Promise.resolve(sentryDrain(ctx)).catch(() => {});
+        // Defer into the chain so a synchronous throw is caught too, rather
+        // than escaping as an uncaught error.
+        void Promise.resolve()
+          .then(() => sentryDrain(ctx))
+          .catch(() => {});
       }
     },
   }),

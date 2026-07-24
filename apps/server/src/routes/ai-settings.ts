@@ -4,6 +4,7 @@ import { userAiProvider, userAiProviderKinds } from "@OpenDiagram/db/schema/user
 import { generateText } from "ai";
 import { Hono } from "hono";
 import { z } from "zod";
+import { aiTelemetry } from "../lib/telemetry";
 import {
   ByokEncryptionError,
   canEncryptByokKeys,
@@ -51,6 +52,7 @@ async function assertKeyWorks(provider: string, apiKey: string, modelId: string)
   await generateText({
     model: def.createModel(apiKey, modelId),
     prompt: "Reply with the single character: ok",
+    telemetry: aiTelemetry("byok-key-check"),
     maxOutputTokens: 8,
     maxRetries: 0,
   });

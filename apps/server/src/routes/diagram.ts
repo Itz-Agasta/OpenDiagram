@@ -23,6 +23,7 @@ import {
 } from "../lib/creation-quota";
 import { resolveModel } from "../lib/ai-provider/resolve";
 import { LLM_MAX_RETRIES } from "../lib/repo-ai";
+import { aiTelemetry } from "../lib/telemetry";
 
 const chatRequestSchema = z.object({
   // UIMessage shape is owned by the AI SDK and too deep to mirror — validated
@@ -127,6 +128,7 @@ diagramRoute.post("/chat", async (c) => {
     instructions: buildSystemPrompt(currentSpec),
     messages: modelMessages,
     tools,
+    telemetry: aiTelemetry("diagram-chat"),
     stopWhen: isStepCount(6),
     experimental_repairToolCall: async ({ toolCall, error }) => {
       if (NoSuchToolError.isInstance(error) || toolCall.toolName !== "draw_diagram") return null;

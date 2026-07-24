@@ -3,6 +3,7 @@ import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiag
 import { env } from "@OpenDiagram/env/server";
 import { generateObject, generateText } from "ai";
 import { buildIconCatalog } from "./icons/registry";
+import { aiTelemetry } from "./telemetry";
 
 // The AI SDK retries retryable errors (429/5xx) with exponential backoff up to
 // this many times. A single provider (Gemini) handles every task — no
@@ -121,6 +122,7 @@ export async function generateDiagramSpec(input: {
     schema: diagramSpecSchema,
     system: buildSystemPrompt(input.diagramType),
     prompt: userPrompt,
+    telemetry: aiTelemetry("repo-diagram-spec"),
     maxRetries: LLM_MAX_RETRIES,
     // Bounds runaway/repetition-loop generations (observed during testing:
     // gemini-2.5-flash occasionally gets stuck dumping a huge repeated string
@@ -146,6 +148,7 @@ export async function generateGroundedProjectAnswer(input: {
       "Keep answers concise, specific, and grounded in the project's diagrams, docs, and files.",
     ].join("\n"),
     prompt: `Project context:\n${input.context}\n\nUser question:\n${input.message}`,
+    telemetry: aiTelemetry("project-chat"),
     maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 1200,
   });
@@ -186,6 +189,7 @@ export async function generateArchitectureDoc(input: {
       `Write the document "${input.title}" based on the goal and context above.`,
       "Return valid markdown only — no wrapper explanations.",
     ].join("\n"),
+    telemetry: aiTelemetry("architecture-doc"),
     maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 4096,
   });
