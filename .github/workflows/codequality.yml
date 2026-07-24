@@ -38,3 +38,23 @@ jobs:
 
       - name: Harness tests
         run: just test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Env schemas are validated at runtime on the real deploys, so the build
+      # only needs to prove that everything bundles.
+      - name: Build
+        run: bun run build
+        env:
+          SKIP_ENV_VALIDATION: "1"
