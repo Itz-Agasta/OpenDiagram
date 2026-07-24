@@ -9,7 +9,10 @@ import { WEB_SENTRY_DSN } from "../../sentry.dsn";
 // warn/error wide events are forwarded to Sentry Logs — this keeps us inside the
 // free Logs allotment while routine info/debug logs stay in the platform's log
 // stream.
-const sentryDrain = createSentryDrain({ dsn: WEB_SENTRY_DSN });
+const sentryDrain = createSentryDrain({
+  dsn: WEB_SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+});
 
 export const { withEvlog, useLogger, log, createError } = createEvlog({
   service: "OpenDiagram-web",
