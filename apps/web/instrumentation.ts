@@ -18,12 +18,15 @@ export async function register() {
 export const onRequestError: typeof Sentry.captureRequestError = (...args) => {
   Sentry.captureRequestError(...args);
   // evlog's handler may be async; surface its failures instead of swallowing
-  // them, but never let a logging error escape as an unhandled rejection.
-  void Promise.resolve(
-    evlogInstrumentation.onRequestError(
-      ...(args as Parameters<typeof evlogInstrumentation.onRequestError>),
-    ),
-  ).catch((err) => {
-    console.error("[instrumentation] evlog onRequestError failed", err);
-  });
+  // them. Defer the call into the chain so both synchronous throws and async
+  // rejections reach the catch and can't escape as an unhandled rejection.
+  void Promise.resolve()
+    .then(() =>
+      evlogInstrumentation.onRequestError(
+        ...(args as Parameters<typeof evlogInstrumentation.onRequestError>),
+      ),
+    )
+    .catch((err) => {
+      console.error("[instrumentation] evlog onRequestError failed", err);
+    });
 };

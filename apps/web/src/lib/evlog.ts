@@ -15,9 +15,12 @@ export const { withEvlog, useLogger, log, createError } = createEvlog({
   service: "OpenDiagram-web",
   drain: (ctx) => {
     if (ctx.event.level === "warn" || ctx.event.level === "error") {
-      // Fire-and-forget: never block the response on log delivery. Swallow
-      // rejections so a failed Sentry POST can't surface as an unhandled reject.
-      void Promise.resolve(sentryDrain(ctx)).catch(() => {});
+      // Fire-and-forget: never block the response on log delivery. Defer the
+      // call into the chain so both synchronous throws and async rejections are
+      // caught and can't surface as an unhandled rejection.
+      void Promise.resolve()
+        .then(() => sentryDrain(ctx))
+        .catch(() => {});
     }
   },
 });
