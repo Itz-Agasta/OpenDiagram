@@ -1,18 +1,23 @@
 import { createEvlog } from "evlog/next";
 import { createInstrumentation } from "evlog/next/instrumentation/create";
 import { createSentryDrain } from "evlog/sentry";
+import { WEB_SENTRY_DSN } from "../../sentry.dsn";
 
-// Only warn/error wide events reach Sentry Logs — keeps us inside the free Logs
-// allotment. Routine request logs live in the local FS drain instead.
-const sentryDrain = createSentryDrain({
-  dsn: "https://211bc816992431e815a19fcf8775f16c@o4511790063812608.ingest.us.sentry.io/4511790124826624",
-});
+// The web app runs on serverless (Vercel) with an ephemeral, read-only FS, so
+// there is no local FS drain here (unlike the Bun server). evlog still emits
+// every event to stdout, which the platform captures. On top of that, only
+// warn/error wide events are forwarded to Sentry Logs — this keeps us inside the
+// free Logs allotment while routine info/debug logs stay in the platform's log
+// stream.
+const sentryDrain = createSentryDrain({ dsn: WEB_SENTRY_DSN });
 
 export const { withEvlog, useLogger, log, createError } = createEvlog({
   service: "OpenDiagram-web",
   drain: (ctx) => {
     if (ctx.event.level === "warn" || ctx.event.level === "error") {
-      sentryDrain(ctx);
+      // Fire-and-forget: never block the response on log delivery. Swallow
+      // rejections so a failed Sentry POST can't surface as an unhandled reject.
+      void Promise.resolve(sentryDrain(ctx)).catch(() => {});
     }
   },
 });

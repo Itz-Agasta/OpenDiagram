@@ -45,6 +45,11 @@ app.use(
 
 // All wide events go to local NDJSON files; only warn/error events also reach
 // Sentry Logs, so we stay inside the free Logs allotment on Cloud Run traffic.
+// The drain is intentionally fire-and-forget (evlog's contract) so it never adds
+// latency to the response. Note: actual exceptions are captured separately and
+// synchronously by the Sentry middleware above, which flushes on its own — this
+// log drain is supplementary, so a dropped log on a Cloud Run freeze never loses
+// the error itself. Rejections are swallowed to avoid unhandled rejections.
 const fsDrain = createFsDrain();
 const sentryDrain = createSentryDrain({ dsn: SENTRY_DSN });
 app.use(
@@ -52,7 +57,7 @@ app.use(
     drain: (ctx) => {
       fsDrain(ctx);
       if (ctx.event.level === "warn" || ctx.event.level === "error") {
-        sentryDrain(ctx);
+        void Promise.resolve(sentryDrain(ctx)).catch(() => {});
       }
     },
   }),

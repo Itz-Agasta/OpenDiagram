@@ -17,7 +17,13 @@ export async function register() {
 // (error tracking) and evlog (structured wide-event logging).
 export const onRequestError: typeof Sentry.captureRequestError = (...args) => {
   Sentry.captureRequestError(...args);
-  void evlogInstrumentation.onRequestError(
-    ...(args as Parameters<typeof evlogInstrumentation.onRequestError>),
-  );
+  // evlog's handler may be async; surface its failures instead of swallowing
+  // them, but never let a logging error escape as an unhandled rejection.
+  void Promise.resolve(
+    evlogInstrumentation.onRequestError(
+      ...(args as Parameters<typeof evlogInstrumentation.onRequestError>),
+    ),
+  ).catch((err) => {
+    console.error("[instrumentation] evlog onRequestError failed", err);
+  });
 };
