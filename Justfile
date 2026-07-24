@@ -48,9 +48,18 @@ setup: reinstall
 check:
     bun run check
 
+# Lint and format check without writing (CI)
+check-ci:
+    bunx oxlint --deny-warnings --format github
+    bunx oxfmt --check
+
 # Typecheck all packages with tsgo
 types:
     bun run check-types
+
+# Harness geometry tests
+test:
+    cd packages/harness && bun test
 
 # Start web dev server
 web:
