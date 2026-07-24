@@ -46,7 +46,7 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "check": "oxlint && oxfmt --write"
+    "check": "oxlint --deny-warnings && oxfmt --write"
   },
   "dependencies": {
     "@OpenDiagram/env": "workspace:*",
