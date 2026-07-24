@@ -31,6 +31,16 @@ export type GitHubImportJob = {
   updatedAt: string;
 };
 
+export class GitHubImportRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "GitHubImportRequestError";
+  }
+}
+
 export async function listGitHubRepositories(): Promise<GitHubRepository[]> {
   const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/github/repositories`, {
     credentials: "include",
@@ -38,7 +48,10 @@ export async function listGitHubRepositories(): Promise<GitHubRepository[]> {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data?.error ?? "Could not load GitHub repositories.");
+    throw new GitHubImportRequestError(
+      data?.error ?? "Could not load GitHub repositories.",
+      response.status,
+    );
   }
 
   return data.repositories;

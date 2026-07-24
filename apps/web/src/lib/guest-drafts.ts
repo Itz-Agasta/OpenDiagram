@@ -20,43 +20,15 @@ export type GuestProjectDraft = {
   updatedAt: string;
 };
 
-const draftPrefix = "opendiagram:guest-project:";
+// Guest workspaces are intentionally ephemeral. This survives client-side
+// navigation but is lost on refresh, tab close, or a new browser session.
+const guestDrafts = new Map<string, GuestProjectDraft>();
+const legacyDraftPrefix = "opendiagram:guest-project:";
 
-function migrateDraft(raw: Record<string, unknown>): GuestProjectDraft | null {
-  if (typeof raw.id !== "string" || typeof raw.name !== "string") return null;
-  if (typeof raw.createdAt !== "string" || typeof raw.updatedAt !== "string") return null;
-
-  if (Array.isArray(raw.files)) {
-    return raw as unknown as GuestProjectDraft;
-  }
-
-  const files: GuestDraftFile[] = [
-    {
-      id: raw.id as string,
-      name: "Your first design",
-      type: "diagram",
-      scene: raw.scene,
-      spec: raw.spec,
-    },
-  ];
-
-  return {
-    id: raw.id as string,
-    name: raw.name as string,
-    description: raw.description as string | undefined,
-    files,
-    createdAt: raw.createdAt as string,
-    updatedAt: raw.updatedAt as string,
-  };
-}
-
-function parseDraft(raw: string): GuestProjectDraft | null {
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return null;
-    return migrateDraft(parsed);
-  } catch {
-    return null;
+function clearLegacyDrafts() {
+  if (typeof window === "undefined") return;
+  for (const key of Object.keys(window.localStorage)) {
+    if (key.startsWith(legacyDraftPrefix)) window.localStorage.removeItem(key);
   }
 }
 
@@ -87,39 +59,19 @@ export function createGuestProjectDraft(
 }
 
 export function getGuestProjectDraft(id: string): GuestProjectDraft | null {
-  if (typeof window === "undefined") return null;
-
-  const raw = window.localStorage.getItem(`${draftPrefix}${id}`);
-  if (!raw) return null;
-
-  return parseDraft(raw);
+  clearLegacyDrafts();
+  return guestDrafts.get(id) ?? null;
 }
 
 export function listGuestProjectDrafts(): GuestProjectDraft[] {
-  if (typeof window === "undefined") return [];
-
-  return Object.keys(window.localStorage)
-    .filter((key) => key.startsWith(draftPrefix))
-    .map((key) => {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return null;
-      return parseDraft(raw);
-    })
-    .filter((draft): draft is GuestProjectDraft => Boolean(draft))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  clearLegacyDrafts();
+  return [...guestDrafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export function saveGuestProjectDraft(draft: GuestProjectDraft) {
-  if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(
-    `${draftPrefix}${draft.id}`,
-    JSON.stringify({ ...draft, updatedAt: new Date().toISOString() }),
-  );
+  guestDrafts.set(draft.id, { ...draft, updatedAt: new Date().toISOString() });
 }
 
 export function deleteGuestProjectDraft(id: string) {
-  if (typeof window === "undefined") return;
-
-  window.localStorage.removeItem(`${draftPrefix}${id}`);
+  guestDrafts.delete(id);
 }

@@ -32,6 +32,7 @@
     "@tabler/icons-react": "^3.44.0",
     "@tanstack/react-form": "^1.28.0",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "ai": "catalog:",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",

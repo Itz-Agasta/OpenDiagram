@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
 import "./globals.css";
 import "lenis/dist/lenis.css";
@@ -29,6 +30,13 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: HOME_DESCRIPTION,
+  keywords: [
+    "vibe diagrams",
+    "AI architecture diagrams",
+    "software architecture",
+    "system design",
+    "OpenDiagram",
+  ],
   authors: [{ name: SITE_NAME, url: GITHUB_URL }],
   creator: SITE_NAME,
   publisher: SITE_NAME,
@@ -54,6 +62,7 @@ export default function RootLayout({
         {children}
         <Toaster position="top-right" />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

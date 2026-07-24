@@ -6,42 +6,58 @@ import { AIChatPanel } from "../AIChatPanel";
 
 type WorkspaceAgentSidebarProps = {
   activeFileType?: "diagram" | "doc";
+  allowSeedAutoRun: boolean;
   agentWidth: number;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   fileIdentity?: string;
   fileId?: string;
   initialHistory?: unknown[];
+  initialModelId?: string;
+  initialProviderId?: string;
+  initialSpec?: unknown;
   hasExistingScene?: boolean;
+  isOpen: boolean;
   isContextPending: boolean;
   projectId?: string;
   repoGenerationError: string | null;
   repoGenerationJob: RepoGenerationJob | null;
   onHistoryChange: (history: StoredChatMessage[]) => void;
   onQuotaError: (message: string) => void;
+  onProviderError: (message: string) => void;
+  onRateLimitError: (message: string) => void;
   onClose: () => void;
   onResizeStart: (pane: "sidebar" | "agent", event: React.MouseEvent) => void;
 };
 
 export function WorkspaceAgentSidebar({
   activeFileType,
+  allowSeedAutoRun,
   agentWidth,
   excalidrawAPI,
   fileIdentity,
   fileId,
   initialHistory,
+  initialModelId,
+  initialProviderId,
+  initialSpec,
   hasExistingScene,
+  isOpen,
   isContextPending,
   projectId,
   repoGenerationError,
   repoGenerationJob,
   onHistoryChange,
   onQuotaError,
+  onProviderError,
+  onRateLimitError,
   onClose,
   onResizeStart,
 }: WorkspaceAgentSidebarProps) {
   return (
     <aside
-      className="group/agent relative hidden h-full shrink-0 flex-col border-l border-od-border-soft bg-white lg:flex"
+      className={`group/agent relative h-full shrink-0 flex-col border-l border-od-border-soft bg-white ${isOpen ? "flex" : "hidden"}`}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       style={{ width: agentWidth }}
     >
       <div
@@ -51,7 +67,7 @@ export function WorkspaceAgentSidebar({
         <div className="mx-auto h-full w-px bg-od-border-soft" />
       </div>
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-od-border-soft px-3">
-        <p className="truncate text-[13px] font-medium text-od-ink">Agent</p>
+        <p className="truncate text-[13px] font-medium text-od-ink">Picasso</p>
         <button
           type="button"
           onClick={onClose}
@@ -61,34 +77,42 @@ export function WorkspaceAgentSidebar({
           <PanelRightClose className="h-4 w-4" />
         </button>
       </div>
-      <div className="relative flex min-h-0 flex-1" aria-busy={isContextPending}>
+      <div
+        className="relative flex min-h-0 flex-1 bg-od-canvas/30 p-2 pr-3"
+        aria-busy={isContextPending}
+      >
         <div
           aria-hidden={isContextPending}
           inert={isContextPending}
-          className={`flex min-h-0 flex-1 ${isContextPending ? "invisible" : ""}`}
+          className={`flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-od-border-soft bg-white ${isContextPending ? "invisible" : ""}`}
         >
           <AIChatPanel
             // Context is hidden and seed generation is gated until this loaded
             // identity is authoritative, so promotion cannot remount a live seed request.
             key={fileIdentity}
             activeFileType={activeFileType}
-            allowSeedAutoRun={!isContextPending}
+            allowSeedAutoRun={!isContextPending && allowSeedAutoRun}
             excalidrawAPI={activeFileType === "doc" ? null : excalidrawAPI}
             projectId={projectId}
             fileId={fileId}
             initialHistory={initialHistory}
+            initialModelId={initialModelId}
+            initialProviderId={initialProviderId}
+            initialSpec={initialSpec}
             hasExistingScene={hasExistingScene}
             repoGenerationJob={repoGenerationJob}
             repoGenerationError={repoGenerationError}
             onHistoryChange={onHistoryChange}
             onQuotaError={onQuotaError}
+            onProviderError={onProviderError}
+            onRateLimitError={onRateLimitError}
           />
         </div>
         {isContextPending && (
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-0 grid place-items-center bg-white text-od-ink-muted"
+            className="absolute inset-2 right-3 grid place-items-center rounded-xl border border-od-border-soft bg-white text-od-ink-muted"
           >
             <div className="flex items-center gap-2 text-[13px]">
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />

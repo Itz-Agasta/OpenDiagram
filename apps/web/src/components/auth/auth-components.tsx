@@ -21,17 +21,21 @@ export function Field({
   label,
   hint,
   error,
+  htmlFor,
   children,
 }: {
   label: string;
   hint?: React.ReactNode;
   error?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="field">
       <div className="field-head">
-        <span className="field-label">{label}</span>
+        <label className="field-label" htmlFor={htmlFor}>
+          {label}
+        </label>
         {hint && <span className="field-hint">{hint}</span>}
       </div>
       {children}
@@ -46,18 +50,21 @@ export function PasswordInput({
   placeholder,
   invalid,
   autoComplete,
+  id,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   invalid?: boolean;
   autoComplete?: string;
+  id?: string;
 }) {
   const [visible, setVisible] = useState(false);
   return (
     <div className="input-wrap">
       <input
         className="input"
+        id={id}
         type={visible ? "text" : "password"}
         value={value}
         onChange={(e) => onChange(e.target.value)}

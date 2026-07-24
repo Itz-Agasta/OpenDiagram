@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Home, Clock, Users, Star, Trash2, Plus, ChevronDown, Settings } from "lucide-react";
-import { ButtonShaderTexture } from "@/components/button-shader-texture";
 
 const navItems = [
   { id: "home", label: "Home", icon: Home },
@@ -39,9 +38,8 @@ export function SidebarNav({
       <button
         type="button"
         onClick={onCreateDiagram}
-        className="relative isolate flex items-center justify-center gap-2 overflow-hidden rounded-[999px] bg-od-ink px-6 py-3 text-[14px] text-od-on-dark transition hover:bg-[#2a2a2a] active:translate-y-px"
+        className="flex items-center justify-center gap-2 rounded-[999px] bg-od-ink px-6 py-3 text-[14px] text-od-on-dark transition hover:bg-[#2a2a2a] active:translate-y-px"
       >
-        <ButtonShaderTexture />
         <Plus className="h-4 w-4" />
         New diagram
       </button>

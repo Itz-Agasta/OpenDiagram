@@ -117,17 +117,16 @@ export function toSidebarFile(
 }
 
 export function sceneElementsVersion(elements: readonly unknown[]) {
-  let version = 0;
-  for (const element of elements) {
-    if (element && typeof element === "object" && "version" in element) {
-      const value = (element as { version?: unknown }).version;
-      if (typeof value === "number") version += value;
-    }
-  }
-  return version;
+  return JSON.stringify(
+    elements.map((element, index) => {
+      if (!element || typeof element !== "object") return [index, "", 0];
+      const value = element as { id?: unknown; version?: unknown };
+      return [index, typeof value.id === "string" ? value.id : "", value.version ?? 0];
+    }),
+  );
 }
 
 export function initialElementsVersion(scene: unknown) {
   const elements = (scene as { elements?: unknown })?.elements;
-  return Array.isArray(elements) ? sceneElementsVersion(elements) : 0;
+  return Array.isArray(elements) ? sceneElementsVersion(elements) : sceneElementsVersion([]);
 }

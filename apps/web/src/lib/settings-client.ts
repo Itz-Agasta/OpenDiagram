@@ -25,6 +25,16 @@ export type AiSettings = {
   providers: ConnectedProvider[];
 };
 
+export type ProviderModelOption = {
+  id: string;
+  label: string;
+  providerId: string;
+  providerLabel: string;
+  modelId: string;
+  modelLabel: string;
+  isDefault: boolean;
+};
+
 const BASE = `${env.NEXT_PUBLIC_SERVER_URL}/api/settings/ai`;
 
 async function readError(response: Response, fallback: string): Promise<string> {
@@ -34,7 +44,7 @@ async function readError(response: Response, fallback: string): Promise<string> 
 
 export async function getAiSettings(): Promise<AiSettings> {
   const response = await fetch(`${BASE}/providers`, { credentials: "include" });
-  if (!response.ok) throw new Error(await readError(response, "Failed to load AI settings."));
+  if (!response.ok) throw new Error(await readError(response, "Failed to load Settings."));
   return response.json();
 }
 
@@ -63,6 +73,32 @@ export async function updateProvider(
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(await readError(response, "Could not update provider."));
+}
+
+export function providerModelOptions(settings: AiSettings): ProviderModelOption[] {
+  const catalog = new Map(settings.catalog.map((provider) => [provider.id, provider]));
+
+  return settings.providers.flatMap((provider) => {
+    const definition = catalog.get(provider.provider);
+    if (!definition) return [];
+
+    return definition.models.map((model) => ({
+      id: `${provider.id}:${model.id}`,
+      label: `${definition.label} · ${model.label}`,
+      providerId: provider.id,
+      providerLabel: definition.label,
+      modelId: model.id,
+      modelLabel: model.label,
+      isDefault: provider.isDefault && provider.modelId === model.id,
+    }));
+  });
+}
+
+export async function selectProviderModel(option: ProviderModelOption): Promise<void> {
+  await updateProvider(option.providerId, {
+    modelId: option.modelId,
+    makeDefault: true,
+  });
 }
 
 export async function disconnectProvider(id: string): Promise<void> {

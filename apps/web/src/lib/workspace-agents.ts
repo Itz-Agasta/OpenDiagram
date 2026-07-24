@@ -1,5 +1,6 @@
 import type { DiagramSpec } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
+import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { chatWithProject } from "@/lib/projects-client";
 
 export type WorkspaceAgentIntent = "diagram" | "project_chat";
@@ -20,6 +21,7 @@ export type WorkspaceAgentRoute = {
 export type WorkspaceAgentResult = {
   message: string;
   spec?: DiagramSpec;
+  aiProvider?: AiProviderUsage;
 };
 
 const DIAGRAM_NOUNS =
@@ -27,6 +29,8 @@ const DIAGRAM_NOUNS =
 const DIAGRAM_VERBS = /\b(create|design|draw|generate|render|sketch|map)\b/i;
 const DIAGRAM_TARGETS =
   /\b(diagram|architecture|system flow|request flow|data flow|sequence|flowchart)\b/i;
+const ARCHITECTURE_INTENT =
+  /\b(how should|what would|help me|can you|design|architect|build|create|model|visuali[sz]e|draw|generate|map)\b[\s\S]{0,100}\b(architecture|system|topology|component|service|api|database|auth|authentication|payment|checkout|event|queue|microservice|infrastructure|flow)\b/i;
 
 export async function orchestrateWorkspaceRequest(input: {
   text: string;
@@ -56,13 +60,20 @@ export async function orchestrateWorkspaceRequest(input: {
   }
 }
 
-function isLikelyDiagramRequest(text: string) {
-  return DIAGRAM_NOUNS.test(text) || (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text));
+export function isLikelyDiagramRequest(text: string) {
+  return (
+    DIAGRAM_NOUNS.test(text) ||
+    (DIAGRAM_VERBS.test(text) && DIAGRAM_TARGETS.test(text)) ||
+    ARCHITECTURE_INTENT.test(text)
+  );
 }
 
 export async function runProjectChatAgent(input: {
   text: string;
   projectId?: string;
+  providerId?: string;
+  modelId?: string;
+  signal?: AbortSignal;
   onProgress?: (event: WorkspaceAgentProgress) => void;
 }): Promise<WorkspaceAgentResult> {
   if (!input.projectId) {
@@ -70,7 +81,13 @@ export async function runProjectChatAgent(input: {
   }
 
   input.onProgress?.({ agent: "memory", status: "active", message: "Reading project memory" });
-  const { answer, sources } = await chatWithProject(input.projectId, input.text);
+  const { answer, sources, aiProvider } = await chatWithProject(
+    input.projectId,
+    input.text,
+    input.providerId,
+    input.modelId,
+    input.signal,
+  );
   input.onProgress?.({
     agent: "memory",
     status: "complete",
@@ -82,5 +99,5 @@ export async function runProjectChatAgent(input: {
     ? `\n\n*${sources.map((source) => source.title).join(", ")}*`
     : "";
 
-  return { message: `${answer}${sourceSummary}` };
+  return { message: `${answer}${sourceSummary}`, aiProvider };
 }

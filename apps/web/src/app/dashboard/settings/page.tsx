@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { createPrivateMetadata } from "@/lib/site";
-import { AiProviders } from "@/components/settings/ai-providers";
+import { Providers } from "@/components/settings/providers";
 
 export const metadata = createPrivateMetadata("Settings");
 
@@ -20,7 +20,15 @@ export default function SettingsPage() {
         Bring your own key to run diagram generation on your own AI subscription.
       </p>
 
-      <AiProviders />
+      <div className="mb-6 flex gap-3 rounded-lg border border-od-border-soft bg-od-canvas/35 px-4 py-3 text-sm text-od-ink-muted">
+        <LockKeyhole className="mt-0.5 size-4 shrink-0 text-od-ink" aria-hidden="true" />
+        <p>
+          We never store your raw API credentials. Keys are encrypted before storage and are only
+          used to make requests to your selected provider.
+        </p>
+      </div>
+
+      <Providers />
     </main>
   );
 }

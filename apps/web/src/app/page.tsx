@@ -48,6 +48,7 @@ export const metadata: Metadata = {
     absolute: HOME_TITLE,
   },
   description: HOME_DESCRIPTION,
+  keywords: ["vibe diagrams", "AI architecture diagrams", "software architecture"],
   alternates: {
     canonical: "/",
   },
@@ -59,10 +60,10 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     images: [
       {
-        url: "/slideshow/diagram_sample.png",
-        width: 1962,
-        height: 920,
-        alt: "An editable software architecture diagram created with OpenDiagram",
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Create your Vibe Diagram with OpenDiagram",
       },
     ],
   },
@@ -70,7 +71,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
-    images: ["/slideshow/diagram_sample.png"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,

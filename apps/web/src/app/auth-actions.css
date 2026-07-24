@@ -1,0 +1,160 @@
+/* Primary button */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  background: var(--od-ink);
+  transition:
+    opacity 0.15s ease,
+    translate 0.1s ease;
+}
+
+.btn:active:not(:disabled) {
+  translate: 0 1px;
+}
+
+.btn[data-loading="true"] .btn-label {
+  opacity: 0;
+}
+
+.btn-spin {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, white 30%, transparent);
+  border-top-color: white;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.btn[data-loading="true"] .btn-spin {
+  opacity: 1;
+  animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.btn-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-label-row {
+  line-height: 1;
+}
+
+/* GitHub button */
+
+.btn-github {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--od-border-soft);
+  border-radius: 8px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--od-ink);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.btn-github:hover {
+  border-color: var(--od-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Divider */
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  font-size: 11px;
+  color: var(--od-ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--od-border-soft);
+}
+
+/* Alternate action */
+
+.alt {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--od-ink-muted);
+}
+
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--od-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.linklike:hover {
+  text-decoration-color: transparent;
+}
+
+/* Password strength */
+
+.strength {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.strength-seg {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--od-border-soft);
+  transition: background 0.2s ease;
+}
+
+.strength[data-level="1"] .strength-seg:nth-child(1) {
+  background: #ef4444;
+}
+.strength[data-level="2"] .strength-seg:nth-child(-n + 2) {
+  background: #f59e0b;
+}
+.strength[data-level="3"] .strength-seg:nth-child(-n + 3) {
+  background: #84cc16;
+}
+.strength[data-level="4"] .strength-seg:nth-child(-n + 4) {
+  background: #22c55e;
+}

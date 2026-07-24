@@ -50,11 +50,11 @@ const showcaseItems = [
     description:
       "Move components, rename services, redraw connections, and add the details the first draft missed. The result is a diagram, not an image.",
     media: {
-      kind: "video" as const,
-      src: "/hero-media/opendiagram-creation-flow-trimmed.webm",
-      fallback: "/hero-media/opendiagram-creation-flow-trimmed.mp4",
-      poster: "/hero-media/opendiagram-creation-flow-poster.jpg",
+      kind: "image" as const,
+      src: "/hero-media/opendiagram-creation-flow-trimmed-ezgif.com-video-to-gif-converter.gif",
       alt: "OpenDiagram demo showing a Vibe Diagram being created and edited on the canvas",
+      width: 1280,
+      height: 720,
     },
   },
   {

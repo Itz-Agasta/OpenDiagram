@@ -7,6 +7,49 @@ const NEW_DIAGRAM_GAP = 160;
 // diagram starts a new row below instead of extending the canvas rightward.
 const MAX_ROW_WIDTH = 3600;
 
+const FONT_FAMILY_NAMES: Record<number, string> = {
+  1: "Virgil",
+  2: "Helvetica",
+  3: "Cascadia",
+  5: "Excalifont",
+  6: "Nunito",
+  7: "Lilita One",
+  8: "Comic Shanns",
+  9: "Liberation Sans",
+};
+
+interface SceneTextElement {
+  type?: string;
+  text?: string;
+  fontFamily?: number;
+}
+
+async function loadSceneFonts(elements: readonly SceneTextElement[]) {
+  const charactersByFont = new Map<number, Set<string>>();
+  for (const element of elements) {
+    if (element.type !== "text" || !element.text || !element.fontFamily) continue;
+    const characters = charactersByFont.get(element.fontFamily) ?? new Set<string>();
+    for (const character of element.text) characters.add(character);
+    charactersByFont.set(element.fontFamily, characters);
+  }
+
+  await Promise.allSettled(
+    [...charactersByFont].map(([fontFamily, characters]) => {
+      const familyName = FONT_FAMILY_NAMES[fontFamily];
+      if (!familyName) return Promise.resolve([]);
+      return document.fonts.load(`16px "${familyName}"`, [...characters].join(""));
+    }),
+  );
+  await document.fonts.ready;
+}
+
+/** Loads scene fonts and repairs text bounds that may have used fallback metrics. */
+export async function restoreSceneElements(elements: readonly unknown[]) {
+  const { restoreElements } = await import("@excalidraw/excalidraw");
+  await loadSceneFonts(elements as SceneTextElement[]);
+  return restoreElements(elements as never[], null, { refreshDimensions: true });
+}
+
 function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton {
   switch (skeleton.kind) {
     case "container":
@@ -115,13 +158,12 @@ export async function applyDiagramToCanvas(
   // it, freshly inserted elements occasionally exist in the scene (selectable,
   // saved to drafts) but are skipped by the static canvas paint until reload —
   // observed with larger diagrams appended to an already-populated canvas.
-  const converted = restoreElements(
-    convertToExcalidrawElements([
-      ...skeletons.map(toElementSkeleton),
-      ...(rawElements as ExcalidrawElementSkeleton[]),
-    ]),
-    null,
-  );
+  const generated = convertToExcalidrawElements([
+    ...skeletons.map(toElementSkeleton),
+    ...(rawElements as ExcalidrawElementSkeleton[]),
+  ]);
+  await loadSceneFonts(generated);
+  const converted = restoreElements(generated, null, { refreshDimensions: true });
 
   // Excalidraw dev builds assert linear elements are "normalized" (first point
   // at [0,0]); binding snap during conversion can shift it. Re-anchor so
