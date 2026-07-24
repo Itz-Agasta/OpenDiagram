@@ -1,7 +1,7 @@
 import { createEvlog } from "evlog/next";
 import { createInstrumentation } from "evlog/next/instrumentation/create";
 import { createSentryDrain } from "evlog/sentry";
-import { WEB_SENTRY_DSN } from "../../sentry.dsn";
+import { WEB_SENTRY_DSN, WEB_SENTRY_ENVIRONMENT } from "../../sentry.dsn";
 
 // The web app runs on serverless (Vercel) with an ephemeral, read-only FS, so
 // there is no local FS drain here (unlike the Bun server). evlog still emits
@@ -11,7 +11,7 @@ import { WEB_SENTRY_DSN } from "../../sentry.dsn";
 // stream.
 const sentryDrain = createSentryDrain({
   dsn: WEB_SENTRY_DSN,
-  environment: process.env.NODE_ENV,
+  environment: WEB_SENTRY_ENVIRONMENT,
 });
 
 export const { withEvlog, useLogger, log, createError } = createEvlog({
