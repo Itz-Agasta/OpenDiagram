@@ -1,6 +1,6 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec, RenderSkeleton } from "@OpenDiagram/harness";
-import { diagramTypeSchema } from "@OpenDiagram/harness";
+import { diagramTypeSchema } from "@OpenDiagram/harness/diagram-schema";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import type { RepoGenerationJob } from "@/lib/projects-client";
 

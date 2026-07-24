@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./diagram-schema": "./src/diagram-schema.ts"
   },
   "scripts": {
     "test": "bun test"
   },
   "dependencies": {
     "elkjs": "^0.11.1",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "zod": "catalog:"
   }
 }
