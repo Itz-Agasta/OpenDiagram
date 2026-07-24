@@ -1,9 +1,11 @@
 import { auth } from "@OpenDiagram/auth";
 import { env } from "@OpenDiagram/env/server";
+import { sentry } from "@sentry/hono/bun";
 import { initLogger } from "evlog";
 import { createAuthMiddleware, type BetterAuthInstance } from "evlog/better-auth";
 import { createFsDrain } from "evlog/fs";
 import { evlog, type EvlogVariables } from "evlog/hono";
+import { createSentryDrain } from "evlog/sentry";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { aiSettingsRoute } from "./routes/ai-settings";
@@ -25,9 +27,41 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 
 const origins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
 
+// Server-project DSN (public value). The Bun transport flushes asynchronously;
+// on Cloud Run (CPU throttled after response) low-traffic events may lag until
+// the next request or SIGTERM. Acceptable for now — revisit if events drop.
+const SENTRY_DSN =
+  "https://d065bd035ab8612f7d8527b0529c6742@o4511790063812608.ingest.us.sentry.io/4511790076592128";
+
 const app = new Hono<EvlogVariables>();
 
-app.use(evlog({ drain: createFsDrain() }));
+// Sentry middleware must run as early as possible; it initializes the SDK.
+app.use(
+  sentry(app, {
+    dsn: SENTRY_DSN,
+    tracesSampleRate: env.NODE_ENV === "development" ? 1.0 : 0.1,
+  }),
+);
+
+// All wide events go to local NDJSON files; only warn/error events also reach
+// Sentry Logs, so we stay inside the free Logs allotment on Cloud Run traffic.
+// The drain is intentionally fire-and-forget (evlog's contract) so it never adds
+// latency to the response. Note: actual exceptions are captured separately and
+// synchronously by the Sentry middleware above, which flushes on its own — this
+// log drain is supplementary, so a dropped log on a Cloud Run freeze never loses
+// the error itself. Rejections are swallowed to avoid unhandled rejections.
+const fsDrain = createFsDrain();
+const sentryDrain = createSentryDrain({ dsn: SENTRY_DSN });
+app.use(
+  evlog({
+    drain: (ctx) => {
+      fsDrain(ctx);
+      if (ctx.event.level === "warn" || ctx.event.level === "error") {
+        void Promise.resolve(sentryDrain(ctx)).catch(() => {});
+      }
+    },
+  }),
+);
 
 app.get("/", (c) => c.text("OK"));
 app.get("/health", (c) => c.json({ status: "ok" }));
