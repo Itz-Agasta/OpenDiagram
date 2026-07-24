@@ -44,11 +44,11 @@ reinstall: clean
 setup: reinstall
     bun run build
 
-# Lint and format (oxlint + oxfmt)
+# Lint and format (oxlint --deny-warnings + oxfmt --write)
 check:
     bun run check
 
-# Lint and format check without writing (CI)
+# Same lint bar as `check`, but reports instead of writing (CI)
 check-ci:
     bunx oxlint --deny-warnings --format github
     bunx oxfmt --check
