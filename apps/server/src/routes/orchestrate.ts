@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "@OpenDiagram/env/server";
+import { aiTelemetry } from "../lib/telemetry";
 
 const requestSchema = z.object({
   text: z.string().trim().min(1).max(2000),
@@ -45,6 +46,7 @@ orchestrateRoute.post("/", async (c) => {
       model: groq("groq/compound-mini"),
       system: SYSTEM_PROMPT,
       prompt: text,
+      telemetry: aiTelemetry("orchestrate-intent"),
       timeout: 15_000,
     });
 
