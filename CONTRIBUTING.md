@@ -78,6 +78,10 @@ docs(readme): clarify self-hosting prerequisites
 
 Open an issue with the bug report template. For diagram output problems, include the prompt you used and a screenshot or `.excalidraw` export - it makes layout bugs far faster to reproduce.
 
+## Getting help
+
+Stuck on setup or using the app? Open a [discussion](https://github.com/Itz-Agasta/OpenDiagram/discussions) or email **support@opendiagram.ink**. For anything else aimed at the maintainers, use **admin@opendiagram.ink**.
+
 ## Security
 
 Do not open a public issue for security problems. See [SECURITY.md](./SECURITY.md).

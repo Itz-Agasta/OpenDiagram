@@ -39,10 +39,10 @@ body:
     attributes:
       label: Area
       options:
-        - Diagram output / layout (harness)
+        - Layout / rendering quality
         - Canvas / editor (web)
         - AI agent behaviour
-        - BYOK / provider keys
+        - AI provider support (BYOK)
         - Auth
         - Self-hosting / setup
         - Other

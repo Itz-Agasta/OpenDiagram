@@ -8,7 +8,7 @@ OpenDiagram is pre-1.0 and moves fast. Only the latest `main` receives security 
 
 **Do not open a public issue.**
 
-Report privately through [GitHub Security Advisories](https://github.com/Itz-Agasta/OpenDiagram/security/advisories/new), or email **rupamgolui69@gmail.com**.
+Report privately through [GitHub Security Advisories](https://github.com/Itz-Agasta/OpenDiagram/security/advisories/new), or email **admin@opendiagram.ink**.
 
 Please include:
 
