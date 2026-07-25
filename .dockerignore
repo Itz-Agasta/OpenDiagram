@@ -1,28 +1,30 @@
+# Allow-list, not deny-list. Denying everything first means a new file leaks nothing by
+# default: it has to be named here to enter the build context.
+
+*
+
+# Root build inputs
+!package.json
+!bun.lock
+!bunfig.toml
+!turbo.json
+!tsconfig.json
+
+# Workspaces. bun install resolves the whole workspace graph against bun.lock,
+# so every apps/* and packages/* package.json must be present, not just server.
+!apps/
+!packages/
+
+# Re-exclude artifacts and secrets that live inside the allowed dirs above
 **/node_modules
-.git
-
 **/dist
-**/build
 **/.next
-**/.nuxt
-**/.output
-**/.svelte-kit
-**/.astro
 **/.turbo
-.turbo
-
-**/.wrangler
-**/.alchemy
-**/.expo
 **/.vercel
-*.log
-
-Dockerfile
-**/Dockerfile
-docker-compose.yml
-
-# Secrets stay out of image layers; runtime env comes from compose env_file,
-# build-time public values come from compose build args
 **/.env
 **/.env.*
-!**/.env.example
+*.log
+
+# Not needed in the image, and edits here should not bust the COPY cache
+**/Dockerfile
+docker-compose.yml
