@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const SITE_NAME = "OpenDiagram";
 export const SITE_URL = new URL("https://opendiagram.ink");
 export const GITHUB_URL = "https://github.com/Itz-Agasta/OpenDiagram";
-export const HOME_TITLE = "OpenDiagram — Open-Source AI Architecture Diagrams";
+export const HOME_TITLE = "OpenDiagram — AI Diagrams for System Design";
 export const HOME_DESCRIPTION =
   "Create editable vibe diagrams for software architecture. Describe a system, shape it with AI, and keep diagrams, decisions, and project context connected.";
 
