@@ -28,7 +28,10 @@ export function FeatureNav({ items }: { items: FeatureNavItem[] }) {
   }, [items]);
 
   return (
-    <nav aria-label="Feature sections" className="flex gap-2 overflow-x-auto lg:block lg:space-y-2">
+    <nav
+      aria-label="Feature sections"
+      className="flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-1 lg:pb-0"
+    >
       {items.map((item) => {
         const isActive = item.id === activeId;
         return (
@@ -36,15 +39,15 @@ export function FeatureNav({ items }: { items: FeatureNavItem[] }) {
             key={item.id}
             href={`#${item.id}`}
             aria-current={isActive ? "location" : undefined}
-            className={`flex min-w-[220px] items-center gap-3 px-4 py-4 text-sm font-semibold transition-colors lg:min-w-0 ${
+            className={`flex min-w-[220px] items-center gap-3 rounded-[10px] px-4 py-4 text-sm font-semibold transition-colors lg:min-w-0 ${
               isActive
-                ? "bg-black text-white"
-                : "border-b border-black/10 text-black/65 hover:text-black"
+                ? "bg-[#1a1a1a] text-white"
+                : "text-black/58 hover:bg-black/[0.04] hover:text-black"
             }`}
           >
             <span
               className={`h-2.5 w-2.5 shrink-0 border ${
-                isActive ? "border-white bg-white" : "border-black/35"
+                isActive ? "border-[#0cb300] bg-[#0cb300]" : "border-black/28"
               }`}
               aria-hidden="true"
             />

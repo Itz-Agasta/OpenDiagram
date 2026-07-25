@@ -46,7 +46,8 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "check": "oxlint && oxfmt --write"
+    "check": "oxlint && oxfmt --write",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@OpenDiagram/env": "workspace:*",

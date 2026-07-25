@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { ScrollReveal } from "./scroll-reveal";
 
 interface ProcessCardProps {
   number: string;
@@ -12,11 +13,13 @@ interface ProcessCardProps {
 function ProcessCard({ number, title, description, rotation }: ProcessCardProps) {
   return (
     <div
-      className="w-full rounded-[30px] border-[10px] border-white/50"
+      className="od-mobile-static-card w-full rounded-[30px] border-[10px] border-white/50 max-md:rounded-[22px] max-md:border-[6px]"
       style={{ transform: `rotate(${rotation}deg)` }}
     >
-      <div className="flex w-full flex-col gap-6 rounded-[20px] bg-white/80 p-8 shadow-sm backdrop-blur-sm">
-        <span className="text-[72px] font-thin leading-[1.25] -tracking-[0.06em]">{number}</span>
+      <div className="flex w-full flex-col gap-6 rounded-[20px] bg-white/80 p-8 shadow-sm backdrop-blur-sm max-md:rounded-2xl max-md:p-6">
+        <span className="text-[72px] font-thin leading-[1.25] -tracking-[0.06em] max-md:text-[56px]">
+          {number}
+        </span>
         <h3 className="text-2xl font-bold leading-[1.6] -tracking-[0.02em]">{title}</h3>
         <p className="text-base leading-[1.7] text-black/70">{description}</p>
       </div>
@@ -32,7 +35,7 @@ interface PrincipleProps {
 
 function Principle({ paddingTop, title, description }: PrincipleProps) {
   return (
-    <div className="flex w-full flex-col gap-6" style={{ paddingTop }}>
+    <div className="flex w-full flex-col gap-6 max-lg:pt-0!" style={{ paddingTop }}>
       <p className="text-base leading-[1.7]">{description}</p>
       <div className="flex flex-col">
         <span className="font-semibold">{title}</span>
@@ -100,61 +103,74 @@ function SecondConnector() {
 
 export function ProcessSection() {
   return (
-    <section className="flex w-full flex-col items-center justify-center px-[120px] max-md:px-6">
-      <div className="flex w-full max-w-[1440px] flex-col items-start gap-[60px] py-[120px]">
-        <div className="flex w-full flex-col items-center gap-2.5 overflow-hidden">
-          <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6">
-            <span className="h-px w-[69px] bg-black/50" />
+    <section className="flex w-full flex-col items-center justify-center px-[120px] max-lg:px-12 max-md:px-6">
+      <div className="flex w-full max-w-[1440px] flex-col items-start gap-[60px] py-[120px] max-lg:py-20 max-md:py-16">
+        <ScrollReveal className="flex w-full flex-col items-center gap-2.5 overflow-hidden">
+          <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6 max-sm:gap-4 max-sm:px-0">
+            <span className="h-px w-[69px] shrink-0 bg-black/50 max-sm:w-10" />
             <span className="font-serif text-2xl italic">How Vibe Diagramming Works</span>
-            <span className="h-px w-[69px] bg-black/50" />
+            <span className="h-px w-[69px] shrink-0 bg-black/50 max-sm:w-10" />
           </div>
           <h2 className="w-full text-center text-[48px] font-bold leading-[1.4] -tracking-[0.04em] max-md:text-3xl">
             From rough idea to living architecture
           </h2>
-        </div>
+        </ScrollReveal>
 
-        <div className="relative flex w-full items-start justify-center max-md:flex-col max-md:items-center">
+        <div className="relative flex w-full items-start justify-center max-lg:flex-col max-lg:items-center">
           <FirstConnector />
           <SecondConnector />
 
-          <div className="relative z-10 -mr-4 flex w-[36%] flex-col gap-2.5 pt-[62px] max-md:-mr-0 max-md:mb-[-24px] max-md:w-full max-md:pt-0">
+          <ScrollReveal
+            delay={0.08}
+            className="relative z-10 -mr-4 flex w-[36%] flex-col gap-2.5 pt-[62px] max-lg:-mr-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+          >
             <ProcessCard
               number="1"
               title="Describe"
               description="Explain the behavior, scale, constraints, and technology behind the system you want to design."
               rotation={-5}
             />
-          </div>
-          <div className="relative z-20 -mx-4 flex w-[36%] flex-col gap-2.5 max-md:-mx-0 max-md:mb-[-24px] max-md:w-full max-md:pt-0">
+          </ScrollReveal>
+          <ScrollReveal
+            delay={0.16}
+            className="relative z-20 -mx-4 flex w-[36%] flex-col gap-2.5 max-lg:-mx-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+          >
             <ProcessCard
               number="2"
               title="Shape"
               description="OpenDiagram turns your intent into an editable visual draft with services, flows, and system context."
               rotation={9}
             />
-          </div>
-          <div className="relative z-10 -ml-4 flex w-[36%] flex-col gap-2.5 pt-16 max-md:-ml-0 max-md:w-full max-md:pt-0">
+          </ScrollReveal>
+          <ScrollReveal
+            delay={0.24}
+            className="relative z-10 -ml-4 flex w-[36%] flex-col gap-2.5 pt-16 max-lg:-ml-0 max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+          >
             <ProcessCard
               number="3"
               title="Keep It Alive"
               description="Refine the diagram with AI, connect decisions and context, and evolve it alongside the system."
               rotation={-3}
             />
-          </div>
+          </ScrollReveal>
         </div>
 
-        <div className="flex w-full items-start gap-24 pt-12 max-md:flex-col max-md:gap-12">
-          <Principle
-            paddingTop="80px"
-            title="Start with intent, not boxes"
-            description="Describe the behavior you want before arranging components. OpenDiagram gives the conversation a visual form your team can inspect together."
-          />
-          <span className="w-px self-stretch bg-black/25 max-md:hidden" />
-          <Principle
-            paddingTop="240px"
-            title="Stay editable from the first draft"
-            description="Move components, redraw connections, and explore alternatives with AI. Your architecture remains a workspace—not a generated screenshot."
-          />
+        <div className="flex w-full items-start gap-24 pt-12 max-lg:flex-col max-lg:gap-12 max-lg:pt-4">
+          <ScrollReveal className="w-full" delay={0.12}>
+            <Principle
+              paddingTop="80px"
+              title="Start with intent, not boxes"
+              description="Describe the behavior you want before arranging components. OpenDiagram gives the conversation a visual form your team can inspect together."
+            />
+          </ScrollReveal>
+          <span className="w-px self-stretch bg-black/25 max-lg:hidden" />
+          <ScrollReveal className="w-full" delay={0.2}>
+            <Principle
+              paddingTop="240px"
+              title="Stay editable from the first draft"
+              description="Move components, redraw connections, and explore alternatives with AI. Your architecture remains a workspace—not a generated screenshot."
+            />
+          </ScrollReveal>
         </div>
       </div>
     </section>

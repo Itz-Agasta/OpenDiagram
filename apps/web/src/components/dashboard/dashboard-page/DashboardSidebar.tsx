@@ -59,9 +59,11 @@ export function DashboardSidebar(props: DashboardSidebarProps) {
       <div className="flex h-16 shrink-0 items-center gap-3 border-t border-od-border-soft px-4">
         {props.isSignedIn &&
           (props.accountImage ? (
-            <img
+            <Image
               src={props.accountImage}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9 rounded-full border border-od-border-soft object-cover"
             />
           ) : (

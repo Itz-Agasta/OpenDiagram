@@ -128,7 +128,7 @@ export function TextOpacityWords({ text }: { text: string }) {
   return (
     <p
       ref={ref}
-      className="text-center text-5xl font-bold leading-[1.4] -tracking-[0.04em] max-md:text-3xl"
+      className="text-center text-5xl font-bold leading-[1.4] -tracking-[0.04em] max-lg:text-4xl max-md:text-3xl"
     >
       {words.map((word, i) => (
         <WordFade

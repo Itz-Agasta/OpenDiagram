@@ -46,7 +46,11 @@ interface AgentInputPanelProps {
   onSubmit: (input: AgentInputSubmit) => void;
 }
 
-export function AgentInputPanel({ creating, onSubmit }: AgentInputPanelProps) {
+interface AgentInputPanelWithSessionProps extends AgentInputPanelProps {
+  signedIn: boolean;
+}
+
+export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPanelWithSessionProps) {
   const [selectedMode, setSelectedMode] = useState<FileKind>("diagram");
   const [prompt, setPrompt] = useState("");
   const [ctaIndex, setCtaIndex] = useState(0);
@@ -57,6 +61,11 @@ export function AgentInputPanel({ creating, onSubmit }: AgentInputPanelProps) {
   const [selectingProvider, setSelectingProvider] = useState(false);
   useEffect(() => setCtaIndex(Math.floor(Math.random() * agentCtas.length)), []);
   useEffect(() => {
+    setProviderError(null);
+    setProviderOptions([]);
+    setProviderId("platform");
+    if (!signedIn) return;
+
     let active = true;
     void getAiSettings()
       .then((settings) => {
@@ -75,7 +84,7 @@ export function AgentInputPanel({ creating, onSubmit }: AgentInputPanelProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [signedIn]);
 
   const selectedProvider = providerOptions.find((option) => option.id === providerId);
   const providerGroups = useMemo(() => {

@@ -8,9 +8,10 @@ interface DashboardMainProps {
   creating: boolean;
   loading: boolean;
   onCreate: (input: AgentInputSubmit) => void;
+  signedIn: boolean;
 }
 
-export function DashboardMain({ creating, loading, onCreate }: DashboardMainProps) {
+export function DashboardMain({ creating, loading, onCreate, signedIn }: DashboardMainProps) {
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-od-surface">
       <header className="z-20 flex h-16 shrink-0 items-center gap-3 bg-od-surface px-4 lg:hidden">
@@ -30,7 +31,7 @@ export function DashboardMain({ creating, loading, onCreate }: DashboardMainProp
           <AgentInputPanelSkeleton />
         ) : (
           <>
-            <AgentInputPanel creating={creating} onSubmit={onCreate} />
+            <AgentInputPanel creating={creating} onSubmit={onCreate} signedIn={signedIn} />
             <PresetTagRow creating={creating} onSubmit={onCreate} />
             <div className="mt-8 flex flex-col items-center gap-4">
               <div className="flex items-center gap-3">

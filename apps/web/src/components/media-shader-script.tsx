@@ -10,7 +10,7 @@ export function MediaShaderScript() {
       crossOrigin="anonymous"
       integrity={MEDIA_SHADER_INTEGRITY}
       src={MEDIA_SHADER_SRC}
-      strategy="afterInteractive"
+      strategy="lazyOnload"
     />
   );
 }

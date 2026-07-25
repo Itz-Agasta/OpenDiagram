@@ -15,7 +15,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex w-full flex-col px-[120px] max-lg:px-6">
-      <div className="relative z-20 mx-auto grid h-20 w-full max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center">
+      <div className="relative z-20 mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]">
         <Link
           href="/"
           className="inline-flex h-11 items-center justify-center justify-self-start gap-2 overflow-hidden rounded-[22px] bg-white px-4 text-base font-bold"
@@ -46,9 +46,10 @@ export function Header() {
         <div className="flex items-center justify-self-end gap-3">
           <Link
             href="/dashboard"
+            prefetch={false}
             className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-medium text-white transition-colors hover:bg-black/80 max-lg:hidden"
           >
-            Create Your Vibe Diagram
+            Try for Free
           </Link>
           <button
             type="button"
@@ -92,10 +93,11 @@ export function Header() {
             ))}
             <Link
               href="/dashboard"
+              prefetch={false}
               onClick={() => setOpen(false)}
               className="mt-1 block rounded-md bg-black px-4 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-black/80"
             >
-              Create Your Vibe Diagram
+              Try for Free
             </Link>
           </div>
         </div>

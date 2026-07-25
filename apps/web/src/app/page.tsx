@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing/landing-page";
-import { SmoothScrollProvider } from "@/components/smooth-scroll-provider";
 import { GITHUB_URL, HOME_DESCRIPTION, HOME_TITLE, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const organizationId = new URL("/#organization", SITE_URL).href;
@@ -60,7 +59,7 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     images: [
       {
-        url: "/og-image.png",
+        url: "/preview.jpeg",
         width: 1200,
         height: 630,
         alt: "Create your Vibe Diagram with OpenDiagram",
@@ -71,7 +70,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
-    images: ["/og-image.png"],
+    images: ["/preview.jpeg"],
   },
   robots: {
     index: true,
@@ -88,7 +87,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <SmoothScrollProvider>
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -96,6 +95,6 @@ export default function Home() {
         }}
       />
       <LandingPage />
-    </SmoothScrollProvider>
+    </>
   );
 }
