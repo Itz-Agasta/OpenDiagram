@@ -1,0 +1,66 @@
+name: Bug report
+description: Something is broken or a diagram came out wrong
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Prompt used
+      description: If this is a diagram output problem, paste the exact prompt you gave the agent.
+      render: text
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a new project
+        2. Ask for "..."
+        3. See the arrows overlap
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshot or .excalidraw export
+      description: Strongly recommended for layout and rendering bugs.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Layout / rendering quality
+        - Canvas / editor (web)
+        - AI agent behaviour
+        - AI provider support (BYOK)
+        - Auth
+        - Self-hosting / setup
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Hosted opendiagram.ink, or self-hosted? Include browser and Bun version if self-hosted.
+      placeholder: "self-hosted, Bun 1.3.4, Chrome 141"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Console or server output. Redact any API keys.
+      render: shell
