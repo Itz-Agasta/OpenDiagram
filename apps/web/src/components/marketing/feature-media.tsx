@@ -53,15 +53,7 @@ export function SystemPromptCard({
   );
 }
 
-function CanvasFrame({
-  src,
-  alt,
-  priority,
-}: {
-  src: string;
-  alt: string;
-  priority?: boolean;
-}) {
+function CanvasFrame({ src, alt, priority }: { src: string; alt: string; priority?: boolean }) {
   return (
     <div className="overflow-hidden rounded-[12px] border border-black/[0.06] bg-white p-2 shadow-[0_18px_50px_rgba(0,0,0,0.1)]">
       <div className="mb-2 flex h-8 items-center gap-2 px-2.5">

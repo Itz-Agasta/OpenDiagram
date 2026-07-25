@@ -2,7 +2,8 @@ import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
 export const env = createEnv({
-    NEXT_PUBLIC_ASSET_URL: z.url().optional(),
+  client: {
+    NEXT_PUBLIC_SERVER_URL: z.url(),
     NEXT_PUBLIC_ASSET_URL: z.url(),
     // Fraction of traces sampled, 0..1. Full sampling by default. The DSN stays
     // hardcoded in apps/web/sentry.dsn.ts.
