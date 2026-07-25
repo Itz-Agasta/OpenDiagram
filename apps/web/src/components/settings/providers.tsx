@@ -258,7 +258,7 @@ function ConnectDialog({
   onConnected: () => Promise<void>;
 }) {
   const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState("");
+  const [modelId, setModelId] = useState(provider?.models[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
 
   async function save() {
