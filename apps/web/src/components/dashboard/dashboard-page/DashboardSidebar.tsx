@@ -41,10 +41,10 @@ export function DashboardSidebar(props: DashboardSidebarProps) {
         className="flex h-16 shrink-0 items-center gap-2 px-4 text-[20px] font-semibold leading-tight"
       >
         <Image
-          src={assetUrl("/brand/logo.png")}
+          src={assetUrl("/brand/mascot.png")}
           alt=""
-          width={28}
-          height={28}
+          width={32}
+          height={32}
           className="size-7 shrink-0"
         />
         <span className="truncate">OpenDiagram</span>

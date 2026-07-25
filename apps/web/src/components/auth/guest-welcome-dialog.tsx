@@ -69,10 +69,10 @@ export function GuestWelcomeDialog() {
         <div className="border-b border-od-border-soft bg-[#fff7f4] px-6 py-5 sm:px-7">
           <div className="flex items-center gap-3">
             <Image
-              src={assetUrl("/brand/logo.png")}
-              alt="OpenDiagram logo"
-              width={44}
-              height={44}
+              src={assetUrl("/brand/mascot.png")}
+              alt="OpenDiagram mascot"
+              width={52}
+              height={52}
               className="size-11"
             />
             <div>

@@ -21,7 +21,7 @@ const structuredData = {
       "@id": organizationId,
       name: SITE_NAME,
       url: SITE_URL.href,
-      logo: assetUrl("/brand/logo.png"),
+      logo: assetUrl("/brand/mascot.png"),
       sameAs: [GITHUB_URL],
     },
     {

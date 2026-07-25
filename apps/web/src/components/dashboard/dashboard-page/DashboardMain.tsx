@@ -20,14 +20,14 @@ export function DashboardMain({ creating, loading, onCreate, signedIn }: Dashboa
           <Link
             href="/"
             aria-label="OpenDiagram home"
-            className="grid size-9 shrink-0 place-items-center"
+            className="grid size-10 shrink-0 place-items-center"
           >
             <Image
-              src={assetUrl("/brand/logo.png")}
+              src={assetUrl("/brand/mascot.png")}
               alt=""
-              width={36}
-              height={36}
-              className="size-9"
+              width={40}
+              height={40}
+              className="size-10"
             />
           </Link>
           <h1 className="truncate text-[18px] font-semibold leading-tight">OpenDiagram</h1>

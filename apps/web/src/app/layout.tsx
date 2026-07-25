@@ -54,8 +54,8 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
   category: "technology",
   icons: {
-    icon: assetUrl("/brand/logo.png"),
-    apple: assetUrl("/brand/logo.png"),
+    icon: assetUrl("/brand/mascot.png"),
+    apple: assetUrl("/brand/mascot.png"),
   },
 };
 

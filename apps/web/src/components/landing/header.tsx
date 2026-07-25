@@ -22,10 +22,10 @@ export function Header() {
           className="inline-flex h-11 items-center justify-center justify-self-start gap-2 overflow-hidden rounded-[22px] bg-white px-4 text-base font-bold"
         >
           <Image
-            src={assetUrl("/brand/logo.png")}
+            src={assetUrl("/brand/mascot.png")}
             alt=""
-            width={24}
-            height={24}
+            width={30}
+            height={30}
             className="h-6 w-6 shrink-0 object-contain"
           />
           OpenDiagram
