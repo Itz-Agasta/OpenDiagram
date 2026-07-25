@@ -7,7 +7,7 @@ export function IntroSection() {
       <ScrollReveal className="relative flex min-h-screen w-full max-w-[1366px] flex-col items-center justify-center py-20">
         <div className="relative z-10 inline-flex items-center gap-6 rounded-full px-6 max-sm:gap-4 max-sm:px-0">
           <span className="h-px w-[69px] shrink-0 bg-black/50 max-sm:w-10" />
-          <span className="font-serif text-2xl italic">What is a Vibe Diagram?</span>
+          <span className="font-excali text-2xl">What is a Vibe Diagram?</span>
           <span className="h-px w-[69px] shrink-0 bg-black/50 max-sm:w-10" />
         </div>
 

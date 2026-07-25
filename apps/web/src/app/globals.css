@@ -103,6 +103,7 @@
   --font-inter: var(--font-inter-next), sans-serif;
   --font-serif: var(--font-instrument-serif-next), serif;
   --font-instrument-serif: var(--font-instrument-serif-next), serif;
+  --font-excali: var(--font-excalifont), "Excalifont", cursive;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -168,8 +169,9 @@
   }
 
   .font-editorial {
-    font-family: var(--font-instrument-serif-next), serif;
-    font-style: italic;
+    font-family: var(--font-excalifont), "Excalifont", cursive;
+    font-style: normal;
+    font-weight: 400;
   }
 }
 

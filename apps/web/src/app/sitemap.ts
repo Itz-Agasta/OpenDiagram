@@ -24,7 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: new URL("/ai-architecture-diagram-generator", SITE_URL).href,
+      url: new URL("/ai-diagram-generator", SITE_URL).href,
       lastModified,
       changeFrequency: "monthly",
       priority: 0.9,

@@ -14,7 +14,7 @@ export function MarketingPage({
 }: Readonly<{ children: React.ReactNode; className?: string }>) {
   return (
     <div
-      className={`${marketingSans.className} min-h-screen bg-[#d9d9d5] text-[#1a1a1a] selection:bg-[#0cb300] selection:text-white ${className ?? ""}`}
+      className={`${marketingSans.className} min-h-screen bg-[#f7f7f5] text-[#1a1a1a] selection:bg-[#ff4a2c] selection:text-white ${className ?? ""}`}
     >
       <a
         href="#main-content"

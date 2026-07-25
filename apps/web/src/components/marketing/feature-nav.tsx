@@ -11,8 +11,6 @@ export function FeatureNav({ items }: { items: FeatureNavItem[] }) {
     const sections = items
       .map(({ id }) => document.getElementById(id))
       .filter((section): section is HTMLElement => Boolean(section));
-    if (!sections.length) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -24,7 +22,10 @@ export function FeatureNav({ items }: { items: FeatureNavItem[] }) {
     );
 
     sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+    return () => {
+      sections.forEach((section) => observer.unobserve(section));
+      observer.disconnect();
+    };
   }, [items]);
 
   return (
@@ -47,7 +48,7 @@ export function FeatureNav({ items }: { items: FeatureNavItem[] }) {
           >
             <span
               className={`h-2.5 w-2.5 shrink-0 border ${
-                isActive ? "border-[#0cb300] bg-[#0cb300]" : "border-black/28"
+                isActive ? "border-[#ff4a2c] bg-[#ff4a2c]" : "border-black/28"
               }`}
               aria-hidden="true"
             />

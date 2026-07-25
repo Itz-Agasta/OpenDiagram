@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { IconEye, IconEyeOff, IconCheck } from "@tabler/icons-react";
+import { assetUrl } from "@/lib/site";
 
 export function scoreStrength(pwd: string): { level: number; label: string } {
   if (!pwd) return { level: 0, label: "" };
@@ -108,7 +109,7 @@ export function VisualPane({ _isSignup }: { _isSignup: boolean }) {
   return (
     <div className="pane-visual">
       <Image
-        src="/od_flower1.jpg"
+        src={assetUrl("/auth/flower.jpg")}
         alt="Annotated flower architecture study"
         fill
         priority

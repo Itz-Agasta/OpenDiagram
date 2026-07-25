@@ -7,6 +7,13 @@ export const HOME_TITLE = "OpenDiagram — Open-Source AI Architecture Diagrams"
 export const HOME_DESCRIPTION =
   "Create editable vibe diagrams for software architecture. Describe a system, shape it with AI, and keep diagrams, decisions, and project context connected.";
 
+const PUBLIC_ASSET_PREFIX = process.env.NEXT_PUBLIC_ASSET_URL?.replace(/\/$/, "");
+
+export function assetUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return PUBLIC_ASSET_PREFIX ? `${PUBLIC_ASSET_PREFIX}/public${normalizedPath}` : normalizedPath;
+}
+
 export function createPrivateMetadata(title: string): Metadata {
   return {
     title,

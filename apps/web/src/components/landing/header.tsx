@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { assetUrl } from "@/lib/site";
 
 const navItems = [
   { label: "Features", href: "/features" },
@@ -21,7 +22,7 @@ export function Header() {
           className="inline-flex h-11 items-center justify-center justify-self-start gap-2 overflow-hidden rounded-[22px] bg-white px-4 text-base font-bold"
         >
           <Image
-            src="/new_logo.png"
+            src={assetUrl("/brand/logo.png")}
             alt=""
             width={24}
             height={24}

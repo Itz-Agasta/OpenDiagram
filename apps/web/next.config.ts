@@ -1,6 +1,10 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
+const publicAssetUrl = process.env.NEXT_PUBLIC_ASSET_URL
+  ? new URL(process.env.NEXT_PUBLIC_ASSET_URL)
+  : null;
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@OpenDiagram/harness"],
   images: {
@@ -15,6 +19,16 @@ const nextConfig: NextConfig = {
         hostname: "avatars.githubusercontent.com",
         pathname: "/u/**",
       },
+      ...(publicAssetUrl
+        ? [
+            {
+              protocol: publicAssetUrl.protocol.replace(":", "") as "http" | "https",
+              hostname: publicAssetUrl.hostname,
+              port: publicAssetUrl.port,
+              pathname: `${publicAssetUrl.pathname.replace(/\/$/, "")}/public/**`,
+            },
+          ]
+        : []),
     ],
   },
 };

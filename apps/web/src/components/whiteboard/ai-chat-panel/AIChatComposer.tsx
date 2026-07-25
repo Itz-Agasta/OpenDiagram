@@ -30,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RecommendedBadge } from "@/components/ui/recommended-badge";
+import { isRecommendedModel } from "@/lib/settings-client";
 
 interface AIChatComposerProps {
   onStop?: () => void;
@@ -124,8 +126,16 @@ export function AIChatComposer({
                               {option.id === providerId && <Check aria-hidden="true" />}
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-medium">
-                                {option.modelLabel ?? option.label}
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="truncate font-medium">
+                                  {option.modelLabel ?? option.label}
+                                </span>
+                                {isRecommendedModel(
+                                  option.modelId ?? option.id,
+                                  option.modelLabel ?? option.label,
+                                ) ? (
+                                  <RecommendedBadge />
+                                ) : null}
                               </span>
                               <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                                 {option.label}

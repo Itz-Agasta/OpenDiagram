@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Check, Loader2, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { assetUrl } from "@/lib/site";
 import {
   connectProvider,
   disconnectProvider,
@@ -30,6 +32,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RecommendedBadge } from "@/components/ui/recommended-badge";
+import { isRecommendedModel } from "@/lib/settings-client";
+
+/** Maps BYOK catalog ids (see apps/server ai-provider registry) → public favicons. */
+const PROVIDER_ICONS: Record<string, string> = {
+  openai: assetUrl("/brand/favicons/chatgpt-icon.png"),
+  anthropic: assetUrl("/brand/favicons/claude-icon.png"),
+  google: assetUrl("/brand/favicons/gemini-icon.png"),
+  openrouter: assetUrl("/brand/favicons/openrouter-icon.png"),
+};
 
 export function Providers() {
   const [settings, setSettings] = useState<AiSettings | null>(null);
@@ -84,11 +96,6 @@ export function Providers() {
         </div>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        Connect your own AI provider to run diagrams on your key and model. Your default provider is
-        used automatically; without one, OpenDiagram uses the free platform model.
-      </p>
-
       <div className="space-y-3">
         {settings.catalog.map((provider) => (
           <ProviderCard
@@ -103,6 +110,7 @@ export function Providers() {
       </div>
 
       <ConnectDialog
+        key={connecting?.id ?? "closed"}
         provider={connecting}
         onClose={() => setConnecting(null)}
         onConnected={refresh}
@@ -111,10 +119,18 @@ export function Providers() {
   );
 }
 
-function Monogram({ label }: { label: string }) {
+function ProviderIcon({ providerId, label }: { providerId: string; label: string }) {
+  const src = PROVIDER_ICONS[providerId];
+  if (!src) {
+    return (
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold">
+        {label.charAt(0)}
+      </div>
+    );
+  }
   return (
-    <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold">
-      {label.charAt(0)}
+    <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+      <Image src={src} alt="" width={28} height={28} className="size-7 object-contain" />
     </div>
   );
 }
@@ -150,7 +166,7 @@ function ProviderCard({
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
-        <Monogram label={provider.label} />
+        <ProviderIcon providerId={provider.id} label={provider.label} />
         <div>
           <div className="flex items-center gap-2 font-medium">
             {provider.label}
@@ -192,7 +208,10 @@ function ProviderCard({
             <SelectContent>
               {provider.models.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
-                  {m.label}
+                  <span className="flex items-center gap-2">
+                    <span>{m.label}</span>
+                    {isRecommendedModel(m.id, m.label) ? <RecommendedBadge /> : null}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -242,12 +261,6 @@ function ConnectDialog({
   const [modelId, setModelId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Reset the form whenever a different provider dialog opens.
-  useEffect(() => {
-    setApiKey("");
-    setModelId(provider?.models[0]?.id ?? "");
-  }, [provider]);
-
   async function save() {
     if (!provider) return;
     setSaving(true);
@@ -269,7 +282,10 @@ function ConnectDialog({
         {provider && (
           <>
             <DialogHeader>
-              <DialogTitle>Connect {provider.label}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2.5">
+                <ProviderIcon providerId={provider.id} label={provider.label} />
+                Connect {provider.label}
+              </DialogTitle>
               <DialogDescription>
                 Your key is validated, then encrypted before it&apos;s stored. It&apos;s never shown
                 again.
@@ -301,7 +317,10 @@ function ConnectDialog({
                   <SelectContent>
                     {provider.models.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {m.label}
+                        <span className="flex items-center gap-2">
+                          <span>{m.label}</span>
+                          {isRecommendedModel(m.id, m.label) ? <RecommendedBadge /> : null}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

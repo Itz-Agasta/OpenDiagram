@@ -17,6 +17,8 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RecommendedBadge } from "@/components/ui/recommended-badge";
+import { isRecommendedModel } from "@/lib/settings-client";
 import type { AgentInputSubmit, FileKind } from "./types";
 
 const agentModes = [
@@ -116,7 +118,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
 
   return (
     <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-0 py-4 md:px-6 md:py-5">
-      <p className="mb-3 max-w-[680px] px-2 text-center text-[20px] font-serif italic leading-tight text-od-ink md:mb-4 md:text-[24px]">
+      <p className="mb-3 max-w-[680px] px-2 text-center text-[20px] font-excali leading-tight text-od-ink md:mb-4 md:text-[24px]">
         {agentCtas[ctaIndex]}
       </p>
       <form
@@ -210,8 +212,11 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
                               {option.id === providerId && <Check aria-hidden="true" />}
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-medium">
-                                {option.modelLabel}
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="truncate font-medium">{option.modelLabel}</span>
+                                {isRecommendedModel(option.modelId, option.modelLabel) ? (
+                                  <RecommendedBadge />
+                                ) : null}
                               </span>
                               <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                                 {option.label}

@@ -1,45 +1,54 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { FeatureMedia } from "@/components/marketing/feature-media";
+import { SystemPromptCard } from "@/components/marketing/feature-media";
 import { MarketingPage } from "@/components/marketing/marketing-page";
+import { ProcessCardsFan } from "@/components/marketing/process-cards-fan";
+import { assetUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "AI Architecture Diagram Generator",
   description:
     "Describe a software system in plain language and turn it into an editable architecture diagram. Review services, connections, and data flows in OpenDiagram.",
-  alternates: { canonical: "/ai-architecture-diagram-generator" },
+  alternates: { canonical: "/ai-diagram-generator" },
   openGraph: {
     type: "website",
-    url: "/ai-architecture-diagram-generator",
+    url: "/ai-diagram-generator",
     title: "AI Architecture Diagram Generator | OpenDiagram",
     description:
       "Start with a system prompt, generate a visual architecture draft, and keep editing it as the design evolves.",
     images: [
       {
-        url: "/slideshow/diagram_sample.png",
+        url: assetUrl("/marketing/examples/main-example.jpg"),
         alt: "AI-generated software architecture diagram open for editing in OpenDiagram",
       },
     ],
   },
 };
 
-const promptIngredients = [
+const promptIngredientCards = [
   {
+    number: "1",
     title: "Describe the behavior",
     description:
       "Explain what enters the system, what needs to happen, and where the result should go.",
+    rotation: -5,
   },
   {
+    number: "2",
     title: "Name real constraints",
     description:
       "Include expected scale, latency, reliability, security, or cost requirements that affect the design.",
+    rotation: 9,
   },
   {
+    number: "3",
     title: "Set technical boundaries",
     description:
       "Call out required platforms, services, protocols, or existing components the draft must account for.",
+    rotation: -3,
   },
-];
+] as const;
 
 const questions = [
   {
@@ -63,61 +72,69 @@ export default function AIArchitectureDiagramGeneratorPage() {
   return (
     <MarketingPage>
       <section className="px-6 pb-16 pt-20 md:px-12 md:pb-20 md:pt-28 lg:px-[120px]">
-        <div className="mx-auto grid w-full max-w-[1200px] gap-12 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
+        <div className="mx-auto grid w-full max-w-[1200px] gap-10 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:gap-12">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#087d00]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#ff4a2c]">
               From prompt to system map
             </p>
             <h1 className="mt-7 max-w-[900px] text-balance text-[50px] font-medium leading-[0.94] tracking-[-0.04em] md:text-[76px] lg:text-[92px]">
               Turn a system prompt into an{" "}
-              <span className="font-serif font-normal italic">editable architecture diagram.</span>
+              <span className="font-excali font-normal">editable architecture diagram.</span>
             </h1>
           </div>
-          <div className="max-w-[470px] lg:justify-self-end">
-            <p className="text-lg leading-[1.7] text-black/60">
-              Describe how your software should behave. OpenDiagram turns the requirements into a
-              visual draft you can inspect, rearrange, and refine with AI.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/dashboard"
-                className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#1a1a1a] px-6 text-sm font-semibold text-white transition-colors hover:bg-black/76"
-              >
-                Create a diagram
-              </Link>
-              <Link
-                href="/features"
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/20 px-6 text-sm font-semibold transition-colors hover:bg-black/[0.04]"
-              >
-                Explore the canvas
-              </Link>
+
+          <div className="flex flex-col gap-6 lg:max-w-[400px] lg:justify-self-end">
+            <SystemPromptCard prompt="Generate an internal system architecture diagram" />
+            <div>
+              <p className="text-lg leading-[1.7] text-black/60">
+                Describe how your software should behave. OpenDiagram turns the requirements into a
+                visual draft you can inspect, rearrange, and refine with AI.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#1a1a1a] px-6 text-sm font-semibold text-white transition-colors hover:bg-black/76"
+                >
+                  Create a diagram
+                </Link>
+                <Link
+                  href="/features"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/20 px-6 text-sm font-semibold transition-colors hover:bg-black/[0.04]"
+                >
+                  Explore the canvas
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <section className="px-3 md:px-6">
-        <div className="mx-auto max-w-[1500px]">
-          <FeatureMedia
-            media={{
-              kind: "prompt",
-              src: "/slideshow/diagram_sample.png",
-              alt: "Architecture draft generated from a detailed software system prompt",
-              prompt: "Design a scalable, event-driven notification system on AWS.",
-              requirements: [
-                "Accept events from multiple products",
-                "Route email, SMS, and push independently",
-                "Retry failed deliveries safely",
-                "Keep delivery status observable",
-              ],
-            }}
+        {/* 70% of prior max-w-[1500px] → 1050px, centered */}
+        <div className="mx-auto w-full max-w-[1050px] overflow-hidden rounded-[12px] border border-black/[0.06] bg-white p-2 shadow-[0_18px_50px_rgba(0,0,0,0.1)]">
+          <div className="mb-2 flex h-8 items-center gap-2 px-2.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" aria-hidden="true" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" aria-hidden="true" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" aria-hidden="true" />
+            <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.14em] text-black/38">
+              Editable canvas
+            </span>
+          </div>
+          <Image
+            src={assetUrl("/marketing/examples/main-example.jpg")}
+            alt="Architecture draft generated from a software system prompt"
+            width={1920}
+            height={1080}
+            sizes="(min-width: 1050px) 1050px, 100vw"
+            className="h-auto w-full rounded-[8px]"
+            priority
           />
         </div>
       </section>
 
       <section className="px-6 py-24 md:px-12 lg:px-[120px] lg:py-36">
-        <div className="mx-auto w-full max-w-[1200px]">
-          <div className="grid gap-10 lg:grid-cols-[0.55fr_1.45fr]">
+        <div className="mx-auto w-full max-w-[1440px]">
+          <div className="mx-auto grid max-w-[1200px] gap-10 lg:grid-cols-[0.55fr_1.45fr]">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-black/42">
               A stronger starting point
             </p>
@@ -126,19 +143,8 @@ export default function AIArchitectureDiagramGeneratorPage() {
             </h2>
           </div>
 
-          <div className="mt-20 grid gap-12 md:grid-cols-3">
-            {promptIngredients.map((item, index) => (
-              <article
-                key={item.title}
-                className={`border-t border-black/18 pt-6 ${index === 1 ? "md:mt-12" : index === 2 ? "md:mt-24" : ""}`}
-              >
-                <p className="font-mono text-[10px] text-[#087d00]">0{index + 1}</p>
-                <h3 className="mt-8 text-[26px] font-semibold leading-[1.08] tracking-[-0.035em]">
-                  {item.title}
-                </h3>
-                <p className="mt-4 leading-[1.7] text-black/58">{item.description}</p>
-              </article>
-            ))}
+          <div className="mt-16 md:mt-20">
+            <ProcessCardsFan cards={promptIngredientCards} variant="middle-down" />
           </div>
         </div>
       </section>
@@ -148,7 +154,7 @@ export default function AIArchitectureDiagramGeneratorPage() {
           <div className="mx-auto grid max-w-[1260px] gap-12 lg:grid-cols-2">
             <h2 className="max-w-[580px] text-balance text-[42px] font-medium leading-[1] tracking-[-0.04em] md:text-[64px]">
               AI makes the first draft faster.{" "}
-              <span className="font-serif font-normal italic">Your team makes it trustworthy.</span>
+              <span className="font-excali font-normal">Your team makes it trustworthy.</span>
             </h2>
             <div className="max-w-[570px] space-y-6 text-lg leading-[1.75] text-black/60 lg:pt-2">
               <p>
@@ -161,7 +167,7 @@ export default function AIArchitectureDiagramGeneratorPage() {
               </p>
               <Link
                 href="/github-to-architecture-diagram-generator"
-                className="inline-flex border-b border-black pb-1 text-sm font-semibold text-black transition-opacity hover:opacity-55"
+                className="inline-flex text-sm font-semibold text-black transition-opacity hover:opacity-55"
               >
                 Already have a codebase? Start from GitHub&nbsp; →
               </Link>
@@ -172,12 +178,12 @@ export default function AIArchitectureDiagramGeneratorPage() {
 
       <section className="px-6 pb-8 pt-24 md:px-12 lg:px-[120px] lg:pt-32">
         <div className="mx-auto w-full max-w-[1200px]">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#087d00]">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#ff4a2c]">
             Prompt-to-diagram questions
           </p>
-          <div className="mt-8 divide-y divide-black/18 border-y border-black/18">
+          <div className="mt-8 space-y-10">
             {questions.map((item) => (
-              <article key={item.question} className="grid gap-5 py-8 md:grid-cols-2">
+              <article key={item.question} className="grid gap-5 md:grid-cols-2">
                 <h2 className="text-xl font-semibold tracking-[-0.025em]">{item.question}</h2>
                 <p className="max-w-[560px] leading-[1.7] text-black/58">{item.answer}</p>
               </article>

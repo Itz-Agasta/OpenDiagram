@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { GithubLogoIcon } from "@phosphor-icons/react";
+import { assetUrl } from "@/lib/site";
 import { AgentInputPanel, AgentInputPanelSkeleton, PresetTagRow } from "./AgentInputPanel";
 import type { AgentInputSubmit } from "./types";
 
@@ -21,7 +22,13 @@ export function DashboardMain({ creating, loading, onCreate, signedIn }: Dashboa
             aria-label="OpenDiagram home"
             className="grid size-9 shrink-0 place-items-center"
           >
-            <Image src="/new_logo.png" alt="" width={36} height={36} className="size-9" />
+            <Image
+              src={assetUrl("/brand/logo.png")}
+              alt=""
+              width={36}
+              height={36}
+              className="size-9"
+            />
           </Link>
           <h1 className="truncate text-[18px] font-semibold leading-tight">OpenDiagram</h1>
         </div>

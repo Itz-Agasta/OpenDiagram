@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
-import { GITHUB_URL, HOME_DESCRIPTION, HOME_TITLE, SITE_NAME, SITE_URL } from "@/lib/site";
+import {
+  assetUrl,
+  GITHUB_URL,
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/site";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,6 +25,12 @@ const instrumentSerif = Instrument_Serif({
   weight: "400",
   style: ["normal", "italic"],
   variable: "--font-instrument-serif-next",
+  display: "swap",
+});
+
+const excalifont = localFont({
+  src: "../fonts/Excalifont-Regular.woff2",
+  variable: "--font-excalifont",
   display: "swap",
 });
 
@@ -40,8 +54,8 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
   category: "technology",
   icons: {
-    icon: "/new_logo.png",
-    apple: "/new_logo.png",
+    icon: assetUrl("/brand/logo.png"),
+    apple: assetUrl("/brand/logo.png"),
   },
 };
 
@@ -54,7 +68,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${instrumentSerif.variable}`}
+      className={`${inter.variable} ${instrumentSerif.variable} ${excalifont.variable}`}
     >
       <body className="antialiased">
         {children}
