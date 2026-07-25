@@ -52,7 +52,7 @@ Most AI diagram tools stop at generating Mermaid syntax. OpenDiagram doesn't. Th
 
 Engineering teams scatter design work across tools: diagrams in one app, docs in another, ADRs in a wiki, and an AI chat that forgets everything between sessions.
 
-- **Not Mermaid.** The AI outputs a typed `DiagramSpec`, and it never chooses pixels, colors or fonts. A layout engine ([ELK](https://github.com/eclipse/elk)) and themed renderer turn that spec into styled Excalidraw elements - real AWS/GCP/Kubernetes icons, orthogonal arrows, consistent typography. LLMs decide *what*, code decides *how it looks*.
+- **Not Mermaid.** The AI outputs a typed `DiagramSpec`, and it never chooses pixels, colors or fonts. A layout engine ([ELK](https://github.com/eclipse/elk)) and themed renderer turn that spec into styled Excalidraw elements - real AWS/GCP/Kubernetes icons, orthogonal arrows, consistent typography. LLMs decide _what_, code decides _how it looks_.
 - **A real canvas, not a PNG.** Everything lands on an open Excalidraw whiteboard. Move things, restyle them, add notes. New diagrams land beside your work instead of wiping it.
 - **Memory that persists.** Project context, design decisions and diagram state survive across sessions. Ask "why did we pick Kafka?" next week and get a real answer.
 - **Conversational iteration.** _"Add a Redis cache between the gateway and the product service"_ updates the diagram in place.
@@ -87,16 +87,16 @@ Projects, files, a docs editor, GitHub repo import, and guest mode - try everyth
 
 ## OpenDiagram vs other AI diagram tools
 
-|                           | **OpenDiagram**             | Eraser.io / DiagramGPT | draw.io | Mermaid   | Lucidchart  |
-|---------------------------|-----------------------------|------------------------|---------|-----------|-------------|
-| Open source               | ✅ Apache 2.0               | ❌                     | ✅      | ✅        | ❌          |
-| Self-hostable             | ✅                          | ❌                     | ✅      | ✅        | ❌          |
-| AI generation from text   | ✅                          | ✅                     | Plugin  | External  | ✅          |
-| Output format             | Native Excalidraw elements  | Proprietary            | XML     | Mermaid   | Proprietary  |
-| Editable after AI draws   | ✅ full canvas              | ⚠️ AI-only             | ✅      | Text only | ✅           |
-| Bring your own AI key     | ✅                          | ❌                     | -       | -         | ❌           |
-| Persistent project memory | ✅                          | ❌                     | ❌      | ❌        | ❌           |
-| Free                      | ✅                          | Limited credits        | ✅      | ✅        | Limited      |
+|                           | **OpenDiagram**            | Eraser.io / DiagramGPT | draw.io | Mermaid   | Lucidchart  |
+| ------------------------- | -------------------------- | ---------------------- | ------- | --------- | ----------- |
+| Open source               | ✅ Apache 2.0              | ❌                     | ✅      | ✅        | ❌          |
+| Self-hostable             | ✅                         | ❌                     | ✅      | ✅        | ❌          |
+| AI generation from text   | ✅                         | ✅                     | Plugin  | External  | ✅          |
+| Output format             | Native Excalidraw elements | Proprietary            | XML     | Mermaid   | Proprietary |
+| Editable after AI draws   | ✅ full canvas             | ⚠️ AI-only             | ✅      | Text only | ✅          |
+| Bring your own AI key     | ✅                         | ❌                     | -       | -         | ❌          |
+| Persistent project memory | ✅                         | ❌                     | ❌      | ❌        | ❌          |
+| Free                      | ✅                         | Limited credits        | ✅      | ✅        | Limited     |
 
 ## Getting Started
 
@@ -141,7 +141,7 @@ Yes. OpenDiagram takes a plain-English description of a system and produces a la
 
 ### How is this different from AI tools that generate Mermaid?
 
-Mermaid-based tools hand the LLM a text syntax and let its renderer decide the layout, so you get generic boxes and arrows that engineers redraw by hand. OpenDiagram separates concerns: the LLM only decides *what* the system contains, and a deterministic layout engine plus a themed renderer decide *how it looks*.
+Mermaid-based tools hand the LLM a text syntax and let its renderer decide the layout, so you get generic boxes and arrows that engineers redraw by hand. OpenDiagram separates concerns: the LLM only decides _what_ the system contains, and a deterministic layout engine plus a themed renderer decide _how it looks_.
 
 ### What is vibe diagramming?
 
