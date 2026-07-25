@@ -11,7 +11,8 @@ git clone https://github.com/Itz-Agasta/OpenDiagram.git
 cd OpenDiagram
 just reinstall
 
-cp apps/server/.env.example apps/server/.env   # then fill in values
+cp .env.sample apps/server/.env
+cp .env.sample apps/web/.env    # then fill in values in both
 bun run dev
 ```
 
