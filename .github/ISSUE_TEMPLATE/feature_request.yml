@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a diagram type, integration or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation you hit, not just the feature you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - New diagram type
+        - Layout / rendering quality
+        - AI agent behaviour
+        - AI provider support (BYOK)
+        - Export / import
+        - Collaboration
+        - Self-hosting
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including how other tools (Eraser, draw.io, Mermaid, Lucidchart) handle it, if relevant.

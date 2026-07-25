@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Try OpenDiagram
+    url: https://opendiagram.ink
+    about: Use the hosted version - no account needed.
+  - name: Questions and ideas
+    url: https://github.com/Itz-Agasta/OpenDiagram/discussions
+    about: Ask questions or share what you built here instead of opening an issue.
