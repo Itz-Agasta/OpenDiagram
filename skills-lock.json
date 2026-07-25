@@ -36,12 +36,6 @@
       "skillPath": "skills/imagegen-frontend-web/SKILL.md",
       "computedHash": "65f5ae59fa317567809438310b1c54f78cd133426deb43e4d3d4ca4c8f541628"
     },
-    "motion-design": {
-      "source": "LottieFiles/motion-design-skill",
-      "sourceType": "github",
-      "skillPath": "skills/motion-design/SKILL.md",
-      "computedHash": "9fcf9130cc46ee8fd1d8e09a9263347a9d76efbcbfa46591cc4cefaf19bbb453"
-    },
     "review-logging-patterns": {
       "source": "evlog.dev",
       "sourceType": "well-known",
