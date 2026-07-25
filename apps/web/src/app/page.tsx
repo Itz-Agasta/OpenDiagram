@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing/landing-page";
-import { SmoothScrollProvider } from "@/components/smooth-scroll-provider";
-import { GITHUB_URL, HOME_DESCRIPTION, HOME_TITLE, SITE_NAME, SITE_URL } from "@/lib/site";
+import {
+  assetUrl,
+  GITHUB_URL,
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/site";
 
 const organizationId = new URL("/#organization", SITE_URL).href;
 const websiteId = new URL("/#website", SITE_URL).href;
@@ -15,7 +21,7 @@ const structuredData = {
       "@id": organizationId,
       name: SITE_NAME,
       url: SITE_URL.href,
-      logo: new URL("/new_logo.png", SITE_URL).href,
+      logo: assetUrl("/brand/mascot.png"),
       sameAs: [GITHUB_URL],
     },
     {
@@ -34,7 +40,7 @@ const structuredData = {
       description: HOME_DESCRIPTION,
       applicationCategory: "DesignApplication",
       operatingSystem: "Web browser",
-      image: new URL("/slideshow/diagram_sample.png", SITE_URL).href,
+      image: assetUrl("/marketing/slideshow/diagram_sample.png"),
       isAccessibleForFree: true,
       license: `${GITHUB_URL}/blob/main/LICENSE`,
       author: { "@id": organizationId },
@@ -60,7 +66,7 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     images: [
       {
-        url: "/og-image.png",
+        url: assetUrl("/marketing/social/preview.jpeg"),
         width: 1200,
         height: 630,
         alt: "Create your Vibe Diagram with OpenDiagram",
@@ -71,7 +77,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
-    images: ["/og-image.png"],
+    images: [assetUrl("/marketing/social/preview.jpeg")],
   },
   robots: {
     index: true,
@@ -88,7 +94,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <SmoothScrollProvider>
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -96,6 +102,6 @@ export default function Home() {
         }}
       />
       <LandingPage />
-    </SmoothScrollProvider>
+    </>
   );
 }

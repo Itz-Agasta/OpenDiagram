@@ -3,9 +3,16 @@ import type { Metadata } from "next";
 export const SITE_NAME = "OpenDiagram";
 export const SITE_URL = new URL("https://opendiagram.ink");
 export const GITHUB_URL = "https://github.com/Itz-Agasta/OpenDiagram";
-export const HOME_TITLE = "OpenDiagram — AI Vibe Diagrams for Software Architecture";
+export const HOME_TITLE = "OpenDiagram — AI Diagrams for System Design";
 export const HOME_DESCRIPTION =
-  "Create editable vibe diagrams for software architecture with AI. Describe a system, shape the design on a visual canvas, and keep diagrams, decisions, and project context connected.";
+  "Create editable vibe diagrams for software architecture. Describe a system, shape it with AI, and keep diagrams, decisions, and project context connected.";
+
+const PUBLIC_ASSET_PREFIX = process.env.NEXT_PUBLIC_ASSET_URL?.replace(/\/$/, "");
+
+export function assetUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return PUBLIC_ASSET_PREFIX ? `${PUBLIC_ASSET_PREFIX}/public${normalizedPath}` : normalizedPath;
+}
 
 export function createPrivateMetadata(title: string): Metadata {
   return {

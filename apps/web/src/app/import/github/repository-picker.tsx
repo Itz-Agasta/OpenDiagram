@@ -2,6 +2,7 @@
 
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import { GitBranch, Loader2, Search } from "lucide-react";
+import Image from "next/image";
 import type { GitHubRepository } from "@/lib/github-import-client";
 import { normalizeRepoTarget, type LoadState } from "./github-import-utils";
 
@@ -77,9 +78,11 @@ export function RepositoryPicker({
                 className="grid grid-cols-[1fr_120px] items-center gap-4 border-b border-[#d9d9d9] px-4 py-3 last:border-b-0"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <img
+                  <Image
                     src={repo.owner.avatarUrl}
                     alt=""
+                    width={36}
+                    height={36}
                     className="h-9 w-9 shrink-0 rounded-full border border-[#d9d9d9]"
                   />
                   <div className="min-w-0">
@@ -94,7 +97,10 @@ export function RepositoryPicker({
                       )}
                     </div>
                     <p className="mt-1 truncate text-[12px] text-od-ink-faint">
-                      {repo.defaultBranch} · Updated {new Date(repo.updatedAt).toLocaleDateString()}
+                      {repo.defaultBranch} · Updated{" "}
+                      {new Date(repo.updatedAt).toLocaleDateString("en-US", {
+                        timeZone: "UTC",
+                      })}
                     </p>
                   </div>
                 </div>

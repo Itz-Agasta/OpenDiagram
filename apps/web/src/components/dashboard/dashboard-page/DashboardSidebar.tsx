@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { LogIn, LogOut, Search, Settings } from "lucide-react";
 import { GithubLogoIcon } from "@phosphor-icons/react";
+import { assetUrl } from "@/lib/site";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +40,13 @@ export function DashboardSidebar(props: DashboardSidebarProps) {
         aria-label="OpenDiagram home"
         className="flex h-16 shrink-0 items-center gap-2 px-4 text-[20px] font-semibold leading-tight"
       >
-        <Image src="/new_logo.png" alt="" width={28} height={28} className="size-7 shrink-0" />
+        <Image
+          src={assetUrl("/brand/mascot.png")}
+          alt=""
+          width={32}
+          height={32}
+          className="size-7 shrink-0"
+        />
         <span className="truncate">OpenDiagram</span>
       </Link>
       <div className="px-3 py-3">
@@ -59,9 +66,11 @@ export function DashboardSidebar(props: DashboardSidebarProps) {
       <div className="flex h-16 shrink-0 items-center gap-3 border-t border-od-border-soft px-4">
         {props.isSignedIn &&
           (props.accountImage ? (
-            <img
+            <Image
               src={props.accountImage}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9 rounded-full border border-od-border-soft object-cover"
             />
           ) : (

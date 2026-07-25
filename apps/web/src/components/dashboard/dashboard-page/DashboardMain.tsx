@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { GithubLogoIcon } from "@phosphor-icons/react";
+import { assetUrl } from "@/lib/site";
 import { AgentInputPanel, AgentInputPanelSkeleton, PresetTagRow } from "./AgentInputPanel";
 import type { AgentInputSubmit } from "./types";
 
@@ -8,9 +9,10 @@ interface DashboardMainProps {
   creating: boolean;
   loading: boolean;
   onCreate: (input: AgentInputSubmit) => void;
+  signedIn: boolean;
 }
 
-export function DashboardMain({ creating, loading, onCreate }: DashboardMainProps) {
+export function DashboardMain({ creating, loading, onCreate, signedIn }: DashboardMainProps) {
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-od-surface">
       <header className="z-20 flex h-16 shrink-0 items-center gap-3 bg-od-surface px-4 lg:hidden">
@@ -18,9 +20,15 @@ export function DashboardMain({ creating, loading, onCreate }: DashboardMainProp
           <Link
             href="/"
             aria-label="OpenDiagram home"
-            className="grid size-9 shrink-0 place-items-center"
+            className="grid size-10 shrink-0 place-items-center"
           >
-            <Image src="/new_logo.png" alt="" width={36} height={36} className="size-9" />
+            <Image
+              src={assetUrl("/brand/mascot.png")}
+              alt=""
+              width={40}
+              height={40}
+              className="size-10"
+            />
           </Link>
           <h1 className="truncate text-[18px] font-semibold leading-tight">OpenDiagram</h1>
         </div>
@@ -30,7 +38,7 @@ export function DashboardMain({ creating, loading, onCreate }: DashboardMainProp
           <AgentInputPanelSkeleton />
         ) : (
           <>
-            <AgentInputPanel creating={creating} onSubmit={onCreate} />
+            <AgentInputPanel creating={creating} onSubmit={onCreate} signedIn={signedIn} />
             <PresetTagRow creating={creating} onSubmit={onCreate} />
             <div className="mt-8 flex flex-col items-center gap-4">
               <div className="flex items-center gap-3">

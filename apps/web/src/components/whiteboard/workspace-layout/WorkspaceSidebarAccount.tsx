@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { LogOut, Settings } from "lucide-react";
 import { GithubLogoIcon } from "@phosphor-icons/react";
@@ -65,9 +66,11 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
   return (
     <div className="flex h-16 shrink-0 items-center gap-3 border-t border-od-border-soft px-3">
       {props.accountImage ? (
-        <img
+        <Image
           src={props.accountImage}
           alt=""
+          width={32}
+          height={32}
           className="h-8 w-8 rounded-full border border-od-border-soft object-cover"
         />
       ) : (

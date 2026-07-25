@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement } from "react";
+import { createElement, useEffect, useState } from "react";
 import { MediaShaderScript } from "../media-shader-script";
 
 const GOD_RAYS_FRAGMENT_SHADER = `#version 300 es
@@ -65,6 +65,20 @@ const GOD_RAYS_UNIFORMS = JSON.stringify({
 });
 
 export function GodRaysBackground() {
+  const [shouldRender, setShouldRender] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 769px)");
+    const syncVisibility = () => setShouldRender(mediaQuery.matches);
+
+    syncVisibility();
+    mediaQuery.addEventListener("change", syncVisibility);
+
+    return () => mediaQuery.removeEventListener("change", syncVisibility);
+  }, []);
+
+  if (!shouldRender) return null;
+
   return (
     <div
       aria-hidden="true"

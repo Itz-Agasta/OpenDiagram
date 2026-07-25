@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { KeyRound, Sparkles } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { assetUrl } from "@/lib/site";
 import { getCreationQuota, type CreationQuota } from "@/lib/projects-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,10 +69,10 @@ export function GuestWelcomeDialog() {
         <div className="border-b border-od-border-soft bg-[#fff7f4] px-6 py-5 sm:px-7">
           <div className="flex items-center gap-3">
             <Image
-              src="/new_logo.png"
-              alt="OpenDiagram logo"
-              width={44}
-              height={44}
+              src={assetUrl("/brand/mascot.png")}
+              alt="OpenDiagram mascot"
+              width={52}
+              height={52}
               className="size-11"
             />
             <div>

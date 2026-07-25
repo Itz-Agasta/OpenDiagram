@@ -2,6 +2,12 @@ import { env } from "@OpenDiagram/env/web";
 
 export type CatalogModel = { id: string; label: string };
 
+/** Frontend-only: badge Gemini + DeepSeek models in pickers. */
+export function isRecommendedModel(modelId: string, label?: string): boolean {
+  const haystack = `${modelId} ${label ?? ""}`.toLowerCase();
+  return haystack.includes("gemini") || haystack.includes("deepseek");
+}
+
 export type CatalogProvider = {
   id: string;
   label: string;
