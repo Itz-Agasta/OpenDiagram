@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { FeatureMedia } from "@/components/marketing/feature-media";
 import { FeatureNav } from "@/components/marketing/feature-nav";
 import { MarketingPage } from "@/components/marketing/marketing-page";
 
 export const metadata: Metadata = {
-  title: "Vibe Diagram Features — Editable System Diagrams",
+  title: "Editable Software Architecture Diagrams",
   description:
-    "Turn a system prompt into an editable Vibe Diagram, refine services and connections on a visual canvas, and explore the open-source OpenDiagram workspace.",
+    "Edit software architecture diagrams on a visual canvas. Move services, redraw connections, refine designs with AI, and keep ownership of your OpenDiagram workspace.",
   alternates: { canonical: "/features" },
   openGraph: {
     type: "website",
     url: "/features",
-    title: "OpenDiagram Vibe Diagram Features",
+    title: "Editable Software Architecture Diagrams | OpenDiagram",
     description:
-      "Describe a system, generate a Vibe Diagram, and keep refining the visual on an editable canvas.",
+      "Move components, redraw connections, and refine software architecture without starting over.",
     images: [
       {
         url: "/dashboard-od.png",
@@ -25,30 +26,11 @@ export const metadata: Metadata = {
 
 const showcaseItems = [
   {
-    id: "prompt",
-    label: "Generate",
-    title: "Prompt to architecture draft",
-    description:
-      "Describe system behavior, scale, constraints, and technologies in plain language. OpenDiagram maps that intent into services and flows.",
-    media: {
-      kind: "prompt" as const,
-      src: "/slideshow/diagram_sample.png",
-      alt: "Vibe Diagram showing an AWS publish-subscribe system generated from a written prompt",
-      prompt: "Design a scalable event-driven notification system on AWS.",
-      requirements: [
-        "Accept events from a publisher application",
-        "Fan messages out through an SNS topic",
-        "Support HTTP, queue, and serverless consumers",
-        "Show the main services and message flow",
-      ],
-    },
-  },
-  {
     id: "canvas",
-    label: "Shape",
-    title: "A real editing canvas",
+    label: "Edit directly",
+    title: "Change the diagram itself",
     description:
-      "Move components, rename services, redraw connections, and add the details the first draft missed. The result is a diagram, not an image.",
+      "Move components, rename services, redraw connections, and add what the first draft missed. Work with architecture objects instead of a flattened screenshot.",
     media: {
       kind: "image" as const,
       src: "/hero-media/opendiagram-creation-flow-trimmed-ezgif.com-video-to-gif-converter.gif",
@@ -59,10 +41,10 @@ const showcaseItems = [
   },
   {
     id: "context",
-    label: "Map the system",
-    title: "Map services, requests, and data flows",
+    label: "See the system",
+    title: "Make relationships easier to inspect",
     description:
-      "Use Vibe Diagrams to explore service boundaries, request paths, data movement, cloud resources, and the relationships that are hard to explain in prose.",
+      "Show service boundaries, request paths, data movement, cloud resources, and the connections that disappear inside prose or presentation slides.",
     media: {
       kind: "image" as const,
       src: "/example-media/collaborative-ai-workspace.jpg",
@@ -70,8 +52,20 @@ const showcaseItems = [
     },
   },
   {
+    id: "revision",
+    label: "Explore changes",
+    title: "Revise without starting over",
+    description:
+      "Ask for another approach, revise part of the system, or add a missing requirement. Keep the useful structure while the design changes around it.",
+    media: {
+      kind: "image" as const,
+      src: "/slideshow/diagram2.webp",
+      alt: "Revised software architecture diagram on the OpenDiagram editing canvas",
+    },
+  },
+  {
     id: "ownership",
-    label: "Inspect and own",
+    label: "Keep ownership",
     title: "Open source by design",
     description:
       "OpenDiagram is available under the Apache 2.0 license. Inspect the implementation, contribute improvements, or run the workspace on infrastructure you control.",
@@ -87,60 +81,81 @@ const showcaseItems = [
 
 export default function FeaturesPage() {
   return (
-    <MarketingPage className="bg-white">
-      <section className="px-6 pb-20 pt-20 md:px-12 md:pb-28 md:pt-28 lg:px-[120px]">
-        <div className="mx-auto w-full max-w-[1200px]">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#ff4a2c]">
-            Why Open Diagram
-          </p>
-          <h1 className="mt-8 max-w-[980px] text-balance text-[46px] font-medium leading-[0.94] -tracking-[0.065em] md:text-[70px] lg:text-[88px]">
-            From system intent to an <span className="text-[#ff4a2c]">editable map.</span>
-          </h1>
+    <MarketingPage>
+      <section className="px-3 pt-3 md:px-6 md:pt-6">
+        <div className="relative mx-auto max-w-[1500px] overflow-hidden rounded-[18px] bg-[#1a1a1a] px-6 pb-10 pt-20 text-white md:px-12 md:pb-16 md:pt-28 lg:px-[96px]">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(to_right,rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:72px_72px]"
+          />
+          <div className="relative mx-auto grid max-w-[1260px] gap-14 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#54d94b]">
+                Editable architecture workspace
+              </p>
+              <h1 className="mt-7 max-w-[900px] text-balance text-[48px] font-medium leading-[0.94] tracking-[-0.04em] md:text-[72px] lg:text-[88px]">
+                Architecture diagrams you can{" "}
+                <span className="font-serif font-normal italic">keep shaping.</span>
+              </h1>
+            </div>
+            <div className="max-w-[450px] lg:justify-self-end">
+              <p className="text-lg leading-[1.65] text-white/62">
+                Correct services, reconnect flows, add context, and test how a system should evolve
+                on one visual canvas.
+              </p>
+              <Link
+                href="/dashboard"
+                className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-black transition-colors hover:bg-white/82"
+              >
+                Start a diagram
+              </Link>
+            </div>
+          </div>
+
+          <div className="relative mx-auto mt-16 max-w-[1260px] overflow-hidden rounded-[14px] border border-white/12 bg-[#262626] p-2 shadow-[0_35px_100px_rgba(0,0,0,0.42)] md:mt-24 md:p-3">
+            <div className="flex h-9 items-center gap-1.5 px-3">
+              <span className="h-2 w-2 rounded-full bg-white/20" />
+              <span className="h-2 w-2 rounded-full bg-white/20" />
+              <span className="h-2 w-2 rounded-full bg-white/20" />
+              <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.15em] text-white/36">
+                OpenDiagram canvas
+              </span>
+            </div>
+            <FeatureMedia media={showcaseItems[3].media} />
+          </div>
         </div>
       </section>
 
-      <section className="px-6 pb-28 md:px-12 lg:px-[120px]">
-        <div className="mx-auto grid w-full max-w-[1200px] gap-8 lg:grid-cols-[0.3fr_0.7fr] lg:gap-14">
+      <section className="px-6 py-24 md:px-12 lg:px-[120px] lg:py-36">
+        <div className="mx-auto grid w-full max-w-[1200px] gap-12 lg:grid-cols-[0.28fr_0.72fr] lg:gap-16">
           <aside className="h-fit lg:sticky lg:top-24 lg:self-start">
-            <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.16em] text-black/45">
-              Explore the workspace
+            <p className="mb-5 font-mono text-[10px] uppercase tracking-[0.17em] text-black/42">
+              Four parts of the workspace
             </p>
             <FeatureNav items={showcaseItems.map(({ id, title }) => ({ id, title }))} />
           </aside>
 
-          <div className="min-w-0">
-            <p className="mb-10 max-w-[560px] text-lg leading-[1.7] text-black/62 md:text-xl">
-              OpenDiagram turns a written system idea into an editable Vibe Diagram, then gives you
-              a visual canvas for shaping the services, connections, and flows.
-            </p>
-
-            <div className="space-y-24 lg:space-y-36">
-              {showcaseItems.map((item) => (
-                <article
-                  key={item.id}
-                  id={item.id}
-                  className="scroll-mt-24 border-t border-black/15 pt-8"
-                >
-                  <div className="mb-8 grid gap-6 md:grid-cols-[0.8fr_1.2fr] md:items-end">
-                    <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#ff4a2c]">
-                        {item.label}
-                      </p>
-                      <h2 className="mt-4 text-balance text-[34px] font-medium leading-[1] -tracking-[0.045em] md:text-[48px]">
-                        {item.title}
-                      </h2>
-                    </div>
-                    <p className="max-w-[450px] leading-[1.7] text-black/58 md:justify-self-end">
-                      {item.description}
-                    </p>
-                  </div>
-
+          <div className="min-w-0 space-y-24 lg:space-y-36">
+            {showcaseItems.map((item, index) => (
+              <article key={item.id} id={item.id} className="scroll-mt-24">
+                <div className="grid gap-7 border-t border-black/18 pt-7 md:grid-cols-[0.8fr_1.2fr] md:items-end">
                   <div>
-                    <FeatureMedia media={item.media} />
+                    <p className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#087d00]">
+                      {item.label}
+                    </p>
+                    <h2 className="mt-5 text-balance text-[36px] font-medium leading-[1] tracking-[-0.04em] md:text-[54px]">
+                      {item.title}
+                    </h2>
                   </div>
-                </article>
-              ))}
-            </div>
+                  <p className="max-w-[500px] leading-[1.7] text-black/60 md:justify-self-end">
+                    {item.description}
+                  </p>
+                </div>
+                <div className={`mt-10 ${index % 2 === 1 ? "md:ml-[7%]" : ""}`}>
+                  <FeatureMedia media={item.media} />
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>

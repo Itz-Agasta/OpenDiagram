@@ -80,6 +80,7 @@ export default function DashboardPage() {
         <DashboardMain
           creating={creation.agentCreatePending}
           loading={data.loading}
+          signedIn={data.isSignedIn}
           onCreate={(input) => void creation.createProjectFromAgent(input)}
         />
       </div>

@@ -25,6 +25,12 @@
   }
 }
 
+@media (max-width: 63.999rem) {
+  .od-mobile-static-card {
+    transform: none !important;
+  }
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

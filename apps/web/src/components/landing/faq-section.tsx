@@ -61,7 +61,7 @@ function AccordionItem({ question, answer, isOpen, onToggle }: AccordionItemProp
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
-        className="flex w-full items-center justify-between py-4 text-left text-lg font-semibold transition-colors hover:text-black/70"
+        className="flex min-h-12 w-full items-center justify-between gap-4 py-4 text-left text-lg font-semibold transition-colors hover:text-black/70"
       >
         {question}
         <motion.svg
@@ -103,7 +103,7 @@ export function FaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="flex w-full flex-col items-center justify-center px-[120px] max-md:px-6">
+    <section className="flex w-full flex-col items-center justify-center px-[120px] max-lg:px-12 max-md:px-6">
       <div className="flex w-full max-w-[1440px] flex-col items-center gap-[60px] pb-[160px] pt-[120px] max-md:pb-20 max-md:pt-16">
         <div className="flex w-full flex-col items-center gap-2.5 overflow-hidden">
           <motion.div
@@ -111,11 +111,11 @@ export function FaqSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="relative z-10 inline-flex items-center gap-6 rounded-full px-6"
+            className="relative z-10 inline-flex items-center gap-6 rounded-full px-6 max-sm:gap-4 max-sm:px-0"
           >
-            <span className="h-px w-[69px] bg-black/50" />
+            <span className="h-px w-[69px] shrink-0 bg-black/50 max-sm:w-10" />
             <span className="font-serif text-2xl italic">FAQ</span>
-            <span className="h-px w-[69px] bg-black/50" />
+            <span className="h-px w-[69px] shrink-0 bg-black/50 max-sm:w-10" />
           </motion.div>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -128,33 +128,33 @@ export function FaqSection() {
           </motion.h2>
         </div>
 
-        <div className="flex w-full items-start gap-20 max-md:flex-col">
+        <div className="flex w-full items-start gap-20 max-lg:flex-col max-lg:gap-12">
           <motion.div
             initial={{ opacity: 0, x: -30, rotate: -8 }}
             whileInView={{ opacity: 1, x: 0, rotate: -2 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: "easeOut" }}
-            className="flex w-full max-w-[400px] origin-center flex-col gap-20 rounded-2xl bg-white/50 p-10 max-md:max-w-full"
+            className="od-mobile-static-card flex w-full max-w-[400px] origin-center flex-col gap-20 rounded-2xl bg-white/50 p-10 max-lg:max-w-full max-sm:gap-12 max-sm:p-6"
           >
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 max-sm:flex-col max-sm:items-start max-sm:gap-4">
               <Image
                 src="/faq-maintainer.webp"
                 alt=""
                 width={80}
                 height={80}
-                className="h-20 w-20 shrink-0 rounded-full object-cover"
+                className="h-20 w-20 shrink-0 rounded-full object-cover max-sm:h-16 max-sm:w-16"
               />
-              <h3 className="text-2xl font-bold leading-[1.6] -tracking-[0.02em]">
-                Have more questions? Check out our GitHub
+              <h3 className="text-2xl font-bold leading-[1.6] -tracking-[0.02em] max-sm:text-xl max-sm:leading-[1.35]">
+                Have more questions? Join our Discord
               </h3>
             </div>
             <div className="flex w-full flex-col items-center gap-6">
               <div className="inline-flex w-full items-center gap-6 rounded-[33px] bg-white p-2">
                 <a
-                  href="https://github.com/Itz-Agasta/OpenDiagram"
+                  href="https://discord.gg/MDE97bTpYf"
                   className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition-[opacity,transform] hover:opacity-80 active:translate-y-px"
                 >
-                  Raise an issue
+                  Join our Discord
                   <svg
                     width="16"
                     height="16"
@@ -172,7 +172,7 @@ export function FaqSection() {
               </div>
               <a
                 href="mailto:support@opendiagram.ink"
-                className="text-base leading-[1.7] underline underline-offset-2 transition-colors hover:text-black/60"
+                className="break-words text-center text-base leading-[1.7] text-[#ff4a2c] underline underline-offset-2 transition-opacity hover:opacity-70"
               >
                 Or, email us at support@opendiagram.ink
               </a>
@@ -184,7 +184,7 @@ export function FaqSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex w-full flex-col gap-9"
+            className="flex w-full flex-col gap-9 max-lg:pt-0! max-md:gap-3"
             style={{ paddingTop: "36px" }}
           >
             {faqItems.map((item, i) => (
