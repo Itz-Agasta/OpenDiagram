@@ -265,8 +265,11 @@ projectsRoute.post("/:projectId/repo-generation", async (c) => {
   return streamSSE(c, async (stream) => {
     const send = (job: RepoGenerationJob) =>
       stream.writeSSE({ event: "status", data: JSON.stringify(job) });
-    await send(startedResult.job);
     try {
+      // Inside the try, not before it: a client that disconnects between the grant
+      // and the first write makes this throw, and outside the try that leaked the
+      // reservation and left the queued job unrun.
+      await send(startedResult.job);
       // Swallow write errors on a closed stream (client disconnect) so a rejected
       // writeSSE promise can't become an unhandled rejection.
       await runRepoGenerationWithEmitter(startedResult, (job) => {

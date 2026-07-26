@@ -23,11 +23,21 @@ import {
 } from "./credits";
 import { AiRateLimitError, applyCreationQuotaHeaders } from "./errors";
 
+export type AiUsage = { inputTokens: number; outputTokens: number };
+
 export type AiQuotaGrant = {
   /** Reconciles the reservation to actual token usage. Idempotent. */
-  settle(usage: { inputTokens: number; outputTokens: number }): Promise<void>;
-  /** Refunds the credit and zeroes the reservation. Call when the model failed. Idempotent. */
-  release(): Promise<void>;
+  settle(usage: AiUsage): Promise<void>;
+  /**
+   * Refunds the credit because the call produced nothing usable. Idempotent.
+   *
+   * Pass whatever tokens the failed call did burn: the credit still goes back (the
+   * user got no diagram) but the reservation settles to real cost instead of zero.
+   * A malformed-object failure or a stream that dies mid-generation costs us the
+   * same money as a success, and releasing it to zero made that spend invisible to
+   * the ceiling. Omit it only when nothing reached the model.
+   */
+  release(usage?: AiUsage | null): Promise<void>;
 };
 
 const NOOP_GRANT: AiQuotaGrant = {
@@ -68,8 +78,30 @@ function releaseSlot(actorId: string): void {
   else inFlight.set(actorId, current - 1);
 }
 
+let lastBurstSweepAt = 0;
+
+/**
+ * Drops buckets whose whole window has expired.
+ *
+ * Without it the map only ever shrinks when a bucket is reused, and the guest key
+ * is a cookie the caller can simply omit -- so every anonymous request without one
+ * mints a fresh, permanent entry. Sustained traffic that is *entirely rejected*
+ * would still grow this map until the instance runs out of memory. Swept in-band at
+ * most once per window rather than on a timer, because Cloud Run throttles CPU
+ * between requests and an interval would fire unpredictably.
+ */
+function sweepBurstBuckets(now: number): void {
+  if (now - lastBurstSweepAt < BURST_WINDOW_MS) return;
+  lastBurstSweepAt = now;
+  for (const [bucket, hits] of recentRequests) {
+    const newest = hits.at(-1);
+    if (newest === undefined || now - newest >= BURST_WINDOW_MS) recentRequests.delete(bucket);
+  }
+}
+
 function tryConsumeBurst(bucket: string, perMinute: number): boolean {
   const now = Date.now();
+  sweepBurstBuckets(now);
   const recent = (recentRequests.get(bucket) ?? []).filter((at) => now - at < BURST_WINDOW_MS);
   recentRequests.set(bucket, recent);
   if (recent.length >= perMinute) return false;
@@ -196,24 +228,28 @@ async function grantFor(
   c.req.raw.signal?.addEventListener("abort", freeSlot, { once: true });
 
   let settled = false;
-  const finish = async (usage: { inputTokens: number; outputTokens: number } | null) => {
+  const finish = async (usage: AiUsage | null, creditRefunded: boolean) => {
     if (settled) return;
     settled = true;
     freeSlot();
-    if (usage) {
-      await settleAiCost(ledgerId, { modelId: resolved.modelId, ...usage });
-    } else {
-      await Promise.all([
-        releaseAiCost(ledgerId),
-        // Only the request that actually took a credit gives one back. Refunding
-        // from a continuation would credit the user for a turn they still had.
-        chargedCredit ? refundCreationQuota(actor, day) : Promise.resolve(),
-      ]);
-    }
+
+    // Tokens the call burned are charged whether or not it succeeded -- the provider
+    // bills us either way. Only the *credit* tracks whether the user got something,
+    // so a failure settles real cost and still hands the credit back, landing the row
+    // on `refunded`. Releasing to zero is for a call that never reached the model.
+    await Promise.all([
+      usage
+        ? settleAiCost(ledgerId, { modelId: resolved.modelId, ...usage }, { creditRefunded })
+        : releaseAiCost(ledgerId),
+      // Only the request that actually took a credit gives one back. Refunding
+      // from a continuation would credit the user for a turn they still had.
+      creditRefunded && chargedCredit ? refundCreationQuota(actor, day) : Promise.resolve(),
+    ]);
   };
 
   return {
-    settle: (usage) => finish(usage),
-    release: () => finish(null),
+    settle: (usage) => finish(usage, false),
+    release: (usage) =>
+      finish(usage && usage.inputTokens + usage.outputTokens > 0 ? usage : null, true),
   };
 }

@@ -13,6 +13,10 @@ usageRoute.get("/creation-quota", async (c) => {
   // effect, so polling this endpoint would mint a fresh guest identity per call.
   const actor = await peekCreationQuotaActor(c);
   if (!actor) {
+    // Same no-store policy as the populated response below: a shared cache holding
+    // this onto the next request would pin the quota UI at "null" even after the
+    // first creation issues a guest cookie.
+    c.header("Cache-Control", "private, no-store");
     return c.json({ quota: null });
   }
   const quota = await getCreationQuotaSnapshot(actor);

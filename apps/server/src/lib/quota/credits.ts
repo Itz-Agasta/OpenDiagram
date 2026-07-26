@@ -8,13 +8,8 @@ import type { PlanId } from "@OpenDiagram/db/schema/plan";
 import type { CreationQuotaActor } from "./actor";
 import { CreationQuotaExceededError } from "./errors";
 
-/**
- * Per-IP daily ceiling for guests, as a multiple of the guest daily cap.
- * Clearing cookies mints a fresh guest identity, so the cookie bucket alone
- * can't bound guest spend. This backstop does, without bricking a shared office
- * or campus NAT the way a 3-per-IP lifetime cap would.
- */
-const GUEST_IP_CAP_MULTIPLIER = 3;
+/** `creationUsage.count` is an int4, so no limit compared against it may exceed this. */
+const MAX_INT4 = 2_147_483_647;
 
 export type CreationQuotaSnapshot = {
   actorType: "guest" | "user";
@@ -71,6 +66,12 @@ async function readCount(key: CounterKey): Promise<number> {
  * so there's no read-then-write race to lose.
  */
 async function increment(key: CounterKey, limit: number): Promise<number | null> {
+  // A zero or negative limit has to be refused here, before the statement runs. The
+  // conflict predicate only guards the UPDATE arm, so the first request of a new
+  // bucket INSERTs straight past it -- which made an emergency `dailyCap = 0` still
+  // allow one creation per actor per day instead of being a hard stop.
+  if (limit <= 0) return null;
+
   const [row] = await db
     .insert(creationUsage)
     .values({ ...key, count: 1 })
@@ -162,7 +163,14 @@ export async function consumeCreationQuota(
   }
 
   if (keys.ip) {
-    const ipCap = actor.plan.dailyCap * GUEST_IP_CAP_MULTIPLIER;
+    // From the plan row, not a constant here: this is an operational limit, and the
+    // whole point of the plan table is that retuning one takes no deploy.
+    //
+    // Clamped because it is a product of two independently editable columns and it is
+    // bound against `count`, an int4. Two individually sane values can multiply past
+    // the column's range, and Postgres would then reject the comparison outright --
+    // turning a generous cap into a hard denial for every guest.
+    const ipCap = Math.min(actor.plan.dailyCap * actor.plan.ipDailyCapMultiplier, MAX_INT4);
     if ((await increment(keys.ip, ipCap)) === null) {
       await decrement(keys.day);
       await decrement(keys.month);

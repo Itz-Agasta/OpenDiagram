@@ -137,6 +137,11 @@ diagramRoute.post("/chat", async (c) => {
     draw_diagram: createDrawDiagramTool(log, themes[themeName]),
   };
 
+  // Accumulated per step because `onError` reports no usage. A stream that dies on
+  // step four already spent the tokens of the first three, and releasing the whole
+  // reservation to zero made that real spend invisible to the cost ceiling.
+  const spent = { inputTokens: 0, outputTokens: 0 };
+
   const result = streamText({
     model: resolved.model,
     instructions: buildSystemPrompt(currentSpec),
@@ -158,6 +163,10 @@ diagramRoute.post("/chat", async (c) => {
     // Bounds runaway/repetition-loop generations so a bad completion fails
     // fast instead of hanging (observed with gemini-2.5-flash during testing).
     maxOutputTokens: 16384,
+    onStepEnd: ({ usage }) => {
+      spent.inputTokens += usage.inputTokens ?? 0;
+      spent.outputTokens += usage.outputTokens ?? 0;
+    },
     onFinish: async ({ steps, totalUsage }) => {
       log.set({
         chat: {
@@ -179,9 +188,10 @@ diagramRoute.post("/chat", async (c) => {
     },
     onError: async ({ error }) => {
       log.error("diagram chat stream failed", { error });
-      // Nothing billable was produced, so give the credit back rather than
-      // charging for a model outage.
-      await grant.release();
+      // The user got no diagram, so the credit goes back -- but whatever steps did
+      // complete cost us real tokens and stay on the ledger. A model outage before
+      // the first step reports nothing and releases to zero as before.
+      await grant.release(spent);
     },
   });
 

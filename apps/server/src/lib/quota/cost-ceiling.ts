@@ -4,11 +4,16 @@
  * the cost varies about 4x with it, so counting requests doesn't cap spend.
  *
  * Each AI call reserves a pessimistic amount before the model runs, then settles
- * down to the measured token cost, or releases to zero if the call failed.
- * Releasing is also what stops a model 503 from charging for nothing.
+ * down to the measured token cost. A call that failed after burning tokens settles
+ * too and refunds only the credit; releasing to zero is reserved for a call that
+ * never reached the model, which is what stops a 503 from charging for nothing.
  */
-import { and, db, eq, sql } from "@OpenDiagram/db";
-import { MICROS_PER_CENT, usageLedger } from "@OpenDiagram/db/schema/usage-ledger";
+import { and, db, eq, notInArray, sql } from "@OpenDiagram/db";
+import {
+  MICROS_PER_CENT,
+  UNCHARGED_LEDGER_STATUSES,
+  usageLedger,
+} from "@OpenDiagram/db/schema/usage-ledger";
 import type { CreationQuotaActor } from "./actor";
 import { CostCeilingExceededError } from "./errors";
 
@@ -94,6 +99,8 @@ async function spentMicros(actor: CreationQuotaActor): Promise<number> {
         // Scoped to the plan, so a Free window and a Pro period that share a
         // windowStart date can't read each other's spend.
         eq(usageLedger.planId, actor.planId),
+        // Only `released` is excluded: those cost nothing. `refunded` rows gave the
+        // credit back but still cost us tokens, so they count like any other spend.
         sql`${usageLedger.status} <> 'released'`,
         // A settled row is real spend and always counts. A still-`reserved` row
         // only counts while it could plausibly still be running -- see
@@ -151,6 +158,12 @@ export async function reserveAiCost(
  * The cost of every request is still metered individually -- only the *credit* is
  * per turn. Capped at MAX_REQUESTS_PER_TURN because the turn id is client-supplied.
  *
+ * Rows whose credit was handed back don't count, whatever they cost us. A turn whose
+ * only request failed has *not* been charged, so counting its row would make the
+ * retry free and hand a caller who can reliably provoke a failure
+ * MAX_REQUESTS_PER_TURN of them for nothing. An `ask_user` continuation is
+ * unaffected: the request it continues settled and kept its credit.
+ *
  * Two requests sharing a turn id can race here and both read 0, charging two
  * credits for one turn. In practice they don't: the client only resubmits after the
  * previous response completed. Same tradeoff as the ceiling race above -- a
@@ -170,21 +183,29 @@ export async function isTurnAlreadyCharged(
         eq(usageLedger.windowStart, actor.windowStart),
         eq(usageLedger.planId, actor.planId),
         eq(usageLedger.turnId, turnId),
+        notInArray(usageLedger.status, [...UNCHARGED_LEDGER_STATUSES]),
       ),
     );
   const requests = Number(row?.requests ?? 0);
   return requests > 0 && requests < MAX_REQUESTS_PER_TURN;
 }
 
-/** Reconciles a reservation to what the model actually used. */
+/**
+ * Reconciles a reservation to what the model actually used.
+ *
+ * `creditRefunded` picks the terminal status: `refunded` when the tokens were spent
+ * but the user got their credit back, `settled` otherwise. The cost counts either
+ * way -- the difference is only whether the turn still looks charged.
+ */
 export async function settleAiCost(
   ledgerId: string,
   usage: { modelId: string; inputTokens: number; outputTokens: number },
+  options: { creditRefunded?: boolean } = {},
 ): Promise<void> {
   await db
     .update(usageLedger)
     .set({
-      status: "settled",
+      status: options.creditRefunded ? "refunded" : "settled",
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       costMicros: costMicros(usage.modelId, usage.inputTokens, usage.outputTokens),

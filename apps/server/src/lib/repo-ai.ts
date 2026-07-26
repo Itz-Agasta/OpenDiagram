@@ -1,7 +1,7 @@
 import { createGoogle } from "@ai-sdk/google";
 import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
-import { generateObject, generateText, type LanguageModel } from "ai";
+import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel } from "ai";
 import { buildIconCatalog } from "./icons/registry";
 import { aiTelemetry } from "./telemetry";
 
@@ -152,22 +152,32 @@ export async function generateDiagramSpec(
     ? `Project context:\n${input.context}\n\nUser request:\n${input.prompt}`
     : input.prompt;
 
-  const result = await generateObject({
-    model: modelFor(options),
-    schema: diagramSpecSchema,
-    system: buildSystemPrompt(input.diagramType),
-    prompt: userPrompt,
-    telemetry: aiTelemetry("repo-diagram-spec"),
-    maxRetries: LLM_MAX_RETRIES,
-    // Bounds runaway/repetition-loop generations (observed during testing:
-    // gemini-2.5-flash occasionally gets stuck dumping a huge repeated string
-    // into a field instead of terminating) so a bad completion fails fast
-    // instead of hanging for a minute-plus. 8192 comfortably fits a normal
-    // multi-node DiagramSpec while keeping worst-case failures quick.
-    maxOutputTokens: GOOGLE_DEFAULTS.maxTokens,
-  });
-  reportUsage(options, result.usage);
-  return result.object;
+  try {
+    const result = await generateObject({
+      model: modelFor(options),
+      schema: diagramSpecSchema,
+      system: buildSystemPrompt(input.diagramType),
+      prompt: userPrompt,
+      telemetry: aiTelemetry("repo-diagram-spec"),
+      maxRetries: LLM_MAX_RETRIES,
+      // Bounds runaway/repetition-loop generations (observed during testing:
+      // gemini-2.5-flash occasionally gets stuck dumping a huge repeated string
+      // into a field instead of terminating) so a bad completion fails fast
+      // instead of hanging for a minute-plus. 8192 comfortably fits a normal
+      // multi-node DiagramSpec while keeping worst-case failures quick.
+      maxOutputTokens: GOOGLE_DEFAULTS.maxTokens,
+    });
+    reportUsage(options, result.usage);
+    return result.object;
+  } catch (error) {
+    // The failure mode this bounds -- a repetition loop that runs to
+    // maxOutputTokens and then fails schema validation -- is the single most
+    // expensive outcome here, and it throws instead of returning. Reporting its
+    // usage before rethrowing is what keeps that spend visible to the cost
+    // ceiling; without it a caller can provoke unpriced generations on purpose.
+    if (NoObjectGeneratedError.isInstance(error) && error.usage) reportUsage(options, error.usage);
+    throw error;
+  }
 }
 
 // Project chat — grounded in project memory. Retries on rate limit.

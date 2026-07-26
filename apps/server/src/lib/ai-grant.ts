@@ -25,6 +25,11 @@ export type AiGrant = {
   ai: AiCallOptions;
   /** Reconciles the cost reservation against every token this grant's calls reported. */
   settle: () => Promise<void>;
+  /**
+   * Refunds the credit. Tokens already reported through `ai.onUsage` are still
+   * charged: a generation that burned output and then failed schema validation cost
+   * us the same as one that succeeded.
+   */
   release: () => Promise<void>;
 };
 
@@ -76,6 +81,6 @@ export async function takeAiGrant(
       },
     },
     settle: () => grant.settle(total),
-    release: () => grant.release(),
+    release: () => grant.release(total),
   };
 }
