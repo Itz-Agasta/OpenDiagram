@@ -36,6 +36,34 @@
       "when": 1784792379667,
       "tag": "0004_chemical_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785066610013,
+      "tag": "0005_melodic_fallen_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785085200000,
+      "tag": "0006_grandfather_email_verified",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785088800000,
+      "tag": "0007_retune_burst_and_concurrency",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785088860000,
+      "tag": "0008_reflective_firedrake",
+      "breakpoints": true
     }
   ]
 }
