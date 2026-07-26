@@ -9,7 +9,7 @@
  * Nothing here throws into a request path. A mail provider outage must not fail a
  * signup or a password-reset request, so failures are logged and swallowed at the
  * boundary; the one exception is that `send` surfaces the error to its caller so
- * the caller decides.
+ * the caller decides. Sends are awaited rather than detached -- see `sendSafely`.
  */
 import { env } from "@OpenDiagram/env/server";
 import { Resend } from "resend";
@@ -44,42 +44,62 @@ async function send(to: string, body: EmailBody, idempotencyKey?: string): Promi
 }
 
 /**
- * Fire-and-forget wrapper. better-auth calls these inside request handlers, and
- * a slow or failing mail provider shouldn't add latency to a signup or leak
- * timing information about whether an address exists.
+ * Awaits delivery, swallowing failures.
+ *
+ * Awaited, not detached, because of where this runs. Cloud Run throttles an
+ * instance's CPU the moment the response is written, so a promise left in flight
+ * past the handler is not "sent in the background" -- it stalls until some later
+ * request happens to wake the instance, or is lost outright when it recycles. That
+ * silently breaks the one mail a user is actively waiting on. Every other write in
+ * this codebase completes before its response for the same reason.
+ *
+ * The cost is latency, and on the reset path a timing signal about whether an
+ * address exists (better-auth only invokes the callback for a real account). A few
+ * hundred milliseconds of provider latency is a weak oracle next to a password
+ * reset that never arrives.
+ *
+ * Failures are logged and swallowed: a mail outage must not fail the signup or
+ * reset request itself, and the quota resolver already degrades sensibly when a
+ * verification mail never lands.
  */
-function sendDetached(label: string, to: string, body: EmailBody, idempotencyKey?: string): void {
-  void send(to, body, idempotencyKey).catch((error) => {
-    console.error(
-      `[email] ${label} failed for ${to}:`,
-      error instanceof Error ? error.message : error,
-    );
-  });
+async function sendSafely(
+  label: string,
+  to: string,
+  body: EmailBody,
+  idempotencyKey?: string,
+): Promise<void> {
+  try {
+    await send(to, body, idempotencyKey);
+  } catch (error) {
+    // No recipient address in the message. A provider outage logs one line per
+    // failed send, and that must not turn the log into a list of user emails.
+    console.error(`[email] ${label} failed:`, error instanceof Error ? error.message : error);
+  }
 }
 
-export function sendVerificationMail(input: {
+export async function sendVerificationMail(input: {
   to: string;
   name?: string | null;
   url: string;
-}): void {
-  sendDetached("verification", input.to, verificationEmail(input));
+}): Promise<void> {
+  await sendSafely("verification", input.to, verificationEmail(input));
 }
 
-export function sendWelcomeMail(input: {
+export async function sendWelcomeMail(input: {
   to: string;
   name?: string | null;
   dashboardUrl: string;
   credits: number;
-}): void {
+}): Promise<void> {
   // Verification can only succeed once per token, but a retried request could
   // reach the callback twice; the key makes a duplicate a no-op at Resend.
-  sendDetached("welcome", input.to, welcomeEmail(input), `welcome/${input.to}`);
+  await sendSafely("welcome", input.to, welcomeEmail(input), `welcome/${input.to}`);
 }
 
-export function sendPasswordResetMail(input: {
+export async function sendPasswordResetMail(input: {
   to: string;
   name?: string | null;
   url: string;
-}): void {
-  sendDetached("password-reset", input.to, passwordResetEmail(input));
+}): Promise<void> {
+  await sendSafely("password-reset", input.to, passwordResetEmail(input));
 }

@@ -53,14 +53,26 @@ export function createAuth() {
     }),
     trustedOrigins: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
     session: {
-      storeSessionInDatabase: true,
+      // The sign-in form offers "Keep me signed in for 30 days", and `rememberMe`
+      // sets the cookie's max age from this value -- so the 7-day default quietly
+      // delivered a quarter of what the checkbox promised. Unchecked still means a
+      // browser-session cookie; this only sets the remembered length.
+      //
+      // `storeSessionInDatabase` used to be set here and did nothing: it only
+      // applies when `secondaryStorage` is configured, and without one, sessions
+      // are already in the database.
+      expiresIn: 60 * 60 * 24 * 30,
     },
     emailAndPassword: {
       enabled: true,
+      // Off by default, and wrong for a recovery flow: the reason someone resets a
+      // password is usually that somebody else has it, and leaving that somebody's
+      // session alive means the reset changes nothing for them.
+      revokeSessionsOnPasswordReset: true,
       // The reset link's landing page is chosen by the caller via `redirectTo`,
       // so better-auth builds it correctly without a rewrite here.
       sendResetPassword: async ({ user, url }) => {
-        sendPasswordResetMail({ to: user.email, name: user.name, url });
+        await sendPasswordResetMail({ to: user.email, name: user.name, url });
       },
     },
     // Verification is a soft gate, not a sign-in wall: `requireEmailVerification`
@@ -74,7 +86,7 @@ export function createAuth() {
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        sendVerificationMail({
+        await sendVerificationMail({
           to: user.email,
           name: user.name,
           // better-auth builds the link against the API origin and defaults its
@@ -86,7 +98,7 @@ export function createAuth() {
       // Welcome lands after verification, not at signup: two mails racing in the
       // inbox buries the one that actually unlocks the account.
       afterEmailVerification: async (user) => {
-        sendWelcomeMail({
+        await sendWelcomeMail({
           to: user.email,
           name: user.name,
           dashboardUrl: `${webOrigin()}/dashboard`,
@@ -104,6 +116,34 @@ export function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
+      ipAddress: {
+        /**
+         * Better Auth trusts a forwarded header only when it carries a single
+         * value, unless proxies are named. Cloud Run appends the address it
+         * observed, so ours routinely carries two -- and an unresolved IP does not
+         * disable rate limiting, it collapses every caller onto one shared
+         * `no-trusted-ip|<path>` bucket. That turns the built-in defaults (3
+         * sign-ins per 10s, 3 password resets per 60s) into limits on the whole
+         * deployment: the fourth user inside the window gets a 429.
+         *
+         * Naming proxies switches resolution to walking the chain right to left,
+         * which is the same rightmost-hop rule `hashClientIp` uses in the quota
+         * system, and for the same reason: everything left of the address our
+         * platform appended was supplied by the caller.
+         *
+         * Only ranges that can never be a public client are listed, so a real
+         * address is never mistaken for a hop. They exist to select that mode and
+         * to step over a Google-internal address if one is ever appended.
+         */
+        trustedProxies: [
+          "127.0.0.0/8",
+          "::1/128",
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16",
+          "fc00::/7",
+        ],
+      },
       // In prod, web (app.vyse.site) and server (api.vyse.site) are different
       // subdomains, so the session cookie must be scoped to the shared parent
       // domain or the browser treats it as third-party and drops it.
