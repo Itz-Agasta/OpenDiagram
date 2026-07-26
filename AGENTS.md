@@ -61,7 +61,7 @@ just reinstall         # clean + bun install
 ## Code Style
 
 - Use `@/` path alias for `apps/web/src/`.
-- Shared deps use `catalog:` protocol in root package.json — don't hardcode versions in apps.
+- `catalog:` is for deps used by **two or more** workspace packages: version goes in the root `package.json` catalog, every consumer writes `catalog:`.
 - Always install packages with `bun add` — never manually add to package.json.
 - Workspace deps use `workspace:*`.
 - Follow existing patterns in adjacent files.
@@ -97,7 +97,7 @@ The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
 - Read docs and get latest context about libraries before coding.
 - Run `just check` & `just types` after finishing a coding session & fix those.
 - Keep changes surgical — don't refactor adjacent code.
-- New dependencies: justify additions, prefer workspace catalog.
+- New dependencies: justify additions. Catalog them only once a second package needs them.
 - Always use `bun add` to add packages.
 
 ## AI Coding Guidelines
