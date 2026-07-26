@@ -101,7 +101,7 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
         >
           <DropdownMenuGroup>
             <DropdownMenuLabel className="flex flex-col gap-1.5 px-2 py-2">
-              <span className="block text-[12px] font-semibold text-od-ink">Beta quota</span>
+              <span className="block text-[12px] font-semibold text-od-ink">Platform quota</span>
               <span aria-live="polite" className="block text-[11px] font-normal leading-4">
                 {quotaPending ? (
                   <span className="text-od-ink-faint">Loading…</span>
@@ -110,7 +110,9 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
                 ) : quota ? (
                   <span className="text-od-ink-muted">
                     {quota.remaining} of {quota.limit} creation requests left
-                    {quota.actorType === "guest" ? ". Sign in to get 10." : "."}
+                    {quota.actorType === "guest" && quota.signupCredits
+                      ? `. Sign in to get ${quota.signupCredits}.`
+                      : "."}
                   </span>
                 ) : (
                   <span className="text-od-ink-faint">Open settings to check usage.</span>

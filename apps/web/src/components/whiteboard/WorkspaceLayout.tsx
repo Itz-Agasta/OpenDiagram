@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { KeyRound, Loader2 } from "lucide-react";
+import { KeyRound, Loader2, Sparkles } from "lucide-react";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
@@ -205,22 +205,34 @@ export function WorkspaceLayout() {
             <DialogTitle className="text-od-ink">
               {waitlistStatus === "joined"
                 ? "You're on the waitlist"
-                : "Beta creation limit reached"}
+                : "You've used your creation credits"}
             </DialogTitle>
             <DialogDescription className="leading-6 text-od-ink-muted">
               {waitlistStatus === "joined"
-                ? "We'll let you know when more beta capacity becomes available."
+                ? "We'll let you know when more capacity becomes available."
                 : quotaMessage}
             </DialogDescription>
           </DialogHeader>
           {waitlistStatus !== "joined" && (
-            <Link
-              href={byokSettingsHref}
-              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
-            >
-              <KeyRound className="size-4" />
-              Configure your BYOK Keys
-            </Link>
+            <div className="space-y-2">
+              {/* Ordered by what actually converts: paying is the primary path now
+                  that billing ships, BYOK is the free alternative we promise
+                  forever, and the waitlist below is the last resort. */}
+              <Link
+                href="/pricing"
+                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
+              >
+                <Sparkles className="size-4" />
+                Upgrade to Pro
+              </Link>
+              <Link
+                href={byokSettingsHref}
+                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
+              >
+                <KeyRound className="size-4" />
+                Use your own AI key - free, unlimited
+              </Link>
+            </div>
           )}
           {waitlistStatus !== "joined" && (
             <form className="mt-2 space-y-3" onSubmit={handleJoinWaitlist}>
