@@ -5,17 +5,28 @@
  * takes, so counting requests cannot cap spend.
  *
  * Lifecycle: a row is inserted `reserved` at a pessimistic estimate before the
- * model runs, then either `settled` down to the measured token cost in
- * onFinish, or `released` to zero if the call failed. Releasing is also what
- * stops a model 503 from burning a paid credit.
+ * model runs, then resolved to one of three terminal states. They encode two
+ * independent facts -- what the call cost us, and whether the user was charged a
+ * credit for it -- which are not the same question:
+ *
+ *   settled   real cost, credit kept       the normal success
+ *   refunded  real cost, credit given back the call burned tokens and still failed
+ *   released  no cost, credit given back   nothing reached the model (a 503)
+ *
+ * `refunded` exists because collapsing it into either neighbour loses money or
+ * charges twice. Calling it `released` hides real spend from the ceiling; calling
+ * it `settled` makes the turn look charged, so the user's retry is free.
  */
 import { sql } from "drizzle-orm";
 import { bigint, check, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { creationUsageActorTypes } from "./creation-usage";
-import type { PlanId } from "./plan";
+import { plan, type PlanId } from "./plan";
 
-export const usageLedgerStatuses = ["reserved", "settled", "released"] as const;
+export const usageLedgerStatuses = ["reserved", "settled", "refunded", "released"] as const;
+
+/** Terminal states where the user got their credit back, so the turn is chargeable again. */
+export const UNCHARGED_LEDGER_STATUSES = ["refunded", "released"] as const;
 export type UsageLedgerStatus = (typeof usageLedgerStatuses)[number];
 
 /**
@@ -44,7 +55,14 @@ export const usageLedger = pgTable(
      * against up to 325c of logged Pro spend, so a user who cancels sees credits in
      * the UI and gets an immediate 429.
      */
-    planId: text("plan_id").notNull().$type<PlanId>().default("free"),
+    planId: text("plan_id")
+      .notNull()
+      .$type<PlanId>()
+      .default("free")
+      // Matches subscription.planId. Spend filed under a plan id that does not exist
+      // is spend no ceiling check will ever read, so a typo would silently create an
+      // unbounded bucket rather than failing.
+      .references(() => plan.id),
     /**
      * The conversation turn this spend belongs to: one user message, however many
      * HTTP requests the agent loop needs to answer it.
@@ -67,8 +85,9 @@ export const usageLedger = pgTable(
     settledAt: timestamp("settled_at"),
   },
   (table) => [
-    // Ceiling check sums this on every AI request. Released rows are excluded
-    // from the sum, so keep them out of the index entirely. `createdAt` is in the
+    // Ceiling check sums this on every AI request. Only `released` rows are excluded
+    // from the sum (they cost nothing), so keep those out of the index entirely --
+    // `refunded` rows carry real spend and must stay in it. `createdAt` is in the
     // index because the sum also filters abandoned reservations by age.
     index("usage_ledger_actor_window_idx")
       .on(table.actorType, table.actorId, table.windowStart, table.planId, table.createdAt)
@@ -80,5 +99,12 @@ export const usageLedger = pgTable(
       .on(table.actorType, table.actorId, table.windowStart, table.turnId)
       .where(sql`${table.turnId} IS NOT NULL`),
     check("usage_ledger_cost_micros_check", sql`${table.costMicros} >= 0`),
+    // The drizzle enum is a TypeScript type only. The ceiling queries special-case
+    // these values by name, so any other one written directly to Postgres would be
+    // counted as permanent, unsettleable spend.
+    check(
+      "usage_ledger_status_check",
+      sql`${table.status} IN ('reserved', 'settled', 'refunded', 'released')`,
+    ),
   ],
 );
