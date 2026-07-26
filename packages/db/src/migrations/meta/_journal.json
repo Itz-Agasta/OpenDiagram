@@ -78,6 +78,13 @@
       "when": 1785099747169,
       "tag": "0010_ledger_refunded_status",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785103505309,
+      "tag": "0011_auth_rate_limit",
+      "breakpoints": true
     }
   ]
 }

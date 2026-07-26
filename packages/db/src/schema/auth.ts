@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -72,6 +72,24 @@ export const verification = pgTable(
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
+
+/**
+ * Better Auth's rate-limit counters.
+ *
+ * Exists so `rateLimit.storage` can be `"database"`. The default is in-process
+ * memory, which on Cloud Run means the limit is per instance and is wiped by every
+ * scale-to-zero -- so the brute-force protection on `/sign-in` lapses whenever the
+ * service goes idle, which for a low-traffic deployment is most of the time.
+ *
+ * Shape is dictated by better-auth (`getAuthTables`): `key` unique, `count`, and
+ * `lastRequest` as epoch millis in a bigint. Written and read only by better-auth.
+ */
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),

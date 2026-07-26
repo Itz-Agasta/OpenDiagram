@@ -106,16 +106,35 @@ export function createAuth() {
         });
       },
     },
+    // Enabled in production by default, with stricter built-in rules on the
+    // sensitive routes. `database` rather than the default in-process memory:
+    // Cloud Run runs several instances and scales to zero, so a memory counter is
+    // both per-instance and wiped by every cold start -- for a service that idles,
+    // that is most of the time, and the sign-in brute-force limit lapses with it.
+    rateLimit: {
+      storage: "database",
+    },
     // Stateless OAuth state: keep the whole state payload in one encrypted,
     // short-lived cookie instead of the DB. Avoids "verification not found"
     // from flaky pooler writes / `bun --hot` reloads mid-flow.
     account: {
       storeStateStrategy: "cookie",
+      // We keep GitHub access tokens and spend them on the user's behalf during
+      // repo import, so they are live credentials at rest, not a login artefact.
+      // AES-256-GCM under BETTER_AUTH_SECRET. Safe to switch on with rows already
+      // stored: reads fall through to the raw value when it isn't ciphertext, so
+      // existing tokens keep working and get encrypted as they are refreshed.
+      encryptOAuthTokens: true,
     },
     socialProviders: githubProvider,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
+      // Deliberately no `backgroundTasks.handler`. Better Auth passes the mail
+      // callbacks through `runInBackgroundOrAwait`, which awaits them only while
+      // no handler is set -- and Cloud Run has no `waitUntil` equivalent, so a
+      // handler here would detach the send into an instance whose CPU is already
+      // throttled. See packages/auth/src/email for why that loses the mail.
       ipAddress: {
         /**
          * Better Auth trusts a forwarded header only when it carries a single
