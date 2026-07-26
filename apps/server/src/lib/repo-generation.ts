@@ -3,7 +3,7 @@ import { project } from "@OpenDiagram/db/schema/project";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagram/harness";
 import { iconRegistry } from "./icons/registry";
-import { generateArchitectureDoc, generateDiagramSpec } from "./repo-ai";
+import { generateArchitectureDoc, generateDiagramSpec, type AiCallOptions } from "./repo-ai";
 import { getProjectMemoryContext } from "./project-memory";
 import { createLogger } from "evlog";
 
@@ -105,7 +105,7 @@ function logJob(
 }
 
 export async function startRepoGeneration(
-  input: { projectId: string; userId: string },
+  input: { projectId: string; userId: string; ai?: AiCallOptions },
   retryCount = 0,
 ) {
   if (retryCount > 3) {
@@ -222,7 +222,7 @@ export async function startRepoGeneration(
       };
       jobs.set(lockJobId, resumeJob);
       log.info("Repo generation resuming", { repoGen: { jobId: lockJobId.slice(0, 8) } });
-      return { job: resumeJob, run: () => runGenerationJob(lockJobId, projectRow) };
+      return { job: resumeJob, run: () => runGenerationJob(lockJobId, projectRow, input.ai) };
     }
 
     const [updatedProject] = await db
@@ -257,7 +257,7 @@ export async function startRepoGeneration(
       repoGen: { jobId: lockJobId.slice(0, 8), projectId: lockJob.projectId },
     });
 
-    return { job: queuedJob, run: () => runGenerationJob(lockJobId, projectRow) };
+    return { job: queuedJob, run: () => runGenerationJob(lockJobId, projectRow, input.ai) };
   } catch (error) {
     jobs.delete(lockJobId);
     activeJobByProject.delete(key);
@@ -265,8 +265,12 @@ export async function startRepoGeneration(
   }
 }
 
-function runGenerationJob(jobId: string, projectRow: typeof project.$inferSelect) {
-  return runRepoGenerationJob(jobId, projectRow).catch((error) => {
+function runGenerationJob(
+  jobId: string,
+  projectRow: typeof project.$inferSelect,
+  ai?: AiCallOptions,
+) {
+  return runRepoGenerationJob(jobId, projectRow, ai).catch((error) => {
     updateJob(jobId, {
       status: "failed",
       message: "Repository generation failed",
@@ -370,7 +374,11 @@ async function buildJobSnapshotFromDb(input: {
   };
 }
 
-async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$inferSelect) {
+async function runRepoGenerationJob(
+  jobId: string,
+  projectRow: typeof project.$inferSelect,
+  ai?: AiCallOptions,
+) {
   await sleep(500);
 
   const existingFiles = await db
@@ -489,14 +497,17 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
     logJob(jobId, "generating", `Generating: ${item.name}`, { type: item.type });
 
     if (item.type === "doc") {
-      const content = await generateArchitectureDoc({
-        context: context?.context ?? "",
-        goal: item.goal,
-        title: item.name.replace(/\.md$/i, ""),
-        repoFullName,
-        defaultBranch,
-        commitSha,
-      }).catch(() => {
+      const content = await generateArchitectureDoc(
+        {
+          context: context?.context ?? "",
+          goal: item.goal,
+          title: item.name.replace(/\.md$/i, ""),
+          repoFullName,
+          defaultBranch,
+          commitSha,
+        },
+        ai,
+      ).catch(() => {
         return [
           `# ${item.name.replace(/\.md$/i, "")}`,
           "",
@@ -535,11 +546,14 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
       }
       logJob(jobId, "generating", `Generated doc: ${item.name}`, { contentLength: content.length });
     } else {
-      const diagramResult = await generateDiagramSpec({
-        prompt: `Generate a ${item.name.toLowerCase()} for the imported source repository.\nGoal: ${item.goal}`,
-        diagramType: "system-design",
-        context: context?.context ?? "",
-      }).catch(() => null);
+      const diagramResult = await generateDiagramSpec(
+        {
+          prompt: `Generate a ${item.name.toLowerCase()} for the imported source repository.\nGoal: ${item.goal}`,
+          diagramType: "system-design",
+          context: context?.context ?? "",
+        },
+        ai,
+      ).catch(() => null);
 
       let diagram:
         | { spec: DiagramSpec; scene: { skeletons: any[]; rawElements: any[] } }

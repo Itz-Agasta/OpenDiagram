@@ -1,9 +1,27 @@
 import { createGoogle } from "@ai-sdk/google";
 import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText, type LanguageModel } from "ai";
 import { buildIconCatalog } from "./icons/registry";
 import { aiTelemetry } from "./telemetry";
+
+export type AiUsage = { inputTokens: number; outputTokens: number };
+
+/**
+ * Per-call overrides for the platform default.
+ *
+ * `model` exists because these helpers used to build their own platform Gemini
+ * model unconditionally, which meant a BYOK caller was gated on their own key
+ * while the inference still ran (and billed) on ours. Callers that enforce quota
+ * must pass the model they resolved.
+ *
+ * `onUsage` reports the tokens the call actually consumed, so a route can settle
+ * its cost reservation against real usage instead of the pessimistic reserve.
+ */
+export type AiCallOptions = {
+  model?: LanguageModel;
+  onUsage?: (usage: AiUsage) => void;
+};
 
 // The AI SDK retries retryable errors (429/5xx) with exponential backoff up to
 // this many times. A single provider (Gemini) handles every task — no
@@ -22,6 +40,20 @@ function createGeminiModel() {
   }
   const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
   return google(GOOGLE_DEFAULTS.model);
+}
+
+function modelFor(options?: AiCallOptions): LanguageModel {
+  return options?.model ?? createGeminiModel();
+}
+
+function reportUsage(
+  options: AiCallOptions | undefined,
+  usage: { inputTokens?: number; outputTokens?: number },
+): void {
+  options?.onUsage?.({
+    inputTokens: usage.inputTokens ?? 0,
+    outputTokens: usage.outputTokens ?? 0,
+  });
 }
 
 const DIAGRAM_TYPE_GUIDE = `Diagram type guide:
@@ -108,17 +140,20 @@ function buildSystemPrompt(diagramType?: DiagramType): string {
 }
 
 // Diagram generation. Retries on rate limit.
-export async function generateDiagramSpec(input: {
-  prompt: string;
-  diagramType?: DiagramType;
-  context?: string;
-}): Promise<DiagramSpec> {
+export async function generateDiagramSpec(
+  input: {
+    prompt: string;
+    diagramType?: DiagramType;
+    context?: string;
+  },
+  options?: AiCallOptions,
+): Promise<DiagramSpec> {
   const userPrompt = input.context
     ? `Project context:\n${input.context}\n\nUser request:\n${input.prompt}`
     : input.prompt;
 
   const result = await generateObject({
-    model: createGeminiModel(),
+    model: modelFor(options),
     schema: diagramSpecSchema,
     system: buildSystemPrompt(input.diagramType),
     prompt: userPrompt,
@@ -131,16 +166,20 @@ export async function generateDiagramSpec(input: {
     // multi-node DiagramSpec while keeping worst-case failures quick.
     maxOutputTokens: GOOGLE_DEFAULTS.maxTokens,
   });
+  reportUsage(options, result.usage);
   return result.object;
 }
 
 // Project chat — grounded in project memory. Retries on rate limit.
-export async function generateGroundedProjectAnswer(input: {
-  message: string;
-  context: string;
-}): Promise<string> {
+export async function generateGroundedProjectAnswer(
+  input: {
+    message: string;
+    context: string;
+  },
+  options?: AiCallOptions,
+): Promise<string> {
   const result = await generateText({
-    model: createGeminiModel(),
+    model: modelFor(options),
     system: [
       "You are OpenDiagram's project assistant.",
       "Answer using only the provided project context.",
@@ -153,20 +192,24 @@ export async function generateGroundedProjectAnswer(input: {
     maxOutputTokens: 1200,
   });
 
+  reportUsage(options, result.usage);
   return result.text;
 }
 
 // Architecture docs / repo analysis. Retries on rate limit.
-export async function generateArchitectureDoc(input: {
-  context: string;
-  goal: string;
-  title: string;
-  repoFullName: string;
-  defaultBranch: string;
-  commitSha: string;
-}): Promise<string> {
+export async function generateArchitectureDoc(
+  input: {
+    context: string;
+    goal: string;
+    title: string;
+    repoFullName: string;
+    defaultBranch: string;
+    commitSha: string;
+  },
+  options?: AiCallOptions,
+): Promise<string> {
   const result = await generateText({
-    model: createGeminiModel(),
+    model: modelFor(options),
     system: [
       "You are an expert software architect writing technical documentation.",
       "Write detailed, structured markdown using only the provided project context.",
@@ -194,5 +237,6 @@ export async function generateArchitectureDoc(input: {
     maxOutputTokens: 4096,
   });
 
+  reportUsage(options, result.usage);
   return result.text;
 }

@@ -5,13 +5,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { generateGroundedProjectAnswer } from "../lib/repo-ai";
-import {
-  applyCreationQuotaHeaders,
-  consumeCreationQuota,
-  creationQuotaExceededResponse,
-  CreationQuotaExceededError,
-  getCreationQuotaActor,
-} from "../lib/creation-quota";
+import { takeAiGrant } from "../lib/ai-grant";
 import {
   getProjectMemoryContext,
   getProjectMemoryStatus,
@@ -203,20 +197,25 @@ projectsRoute.post("/:projectId/chat", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  const grant = await takeAiGrant(c, userId, "project-chat");
+  if (grant instanceof Response) return grant;
+
+  let answer: string;
   try {
-    const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
-    applyCreationQuotaHeaders(c, quota);
+    answer = await generateGroundedProjectAnswer(
+      {
+        message: parsed.data.message,
+        context: projectContext.context,
+      },
+      grant.ai,
+    );
   } catch (error) {
-    if (error instanceof CreationQuotaExceededError) {
-      return creationQuotaExceededResponse(c, error);
-    }
+    // Nothing billable came back, so hand the credit and the reservation back
+    // rather than charging for a model outage.
+    await grant.release();
     throw error;
   }
-
-  const answer = await generateGroundedProjectAnswer({
-    message: parsed.data.message,
-    context: projectContext.context,
-  });
+  await grant.settle();
 
   return c.json({
     answer,
@@ -238,28 +237,27 @@ projectsRoute.post("/:projectId/repo-generation", async (c) => {
     return c.json({ error: "Repository generation is only available for GitHub imports." }, 400);
   }
 
-  if (projectRow.generationStatus === "none" || projectRow.generationStatus === "failed") {
-    try {
-      const quota = await consumeCreationQuota(await getCreationQuotaActor(c, { userId }));
-      applyCreationQuotaHeaders(c, quota);
-    } catch (error) {
-      if (error instanceof CreationQuotaExceededError) {
-        return creationQuotaExceededResponse(c, error);
-      }
-      throw error;
-    }
-  }
+  // A fresh or previously failed run costs a credit; resuming one that is
+  // already in flight was paid for on its first attempt.
+  const isFreshRun =
+    projectRow.generationStatus === "none" || projectRow.generationStatus === "failed";
+  const grant = await takeAiGrant(c, userId, "repo-generate", { meter: isFreshRun });
+  if (grant instanceof Response) return grant;
 
   let started: Awaited<ReturnType<typeof startRepoGeneration>>;
   try {
-    started = await startRepoGeneration({ projectId, userId });
+    started = await startRepoGeneration({ projectId, userId, ai: grant.ai });
   } catch (error) {
+    await grant.release();
     return c.json(
       { error: error instanceof Error ? error.message : "Could not start repository generation." },
       400,
     );
   }
-  if (!started) return c.json({ error: "Not found" }, 404);
+  if (!started) {
+    await grant.release();
+    return c.json({ error: "Not found" }, 404);
+  }
   const startedResult = started;
 
   // Stream generation progress inside the request so the work keeps its CPU
@@ -268,11 +266,19 @@ projectsRoute.post("/:projectId/repo-generation", async (c) => {
     const send = (job: RepoGenerationJob) =>
       stream.writeSSE({ event: "status", data: JSON.stringify(job) });
     await send(startedResult.job);
-    // Swallow write errors on a closed stream (client disconnect) so a rejected
-    // writeSSE promise can't become an unhandled rejection.
-    await runRepoGenerationWithEmitter(startedResult, (job) => {
-      send(job).catch(() => {});
-    });
+    try {
+      // Swallow write errors on a closed stream (client disconnect) so a rejected
+      // writeSSE promise can't become an unhandled rejection.
+      await runRepoGenerationWithEmitter(startedResult, (job) => {
+        send(job).catch(() => {});
+      });
+    } catch (error) {
+      await grant.release();
+      throw error;
+    }
+    // Still inside the streaming response, which is what keeps CPU allocated on
+    // Cloud Run long enough for the ledger write to land.
+    await grant.settle();
   });
 });
 
