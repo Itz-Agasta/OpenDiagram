@@ -9,13 +9,14 @@
  * Only the webhook handler should call these. Entitlement follows what Dodo says
  * happened, never what a client claims.
  */
-import { db, eq, sql } from "@OpenDiagram/db";
+import { and, db, eq, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
 import { subscription, type SubscriptionStatus } from "@OpenDiagram/db/schema/subscription";
+import type { Refund } from "dodopayments/resources/refunds";
 import type { Subscription } from "dodopayments/resources/subscriptions";
 import { createLogger } from "evlog";
 import { exhaustCreationQuota, getUserActor } from "../quota";
-import { planIdForProduct } from "./client";
+import { dodoClient, planIdForProduct } from "./client";
 
 const log = createLogger({ module: "dodo-sync" });
 
@@ -99,8 +100,43 @@ export async function upsertSubscription(data: Subscription, eventAt: Date): Pro
   });
 }
 
-/** Ends access now and burns the remaining credits of the window they fall back to. */
-export async function clawback(dodoCustomerId: string, eventAt: Date): Promise<void> {
+/**
+ * Ends access now and burns the remaining credits of the window they fall back to.
+ *
+ * Scoped to the one subscription the refunded payment belongs to, which the refund
+ * payload does not carry -- it has only `payment_id` -- so the payment has to be
+ * fetched. Matching on `customer_id` instead, as this used to, revokes *every*
+ * subscription that customer holds: a refund for a cancelled period would take a
+ * new, paid subscription down with it.
+ *
+ * A failed lookup throws, which the webhook route turns into a 500 so Dodo retries.
+ * Guessing the subscription is worse than being redelivered.
+ */
+export async function clawback(refund: Refund, eventAt: Date): Promise<void> {
+  const client = dodoClient();
+  if (!client) return;
+
+  // A partial refund is a goodwill gesture or a proration, not an unwind of the sale.
+  // Ending the period and burning the fallback window over one would take the whole
+  // month's access away for a few dollars back.
+  if (refund.is_partial) {
+    log.info("Dodo partial refund leaves entitlement in place", {
+      dodo: { paymentId: refund.payment_id, refundId: refund.refund_id },
+    });
+    return;
+  }
+
+  const payment = await client.payments.retrieve(refund.payment_id);
+  if (!payment.subscription_id) {
+    // We only sell subscriptions, so a one-time payment refund has no entitlement
+    // attached to reverse.
+    log.info("Dodo refund was not for a subscription payment", {
+      dodo: { paymentId: refund.payment_id },
+    });
+    return;
+  }
+  const subscriptionId = payment.subscription_id;
+
   const rows = await db
     .update(subscription)
     .set({
@@ -118,18 +154,39 @@ export async function clawback(dodoCustomerId: string, eventAt: Date): Promise<v
       lastEventAt: eventAt,
       updatedAt: new Date(),
     })
-    .where(eq(subscription.dodoCustomerId, dodoCustomerId))
+    .where(
+      and(
+        eq(subscription.id, subscriptionId),
+        // The same ordering guard the upsert uses. Dodo retries a refund for up to
+        // 24 hours, and a delayed delivery must not roll newer state backwards.
+        sql`${subscription.lastEventAt} <= ${eventAt.toISOString()}`,
+      ),
+    )
     .returning({ userId: subscription.userId });
 
+  // Only rows this event actually updated are clawed back -- a row skipped by the
+  // ordering guard keeps whatever a newer event said, credits included.
   if (rows.length === 0) {
-    log.warn("Dodo refund had no matching subscription", { dodo: { dodoCustomerId } });
+    log.warn("Dodo refund matched no subscription to claw back", {
+      dodo: { subscriptionId, paymentId: refund.payment_id },
+    });
     return;
   }
 
   for (const { userId } of rows) {
     // Resolved after the downgrade, so this exhausts the Free window the user
     // just fell back onto rather than the Pro one they no longer have.
-    await exhaustCreationQuota(await getUserActor(userId));
-    log.info("Dodo refund clawback applied", { dodo: { dodoCustomerId }, userId });
+    const actor = await getUserActor(userId);
+    if (actor.planId === "pro") {
+      // They resubscribed before this refund arrived. The refunded period is ended
+      // above, but the window they are on now is paid for and not ours to burn.
+      log.warn("Dodo refund clawback skipped: user has another paid subscription", {
+        dodo: { subscriptionId },
+        userId,
+      });
+      continue;
+    }
+    await exhaustCreationQuota(actor);
+    log.info("Dodo refund clawback applied", { dodo: { subscriptionId }, userId });
   }
 }

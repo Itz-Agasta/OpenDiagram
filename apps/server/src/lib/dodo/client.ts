@@ -31,6 +31,19 @@ export function dodoClient(): DodoPayments | null {
 }
 
 /**
+ * Whether this instance can actually sell and then honour a subscription.
+ *
+ * Every part has to be present, not just the API key. A key without
+ * `DODO_PRO_PRODUCT_ID` shows an Upgrade button that 404s at checkout; a key
+ * without `DODO_WEBHOOK_SECRET` is worse -- checkout succeeds, the customer is
+ * charged, and every entitlement webhook 401s, so they never get Pro. Reporting
+ * partial configuration as enabled turns a deploy mistake into a billing dispute.
+ */
+export function billingEnabled(): boolean {
+  return dodoClient() !== null && !!env.DODO_PRO_PRODUCT_ID && !!env.DODO_WEBHOOK_SECRET;
+}
+
+/**
  * Maps an inbound Dodo `product_id` onto one of our plan rows.
  *
  * The product id is per-mode and lives only in env, so this is the single place

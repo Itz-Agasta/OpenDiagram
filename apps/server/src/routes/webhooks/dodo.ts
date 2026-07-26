@@ -136,7 +136,7 @@ async function handleEvent(event: UnwrapWebhookEvent): Promise<void> {
     // Money went back, so access and credits go with it, immediately -- not at
     // period end the way a cancellation does.
     case "refund.succeeded":
-      await clawback(event.data.customer.customer_id, eventAt);
+      await clawback(event.data, eventAt);
       return;
 
     default:

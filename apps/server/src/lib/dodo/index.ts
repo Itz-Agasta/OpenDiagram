@@ -11,4 +11,4 @@
  * so it is deliberately NOT re-exported. Entitlement must follow verified Dodo
  * events, and a barrel export invites some other route to write that table.
  */
-export { appOrigin, dodoClient, planIdForProduct } from "./client";
+export { appOrigin, billingEnabled, dodoClient, planIdForProduct } from "./client";

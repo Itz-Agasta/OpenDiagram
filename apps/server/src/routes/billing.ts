@@ -8,15 +8,15 @@
  *
  * Both 404 when billing is unconfigured, which is the OSS self-host default.
  */
-import { and, db, eq, sql } from "@OpenDiagram/db";
+import { and, db, eq, inArray, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
-import { subscription } from "@OpenDiagram/db/schema/subscription";
+import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/subscription";
 import { env } from "@OpenDiagram/env/server";
 import { createLogger } from "evlog";
 import { Hono } from "hono";
 import { z } from "zod";
-import { appOrigin, dodoClient } from "../lib/dodo";
-import { getUserActor } from "../lib/quota";
+import { appOrigin, billingEnabled, dodoClient } from "../lib/dodo";
+import { getPlan, getUserActor } from "../lib/quota";
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
 
 const log = createLogger({ module: "billing" });
@@ -47,10 +47,14 @@ billingRoute.get("/", async (c) => {
 
   return c.json({
     // `billingEnabled: false` is how the web app knows to hide upgrade UI on a
-    // self-hosted instance instead of linking to a route that 404s.
-    billingEnabled: dodoClient() !== null,
+    // self-hosted instance instead of linking to a route that 404s. It requires
+    // every DODO_* setting, not just the API key -- see billingEnabled().
+    billingEnabled: billingEnabled(),
     planId: actor.planId,
     credits: { limit: actor.limit, resetAt: actor.resetAt?.toISOString() ?? null },
+    // What Pro buys, so the pricing copy states the enforced number instead of a
+    // literal that goes stale the moment the plan row is retuned.
+    proCredits: (await getPlan("pro")).monthlyCredits,
     subscription: row
       ? {
           status: row.status,
@@ -63,7 +67,9 @@ billingRoute.get("/", async (c) => {
 
 billingRoute.post("/checkout", async (c) => {
   const client = dodoClient();
-  if (!client || !env.DODO_PRO_PRODUCT_ID) {
+  // `DODO_PRO_PRODUCT_ID` is re-checked rather than left to billingEnabled() so it
+  // narrows to a string for the product_cart below.
+  if (!client || !billingEnabled() || !env.DODO_PRO_PRODUCT_ID) {
     return c.json({ error: "Billing is not configured." }, 404);
   }
 
@@ -75,13 +81,18 @@ billingRoute.post("/checkout", async (c) => {
 
   // Already paying: send them to the portal to change the plan instead of
   // stacking a second subscription on the same account.
+  //
+  // Exactly the predicate the quota resolver uses, deliberately: "still has paid
+  // access" is one question and must have one answer. `active` alone let someone who
+  // had cancelled buy a second overlapping subscription; anything wider than the
+  // entitling set would block a user who has no access from buying any.
   const [active] = await db
     .select({ id: subscription.id })
     .from(subscription)
     .where(
       and(
         eq(subscription.userId, userId),
-        sql`${subscription.status} = 'active'`,
+        inArray(subscription.status, [...ENTITLING_SUBSCRIPTION_STATUSES]),
         sql`${subscription.currentPeriodEnd} > NOW()`,
       ),
     )

@@ -4,10 +4,10 @@
  * them together into a `CreationQuotaActor`.
  */
 import { auth } from "@OpenDiagram/auth";
-import { and, db, eq, sql } from "@OpenDiagram/db";
+import { and, db, eq, inArray, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
 import { plan, type PlanId } from "@OpenDiagram/db/schema/plan";
-import { subscription } from "@OpenDiagram/db/schema/subscription";
+import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/subscription";
 import { env } from "@OpenDiagram/env/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Context } from "hono";
@@ -162,8 +162,8 @@ type PaidWindow = {
   windowIndex: number;
 };
 
-// `cancelled` still entitles until the period ends -- the user paid for it --
-// so the check keys on the period end rather than the status alone.
+// Keyed on the period end, not the status alone: `cancelled` and `on_hold` both
+// still entitle while the period the user paid for is running.
 async function resolvePaidWindow(userId: string): Promise<PaidWindow | null> {
   const [row] = await db
     .select({
@@ -175,7 +175,9 @@ async function resolvePaidWindow(userId: string): Promise<PaidWindow | null> {
     .where(
       and(
         eq(subscription.userId, userId),
-        sql`${subscription.status} IN ('active', 'cancelled')`,
+        // From the schema, so this and the checkout duplicate guard cannot drift --
+        // see ENTITLING_SUBSCRIPTION_STATUSES for what each status means here.
+        inArray(subscription.status, [...ENTITLING_SUBSCRIPTION_STATUSES]),
         sql`${subscription.currentPeriodEnd} > NOW()`,
       ),
     )
