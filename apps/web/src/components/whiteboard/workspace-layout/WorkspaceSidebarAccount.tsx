@@ -121,7 +121,7 @@ export function WorkspaceSidebarAccount(props: WorkspaceSidebarAccountProps) {
               {quota && (
                 <div
                   role="progressbar"
-                  aria-label={`${quota.remaining} of ${quota.limit} beta creation requests left`}
+                  aria-label={`${quota.remaining} of ${quota.limit} creation requests left`}
                   aria-valuemin={0}
                   aria-valuemax={quota.limit}
                   aria-valuenow={quota.remaining}

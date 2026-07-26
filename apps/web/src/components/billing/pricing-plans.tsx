@@ -9,7 +9,7 @@ import {
   type BillingState,
 } from "@/lib/billing-client";
 import { PlanCard } from "@/components/billing/plan-card";
-import { FREE_FEATURES, PRO_FEATURES } from "@/components/billing/plan-features";
+import { FREE_FEATURES, proFeatures } from "@/components/billing/plan-features";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,8 +96,8 @@ export function PricingPlans() {
           name="Pro"
           price="$8"
           priceSuffix="/ month"
-          tagline="150 AI diagrams. Eraser gives you 40 for $20."
-          features={PRO_FEATURES}
+          tagline={`${state.proCredits} AI diagrams. Eraser gives you 40 for $20.`}
+          features={proFeatures(state.proCredits)}
           highlighted
         >
           {isPro ? (
