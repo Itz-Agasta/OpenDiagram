@@ -27,6 +27,23 @@ export const env = createEnv({
     // BYOK: base64-encoded 32-byte key that encrypts stored user API keys at rest
     // (openssl rand -base64 32). BYOK settings are disabled when unset.
     BYOK_ENCRYPTION_KEY: z.string().min(1).optional(),
+    // Dodo Payments - OPTIONAL. Unset disables billing entirely (the self-host
+    // default): checkout/webhook routes 404 and every account is treated as
+    // Free. Product IDs and the webhook secret are per-mode, so switching
+    // test_mode -> live_mode means swapping these four values, not code.
+    DODO_PAYMENTS_API_KEY: z.string().min(1).optional(),
+    DODO_WEBHOOK_SECRET: z.string().min(1).optional(),
+    DODO_PRO_PRODUCT_ID: z.string().min(1).optional(),
+    // These are the SDK's own `Environment` values, used verbatim so the client
+    // takes the env value with no mapping layer in between.
+    DODO_ENVIRONMENT: z.enum(["test_mode", "live_mode"]).default("test_mode"),
+    // Resend - OPTIONAL. Unset means no verification mail is sent, so accounts
+    // stay unverified and sit on the guest allowance (see lib/quota/actor.ts).
+    // RESEND_FROM must be on a domain verified in Resend; the `onboarding@
+    // resend.dev` fallback only delivers to the Resend account owner's own
+    // address, which is enough for local testing and nothing else.
+    RESEND_API_KEY: z.string().min(1).optional(),
+    RESEND_FROM: z.string().min(1).default("OpenDiagram <onboarding@resend.dev>"),
     COGNEE_BASE_URL: z.url().optional(),
     COGNEE_API_KEY: z.string().min(1).optional(),
     // Fraction of traces sampled, 0..1. Full sampling by default: gen_ai runs
