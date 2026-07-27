@@ -2,7 +2,11 @@ import { auth } from "@OpenDiagram/auth";
 import type { EvlogVariables } from "evlog/hono";
 import { createMiddleware } from "hono/factory";
 
-export type AuthVariables = EvlogVariables & {
+// `EvlogVariables` is already wrapped (`{ Variables: { log } }`), and every call
+// site spells `new Hono<{ Variables: AuthVariables }>()`. Spreading the wrapper
+// itself would nest it a second time and hide `log` behind `c.get("Variables")`,
+// so unwrap it here -- that is what makes `c.get("log")` typed on auth routes.
+export type AuthVariables = EvlogVariables["Variables"] & {
   userId: string;
 };
 

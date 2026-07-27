@@ -21,16 +21,20 @@
 import { db, eq } from "@OpenDiagram/db";
 import { webhookEvent } from "@OpenDiagram/db/schema/webhook-event";
 import type { UnwrapWebhookEvent } from "dodopayments/resources/webhooks/webhooks";
-import { createLogger } from "evlog";
+import type { AuditableLogger } from "evlog";
+import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { dodoClient } from "../../lib/dodo";
 import { clawback, upsertSubscription } from "../../lib/dodo/subscription-sync";
 
-const log = createLogger({ module: "dodo-webhook" });
-
-export const dodoWebhookRoute = new Hono();
+export const dodoWebhookRoute = new Hono<EvlogVariables>();
 
 dodoWebhookRoute.post("/", async (c) => {
+  // The request logger, not a module-level `createLogger()`. That returns a
+  // unit-of-work accumulator that only writes on `.emit()`, so a module-scoped
+  // one never emits: every line below would go nowhere, including the signature
+  // failure that is the sole signal a paying user was silently not upgraded.
+  const log = c.get("log");
   const client = dodoClient();
   // Billing unconfigured is the self-host default, and a 404 says so honestly
   // rather than pretending to accept events we can't verify.
@@ -82,30 +86,44 @@ dodoWebhookRoute.post("/", async (c) => {
     log.warn("Retrying a Dodo webhook whose earlier attempt failed");
   }
 
+  let skipped: string | null;
   try {
     // Concurrent deliveries of the same event can both reach this. That's safe:
     // the subscription upsert is idempotent and guarded on `lastEventAt`.
-    await handleEvent(event);
+    skipped = await handleEvent(event, log);
   } catch (error) {
+    // Read the cause out BEFORE logging. evlog rewrites the message of an Error
+    // passed as a field to the log's own message, so reading it afterwards stores
+    // "Dodo webhook handler failed" for every failure and loses the one detail
+    // this column exists to keep.
+    const reason = error instanceof Error ? error.message : String(error);
     log.error("Dodo webhook handler failed", { error });
     // Kept, with the reason, so a stuck event is greppable. `processedAt` stays
     // null, so Dodo's retry will run the handler again rather than short-circuit.
-    await db
-      .update(webhookEvent)
-      .set({ error: error instanceof Error ? error.message : String(error) })
-      .where(eq(webhookEvent.id, webhookId));
+    await db.update(webhookEvent).set({ error: reason }).where(eq(webhookEvent.id, webhookId));
     return c.json({ error: "Webhook processing failed" }, 500);
   }
 
+  // `processedAt` is set either way, so a permanently unapplicable event isn't
+  // redelivered forever -- but a skip reason is recorded rather than being
+  // indistinguishable from a real sync. `processed_at IS NOT NULL AND error IS
+  // NOT NULL` is exactly "accepted, deliberately not applied"; the failure path
+  // above is the opposite pair and still invites a retry.
+  if (skipped) log.warn("Dodo webhook accepted but not applied", { dodo: { skipped } });
+
   await db
     .update(webhookEvent)
-    .set({ processedAt: new Date(), error: null })
+    .set({ processedAt: new Date(), error: skipped })
     .where(eq(webhookEvent.id, webhookId));
 
   return c.json({ received: true });
 });
 
-async function handleEvent(event: UnwrapWebhookEvent): Promise<void> {
+/** Returns null when the event was applied, or the reason it deliberately wasn't. */
+async function handleEvent(
+  event: UnwrapWebhookEvent,
+  log: AuditableLogger,
+): Promise<string | null> {
   const eventAt = new Date(event.timestamp);
 
   switch (event.type) {
@@ -120,8 +138,7 @@ async function handleEvent(event: UnwrapWebhookEvent): Promise<void> {
     case "subscription.failed":
     case "subscription.cancelled":
     case "subscription.expired":
-      await upsertSubscription(event.data, eventAt);
-      return;
+      return await upsertSubscription(event.data, eventAt, log);
 
     // Log-only, for reconciling our ledger against Dodo payouts. Entitlement
     // never moves on a payment event: `subscription.*` is the authority, and
@@ -131,16 +148,15 @@ async function handleEvent(event: UnwrapWebhookEvent): Promise<void> {
       log.info("Dodo payment event", {
         dodo: { paymentId: event.data.payment_id, amount: event.data.total_amount },
       });
-      return;
+      return null;
 
     // Money went back, so access and credits go with it, immediately -- not at
     // period end the way a cancellation does.
     case "refund.succeeded":
-      await clawback(event.data, eventAt);
-      return;
+      return await clawback(event.data, eventAt, log);
 
     default:
       log.info("Unhandled Dodo webhook event");
-      return;
+      return null;
   }
 }

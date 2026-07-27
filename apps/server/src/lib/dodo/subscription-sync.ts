@@ -6,19 +6,19 @@
  * an event *means* for entitlement. They change for unrelated reasons -- a Dodo
  * API shape change touches this file, a Standard Webhooks change touches that one.
  *
- * Only the webhook handler should call these. Entitlement follows what Dodo says
- * happened, never what a client claims.
+ * Two callers only: the webhook handler, and `POST /api/billing/reconcile` (the
+ * post-checkout confirmation, which verifies ownership against Dodo's copy before
+ * calling in). Entitlement follows what Dodo says happened, never what a client
+ * claims -- which is why neither caller passes anything a browser supplied.
  */
 import { and, db, eq, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
 import { subscription, type SubscriptionStatus } from "@OpenDiagram/db/schema/subscription";
 import type { Refund } from "dodopayments/resources/refunds";
 import type { Subscription } from "dodopayments/resources/subscriptions";
-import { createLogger } from "evlog";
+import type { AuditableLogger } from "evlog";
 import { exhaustCreationQuota, getUserActor } from "../quota";
 import { dodoClient, planIdForProduct } from "./client";
-
-const log = createLogger({ module: "dodo-sync" });
 
 /**
  * Resolves the Dodo customer back to our user.
@@ -40,24 +40,47 @@ async function resolveUserId(data: Subscription): Promise<string | null> {
   return row?.id ?? null;
 }
 
-export async function upsertSubscription(data: Subscription, eventAt: Date): Promise<void> {
+/** Returns null once the row mirrors Dodo, or the reason it was left untouched. */
+export async function upsertSubscription(
+  data: Subscription,
+  eventAt: Date,
+  log: AuditableLogger,
+  /**
+   * `insertOnly` writes the row only when none exists, and touches nothing when
+   * one does. It is for the post-checkout reconcile, which reads a snapshot with
+   * no provider timestamp attached: any watermark it invents is either in our
+   * clock domain (and can then out-rank a genuinely later webhook when our clock
+   * runs ahead of Dodo's) or is `created_at` (and is then out-ranked by every
+   * webhook the subscription will ever emit). Not competing at all is the way out
+   * -- reconcile exists to grant the *initial* entitlement, and once a row exists
+   * the webhook has already spoken.
+   */
+  options: { insertOnly?: boolean } = {},
+): Promise<string | null> {
   const userId = await resolveUserId(data);
   if (!userId) {
     // Not an error we can retry out of, so don't 500 and invite Dodo to hammer
     // us: record it and move on. A subscription we can't attribute is a support
-    // ticket, not a transient failure.
+    // ticket, not a transient failure. The returned reason is what stops it
+    // being filed as a successful sync.
     log.warn("Dodo subscription could not be matched to a user", {
       dodo: { subscriptionId: data.subscription_id, email: data.customer.email },
     });
-    return;
+    return "subscription could not be matched to a user";
   }
 
   const planId = planIdForProduct(data.product_id);
   if (!planId) {
-    log.warn("Dodo subscription references an unknown product", {
-      dodo: { subscriptionId: data.subscription_id, productId: data.product_id },
-    });
-    return;
+    // Thrown, not returned as a skip. Unlike an unattributable user this is a
+    // *configuration* fault -- the live-mode shape of it is a wrong
+    // `DODO_PRO_PRODUCT_ID`, which hits every payer -- and it is fixable by
+    // editing an env var. Marking it processed would strand every affected
+    // subscription: the fix would land and the redelivery, including a manual
+    // replay from the Dodo dashboard, would short-circuit as a duplicate.
+    // Throwing keeps `processedAt` null, so a retry re-runs the handler.
+    throw new Error(
+      `Dodo subscription ${data.subscription_id} references unknown product ${data.product_id}`,
+    );
   }
 
   const row = {
@@ -74,6 +97,14 @@ export async function upsertSubscription(data: Subscription, eventAt: Date): Pro
     lastEventAt: eventAt,
     recurringAmountCents: data.recurring_pre_tax_amount,
   };
+
+  if (options.insertOnly) {
+    await db.insert(subscription).values(row).onConflictDoNothing({ target: subscription.id });
+    log.info("Dodo subscription seeded", {
+      dodo: { subscriptionId: data.subscription_id, status: row.status, planId },
+    });
+    return null;
+  }
 
   await db
     .insert(subscription)
@@ -98,6 +129,7 @@ export async function upsertSubscription(data: Subscription, eventAt: Date): Pro
   log.info("Dodo subscription synced", {
     dodo: { subscriptionId: data.subscription_id, status: row.status, planId },
   });
+  return null;
 }
 
 /**
@@ -112,9 +144,13 @@ export async function upsertSubscription(data: Subscription, eventAt: Date): Pro
  * A failed lookup throws, which the webhook route turns into a 500 so Dodo retries.
  * Guessing the subscription is worse than being redelivered.
  */
-export async function clawback(refund: Refund, eventAt: Date): Promise<void> {
+export async function clawback(
+  refund: Refund,
+  eventAt: Date,
+  log: AuditableLogger,
+): Promise<string | null> {
   const client = dodoClient();
-  if (!client) return;
+  if (!client) return "billing is not configured";
 
   // A partial refund is a goodwill gesture or a proration, not an unwind of the sale.
   // Ending the period and burning the fallback window over one would take the whole
@@ -123,7 +159,8 @@ export async function clawback(refund: Refund, eventAt: Date): Promise<void> {
     log.info("Dodo partial refund leaves entitlement in place", {
       dodo: { paymentId: refund.payment_id, refundId: refund.refund_id },
     });
-    return;
+    // Intentional and correct, not a skip worth flagging.
+    return null;
   }
 
   const payment = await client.payments.retrieve(refund.payment_id);
@@ -133,7 +170,7 @@ export async function clawback(refund: Refund, eventAt: Date): Promise<void> {
     log.info("Dodo refund was not for a subscription payment", {
       dodo: { paymentId: refund.payment_id },
     });
-    return;
+    return null;
   }
   const subscriptionId = payment.subscription_id;
 
@@ -170,7 +207,7 @@ export async function clawback(refund: Refund, eventAt: Date): Promise<void> {
     log.warn("Dodo refund matched no subscription to claw back", {
       dodo: { subscriptionId, paymentId: refund.payment_id },
     });
-    return;
+    return `refund matched no subscription (${subscriptionId})`;
   }
 
   for (const { userId } of rows) {
@@ -189,4 +226,5 @@ export async function clawback(refund: Refund, eventAt: Date): Promise<void> {
     await exhaustCreationQuota(actor);
     log.info("Dodo refund clawback applied", { dodo: { subscriptionId }, userId });
   }
+  return null;
 }

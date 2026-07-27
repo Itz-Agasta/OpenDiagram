@@ -21,8 +21,6 @@ import {
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
 import { createLogger } from "evlog";
 
-const log = createLogger({ module: "projects" });
-
 const createSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
@@ -69,7 +67,11 @@ const contextQuerySchema = z.object({
 
 function markProjectMemoryPendingSafely(projectId: string, userId: string) {
   void markProjectMemoryPending(projectId, userId).catch((error) => {
+    // Detached from the request on purpose, so it can outlive the response and
+    // the request logger that is sealed with it. Its own event, emitted here.
+    const log = createLogger({ module: "projects", project: { id: projectId }, userId });
     log.error("Failed to mark project memory pending", { error });
+    log.emit();
   });
 }
 

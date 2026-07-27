@@ -7,7 +7,28 @@ import { generateArchitectureDoc, generateDiagramSpec, type AiCallOptions } from
 import { getProjectMemoryContext } from "./project-memory";
 import { createLogger } from "evlog";
 
-const log = createLogger({ module: "repo-generation" });
+/**
+ * Repo generation spans several requests plus a detached run, so there is no one
+ * request logger to hang these on. A module-level `createLogger()` is the wrong
+ * shape too: it is a unit-of-work accumulator that writes nothing until `emit()`,
+ * so as a long-lived singleton it dropped every line below and grew its buffer
+ * for the life of the process. Each notice is its own event instead, emitted on
+ * the spot, which keeps all the call sites below unchanged.
+ */
+const log = {
+  info(message: string, fields?: Record<string, unknown>) {
+    // `module` last: a caller's `fields` must not be able to rename the module.
+    const entry = createLogger({ ...fields, module: "repo-generation" });
+    entry.info(message);
+    entry.emit();
+  },
+  error(message: string, fields?: Record<string, unknown>) {
+    // `module` last: a caller's `fields` must not be able to rename the module.
+    const entry = createLogger({ ...fields, module: "repo-generation" });
+    entry.error(message);
+    entry.emit();
+  },
+};
 
 type RepoGenerationStatus = "queued" | "planning" | "creating" | "generating" | "done" | "failed";
 type RepoGenerationTaskStatus = "pending" | "active" | "complete" | "failed";
