@@ -9,7 +9,6 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { createLogger } from "evlog";
 
-const log = createLogger({ module: "github-import" });
 import { indexRepositoryMemory } from "../lib/project-memory";
 import { peekCreationQuotaActor } from "../lib/quota";
 import { cleanupRepositoryClone, cloneAndBuildRepositoryDoc } from "../lib/repo-documentation";
@@ -315,6 +314,14 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
   if (!job) return;
   let repoPathToCleanup: string | null = null;
 
+  // An import job is its own unit of work, outliving nothing but owning enough
+  // steps to deserve one wide event. `createLogger` accumulates and only writes
+  // on `emit()` -- which the `finally` below guarantees, however this exits.
+  const log = createLogger({
+    module: "github-import",
+    job: { id: job.id, repo: input.repo.full_name },
+  });
+
   try {
     const importedAt = new Date().toISOString();
     await updateImportJob(job.id, { status: "cloning", message: "Cloning repository to server" });
@@ -398,6 +405,7 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
         log.error("Failed to clean up repository clone", { error });
       });
     }
+    log.emit();
   }
 }
 

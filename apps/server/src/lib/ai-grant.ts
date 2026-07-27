@@ -12,13 +12,11 @@
  * Streaming routes (`routes/diagram.ts`) call `enforceAiQuota` directly, because
  * they settle from `onFinish`/`onError` callbacks rather than around an await.
  */
+import type { AuditableLogger } from "evlog";
 import type { Context } from "hono";
-import { createLogger } from "evlog";
 import { resolveModel } from "./ai-provider/resolve";
 import { enforceAiQuota, quotaErrorResponse } from "./quota";
 import type { AiCallOptions, AiUsage } from "./repo-ai";
-
-const log = createLogger({ module: "ai-grant" });
 
 export type AiGrant = {
   /** Pass to a repo-ai helper so it runs on the resolved model, not the platform default. */
@@ -42,12 +40,13 @@ export type AiGrant = {
  * `meter: false` resolves a model but takes no credit — for work already paid for
  * on a previous request, such as resuming an in-flight repo generation.
  */
-export async function takeAiGrant(
-  c: Context,
+export async function takeAiGrant<E extends { Variables: { log: AuditableLogger } }>(
+  c: Context<E>,
   userId: string,
   route: string,
   options: { meter?: boolean } = {},
 ): Promise<AiGrant | Response> {
+  const log = c.get("log");
   let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
     resolved = await resolveModel(userId);
