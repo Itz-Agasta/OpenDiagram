@@ -1,13 +1,6 @@
 import Image from "next/image";
 import { Link2 } from "lucide-react";
-import { GithubLogoIcon, LinkedinLogoIcon, TwitterLogoIcon } from "@phosphor-icons/react";
 import type { BlogAuthor } from "@/lib/blog";
-
-const SOCIAL_ICONS = {
-  github: GithubLogoIcon,
-  linkedin: LinkedinLogoIcon,
-  x: TwitterLogoIcon,
-} as const;
 
 function socialUrl(network: string, value: string) {
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
@@ -48,7 +41,6 @@ export function BlogAuthor({ author, compact = false }: { author: BlogAuthor; co
         {!compact && Object.keys(author.socials).length > 0 && (
           <div className="mt-1.5 flex items-center gap-2">
             {Object.entries(author.socials).map(([network, handle]) => {
-              const Icon = SOCIAL_ICONS[network as keyof typeof SOCIAL_ICONS] ?? Link2;
               return (
                 <a
                   key={network}
@@ -58,7 +50,7 @@ export function BlogAuthor({ author, compact = false }: { author: BlogAuthor; co
                   aria-label={`${author.name} on ${network}`}
                   className="rounded-md p-1 text-black/45 transition-colors hover:bg-black/[0.05] hover:text-[#ff4a2c]"
                 >
-                  <Icon className="h-5 w-5" />
+                  <Link2 className="h-5 w-5" />
                 </a>
               );
             })}
