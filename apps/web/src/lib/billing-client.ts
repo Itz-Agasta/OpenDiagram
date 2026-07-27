@@ -40,6 +40,23 @@ export async function startCheckout(discountCode?: string): Promise<string> {
   return checkoutUrl;
 }
 
+/**
+ * Confirms a just-completed checkout so Pro appears without waiting on the webhook.
+ * The id comes from Dodo's own `return_url` params; the server re-reads it from
+ * Dodo and checks ownership, so nothing here is trusted.
+ */
+export async function reconcileCheckout(subscriptionId: string): Promise<BillingState["planId"]> {
+  const response = await fetch(`${BASE}/reconcile`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscriptionId }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Could not confirm your upgrade."));
+  const { planId } = (await response.json()) as { planId: BillingState["planId"] };
+  return planId;
+}
+
 /** Returns the Dodo-hosted portal URL: cancel, resume, card, invoices. */
 export async function openBillingPortal(): Promise<string> {
   const response = await fetch(`${BASE}/portal`, {
