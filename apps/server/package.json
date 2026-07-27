@@ -24,6 +24,7 @@
     "@sentry/hono": "10.68.0",
     "ai": "catalog:",
     "better-auth": "catalog:",
+    "dodopayments": "^2.43.0",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
     "elkjs": "^0.11.1",

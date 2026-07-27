@@ -11,12 +11,14 @@ import { cors } from "hono/cors";
 // Registers the AI SDK's OpenTelemetry integration; must load before any AI call.
 import "./lib/telemetry";
 import { aiSettingsRoute } from "./routes/ai-settings";
+import { billingRoute } from "./routes/billing";
 import { diagramRoute } from "./routes/diagram";
 import { githubImportRoute, githubRoute } from "./routes/github";
 import { orchestrateRoute } from "./routes/orchestrate";
 import { projectsRoute } from "./routes/projects";
 import { usageRoute } from "./routes/usage";
 import { waitlistRoute } from "./routes/waitlist";
+import { dodoWebhookRoute } from "./routes/webhooks/dodo";
 
 initLogger({
   env: { service: "OpenDiagram-server" },
@@ -112,6 +114,10 @@ app.route("/api/projects", projectsRoute);
 app.route("/api/usage", usageRoute);
 app.route("/api/waitlist", waitlistRoute);
 app.route("/api/settings/ai", aiSettingsRoute);
+app.route("/api/billing", billingRoute);
+// Server-to-server, signature-verified, no session. The registered Dodo endpoint
+// points at this exact path.
+app.route("/api/webhooks/dodo", dodoWebhookRoute);
 
 export default {
   // Two slow paths share this: GitHub's OAuth token exchange (>10s on slow

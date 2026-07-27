@@ -22,6 +22,17 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
   const expandInitRef = useRef(false);
   const isSignedIn = Boolean(user);
 
+  // Hydration guard. Two of this hook's inputs only exist in the browser:
+  // `useSession` can resolve synchronously from its client store, and guest drafts
+  // come from localStorage via the effect below. So the server renders skeletons
+  // while the client's first render already knows there are no projects, and React
+  // reports a mismatch on the empty-state button in ProjectTree.
+  //
+  // Reporting `loading` until after mount makes the first client render identical
+  // to the server's. Safe because `loading` only ever selects a skeleton.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => setGuestDrafts(listGuestProjectDrafts()), []);
 
   useEffect(() => {
@@ -138,7 +149,8 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
     filteredProjects,
     guestDrafts,
     isSignedIn,
-    loading: sessionPending || (isSignedIn && !savedProjectsLoaded) || savedProjectsLoading,
+    loading:
+      !mounted || sessionPending || (isSignedIn && !savedProjectsLoaded) || savedProjectsLoading,
     projectSearch,
     projects,
     savedProjects,

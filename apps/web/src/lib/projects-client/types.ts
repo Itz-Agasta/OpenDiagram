@@ -120,4 +120,6 @@ export type CreationQuota = {
   used: number;
   remaining: number;
   resetAt: string | null;
+  /** Credits signing up is worth, for the guest upsell. From the plan table. */
+  signupCredits?: number;
 };

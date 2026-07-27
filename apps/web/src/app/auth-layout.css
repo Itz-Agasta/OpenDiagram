@@ -19,6 +19,20 @@
   grid-template-columns: 1fr 1fr;
 }
 
+/* Password reset: one card, no visual pane to balance it against. */
+.stage[data-layout="single"] {
+  display: grid;
+  place-items: center;
+}
+
+.stage[data-layout="single"] .pane-form {
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+}
+
 .stage[data-layout="split"] .pane-form {
   display: grid;
   place-items: center;

@@ -11,6 +11,7 @@ import { createLogger } from "evlog";
 
 const log = createLogger({ module: "github-import" });
 import { indexRepositoryMemory } from "../lib/project-memory";
+import { peekCreationQuotaActor } from "../lib/quota";
 import { cleanupRepositoryClone, cloneAndBuildRepositoryDoc } from "../lib/repo-documentation";
 
 type GitHubRepository = {
@@ -131,6 +132,21 @@ async function importGitHubRepository(c: Context) {
 
   if (!authResult) {
     return c.json({ error: "Connect GitHub before importing repositories." }, 401);
+  }
+
+  // Pro only, and unlike the diagram quota this is not a BYOK carve-out: the
+  // expensive part is the clone, parse, and Cognee embedding on our infra, which
+  // costs the same whoever's inference key gets used afterwards. It is also the
+  // intended upgrade trigger, so it ships with billing rather than after it.
+  const actor = await peekCreationQuotaActor(c, { userId: authResult.userId });
+  if (actor?.planId !== "pro") {
+    return c.json(
+      {
+        error: "Importing a GitHub repository is a Pro feature. Upgrade to import your codebase.",
+        code: "pro_required",
+      },
+      403,
+    );
   }
 
   const body = await c.req.json().catch(() => null);

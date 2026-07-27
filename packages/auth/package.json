@@ -15,6 +15,7 @@
     "@OpenDiagram/env": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "resend": "^6.18.0",
     "zod": "catalog:"
   },
   "devDependencies": {

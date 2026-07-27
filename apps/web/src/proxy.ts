@@ -20,5 +20,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/settings/:path*"],
+  // `/pricing` is here because it reads the signed-in user's plan from an
+  // authenticated endpoint. Left open, a signed-out visitor got the raw
+  // "Unauthorized" billing error where the plans should be.
+  matcher: ["/dashboard/settings/:path*", "/pricing"],
 };
