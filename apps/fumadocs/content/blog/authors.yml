@@ -1,0 +1,8 @@
+opendiagram:
+  name: OpenDiagram Team
+  title: Maintainers of OpenDiagram
+  image_url: /brand/logo.png
+  url: https://opendiagram.ink
+  page: true
+  socials:
+    github: Itz-Agasta/OpenDiagram

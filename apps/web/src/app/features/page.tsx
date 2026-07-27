@@ -7,16 +7,16 @@ import { MarketingPage } from "@/components/marketing/marketing-page";
 import { assetUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "BYOK, ERD, Flowchart & Architecture Diagrams",
+  title: "Text to Diagram, ERD Maker & Flowchart Generator | OpenDiagram",
   description:
-    "Bring your own AI API keys, build ERDs and flowcharts, and keep software architecture editable with project context—OpenDiagram, open source and provider-agnostic.",
+    "Turn plain text into ERDs, flowcharts, and architecture diagrams you can keep editing.",
   alternates: { canonical: "/features" },
   openGraph: {
     type: "website",
     url: "/features",
-    title: "BYOK, ERD, Flowchart & Architecture Diagrams | OpenDiagram",
+    title: "Text to Diagram, ERD Maker & Flowchart Generator | OpenDiagram",
     description:
-      "Connect OpenAI, Anthropic, or Gemini with your own keys. Generate ERDs and flowcharts, then evolve diagrams with retained project context.",
+      "Turn plain text into ERDs, flowcharts, and architecture diagrams you can keep editing.",
     images: [
       {
         url: assetUrl("/marketing/features/dashboard.png"),
