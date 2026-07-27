@@ -18,6 +18,12 @@ import { reconcileCheckout } from "@/lib/billing-client";
  * the subscription from Dodo and verifies it belongs to the session before writing.
  * The webhook remains the authority for everything after this moment.
  */
+/**
+ * Statuses that mean this purchase is over, so there is nothing left to wait for.
+ * `pending` is deliberately absent -- that one really does resolve on the webhook.
+ */
+const TERMINAL_STATUSES = new Set(["failed", "expired", "cancelled"]);
+
 export function CheckoutReturn() {
   const router = useRouter();
   const params = useSearchParams();
@@ -50,13 +56,21 @@ export function CheckoutReturn() {
     }
 
     void reconcileCheckout(subscriptionId)
-      .then((planId) => {
+      .then(({ planId, status }) => {
         if (!live) return;
         if (planId === "pro") {
           toast.success("You're on Pro.", { description: "Your credits have been topped up." });
+        } else if (TERMINAL_STATUSES.has(status)) {
+          // Nothing is coming. Dodo's `failed` means the mandate could not be
+          // created at all, and it is not recoverable -- the customer has to start
+          // a new subscription. Saying "confirming shortly" here leaves someone
+          // waiting for an upgrade that will never arrive.
+          toast.error("That payment didn't go through.", {
+            description: "No charge was made. You can try again with another payment method.",
+          });
         } else {
-          // Payment went through but entitlement hasn't landed -- almost always the
-          // subscription still being `pending` at Dodo. The webhook will finish it.
+          // Still `pending` at Dodo. This one really is a wait -- the webhook
+          // finishes it.
           toast.info("Payment received.", {
             description: "Your upgrade is being confirmed and will appear shortly.",
           });

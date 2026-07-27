@@ -45,7 +45,11 @@ export async function startCheckout(discountCode?: string): Promise<string> {
  * The id comes from Dodo's own `return_url` params; the server re-reads it from
  * Dodo and checks ownership, so nothing here is trusted.
  */
-export async function reconcileCheckout(subscriptionId: string): Promise<BillingState["planId"]> {
+export async function reconcileCheckout(subscriptionId: string): Promise<{
+  planId: BillingState["planId"];
+  /** Dodo's subscription status. Needed to tell "not yet" apart from "never". */
+  status: NonNullable<BillingState["subscription"]>["status"];
+}> {
   const response = await fetch(`${BASE}/reconcile`, {
     method: "POST",
     credentials: "include",
@@ -53,8 +57,7 @@ export async function reconcileCheckout(subscriptionId: string): Promise<Billing
     body: JSON.stringify({ subscriptionId }),
   });
   if (!response.ok) throw new Error(await readError(response, "Could not confirm your upgrade."));
-  const { planId } = (await response.json()) as { planId: BillingState["planId"] };
-  return planId;
+  return response.json();
 }
 
 /** Returns the Dodo-hosted portal URL: cancel, resume, card, invoices. */
