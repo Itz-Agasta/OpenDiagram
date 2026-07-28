@@ -83,7 +83,11 @@ async function increment(key: CounterKey, limit: number): Promise<number | null>
         creationUsage.windowStart,
       ],
       set: { count: sql`${creationUsage.count} + 1`, updatedAt: new Date() },
-      where: sql`${creationUsage.count} < ${limit}`,
+      // `setWhere`, not the @deprecated `where` -- see the note in
+      // lib/dodo/subscription-sync.ts. This clause is the entire reason parallel
+      // requests cannot both take the last credit, so it must not be able to drift
+      // onto the conflict target and become an index predicate.
+      setWhere: sql`${creationUsage.count} < ${limit}`,
     })
     .returning({ count: creationUsage.count });
   return row?.count ?? null;

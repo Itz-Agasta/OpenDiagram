@@ -25,7 +25,7 @@ import type { AuditableLogger } from "evlog";
 import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { dodoClient } from "../../lib/dodo";
-import { clawback, upsertSubscription } from "../../lib/dodo/subscription-sync";
+import { clawback, clawbackForDispute, upsertSubscription } from "../../lib/dodo/subscription-sync";
 
 export const dodoWebhookRoute = new Hono<EvlogVariables>();
 
@@ -50,8 +50,18 @@ dodoWebhookRoute.post("/", async (c) => {
     // Alert on this. A 401 here means paid users silently never get upgraded:
     // the most likely cause is a test-mode secret left in place after the switch
     // to live, and nothing else in the system would surface it.
-    log.error("Dodo webhook signature verification failed", {
-      error,
+    //
+    // The Error goes in as the FIRST argument, which is evlog's documented shape
+    // (`log.error(err, { context })`) and the only one that keeps the reason:
+    // it lands as `error.message` with the context merged alongside. Passing a
+    // string first and `{ error }` as context -- which reads more naturally and is
+    // what this used to do -- overwrites the error context with a raw Error, and
+    // an Error JSON-serialises to `{}`. Measured on this exact endpoint: that
+    // shape emitted `"error":{}` with no message at all, so the Sentry alert this
+    // line exists to feed would have said only "401 on /api/webhooks/dodo".
+    // Telling "wrong secret" from "timestamp outside tolerance" is the entire
+    // value of that alert, especially in the hours after the live-mode switch.
+    log.error(error instanceof Error ? error : String(error), {
       dodo: { webhookId: headers["webhook-id"] },
     });
     return c.json({ error: "Invalid signature" }, 401);
@@ -92,12 +102,11 @@ dodoWebhookRoute.post("/", async (c) => {
     // the subscription upsert is idempotent and guarded on `lastEventAt`.
     skipped = await handleEvent(event, log);
   } catch (error) {
-    // Read the cause out BEFORE logging. evlog rewrites the message of an Error
-    // passed as a field to the log's own message, so reading it afterwards stores
-    // "Dodo webhook handler failed" for every failure and loses the one detail
-    // this column exists to keep.
+    // Read the cause out BEFORE logging. evlog rewrites the message of the Error
+    // it captures, so reading it afterwards stores the log's own wording and
+    // loses the one detail this column exists to keep.
     const reason = error instanceof Error ? error.message : String(error);
-    log.error("Dodo webhook handler failed", { error });
+    log.error(error instanceof Error ? error : String(error), { dodo: { stage: "handler" } });
     // Kept, with the reason, so a stuck event is greppable. `processedAt` stays
     // null, so Dodo's retry will run the handler again rather than short-circuit.
     await db.update(webhookEvent).set({ error: reason }).where(eq(webhookEvent.id, webhookId));
@@ -138,6 +147,9 @@ async function handleEvent(
     case "subscription.failed":
     case "subscription.cancelled":
     case "subscription.expired":
+    // Carries a full Subscription like the rest, so it costs nothing to keep the
+    // row in sync rather than discarding the payload.
+    case "subscription.update_payment_method":
       return await upsertSubscription(event.data, eventAt, log);
 
     // Log-only, for reconciling our ledger against Dodo payouts. Entitlement
@@ -154,6 +166,21 @@ async function handleEvent(
     // period end the way a cancellation does.
     case "refund.succeeded":
       return await clawback(event.data, eventAt, log);
+
+    // A chargeback is a refund we did not choose, and **no `refund.*` event fires
+    // for one** -- so without these two the clawback above never runs and someone
+    // who disputed the charge keeps Pro until the period ends. `dispute.lost` is
+    // the network deciding for the cardholder; `dispute.accepted` is us not
+    // contesting. Dodo's docs are explicit that both mean the funds are gone and
+    // access should stay revoked, and RDR auto-resolutions arrive as `dispute.lost`.
+    //
+    // Deliberately NOT acting on `dispute.opened`: the money is only held at that
+    // point, and a dispute we go on to win would have to be un-revoked, which is a
+    // restore path with no natural trigger. Waiting for the terminal event keeps
+    // this one-directional.
+    case "dispute.lost":
+    case "dispute.accepted":
+      return await clawbackForDispute(event.data, eventAt, log);
 
     default:
       log.info("Unhandled Dodo webhook event");

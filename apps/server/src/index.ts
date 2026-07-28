@@ -22,6 +22,12 @@ import { dodoWebhookRoute } from "./routes/webhooks/dodo";
 
 initLogger({
   env: { service: "OpenDiagram-server" },
+  // Explicit, though evlog already defaults this to on in production and the
+  // Dockerfile does set NODE_ENV=production. The billing path logs a customer
+  // email (lib/dodo/subscription-sync.ts), and those events reach Sentry, so
+  // whether that address is masked should not rest on an ENV line in a
+  // Dockerfile that a future deploy target may not reproduce.
+  redact: true,
 });
 
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {

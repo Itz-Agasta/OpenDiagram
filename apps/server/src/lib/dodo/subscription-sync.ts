@@ -13,7 +13,12 @@
  */
 import { and, db, eq, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
-import { subscription, type SubscriptionStatus } from "@OpenDiagram/db/schema/subscription";
+import {
+  subscription,
+  subscriptionStatuses,
+  type SubscriptionStatus,
+} from "@OpenDiagram/db/schema/subscription";
+import type { Dispute } from "dodopayments/resources/disputes";
 import type { Refund } from "dodopayments/resources/refunds";
 import type { Subscription } from "dodopayments/resources/subscriptions";
 import type { AuditableLogger } from "evlog";
@@ -83,6 +88,16 @@ export async function upsertSubscription(
     );
   }
 
+  // Validated, not cast. `text(..., { enum })` is a TypeScript-only constraint --
+  // there is no CHECK on this column (confirmed against the live database) -- so a
+  // status Dodo adds later would be written straight through, land outside
+  // `ENTITLING_SUBSCRIPTION_STATUSES`, and silently de-entitle a paying customer.
+  // Throwing instead takes the same path as an unknown product: `processedAt` stays
+  // null, so the event is redelivered once the new status is understood.
+  if (!(subscriptionStatuses as readonly string[]).includes(data.status)) {
+    throw new Error(`Dodo subscription ${data.subscription_id} has unknown status ${data.status}`);
+  }
+
   const row = {
     id: data.subscription_id,
     userId,
@@ -123,7 +138,16 @@ export async function upsertSubscription(
       },
       // The ordering guard: a redelivered older event is dropped rather than
       // rolling a cancellation back to active.
-      where: sql`${subscription.lastEventAt} <= ${eventAt.toISOString()}`,
+      //
+      // `setWhere`, not `where`. Both currently emit the same
+      // `DO UPDATE SET ... WHERE` clause -- verified by generating the SQL -- but
+      // `where` is @deprecated in drizzle 0.45.2 in favour of an explicit
+      // `targetWhere`/`setWhere` split. The two mean very different things: on the
+      // conflict target this would be an index predicate, not a guard on the row
+      // being overwritten. Naming it explicitly means a future drizzle release
+      // cannot quietly reinterpret the clause that stops a replayed
+      // `subscription.active` resurrecting a cancelled subscription.
+      setWhere: sql`${subscription.lastEventAt} <= ${eventAt.toISOString()}`,
     });
 
   log.info("Dodo subscription synced", {
@@ -152,18 +176,31 @@ export async function clawback(
   const client = dodoClient();
   if (!client) return "billing is not configured";
 
+  const payment = await client.payments.retrieve(refund.payment_id);
+
   // A partial refund is a goodwill gesture or a proration, not an unwind of the sale.
   // Ending the period and burning the fallback window over one would take the whole
   // month's access away for a few dollars back.
-  if (refund.is_partial) {
+  //
+  // Two signals, either of which means the sale is fully unwound, because neither
+  // alone is sufficient. `refund.is_partial` is Dodo's classification of *this*
+  // refund, so a payment refunded in two partial instalments is never `false` on
+  // either one and would keep entitlement forever. `payment.refund_status` is the
+  // running total on the payment and catches that, but it is optional in the SDK
+  // (`'partial' | 'full' | undefined`), so it cannot be the only test either.
+  const fullyRefunded = payment.refund_status === "full" || refund.is_partial === false;
+  if (!fullyRefunded) {
     log.info("Dodo partial refund leaves entitlement in place", {
-      dodo: { paymentId: refund.payment_id, refundId: refund.refund_id },
+      dodo: {
+        paymentId: refund.payment_id,
+        refundId: refund.refund_id,
+        refundStatus: payment.refund_status ?? null,
+      },
     });
     // Intentional and correct, not a skip worth flagging.
     return null;
   }
 
-  const payment = await client.payments.retrieve(refund.payment_id);
   if (!payment.subscription_id) {
     // We only sell subscriptions, so a one-time payment refund has no entitlement
     // attached to reverse.
@@ -172,8 +209,52 @@ export async function clawback(
     });
     return null;
   }
-  const subscriptionId = payment.subscription_id;
+  return await revokeSubscription(payment.subscription_id, eventAt, log, {
+    paymentId: refund.payment_id,
+    cause: "refund",
+  });
+}
 
+/**
+ * A lost or accepted chargeback: the cardholder has their money back.
+ *
+ * Economically identical to a full refund, but it arrives as a `dispute.*` event
+ * and **no `refund.*` event ever fires**, so without this the clawback above never
+ * runs and the customer keeps Pro for free. Dodo's dispute docs are explicit that
+ * `dispute.lost` means "funds returned to the cardholder -- reconcile and keep
+ * access revoked", and disputes auto-resolved through Visa RDR also surface here.
+ *
+ * `Dispute` carries `payment_id` but no `subscription_id`, so it resolves the same
+ * way the refund path does.
+ */
+export async function clawbackForDispute(
+  dispute: Dispute,
+  eventAt: Date,
+  log: AuditableLogger,
+): Promise<string | null> {
+  const client = dodoClient();
+  if (!client) return "billing is not configured";
+
+  const payment = await client.payments.retrieve(dispute.payment_id);
+  if (!payment.subscription_id) {
+    log.info("Dodo dispute was not for a subscription payment", {
+      dodo: { paymentId: dispute.payment_id, disputeId: dispute.dispute_id },
+    });
+    return null;
+  }
+  return await revokeSubscription(payment.subscription_id, eventAt, log, {
+    paymentId: dispute.payment_id,
+    cause: "dispute",
+  });
+}
+
+/** Ends the period now and burns the window the user falls back onto. */
+async function revokeSubscription(
+  subscriptionId: string,
+  eventAt: Date,
+  log: AuditableLogger,
+  context: { paymentId: string; cause: "refund" | "dispute" },
+): Promise<string | null> {
   const rows = await db
     .update(subscription)
     .set({
@@ -204,10 +285,10 @@ export async function clawback(
   // Only rows this event actually updated are clawed back -- a row skipped by the
   // ordering guard keeps whatever a newer event said, credits included.
   if (rows.length === 0) {
-    log.warn("Dodo refund matched no subscription to claw back", {
-      dodo: { subscriptionId, paymentId: refund.payment_id },
+    log.warn("Dodo clawback matched no subscription", {
+      dodo: { subscriptionId, paymentId: context.paymentId, cause: context.cause },
     });
-    return `refund matched no subscription (${subscriptionId})`;
+    return `${context.cause} matched no subscription (${subscriptionId})`;
   }
 
   for (const { userId } of rows) {
@@ -215,16 +296,16 @@ export async function clawback(
     // just fell back onto rather than the Pro one they no longer have.
     const actor = await getUserActor(userId);
     if (actor.planId === "pro") {
-      // They resubscribed before this refund arrived. The refunded period is ended
+      // They resubscribed before this event arrived. The reversed period is ended
       // above, but the window they are on now is paid for and not ours to burn.
-      log.warn("Dodo refund clawback skipped: user has another paid subscription", {
-        dodo: { subscriptionId },
+      log.warn("Dodo clawback skipped: user has another paid subscription", {
+        dodo: { subscriptionId, cause: context.cause },
         userId,
       });
       continue;
     }
     await exhaustCreationQuota(actor);
-    log.info("Dodo refund clawback applied", { dodo: { subscriptionId }, userId });
+    log.info("Dodo clawback applied", { dodo: { subscriptionId, cause: context.cause }, userId });
   }
   return null;
 }
