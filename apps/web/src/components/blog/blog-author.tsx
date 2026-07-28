@@ -15,7 +15,7 @@ export function BlogAuthor({ author, compact = false }: { author: BlogAuthor; co
   if (compact) {
     return (
       <Image
-        src={author.imageUrl || "/brand/logo.png"}
+        src={author.imageUrl || "/brand/mascot.png"}
         alt={`${author.name} profile picture`}
         width={32}
         height={32}
@@ -28,7 +28,7 @@ export function BlogAuthor({ author, compact = false }: { author: BlogAuthor; co
   return (
     <div className="flex items-center gap-3">
       <Image
-        src={author.imageUrl || "/brand/logo.png"}
+        src={author.imageUrl || "/brand/mascot.png"}
         alt={`${author.name} profile picture`}
         width={44}
         height={44}
