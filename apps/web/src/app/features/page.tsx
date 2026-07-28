@@ -7,16 +7,16 @@ import { MarketingPage } from "@/components/marketing/marketing-page";
 import { assetUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "BYOK, ERD, Flowchart & Architecture Diagrams",
+  title: "Text to Diagram, ERD Maker & Flowchart Generator | OpenDiagram",
   description:
-    "Bring your own AI API keys, build ERDs and flowcharts, and keep software architecture editable with project context—OpenDiagram, open source and provider-agnostic.",
+    "Turn plain text into ERDs, flowcharts, and architecture diagrams you can keep editing.",
   alternates: { canonical: "/features" },
   openGraph: {
     type: "website",
     url: "/features",
-    title: "BYOK, ERD, Flowchart & Architecture Diagrams | OpenDiagram",
+    title: "Text to Diagram, ERD Maker & Flowchart Generator | OpenDiagram",
     description:
-      "Connect OpenAI, Anthropic, or Gemini with your own keys. Generate ERDs and flowcharts, then evolve diagrams with retained project context.",
+      "Turn plain text into ERDs, flowcharts, and architecture diagrams you can keep editing.",
     images: [
       {
         url: assetUrl("/marketing/features/dashboard.png"),
@@ -49,7 +49,7 @@ const showcaseItems = [
       "Model tables, keys, and cardinality as first-class objects—not a one-shot image export. Generate an entity-relationship diagram from a schema description or product brief, then adjust fields, rename entities, and rewire associations when the data model shifts. OpenDiagram is built for ERD work you will open again next sprint, not archive in a slide deck.",
     media: {
       kind: "video" as const,
-      src: assetUrl("/videos/od-erd-tutorial.mp4"),
+      src: assetUrl("/marketing/features/erd-tutorial.mp4"),
       alt: "Tutorial video: generating and editing an entity-relationship diagram (ERD) in OpenDiagram",
     },
   },
@@ -61,7 +61,7 @@ const showcaseItems = [
       "Map onboarding paths, approval chains, incident runbooks, and API request lifecycles as flowcharts you can actually revise. Branch logic, labels, and steps stay on the canvas so product and engineering can debate the path without redrawing from a blank page. Use natural language to draft the flow, then pin the sequence that matches how the system really behaves.",
     media: {
       kind: "video" as const,
-      src: assetUrl("/videos/od-flow-tutorial.mp4"),
+      src: assetUrl("/marketing/features/flow-tutorial.mp4"),
       alt: "Tutorial video: creating and refining a process flowchart in OpenDiagram",
     },
   },

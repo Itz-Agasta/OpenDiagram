@@ -24,7 +24,16 @@ export function SignInFields({ form }: { form: AuthFormController }) {
         </div>
       </Field>
 
-      <Field label="Password" htmlFor="signin-password" error={signIn.errors.password}>
+      <Field
+        label="Password"
+        htmlFor="signin-password"
+        error={signIn.errors.password}
+        hint={
+          <Link className="linklike" href="/reset-password">
+            Forgot password?
+          </Link>
+        }
+      >
         <PasswordInput
           id="signin-password"
           value={signIn.password}

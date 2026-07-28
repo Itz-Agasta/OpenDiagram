@@ -45,6 +45,10 @@ export async function orchestrateWorkspaceRequest(input: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: input.text }),
+      // The endpoint requires a session (it spends a platform key). Web and
+      // server are separate origins in production, so without this the cookie
+      // is never sent and every signed-in user silently falls back to the regex.
+      credentials: "include",
       signal: AbortSignal.timeout(5000),
     });
     const data = await response.json();

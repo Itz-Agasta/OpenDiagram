@@ -7,6 +7,15 @@ const publicAssetUrl = process.env.NEXT_PUBLIC_ASSET_URL
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@OpenDiagram/harness"],
+  async redirects() {
+    return [
+      {
+        source: "/ai-diagram-generator",
+        destination: "/ai-architecture-diagram-generator",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

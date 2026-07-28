@@ -62,3 +62,4 @@ jobs:
         run: bun run build
         env:
           NEXT_PUBLIC_SERVER_URL: "http://localhost:3000"
+          NEXT_PUBLIC_ASSET_URL: "https://assets.example.com"

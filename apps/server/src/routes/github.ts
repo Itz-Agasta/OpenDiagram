@@ -9,8 +9,8 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { createLogger } from "evlog";
 
-const log = createLogger({ module: "github-import" });
 import { indexRepositoryMemory } from "../lib/project-memory";
+import { peekCreationQuotaActor } from "../lib/quota";
 import { cleanupRepositoryClone, cloneAndBuildRepositoryDoc } from "../lib/repo-documentation";
 
 type GitHubRepository = {
@@ -131,6 +131,21 @@ async function importGitHubRepository(c: Context) {
 
   if (!authResult) {
     return c.json({ error: "Connect GitHub before importing repositories." }, 401);
+  }
+
+  // Pro only, and unlike the diagram quota this is not a BYOK carve-out: the
+  // expensive part is the clone, parse, and Cognee embedding on our infra, which
+  // costs the same whoever's inference key gets used afterwards. It is also the
+  // intended upgrade trigger, so it ships with billing rather than after it.
+  const actor = await peekCreationQuotaActor(c, { userId: authResult.userId });
+  if (actor?.planId !== "pro") {
+    return c.json(
+      {
+        error: "Importing a GitHub repository is a Pro feature. Upgrade to import your codebase.",
+        code: "pro_required",
+      },
+      403,
+    );
   }
 
   const body = await c.req.json().catch(() => null);
@@ -299,6 +314,14 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
   if (!job) return;
   let repoPathToCleanup: string | null = null;
 
+  // An import job is its own unit of work, outliving nothing but owning enough
+  // steps to deserve one wide event. `createLogger` accumulates and only writes
+  // on `emit()` -- which the `finally` below guarantees, however this exits.
+  const log = createLogger({
+    module: "github-import",
+    job: { id: job.id, repo: input.repo.full_name },
+  });
+
   try {
     const importedAt = new Date().toISOString();
     await updateImportJob(job.id, { status: "cloning", message: "Cloning repository to server" });
@@ -382,6 +405,7 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
         log.error("Failed to clean up repository clone", { error });
       });
     }
+    log.emit();
   }
 }
 

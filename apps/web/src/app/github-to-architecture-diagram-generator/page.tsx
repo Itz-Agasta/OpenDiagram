@@ -23,6 +23,14 @@ export const metadata: Metadata = {
       },
     ],
   },
+  keywords: [
+    "GitHub to architecture diagram",
+    "GitHub architecture diagram generator",
+    "codebase architecture diagram",
+    "repository architecture visualization",
+    "software architecture from GitHub",
+    "OpenDiagram",
+  ],
 };
 
 const importStepCards = [
@@ -67,6 +75,16 @@ const questions = [
   },
 ];
 
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: questions.map(({ question, answer }) => ({
+    "@type": "Question",
+    name: question,
+    acceptedAnswer: { "@type": "Answer", text: answer },
+  })),
+};
+
 export default function GitHubToArchitectureDiagramGeneratorPage() {
   return (
     <MarketingPage>
@@ -78,13 +96,14 @@ export default function GitHubToArchitectureDiagramGeneratorPage() {
             </p>
             <h1 className="mt-7 max-w-[930px] text-balance text-[50px] font-medium leading-[0.94] tracking-[-0.04em] text-[#1a1a1a] md:text-[76px] lg:text-[92px]">
               Turn a GitHub repository into an{" "}
-              <span className="font-excali font-normal">architecture workspace.</span>
+              <span className="font-excali font-normal">editable architecture diagram.</span>
             </h1>
           </div>
           <div className="max-w-[450px] lg:justify-self-end">
             <p className="text-lg leading-[1.7] text-black/60">
               Move beyond folder trees and scattered README files. Import a public repository,
-              identify its main parts, and review the result as a connected system.
+              identify its main parts, and review the result as a connected system diagram you can
+              edit inside an architecture workspace.
             </p>
             <Link
               href="/import/github"
@@ -166,13 +185,19 @@ export default function GitHubToArchitectureDiagramGeneratorPage() {
             ))}
           </div>
           <Link
-            href="/ai-diagram-generator"
+            href="/ai-architecture-diagram-generator"
             className="mt-12 inline-flex text-sm font-semibold transition-opacity hover:opacity-55"
           >
             No repository yet? Generate a diagram from a prompt&nbsp; →
           </Link>
         </div>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqStructuredData).replace(/</g, "\\u003c"),
+        }}
+      />
     </MarketingPage>
   );
 }

@@ -3,11 +3,32 @@ import { project } from "@OpenDiagram/db/schema/project";
 import { projectFile } from "@OpenDiagram/db/schema/project-file";
 import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagram/harness";
 import { iconRegistry } from "./icons/registry";
-import { generateArchitectureDoc, generateDiagramSpec } from "./repo-ai";
+import { generateArchitectureDoc, generateDiagramSpec, type AiCallOptions } from "./repo-ai";
 import { getProjectMemoryContext } from "./project-memory";
 import { createLogger } from "evlog";
 
-const log = createLogger({ module: "repo-generation" });
+/**
+ * Repo generation spans several requests plus a detached run, so there is no one
+ * request logger to hang these on. A module-level `createLogger()` is the wrong
+ * shape too: it is a unit-of-work accumulator that writes nothing until `emit()`,
+ * so as a long-lived singleton it dropped every line below and grew its buffer
+ * for the life of the process. Each notice is its own event instead, emitted on
+ * the spot, which keeps all the call sites below unchanged.
+ */
+const log = {
+  info(message: string, fields?: Record<string, unknown>) {
+    // `module` last: a caller's `fields` must not be able to rename the module.
+    const entry = createLogger({ ...fields, module: "repo-generation" });
+    entry.info(message);
+    entry.emit();
+  },
+  error(message: string, fields?: Record<string, unknown>) {
+    // `module` last: a caller's `fields` must not be able to rename the module.
+    const entry = createLogger({ ...fields, module: "repo-generation" });
+    entry.error(message);
+    entry.emit();
+  },
+};
 
 type RepoGenerationStatus = "queued" | "planning" | "creating" | "generating" | "done" | "failed";
 type RepoGenerationTaskStatus = "pending" | "active" | "complete" | "failed";
@@ -105,7 +126,7 @@ function logJob(
 }
 
 export async function startRepoGeneration(
-  input: { projectId: string; userId: string },
+  input: { projectId: string; userId: string; ai?: AiCallOptions },
   retryCount = 0,
 ) {
   if (retryCount > 3) {
@@ -222,7 +243,7 @@ export async function startRepoGeneration(
       };
       jobs.set(lockJobId, resumeJob);
       log.info("Repo generation resuming", { repoGen: { jobId: lockJobId.slice(0, 8) } });
-      return { job: resumeJob, run: () => runGenerationJob(lockJobId, projectRow) };
+      return { job: resumeJob, run: () => runGenerationJob(lockJobId, projectRow, input.ai) };
     }
 
     const [updatedProject] = await db
@@ -257,7 +278,7 @@ export async function startRepoGeneration(
       repoGen: { jobId: lockJobId.slice(0, 8), projectId: lockJob.projectId },
     });
 
-    return { job: queuedJob, run: () => runGenerationJob(lockJobId, projectRow) };
+    return { job: queuedJob, run: () => runGenerationJob(lockJobId, projectRow, input.ai) };
   } catch (error) {
     jobs.delete(lockJobId);
     activeJobByProject.delete(key);
@@ -265,8 +286,12 @@ export async function startRepoGeneration(
   }
 }
 
-function runGenerationJob(jobId: string, projectRow: typeof project.$inferSelect) {
-  return runRepoGenerationJob(jobId, projectRow).catch((error) => {
+function runGenerationJob(
+  jobId: string,
+  projectRow: typeof project.$inferSelect,
+  ai?: AiCallOptions,
+) {
+  return runRepoGenerationJob(jobId, projectRow, ai).catch((error) => {
     updateJob(jobId, {
       status: "failed",
       message: "Repository generation failed",
@@ -370,7 +395,11 @@ async function buildJobSnapshotFromDb(input: {
   };
 }
 
-async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$inferSelect) {
+async function runRepoGenerationJob(
+  jobId: string,
+  projectRow: typeof project.$inferSelect,
+  ai?: AiCallOptions,
+) {
   await sleep(500);
 
   const existingFiles = await db
@@ -489,14 +518,17 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
     logJob(jobId, "generating", `Generating: ${item.name}`, { type: item.type });
 
     if (item.type === "doc") {
-      const content = await generateArchitectureDoc({
-        context: context?.context ?? "",
-        goal: item.goal,
-        title: item.name.replace(/\.md$/i, ""),
-        repoFullName,
-        defaultBranch,
-        commitSha,
-      }).catch(() => {
+      const content = await generateArchitectureDoc(
+        {
+          context: context?.context ?? "",
+          goal: item.goal,
+          title: item.name.replace(/\.md$/i, ""),
+          repoFullName,
+          defaultBranch,
+          commitSha,
+        },
+        ai,
+      ).catch(() => {
         return [
           `# ${item.name.replace(/\.md$/i, "")}`,
           "",
@@ -535,11 +567,14 @@ async function runRepoGenerationJob(jobId: string, projectRow: typeof project.$i
       }
       logJob(jobId, "generating", `Generated doc: ${item.name}`, { contentLength: content.length });
     } else {
-      const diagramResult = await generateDiagramSpec({
-        prompt: `Generate a ${item.name.toLowerCase()} for the imported source repository.\nGoal: ${item.goal}`,
-        diagramType: "system-design",
-        context: context?.context ?? "",
-      }).catch(() => null);
+      const diagramResult = await generateDiagramSpec(
+        {
+          prompt: `Generate a ${item.name.toLowerCase()} for the imported source repository.\nGoal: ${item.goal}`,
+          diagramType: "system-design",
+          context: context?.context ?? "",
+        },
+        ai,
+      ).catch(() => null);
 
       let diagram:
         | { spec: DiagramSpec; scene: { skeletons: any[]; rawElements: any[] } }

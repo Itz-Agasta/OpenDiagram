@@ -61,7 +61,7 @@ just reinstall         # clean + bun install
 ## Code Style
 
 - Use `@/` path alias for `apps/web/src/`.
-- Shared deps use `catalog:` protocol in root package.json — don't hardcode versions in apps.
+- `catalog:` is for deps used by **two or more** workspace packages: version goes in the root `package.json` catalog, every consumer writes `catalog:`.
 - Always install packages with `bun add` — never manually add to package.json.
 - Workspace deps use `workspace:*`.
 - Follow existing patterns in adjacent files.
@@ -70,6 +70,19 @@ just reinstall         # clean + bun install
 - Organize components by scope:
   - `components/` — shared, reusable (button, card, input, etc.)
   - `components/<feature>/` — page-specific (e.g., `components/dashboard/`, `components/auth/`)
+
+## Harness (packages/harness) — read before touching diagram code
+
+The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
+
+- **LLM never chooses pixels/colors/fonts.** It emits a semantic `DiagramSpec`; layout (ELK / sequence grid) + themed renderer own all geometry and styling. Don't add visual fields to the spec.
+- **Sizing and rendering must agree:** `measure.ts#nodeSize` reserves the box the renderer draws into — change both branches together.
+- **Edge routes are drawn verbatim.** Labels are measured against ELK's exact polyline; never reroute after layout. Excalidraw `elbowed` arrows don't work via programmatic insert.
+- **No `@excalidraw/excalidraw` imports inside the harness** (browser-only package). Skeleton→element conversion lives in `apps/web/src/lib/excalidraw-utils.ts`, which must pass fresh elements through `restoreElements` (paint-skip bug otherwise).
+- **`bun --hot` does NOT reload harness edits** — restart `dev:server` or you verify stale code.
+- **Zod spec schema stays Gemini-safe:** no `.refine()/.default()/.transform()`. Gemini reliably typos `from1` for `from` in edges — `experimental_repairToolCall` in `routes/diagram.ts` fixes it deterministically; don't remove it.
+- Measured negative result: `elk.layered.nodePlacement.strategy: NETWORK_SIMPLEX` makes routing worse — don't re-add. See `future.md` for the improvement roadmap.
+- **After ANY harness change run `bun test` in `packages/harness`** (`test/harness.test.ts` — geometry smoke suite: sequence fragments, ERD crow-feet, orthogonal routes, column alignment). Extend it when you add pipeline features.
 
 ## Architecture
 
@@ -84,7 +97,7 @@ just reinstall         # clean + bun install
 - Read docs and get latest context about libraries before coding.
 - Run `just check` & `just types` after finishing a coding session & fix those.
 - Keep changes surgical — don't refactor adjacent code.
-- New dependencies: justify additions, prefer workspace catalog.
+- New dependencies: justify additions. Catalog them only once a second package needs them.
 - Always use `bun add` to add packages.
 
 ## AI Coding Guidelines

@@ -1,5 +1,6 @@
 import { LockKeyhole } from "lucide-react";
 import { createPrivateMetadata } from "@/lib/site";
+import { PricingPlans } from "@/components/billing/pricing-plans";
 import { Providers } from "@/components/settings/providers";
 import { SettingsHeader, SettingsProfileCard } from "@/components/settings/settings-profile";
 
@@ -11,6 +12,15 @@ export default function SettingsPage() {
       <SettingsHeader />
 
       <SettingsProfileCard />
+
+      <h1 className="text-2xl font-semibold">Plan</h1>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">
+        Your current allowance, and where to upgrade or cancel.
+      </p>
+
+      <div className="mb-10">
+        <PricingPlans />
+      </div>
 
       <h1 className="text-2xl font-semibold">AI providers</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">

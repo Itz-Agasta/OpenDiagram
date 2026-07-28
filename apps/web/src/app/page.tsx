@@ -54,7 +54,15 @@ export const metadata: Metadata = {
     absolute: HOME_TITLE,
   },
   description: HOME_DESCRIPTION,
-  keywords: ["vibe diagrams", "AI architecture diagrams", "software architecture"],
+  keywords: [
+    "AI diagram generator",
+    "AI diagram maker from text",
+    "text to diagram",
+    "AI flowchart generator",
+    "AI architecture diagram generator",
+    "editable diagrams",
+    "vibe diagrams",
+  ],
   alternates: {
     canonical: "/",
   },

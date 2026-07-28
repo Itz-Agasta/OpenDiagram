@@ -1,0 +1,19 @@
+architecture:
+  label: Architecture
+  permalink: architecture
+  description: Software architecture patterns, system design, and technical decisions.
+
+ai-layout:
+  label: AI Layout
+  permalink: ai-layout
+  description: AI-assisted diagram generation, layout, and rendering.
+
+engineering:
+  label: Engineering
+  permalink: engineering
+  description: Engineering notes from building OpenDiagram.
+
+news:
+  label: News & updates
+  permalink: news
+  description: OpenDiagram releases, milestones, and community updates.
