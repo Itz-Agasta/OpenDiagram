@@ -7,16 +7,16 @@ import { ProcessCardsFan } from "@/components/marketing/process-cards-fan";
 import { assetUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "AI Architecture Diagram Generator",
+  title: "AI System Architecture Diagram Generator | OpenDiagram",
   description:
-    "Describe a software system in plain language and turn it into an editable architecture diagram. Review services, connections, and data flows in OpenDiagram.",
-  alternates: { canonical: "/ai-diagram-generator" },
+    "Describe a software system in plain language and get an editable architecture diagram — services, connections, and data flows, generated from a prompt.",
+  alternates: { canonical: "/ai-architecture-diagram-generator" },
   openGraph: {
     type: "website",
-    url: "/ai-diagram-generator",
-    title: "AI Architecture Diagram Generator | OpenDiagram",
+    url: "/ai-architecture-diagram-generator",
+    title: "AI System Architecture Diagram Generator | OpenDiagram",
     description:
-      "Start with a system prompt, generate a visual architecture draft, and keep editing it as the design evolves.",
+      "Describe a software system in plain language and get an editable architecture diagram — services, connections, and data flows, generated from a prompt.",
     images: [
       {
         url: assetUrl("/marketing/examples/main-example.jpg"),
@@ -24,6 +24,14 @@ export const metadata: Metadata = {
       },
     ],
   },
+  keywords: [
+    "AI system architecture diagram generator",
+    "system architecture diagram generator from prompt",
+    "software architecture diagram generator",
+    "architecture diagram from text",
+    "AI architecture diagram generator",
+    "OpenDiagram",
+  ],
 };
 
 const promptIngredientCards = [
@@ -67,6 +75,16 @@ const questions = [
       "Treat it as a working draft. Engineers should still validate security boundaries, failure modes, capacity assumptions, and technology choices before using it as authoritative architecture.",
   },
 ];
+
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: questions.map(({ question, answer }) => ({
+    "@type": "Question",
+    name: question,
+    acceptedAnswer: { "@type": "Answer", text: answer },
+  })),
+};
 
 export default function AIArchitectureDiagramGeneratorPage() {
   return (
@@ -191,6 +209,12 @@ export default function AIArchitectureDiagramGeneratorPage() {
           </div>
         </div>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqStructuredData).replace(/</g, "\\u003c"),
+        }}
+      />
     </MarketingPage>
   );
 }

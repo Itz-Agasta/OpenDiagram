@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 export const SITE_NAME = "OpenDiagram";
 export const SITE_URL = new URL("https://opendiagram.ink");
 export const GITHUB_URL = "https://github.com/Itz-Agasta/OpenDiagram";
-export const HOME_TITLE = "OpenDiagram — AI Diagrams for System Design";
+export const HOME_TITLE = "OpenDiagram - AI Diagram Generator from Plain Text";
 export const HOME_DESCRIPTION =
-  "Create editable vibe diagrams for software architecture. Describe a system, shape it with AI, and keep diagrams, decisions, and project context connected.";
+  "AI diagram generator from plain text. Turn ideas, processes, and systems into editable diagrams for work, planning, and software design.";
 
 const PUBLIC_ASSET_PREFIX = process.env.NEXT_PUBLIC_ASSET_URL?.replace(/\/$/, "");
 

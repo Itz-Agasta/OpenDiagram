@@ -2,19 +2,43 @@ import type { Metadata } from "next";
 import { GitBranch, Scale, Sparkles } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/marketing-page";
 import { ScatteredKnowledgeIllustration } from "@/components/marketing/scattered-knowledge-illustration";
-import { GITHUB_URL } from "@/lib/site";
+import { assetUrl, GITHUB_URL, SITE_URL } from "@/lib/site";
+
+const socialImageUrl = new URL(assetUrl("/brand/mascot.png"), SITE_URL).href;
 
 export const metadata: Metadata = {
-  title: "About OpenDiagram",
+  title: "About",
   description:
-    "Learn why OpenDiagram is building an open-source, editable AI workspace for software architecture and system design.",
+    "OpenDiagram is an open-source, editable architecture workspace. Learn why it exists and how it's built.",
   alternates: { canonical: "/about" },
   openGraph: {
     type: "website",
     url: "/about",
-    title: "About OpenDiagram",
+    title: "About | OpenDiagram",
     description:
-      "An open-source AI workspace where software architecture stays editable, explainable, and owned by engineers.",
+      "OpenDiagram is an open-source, editable architecture workspace. Learn why it exists and how it's built.",
+    images: [{ url: socialImageUrl, alt: "OpenDiagram mascot" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About | OpenDiagram",
+    description:
+      "OpenDiagram is an open-source, editable architecture workspace. Learn why it exists and how it's built.",
+    images: [socialImageUrl],
+  },
+};
+
+const aboutStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  url: `${SITE_URL.href}about`,
+  mainEntity: {
+    "@type": "Organization",
+    name: "OpenDiagram",
+    url: SITE_URL.href,
+    sameAs: [GITHUB_URL],
+    description: "Open-source, editable architecture diagramming workspace.",
+    license: "https://www.apache.org/licenses/LICENSE-2.0",
   },
 };
 
@@ -148,6 +172,12 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(aboutStructuredData).replace(/</g, "\\u003c"),
+        }}
+      />
     </MarketingPage>
   );
 }

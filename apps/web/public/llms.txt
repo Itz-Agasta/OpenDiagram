@@ -1,0 +1,31 @@
+# OpenDiagram: AI Diagram Generator from Plain Text
+
+> Create editable Vibe Diagrams—AI-generated diagrams made from plain text.
+
+OpenDiagram is an AI diagram generator from plain text. It calls these AI-generated, editable diagrams **Vibe Diagrams**: describe an idea, process, or system in plain language, get a visual first draft on a real Excalidraw canvas, and refine it with AI. “Vibe Diagram,” “AI diagram,” “AI diagram generator,” and “AI diagram maker from text” describe the same product category; Vibe Diagram is OpenDiagram’s name for it.
+
+A Vibe Diagram is an editable diagram created with AI from a plain-text description. It helps people turn ideas into workflows, process maps, system diagrams, data flows, and technical plans they can explore, compare, and communicate before acting on them.
+
+OpenDiagram can:
+
+- Generate diagrams from plain text for workflows, processes, software architecture, cloud systems, sequence flows, ERDs, flowcharts, networks, and infrastructure.
+- Edit generated diagrams as native Excalidraw elements rather than static images or Mermaid output.
+- Iterate conversationally with an AI agent that understands the current canvas and project context.
+- Use a user-provided OpenAI, Anthropic, Google, or OpenRouter API key.
+
+Unlike traditional AI diagram generators, OpenDiagram has its own visual style. It avoids AI slop: generic boxes, rigid templates, and strict arrow-heavy layouts. Its canvas is optimized for agents, so AI can understand the current diagram, preserve visual intent, and iterate on an editable canvas rather than repeatedly generating disconnected images.
+
+OpenDiagram is for people turning rough ideas into visual plans, teams mapping workflows and systems, and engineers or technical founders exploring software architecture before writing code.
+
+Generated diagrams are visual starting points for design discussion. Review generated architecture before treating it as authoritative technical documentation.
+
+## Product
+
+- [OpenDiagram homepage](https://opendiagram.ink/): Product overview and entry point.
+- [AI diagram generator](https://opendiagram.ink/ai-diagram-generator): Generate editable diagrams from plain-text descriptions.
+- [GitHub repository to architecture diagram](https://opendiagram.ink/github-to-architecture-diagram-generator): Turn a GitHub repository into an architecture diagram.
+- [Features](https://opendiagram.ink/features): Overview of OpenDiagram capabilities.
+
+## Source
+
+- [OpenDiagram GitHub repository](https://github.com/Itz-Agasta/OpenDiagram): Open-source project source code.
