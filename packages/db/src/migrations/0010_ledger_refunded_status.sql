@@ -1,2 +1,0 @@
-ALTER TABLE "usage_ledger" DROP CONSTRAINT "usage_ledger_status_check";--> statement-breakpoint
-ALTER TABLE "usage_ledger" ADD CONSTRAINT "usage_ledger_status_check" CHECK ("usage_ledger"."status" IN ('reserved', 'settled', 'refunded', 'released'));
