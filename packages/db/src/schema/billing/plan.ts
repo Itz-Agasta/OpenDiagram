@@ -1,8 +1,11 @@
 /**
- * Plan limits are DATA, not constants. Adding a tier is an INSERT; changing the
- * Pro credit count is an UPDATE with no deploy; a Gemini price rise becomes a
- * config change instead of a release. Nothing in apps/server may hardcode any
+ * Plan limits are DATA, not constants. Nothing in apps/server may hardcode any
  * of these numbers.
+ *
+ * **The values live in `packages/db/src/seed.ts`** -- that file is the source of
+ * truth, and `just db-seed` applies it. Changing the Pro credit count is an edit
+ * there plus a commit, so it is reviewed and has a git blame, and applying it is
+ * a database write rather than a server release.
  *
  * Invariant when changing monthlyCredits: costCeilingCents >= monthlyCredits x
  * p95 cost per diagram. Otherwise the ceiling binds before the advertised

@@ -1,16 +1,7 @@
 import { relations } from "drizzle-orm";
 import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import { user } from "./auth";
-
-export const projectMemoryStatuses = [
-  "not_started",
-  "pending",
-  "ingesting",
-  "ready",
-  "failed",
-  "not_ready",
-] as const;
+import { user } from "../auth";
 
 export const projectSources = ["manual", "github_import"] as const;
 
@@ -37,16 +28,9 @@ export const project = pgTable(
     description: text("description"),
     source: text("source", { enum: projectSources }).default("manual").notNull(),
     sourceMetadata: jsonb("source_metadata"),
-    memoryDatasetId: text("cognee_dataset_id"),
-    memoryStatus: text("cognee_status", { enum: projectMemoryStatuses })
-      .default("not_started")
-      .notNull(),
-    memoryError: text("cognee_error"),
     generationStatus: text("generation_status", { enum: projectGenerationStatuses })
       .default("none")
       .notNull(),
-    scene: jsonb("scene"),
-    spec: jsonb("spec"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

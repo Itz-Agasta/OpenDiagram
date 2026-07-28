@@ -1,8 +1,8 @@
 /** Mirror of a Dodo subscription. Written only by the webhook handler. */
-import { relations } from "drizzle-orm";
-import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { boolean, check, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import { user } from "./auth";
+import { user } from "../auth";
 import { plan, type PlanId } from "./plan";
 
 /** Mirrors the SDK's SubscriptionStatus union exactly. */
@@ -68,6 +68,18 @@ export const subscription = pgTable(
   (table) => [
     // Hot path: resolve a user's entitling subscription on every AI request.
     index("subscription_user_status_idx").on(table.userId, table.status),
+    // Covers the `plan_id` foreign key, which nothing else indexes. Plan rows are
+    // rarely touched, so this earns its keep only when one is renamed or removed
+    // -- but that is exactly the operation that would otherwise scan this table.
+    index("subscription_plan_id_idx").on(table.planId),
+    // The drizzle enum is a TypeScript type only, and `ENTITLING_SUBSCRIPTION_STATUSES`
+    // matches these values by name. A status Postgres accepted but that list does not
+    // recognise reads as "not entitled", so a typo in a manual UPDATE or a future Dodo
+    // status silently downgrades a paying user instead of failing.
+    check(
+      "subscription_status_check",
+      sql`${table.status} IN ('pending', 'active', 'on_hold', 'cancelled', 'failed', 'expired')`,
+    ),
   ],
 );
 

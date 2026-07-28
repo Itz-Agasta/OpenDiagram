@@ -98,6 +98,10 @@ export const usageLedger = pgTable(
     index("usage_ledger_turn_idx")
       .on(table.actorType, table.actorId, table.windowStart, table.turnId)
       .where(sql`${table.turnId} IS NOT NULL`),
+    // Covers the `plan_id` foreign key. `usage_ledger_actor_window_idx` above
+    // does contain `planId`, but as its fourth column and behind a partial
+    // predicate, so Postgres cannot use it to satisfy the constraint check.
+    index("usage_ledger_plan_id_idx").on(table.planId),
     check("usage_ledger_cost_micros_check", sql`${table.costMicros} >= 0`),
     // The drizzle enum is a TypeScript type only. The ceiling queries special-case
     // these values by name, so any other one written directly to Postgres would be

@@ -2,7 +2,7 @@
 import { relations, sql } from "drizzle-orm";
 import { boolean, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
-import { user } from "./auth";
+import { user } from "../auth";
 
 export const userAiProviderKinds = ["openai", "anthropic", "google", "openrouter"] as const;
 export type UserAiProviderKind = (typeof userAiProviderKinds)[number];
