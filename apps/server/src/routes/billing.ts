@@ -8,7 +8,7 @@
  *
  * Both 404 when billing is unconfigured, which is the OSS self-host default.
  */
-import { and, db, eq, inArray, sql } from "@OpenDiagram/db";
+import { and, db, eq, inArray, ne, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
 import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/subscription";
 import { env } from "@OpenDiagram/env/server";
@@ -19,13 +19,42 @@ import { appOrigin, billingEnabled, dodoClient } from "../lib/dodo";
 // stops an arbitrary route picking up a writer for the `subscription` table.
 // Only the webhook and `POST /reconcile` below may call it.
 import { upsertSubscription } from "../lib/dodo/subscription-sync";
-import { getPlan, getUserActor } from "../lib/quota";
+import { enforceAiBurst, getPlan, getUserActor, quotaErrorResponse } from "../lib/quota";
 import { type AuthVariables, requireAuth } from "../lib/require-auth";
 
 const checkoutSchema = z.object({
-  /** Optional promo code, e.g. LAUNCH. Dodo validates and rejects it, not us. */
+  /** Optional promo code, e.g. LAUNCH. Dodo validates the code itself; who may
+   *  redeem it is enforced here -- see `mayRedeemDiscount`. */
   discountCode: z.string().trim().min(1).max(64).optional(),
 });
+
+/**
+ * Whether this user may have a promo code applied to their checkout.
+ *
+ * This has to be our decision, because Dodo's is not enforced. Measured against
+ * the test-mode API on 2026-07-28: with `customer_eligibility: "first_time"` AND
+ * `per_customer_usage_limit: 1` set on the LAUNCH discount, a customer holding an
+ * active subscription and three prior redemptions was still shown "you're saving
+ * 37.5%" -- both when the code was pre-applied to the session and when they typed
+ * it into Dodo's hosted page themselves. Neither restriction bound. The only Dodo
+ * cap that demonstrably holds is `usage_limit`, which counts *attempts* rather
+ * than sales, so failed payments burn it too.
+ *
+ * Left alone, that is a $5 price every month for anyone willing to resubscribe.
+ *
+ * `failed` rows are deliberately not disqualifying: the mandate was never created
+ * and no money moved, so a declined card would otherwise cost a genuine buyer the
+ * launch price on their retry. Every other status -- including `cancelled` and
+ * `expired` -- means a sale completed at some point.
+ */
+async function mayRedeemDiscount(userId: string): Promise<boolean> {
+  const [prior] = await db
+    .select({ id: subscription.id })
+    .from(subscription)
+    .where(and(eq(subscription.userId, userId), ne(subscription.status, "failed")))
+    .limit(1);
+  return !prior;
+}
 
 export const billingRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -113,6 +142,27 @@ billingRoute.post("/checkout", async (c) => {
     .limit(1);
   if (!account) return c.json({ error: "Unauthorized" }, 401);
 
+  // Applied only for a user who has never completed a sale. Dodo does not enforce
+  // this itself (see `mayRedeemDiscount`), so this call is the enforcement.
+  //
+  // Refused out loud rather than dropped silently: a user who typed a code and
+  // then landed on a full-price page with no discount field -- because the branch
+  // below turns it off -- would have no way to tell whether the code failed, the
+  // page was broken, or they were being overcharged.
+  const discountCode = parsed.data.discountCode;
+  if (discountCode && !(await mayRedeemDiscount(userId))) {
+    log.info("Checkout discount refused: not a first-time subscriber", {
+      dodo: { discountRequested: discountCode },
+    });
+    return c.json(
+      {
+        error: "That code is only valid on a first subscription.",
+        code: "discount_not_eligible",
+      },
+      409,
+    );
+  }
+
   try {
     const checkout = await client.checkoutSessions.create({
       product_cart: [{ product_id: env.DODO_PRO_PRODUCT_ID, quantity: 1 }],
@@ -120,7 +170,22 @@ billingRoute.post("/checkout", async (c) => {
       // The webhook resolves entitlement from this, so it is not optional --
       // without it a paid subscription can only be matched back by email.
       metadata: { userId },
-      ...(parsed.data.discountCode ? { discount_code: parsed.data.discountCode } : {}),
+      // Two mutually exclusive shapes, and Dodo rejects the pair outright
+      // ("Discount code is not allowed if allow_discount_code is false"):
+      //
+      // - Code forwarded: Dodo renders it pre-applied and *disabled*, so it is
+      //   locked to the one we authorised.
+      // - No code: the hosted page otherwise shows an "Apply discount code" field
+      //   by default (`allow_discount_code` defaults to true), and a returning
+      //   customer typing LAUNCH into it was measured to get the discount. Turning
+      //   the field off is what stops a server-side gate being trivially bypassed
+      //   on Dodo's own page.
+      //
+      // `discount_codes` rather than `discount_code`: the singular field is marked
+      // @deprecated in the SDK, and revenue should not rest on a deprecated field.
+      ...(discountCode
+        ? { discount_codes: [discountCode] }
+        : { feature_flags: { allow_discount_code: false } }),
       // Derived from CORS_ORIGIN rather than its own env var: one more billing
       // variable to forget at deploy time, for a value we already know.
       return_url: `${appOrigin()}/dashboard?checkout=success`,
@@ -134,11 +199,23 @@ billingRoute.post("/checkout", async (c) => {
     }
 
     log.info("Dodo checkout session created", {
-      dodo: { sessionId: checkout.session_id, discountCode: parsed.data.discountCode ?? null },
+      dodo: {
+        sessionId: checkout.session_id,
+        // Both, so a refused redemption is visible rather than looking like the
+        // user never asked for one.
+        discountCode: discountCode ?? null,
+        discountRequested: parsed.data.discountCode ?? null,
+      },
     });
     return c.json({ checkoutUrl: checkout.checkout_url });
   } catch (error) {
-    log.error("Dodo checkout session failed", { error });
+    // Error first, context second -- see routes/webhooks/dodo.ts. The inverted
+    // shape drops the reason, and "why did checkout fail" is the whole question
+    // here: an invalid discount code, a rejected product id and a Dodo outage all
+    // reach this line and want different responses.
+    log.error(error instanceof Error ? error : String(error), {
+      dodo: { stage: "checkout-session" },
+    });
     return c.json({ error: "Could not start checkout." }, 502);
   }
 });
@@ -167,7 +244,9 @@ billingRoute.post("/portal", async (c) => {
     });
     return c.json({ portalUrl: portal.link });
   } catch (error) {
-    log.error("Dodo customer portal failed", { error });
+    log.error(error instanceof Error ? error : String(error), {
+      dodo: { stage: "customer-portal" },
+    });
     return c.json({ error: "Could not open the billing portal." }, 502);
   }
 });
@@ -207,6 +286,22 @@ billingRoute.post("/reconcile", async (c) => {
   if (!client) return c.json({ error: "Billing is not configured." }, 404);
 
   const userId = c.get("userId");
+
+  // Every call below spends an outbound Dodo API request on an id the caller
+  // chose, so without a cap an authenticated user can walk subscription ids at
+  // our expense. Ids are long and random enough that a hit is implausible -- the
+  // cost is unmetered egress and Dodo rate-limit pressure, not exposure. The
+  // per-plan burst bucket already exists and is the right size for a call a real
+  // user makes once per checkout, so this reuses it rather than adding a second
+  // limiter with its own semantics.
+  try {
+    await enforceAiBurst(c, "billing-reconcile", userId);
+  } catch (error) {
+    const response = quotaErrorResponse(c, error);
+    if (response) return response;
+    throw error;
+  }
+
   const parsed = reconcileSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "Invalid request" }, 400);
   const { subscriptionId } = parsed.data;
@@ -217,9 +312,15 @@ billingRoute.post("/reconcile", async (c) => {
   } catch (error) {
     // A forged or stale id lands here. Nothing is written and nothing is leaked
     // about whether the id exists.
+    // Stays a `warn` with the reason flattened to a string, rather than
+    // `log.error(error, ...)`: a forged or stale id is the expected way into this
+    // branch, and escalating it to `error` would page on every one of them. The
+    // string keeps the cause readable without the raw Error serialising to `{}`.
     log.warn("Post-checkout reconcile could not load the subscription", {
-      dodo: { subscriptionId },
-      error,
+      dodo: {
+        subscriptionId,
+        reason: error instanceof Error ? error.message : String(error),
+      },
     });
     return c.json({ error: "Could not confirm the subscription." }, 404);
   }
@@ -268,7 +369,9 @@ billingRoute.post("/reconcile", async (c) => {
     // `DODO_PRO_PRODUCT_ID` -- our fault, not the caller's. Without this the throw
     // reaches Hono's global handler with no billing-level log, and every reconcile
     // 500s with nothing saying why.
-    log.error("Post-checkout reconcile failed", { dodo: { subscriptionId }, error });
+    log.error(error instanceof Error ? error : String(error), {
+      dodo: { stage: "reconcile", subscriptionId },
+    });
     return c.json({ error: "Could not confirm the subscription." }, 502);
   }
   if (skipped) {
