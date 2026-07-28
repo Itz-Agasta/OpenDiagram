@@ -28,6 +28,11 @@ export function CheckoutReturn() {
   const router = useRouter();
   const params = useSearchParams();
   const subscriptionId = params.get("subscription_id");
+  // Dodo appends this alongside `subscription_id`, e.g.
+  // `?checkout=success&subscription_id=sub_...&status=failed`. It is forgeable, so
+  // it is only ever used to make a message *more* pessimistic -- never to grant
+  // anything, and never to override what the server actually returned.
+  const urlStatus = params.get("status");
   const isCheckoutReturn = params.get("checkout") === "success" || Boolean(subscriptionId);
   // React strict mode mounts effects twice in dev, and the reconcile is a POST.
   // It is idempotent server-side, but firing it twice would double the toast.
@@ -78,8 +83,19 @@ export function CheckoutReturn() {
       })
       .catch(() => {
         if (!live) return;
-        // Never claim failure: the money may well have been taken and the webhook
-        // may still land. Point at the page that reads the real state.
+        // The reconcile did not answer, so fall back to what Dodo put in the URL.
+        // Measured 2026-07-28: a declined mandate returns here as
+        // `...&status=failed`, and this branch used to announce "Payment received"
+        // over the top of it -- the same wrong-way-round message §4 of HANDOVER2
+        // fixed on the success path, just reached through the error path instead.
+        if (urlStatus && TERMINAL_STATUSES.has(urlStatus)) {
+          toast.error("That payment didn't go through.", {
+            description: "No charge was made. You can try again with another payment method.",
+          });
+          return;
+        }
+        // Otherwise never claim failure: the money may well have been taken and
+        // the webhook may still land. Point at the page that reads the real state.
         toast.info("Payment received.", {
           description: "Your upgrade is being confirmed and will appear shortly.",
         });
@@ -102,7 +118,7 @@ export function CheckoutReturn() {
       // once; the reconcile is idempotent either way.
       handled.current = false;
     };
-  }, [isCheckoutReturn, subscriptionId, router]);
+  }, [isCheckoutReturn, subscriptionId, urlStatus, router]);
 
   return null;
 }
