@@ -198,14 +198,11 @@ billingRoute.post("/checkout", async (c) => {
       return c.json({ error: "Could not start checkout." }, 502);
     }
 
+    // Only the applied code. A refusal cannot reach this line -- it returned 409
+    // above -- and logs its own line there, so a second "requested" field here
+    // would always be identical to this one.
     log.info("Dodo checkout session created", {
-      dodo: {
-        sessionId: checkout.session_id,
-        // Both, so a refused redemption is visible rather than looking like the
-        // user never asked for one.
-        discountCode: discountCode ?? null,
-        discountRequested: parsed.data.discountCode ?? null,
-      },
+      dodo: { sessionId: checkout.session_id, discountCode: discountCode ?? null },
     });
     return c.json({ checkoutUrl: checkout.checkout_url });
   } catch (error) {

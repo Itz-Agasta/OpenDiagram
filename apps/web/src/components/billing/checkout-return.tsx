@@ -24,6 +24,32 @@ import { reconcileCheckout } from "@/lib/billing-client";
  */
 const TERMINAL_STATUSES = new Set(["failed", "expired", "cancelled"]);
 
+/**
+ * The message for a terminal status, which is not one message.
+ *
+ * Only `failed` licenses the claim that no money moved: per Dodo it means the
+ * mandate could not be created at all. `cancelled` is the opposite -- it means
+ * paid, then cancelled -- and `expired` says nothing either way about the
+ * original charge, so telling either of them "no charge was made" would be
+ * asserting something we do not know and, for `cancelled`, something false.
+ *
+ * They all stay terminal, though. Letting `cancelled` fall through to "your
+ * upgrade is being confirmed" would leave someone waiting for an upgrade that is
+ * never coming, which is the failure this whole branch exists to prevent.
+ */
+function terminalToast(status: string): { title: string; description: string } {
+  if (status === "failed") {
+    return {
+      title: "That payment didn't go through.",
+      description: "No charge was made. You can try again with another payment method.",
+    };
+  }
+  return {
+    title: "This subscription isn't active.",
+    description: "Check your billing settings, or start a new subscription.",
+  };
+}
+
 export function CheckoutReturn() {
   const router = useRouter();
   const params = useSearchParams();
@@ -66,13 +92,10 @@ export function CheckoutReturn() {
         if (planId === "pro") {
           toast.success("You're on Pro.", { description: "Your credits have been topped up." });
         } else if (TERMINAL_STATUSES.has(status)) {
-          // Nothing is coming. Dodo's `failed` means the mandate could not be
-          // created at all, and it is not recoverable -- the customer has to start
-          // a new subscription. Saying "confirming shortly" here leaves someone
-          // waiting for an upgrade that will never arrive.
-          toast.error("That payment didn't go through.", {
-            description: "No charge was made. You can try again with another payment method.",
-          });
+          // Nothing is coming, so say so. Saying "confirming shortly" here leaves
+          // someone waiting for an upgrade that will never arrive.
+          const { title, description } = terminalToast(status);
+          toast.error(title, { description });
         } else {
           // Still `pending` at Dodo. This one really is a wait -- the webhook
           // finishes it.
@@ -89,9 +112,8 @@ export function CheckoutReturn() {
         // over the top of it -- the same wrong-way-round message §4 of HANDOVER2
         // fixed on the success path, just reached through the error path instead.
         if (urlStatus && TERMINAL_STATUSES.has(urlStatus)) {
-          toast.error("That payment didn't go through.", {
-            description: "No charge was made. You can try again with another payment method.",
-          });
+          const { title, description } = terminalToast(urlStatus);
+          toast.error(title, { description });
           return;
         }
         // Otherwise never claim failure: the money may well have been taken and
