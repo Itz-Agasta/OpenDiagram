@@ -105,28 +105,30 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
   const snapshotRef = useRef<SaveSnapshot | null>(null);
   const inFlightRef = useRef(false);
-  const runAutosaveRef = useRef<() => Promise<void>>(async () => {});
 
   // Single-flight. Autosave used to fire on a bare timer, so drawing without
   // pausing put overlapping PATCHes of the same file on the wire with no
   // ordering guarantee beyond whichever response happened to land last. Now a
   // save in progress simply leaves the newest snapshot queued and picks it up
   // on completion, which also collapses a burst of edits into one request.
+  //
+  // Drains in a loop rather than calling itself back through a ref. The ref
+  // version had to be reassigned on every render to stay current, and a write
+  // to `ref.current` during render can leak out of work React discards.
   const runAutosave = useCallback(async () => {
     if (inFlightRef.current) return;
-    const snapshot = snapshotRef.current;
-    snapshotRef.current = null;
-    if (!snapshot) return;
 
     inFlightRef.current = true;
     try {
-      await saveSnapshot(snapshot);
+      while (snapshotRef.current) {
+        const snapshot = snapshotRef.current;
+        snapshotRef.current = null;
+        await saveSnapshot(snapshot);
+      }
     } finally {
       inFlightRef.current = false;
     }
-    if (snapshotRef.current) void runAutosaveRef.current();
   }, [saveSnapshot]);
-  runAutosaveRef.current = runAutosave;
 
   const scheduleAutosave = useCallback(() => {
     dirtyRef.current = true;
