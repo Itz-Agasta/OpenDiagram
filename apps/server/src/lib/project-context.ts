@@ -1,10 +1,6 @@
-import { and, db, desc, eq } from "@OpenDiagram/db";
+import { and, db, desc, eq, sql } from "@OpenDiagram/db";
 import { project, projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
-import {
-  projectFileContentJoin,
-  selectProjectFileColumns,
-  type ProjectFileWithContent,
-} from "./project-file-content";
+import { projectFileContentJoin } from "./project-file-content";
 
 /**
  * Grounding context for project-scoped AI answers, read straight from the
@@ -21,13 +17,15 @@ import {
  * If a knowledge graph is ever wanted again, it belongs behind this same
  * function signature rather than threaded through the write path.
  *
- * TODO: decide how much a chat answer should actually see. Undecided on
- * purpose -- the two open options are "the active file only" (which makes this
- * a single small read and drops cross-file answers) and "the whole project,
- * capped". Either way the file read below wants a LIMIT and SQL-side
- * truncation before it is left alone: it selects every file's scene, spec,
- * content and history with no bound, then throws almost all of it away at
- * MAX_CONTEXT_CHARS -- megabytes over the wire to build 16 kB of prompt.
+ * The read is bounded, which it was not: it used to select every file's scene,
+ * spec, content and history with no limit and then throw almost all of it away
+ * at MAX_CONTEXT_CHARS, so a project with fifty large diagrams moved megabytes
+ * to build 16 kB of prompt.
+ *
+ * TODO: decide how much a chat answer should actually see. The bound below
+ * fixes the unbounded read but not the design question, and the two open
+ * options are "the active file only" (one small read, no cross-file answers)
+ * and "the whole project, capped", which is what this now is.
  *
  * Note the two callers differ. `POST /api/projects/:projectId/chat` is the one
  * under review; `lib/repo-generation.ts` wants the whole project regardless, so
@@ -38,6 +36,13 @@ import {
 
 const MAX_DOCUMENT_CHARS = 16_000;
 const MAX_CONTEXT_CHARS = 16_000;
+
+/**
+ * Files read for grounding, newest first. The whole context is capped at
+ * MAX_CONTEXT_CHARS anyway, so files past this point could never reach the
+ * prompt -- they were pure transfer.
+ */
+const MAX_CONTEXT_FILES = 12;
 
 export type ProjectContextSource = {
   id: string;
@@ -66,15 +71,25 @@ export async function getProjectContext(
 
   if (!row) return null;
 
-  // Grounding needs the large columns, so this is one of the few reads that
-  // joins `project_file_content`. Left-joined, so a file missing its content row
-  // still contributes its name and type rather than dropping out of the context.
+  // Truncated in SQL so a 2MB scene does not cross the wire to be cut to 16kB
+  // here. `history` is not selected at all: nothing below reads it.
+  //
+  // Left-joined, so a file missing its content row still contributes its name
+  // and type rather than dropping out of the context.
   const files = await db
-    .select(selectProjectFileColumns())
+    .select({
+      id: projectFile.id,
+      name: projectFile.name,
+      type: projectFile.type,
+      scene: sql<string | null>`left(${projectFileContent.scene}::text, ${MAX_DOCUMENT_CHARS})`,
+      spec: sql<string | null>`left(${projectFileContent.spec}::text, ${MAX_DOCUMENT_CHARS})`,
+      content: sql<string | null>`left(${projectFileContent.content}::text, ${MAX_DOCUMENT_CHARS})`,
+    })
     .from(projectFile)
     .leftJoin(projectFileContent, projectFileContentJoin)
     .where(eq(projectFile.projectId, projectId))
-    .orderBy(desc(projectFile.updatedAt));
+    .orderBy(desc(projectFile.updatedAt))
+    .limit(MAX_CONTEXT_FILES);
 
   const sources: ProjectContextSource[] = [
     {
@@ -111,7 +126,17 @@ function projectToMarkdown(row: typeof project.$inferSelect) {
     .join("\n\n");
 }
 
-function fileToMarkdown(file: ProjectFileWithContent) {
+/** What the query above returns: the large columns already text, already cut. */
+type ContextFile = {
+  id: string;
+  name: string;
+  type: string;
+  scene: string | null;
+  spec: string | null;
+  content: string | null;
+};
+
+function fileToMarkdown(file: ContextFile) {
   return [
     `# File: ${file.name}`,
     `Type: ${file.type}`,
@@ -123,7 +148,7 @@ function fileToMarkdown(file: ProjectFileWithContent) {
     .join("\n\n");
 }
 
-function summarizeFile(file: ProjectFileWithContent) {
+function summarizeFile(file: ContextFile) {
   return truncate(
     [file.spec, file.scene, file.content]
       .filter((value) => value != null)
