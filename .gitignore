@@ -58,3 +58,11 @@ COGNEE_INTEGRATION_PLAN.md
 
 # local agent tooling
 opencode.json
+/videos/
+.sentrylogs/
+
+
+
+.nx/cache
+.nx/workspace-data
+.nx/migrate-runs
