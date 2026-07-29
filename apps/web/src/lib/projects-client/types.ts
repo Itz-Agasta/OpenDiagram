@@ -6,9 +6,6 @@ export type SavedProject = {
   description: string | null;
   source: "manual" | "github_import";
   sourceMetadata?: unknown;
-  memoryDatasetId?: string | null;
-  memoryStatus?: string;
-  memoryError?: string | null;
   generationStatus?: "none" | "queued" | "planning" | "creating" | "generating" | "done" | "failed";
   createdAt: string;
   updatedAt: string;
@@ -71,23 +68,8 @@ export type ProjectChatSource = {
 export type ProjectChatResult = {
   answer: string;
   sources: ProjectChatSource[];
-  provider?: "cognee" | "local";
+  provider?: "local";
   aiProvider?: AiProviderUsage;
-};
-
-export type ProjectMemoryContextResult = {
-  context: string;
-  sources: ProjectChatSource[];
-  provider: "cognee" | "local";
-};
-
-export type ProjectMemoryStatus = {
-  provider: string;
-  status: string;
-  datasetId: string | null;
-  datasetName: string;
-  error: string | null;
-  health?: { ok: boolean; disabled: boolean } | null;
 };
 
 export type RepoGenerationTask = {
@@ -111,8 +93,6 @@ export type RepoGenerationJob = {
   createdAt: string;
   updatedAt: string;
 };
-
-export type WaitlistResult = { message: string };
 
 export type CreationQuota = {
   actorType: "guest" | "user";

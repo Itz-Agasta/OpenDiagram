@@ -1,10 +1,10 @@
 import { and, db, desc, eq, or } from "@OpenDiagram/db";
-import { project } from "@OpenDiagram/db/schema/project";
-import { projectFile } from "@OpenDiagram/db/schema/project-file";
+import { project, projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
+import { projectFileContentJoin, writeProjectFileContent } from "./project-file-content";
 import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagram/harness";
 import { iconRegistry } from "./icons/registry";
 import { generateArchitectureDoc, generateDiagramSpec, type AiCallOptions } from "./repo-ai";
-import { getProjectMemoryContext } from "./project-memory";
+import { getProjectContext } from "./project-context";
 import { createLogger } from "evlog";
 
 /**
@@ -406,10 +406,11 @@ async function runRepoGenerationJob(
     .select({
       id: projectFile.id,
       name: projectFile.name,
-      spec: projectFile.spec,
+      spec: projectFileContent.spec,
       type: projectFile.type,
     })
     .from(projectFile)
+    .leftJoin(projectFileContent, projectFileContentJoin)
     .where(eq(projectFile.projectId, projectRow.id));
 
   updateJob(jobId, {
@@ -428,11 +429,7 @@ async function runRepoGenerationJob(
   });
   logJob(jobId, "planning", "Started", { plan: PLAN.map((p) => p.name) });
 
-  const context = await getProjectMemoryContext({
-    projectId: projectRow.id,
-    userId: projectRow.userId,
-    query: "Plan architecture documentation and diagrams for this imported source repository.",
-  });
+  const context = await getProjectContext(projectRow.id, projectRow.userId);
   logJob(jobId, "info", "Retrieved context", { contextLength: context?.context.length ?? 0 });
 
   const source = projectRow.sourceMetadata as Record<string, unknown> | null;
@@ -455,17 +452,22 @@ async function runRepoGenerationJob(
       logJob(jobId, "creating", `Creating placeholder: ${item.name}`, { type: item.type });
 
       try {
-        const [inserted] = await db
-          .insert(projectFile)
-          .values({
-            projectId: projectRow.id,
-            name: item.name,
-            type: item.type,
+        const inserted = await db.transaction(async (tx) => {
+          const [row] = await tx
+            .insert(projectFile)
+            .values({ projectId: projectRow.id, name: item.name, type: item.type })
+            .returning();
+
+          if (!row) return undefined;
+
+          const contentRow = await writeProjectFileContent(tx, row.id, {
             content: item.type === "doc" ? "Generating repository documentation..." : undefined,
             scene: item.type === "diagram" ? { skeletons: [], rawElements: [] } : undefined,
             spec: createGeneratedSpec(projectRow, item, "placeholder"),
-          })
-          .returning();
+          });
+
+          return { ...row, spec: contentRow?.spec ?? null };
+        });
         file = inserted;
       } catch (dbError) {
         logJob(
@@ -550,13 +552,20 @@ async function runRepoGenerationJob(
       });
 
       try {
-        await db
-          .update(projectFile)
-          .set({
+        // The content write and the parent touch go together: `updatedAt` lives
+        // on `project_file`, so now that the generated output lands in a
+        // different table, writing it alone would leave the file reading as
+        // untouched in the dashboard and the file list.
+        await db.transaction(async (tx) => {
+          await writeProjectFileContent(tx, fileId, {
             content,
             spec: createGeneratedSpec(projectRow, item, "complete"),
-          })
-          .where(eq(projectFile.id, fileId));
+          });
+          await tx
+            .update(projectFile)
+            .set({ updatedAt: new Date() })
+            .where(eq(projectFile.id, fileId));
+        });
       } catch (dbError) {
         logJob(
           jobId,
@@ -621,13 +630,16 @@ async function runRepoGenerationJob(
       }
 
       try {
-        await db
-          .update(projectFile)
-          .set({
+        await db.transaction(async (tx) => {
+          await writeProjectFileContent(tx, fileId, {
             scene: diagram.scene,
             spec: createGeneratedSpec(projectRow, item, "complete", diagram.spec),
-          })
-          .where(eq(projectFile.id, fileId));
+          });
+          await tx
+            .update(projectFile)
+            .set({ updatedAt: new Date() })
+            .where(eq(projectFile.id, fileId));
+        });
       } catch (dbError) {
         logJob(
           jobId,
@@ -658,9 +670,10 @@ async function getGeneratedFiles(projectId: string) {
       id: projectFile.id,
       name: projectFile.name,
       type: projectFile.type,
-      spec: projectFile.spec,
+      spec: projectFileContent.spec,
     })
     .from(projectFile)
+    .leftJoin(projectFileContent, projectFileContentJoin)
     .where(eq(projectFile.projectId, projectId))
     .orderBy(desc(projectFile.updatedAt));
 
@@ -702,7 +715,6 @@ function createGeneratedSpec(
     repoFullName: typeof source?.repoFullName === "string" ? source.repoFullName : projectRow.name,
     branch: typeof source?.defaultBranch === "string" ? source.defaultBranch : null,
     commitSha: typeof source?.commitSha === "string" ? source.commitSha : null,
-    memoryDatasetId: projectRow.memoryDatasetId,
     generatedAt: new Date().toISOString(),
     diagramSpec,
   };
