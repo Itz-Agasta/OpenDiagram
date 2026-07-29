@@ -19,7 +19,7 @@
  * completes, so every DB write happens before the 200. Nothing is deferred.
  */
 import { db, eq } from "@OpenDiagram/db";
-import { webhookEvent } from "@OpenDiagram/db/schema/webhook-event";
+import { webhookEvent } from "@OpenDiagram/db/schema/billing";
 import type { UnwrapWebhookEvent } from "dodopayments/resources/webhooks/webhooks";
 import type { AuditableLogger } from "evlog";
 import type { EvlogVariables } from "evlog/hono";
