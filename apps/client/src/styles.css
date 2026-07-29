@@ -1,0 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@500;600&display=swap");
+
+/* app.css or main.css */
+@source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+@import "@cloudflare/kumo/styles/tailwind";
+@import "tailwindcss";
+
+/* Your custom styles */
+
+@theme{
+  --font-geist: 'Geist', sans-serif;
+  --font-excalifont: 'Excalifont', sans-serif;
+  --color-blue: #288dff;
+  --color-white: #fff;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+.heading-font {
+  font-family: "Geist", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.body-font {
+  font-family: "Geist", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+@font-face {
+  font-family: Excalifont;
+  src: url("/fonts/Excalifont-Regular.woff2");
+}
+

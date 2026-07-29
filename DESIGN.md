@@ -1,7 +1,7 @@
 ---
 version: "alpha"
 name: OpenDiagram
-description: "A calm, editorial AI workspace for turning software architecture into diagrams, docs, and decisions."
+description: "A calm, editorial AI diagram generator for creating Vibe Diagrams—editable diagrams made from plain text."
 colors:
   primary: "#1A1A1A"
   secondary: "#737373"
@@ -140,11 +140,11 @@ components:
     height: "1px"
 ---
 
-# Design System: OpenDiagram
+# Design System: OpenDiagram — Vibe Diagram and AI Diagram Generator
 
 ## Overview
 
-OpenDiagram should feel like a quiet architecture studio for open-source maintainers: matte, editorial, technical, and calm. The interface pairs a soft warm-gray canvas with white tactile pills, black ink typography, oversized diagram-like composition, and occasional kinetic WebGL light. The brand is not a generic SaaS dashboard. It is a visual workspace that makes complex repositories feel inspectable and understandable.
+OpenDiagram should feel like a quiet visual studio for people creating Vibe Diagrams: matte, editorial, technical, and calm. A Vibe Diagram is OpenDiagram's name for an AI-generated diagram—an editable visual draft made from a plain-text description of an idea, process, or system. Use “AI diagram,” “AI diagram generator,” and “AI diagram maker from plain text” as clear search-language equivalents, not as separate product categories. Software architecture is one important use case, alongside workflows, processes, data flows, and technical plans. The interface pairs a soft warm-gray canvas with white tactile pills, black ink typography, oversized diagram-like composition, and occasional kinetic WebGL light. The brand is not a generic SaaS dashboard. It is a visual product that makes complex ideas inspectable and understandable.
 
 Atmosphere scale:
 
@@ -152,7 +152,16 @@ Atmosphere scale:
 - Variance: 7/10, centered editorial moments are allowed, but sections should include rotated cards, offset annotations, inline media, and asymmetric pacing.
 - Motion: 6/10, continuous but quiet motion for background light, media loops, ticker strips, and scroll reveals.
 
-Primary product promise: make software architecture legible. Design choices should support clarity, confidence, and craft instead of hype.
+Primary product promise: turn a plain-text idea into a clear, editable Vibe Diagram with AI. Design choices should support clarity, confidence, and craft instead of hype.
+
+## Product Language
+
+- **Category:** Vibe Diagram generator.
+- **Plain-language equivalent:** AI diagram generator from plain text.
+- **Definition:** Vibe Diagrams are editable AI-generated diagrams that turn plain-text ideas into workflows, processes, system maps, architecture, flow, sequence, ERD, cloud, and infrastructure visuals.
+- **Lead with:** AI diagram generator, AI diagram maker from plain text, Vibe Diagrams, and text-to-diagram creation.
+- **Use as supporting context:** open source, self-hostable, Excalidraw canvas, bring your own key.
+- **Avoid leading with:** AI workspace. It describes the container, not the outcome people are searching for.
 
 ## Colors
 

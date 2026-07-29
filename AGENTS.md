@@ -161,6 +161,8 @@ When editing existing code:
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it — don't delete it.
+- Do not change the copy content of the web.
+- Do not change the format of robots.txt and llms.txt unless told explicitly too.
 
 When your changes create orphans:
 
