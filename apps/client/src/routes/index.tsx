@@ -7,13 +7,13 @@ import { LenisProvider } from "#/hooks/useLenisProvider";
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
-	return (
-		<LenisProvider>
-			<div className="flex flex-col min-h-screen">
-			<Header/>
-			<Hero />
-			<Footer />
-		</div>
-		</LenisProvider>
-	);
+  return (
+    <LenisProvider>
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <Hero />
+        <Footer />
+      </div>
+    </LenisProvider>
+  );
 }

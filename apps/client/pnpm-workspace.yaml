@@ -3,6 +3,6 @@
 # builds native bindings. Without these, pnpm 11+ aborts the install with
 # ERR_PNPM_IGNORED_BUILDS.
 allowBuilds:
-  '@sentry/cli': true
+  "@sentry/cli": true
   esbuild: true
   workerd: true

@@ -7,9 +7,9 @@
 
 /* Your custom styles */
 
-@theme{
-  --font-geist: 'Geist', sans-serif;
-  --font-excalifont: 'Excalifont', sans-serif;
+@theme {
+  --font-geist: "Geist", sans-serif;
+  --font-excalifont: "Excalifont", sans-serif;
   --color-blue: #288dff;
   --color-white: #fff;
 }
@@ -44,4 +44,3 @@ body {
   font-family: Excalifont;
   src: url("/fonts/Excalifont-Regular.woff2");
 }
-

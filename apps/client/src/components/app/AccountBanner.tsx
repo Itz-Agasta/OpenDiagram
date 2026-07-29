@@ -1,7 +1,17 @@
 import { Banner, cn } from "@cloudflare/kumo";
 
 /** Default informational banner with title and description. */
-export function AccountBanner({imageUrl, name, email, className} : {imageUrl: string, name: string, email: string, className: string}) {
+export function AccountBanner({
+  imageUrl,
+  name,
+  email,
+  className,
+}: {
+  imageUrl: string;
+  name: string;
+  email: string;
+  className: string;
+}) {
   return (
     <Banner
       icon={
@@ -20,6 +30,6 @@ export function AccountBanner({imageUrl, name, email, className} : {imageUrl: st
       className={cn(className)}
     >
       <p>{email}</p>
-      </Banner>
+    </Banner>
   );
 }

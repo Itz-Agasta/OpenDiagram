@@ -12,9 +12,5 @@
   "routerOnly": false,
   "version": 1,
   "framework": "react",
-  "chosenAddOns": [
-    "biome",
-    "cloudflare",
-    "sentry"
-  ]
+  "chosenAddOns": ["biome", "cloudflare", "sentry"]
 }
