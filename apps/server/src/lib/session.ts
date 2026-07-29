@@ -118,18 +118,20 @@ export const resolveSession = createMiddleware<{ Variables: SessionVariables }>(
   const session = await getRequestSession(c);
   const resolvedIn = Date.now() - start;
 
-  // `identifyUser` reports false when the session carries no usable user id,
-  // which is not the same as having no session at all -- both leave the event
-  // unattributed, so both report `identified: false`.
-  const identified =
-    session !== null &&
-    identifyUser(
-      log,
-      session as unknown as { user: Record<string, unknown>; session: Record<string, unknown> },
-      { maskEmail: true },
-    );
+  if (log) {
+    // `identifyUser` reports false when the session carries no usable user id,
+    // which is not the same as having no session at all -- both leave the event
+    // unattributed, so both report `identified: false`.
+    const identified =
+      session !== null &&
+      identifyUser(
+        log,
+        session as unknown as { user: Record<string, unknown>; session: Record<string, unknown> },
+        { maskEmail: true },
+      );
 
-  log.set({ auth: { resolvedIn, identified } });
+    log.set({ auth: { resolvedIn, identified } });
+  }
 
   return next();
 });
