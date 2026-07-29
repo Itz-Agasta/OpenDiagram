@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { WaitlistForm } from "@/components/landing/waitlist-form";
+import { ArrowRight } from "lucide-react";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
 import { GITHUB_URL } from "@/lib/site";
 
@@ -63,7 +63,13 @@ export function SiteFooter() {
             Describe what you are thinking, see it take shape, and keep editing as the idea evolves.
           </p>
           <div className="mt-8 max-w-[440px]">
-            <WaitlistForm />
+            <Link
+              href="/login?tab=signup"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3 text-sm font-medium text-black transition-opacity hover:opacity-90"
+            >
+              Get started free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </ScrollReveal>
 

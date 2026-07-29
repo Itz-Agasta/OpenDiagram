@@ -14,7 +14,6 @@ import {
 import { MarketingPage } from "@/components/marketing/marketing-page";
 import type { BlogPostSummary, BlogTag } from "@/lib/blog";
 import { GITHUB_URL } from "@/lib/site";
-import { useWaitlistJoin } from "@/lib/use-waitlist-join";
 import { BlogAuthor } from "@/components/blog/blog-author";
 
 const CATEGORY_ICONS = {
@@ -64,8 +63,6 @@ type BlogPageProps = {
 
 export function BlogPage({ posts, tags }: BlogPageProps) {
   const [activeTab, setActiveTab] = useState("all");
-  const [email, setEmail] = useState("");
-  const { status, errorMessage, join, reset } = useWaitlistJoin();
   const categories = [
     { id: "all", label: "All Articles", icon: BookOpen },
     ...tags.map((tag) => ({
@@ -78,12 +75,6 @@ export function BlogPage({ posts, tags }: BlogPageProps) {
     activeTab === "all"
       ? posts
       : posts.filter((post) => post.tags.some((tag) => tag.id === activeTab));
-
-  async function handleSubscribe(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    await join(email.trim());
-  }
 
   const currentEmptyState = EMPTY_STATES[activeTab] ?? {
     label: "Articles",
@@ -126,10 +117,7 @@ export function BlogPage({ posts, tags }: BlogPageProps) {
               return (
                 <button
                   key={category.id}
-                  onClick={() => {
-                    setActiveTab(category.id);
-                    if (status === "error") reset();
-                  }}
+                  onClick={() => setActiveTab(category.id)}
                   className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
                     isActive
                       ? "bg-[#1a1a1a] text-white shadow-sm"
@@ -345,51 +333,15 @@ export function BlogPage({ posts, tags }: BlogPageProps) {
                   {currentEmptyState.description}
                 </p>
 
-                {/* Inline Subscribe Box */}
+                {/* Inline call to action */}
                 <div className="mt-10 w-full max-w-[460px]">
-                  {status === "joined" ? (
-                    <div className="rounded-2xl bg-black/5 p-6 border border-black/[0.05] animate-in fade-in zoom-in-95 duration-300">
-                      <p aria-live="polite" className="text-sm font-semibold text-[#1a1a1a]">
-                        Subscription active! We&apos;ll notify you of the first release.
-                      </p>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5">
-                      <label htmlFor="blog-waitlist-email" className="sr-only">
-                        Email address
-                      </label>
-                      <input
-                        id="blog-waitlist-email"
-                        type="email"
-                        required
-                        autoComplete="email"
-                        placeholder="Enter your email for updates"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (status === "error") reset();
-                        }}
-                        className="min-w-0 flex-1 rounded-full border border-black/15 bg-white px-5 py-3 text-sm text-[#1a1a1a] placeholder-black/40 outline-none transition duration-300 focus:border-[#ff4a2c] focus:ring-1 focus:ring-[#ff4a2c]"
-                      />
-                      <button
-                        type="submit"
-                        disabled={status === "joining"}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#ff4a2c] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:bg-[#e03d21] disabled:opacity-50"
-                        style={{ cursor: status === "joining" ? "wait" : "pointer" }}
-                      >
-                        {status === "joining" ? "Subscribing…" : "Notify Me"}
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </form>
-                  )}
-                  {status === "error" && (
-                    <p
-                      aria-live="polite"
-                      className="mt-2.5 text-center text-xs text-red-500 font-medium"
-                    >
-                      {errorMessage}
-                    </p>
-                  )}
+                  <Link
+                    href="/login?tab=signup"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ff4a2c] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:bg-[#e03d21]"
+                  >
+                    Get started free
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               </div>
             </div>
