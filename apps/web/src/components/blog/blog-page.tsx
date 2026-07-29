@@ -117,6 +117,7 @@ export function BlogPage({ posts, tags }: BlogPageProps) {
               return (
                 <button
                   key={category.id}
+                  type="button"
                   onClick={() => setActiveTab(category.id)}
                   className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
                     isActive
@@ -337,7 +338,7 @@ export function BlogPage({ posts, tags }: BlogPageProps) {
                 <div className="mt-10 w-full max-w-[460px]">
                   <Link
                     href="/login?tab=signup"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ff4a2c] px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:bg-[#e03d21]"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ff4a2c] px-6 py-3 text-sm font-semibold text-white transition-colors duration-300 hover:bg-[#e03d21]"
                   >
                     Get started free
                     <ArrowRight className="h-4 w-4" />
