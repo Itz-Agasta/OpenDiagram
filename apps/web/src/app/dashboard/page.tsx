@@ -28,8 +28,7 @@ export default function DashboardPage() {
     setSignOutPending(true);
     try {
       await authClient.signOut();
-      data.setSavedProjects([]);
-      data.setSavedProjectsLoaded(false);
+      data.resetSavedProjects();
       setSignedOutDialogOpen(true);
     } finally {
       setSignOutPending(false);
