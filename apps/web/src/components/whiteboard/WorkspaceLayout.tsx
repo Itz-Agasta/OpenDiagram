@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { KeyRound, Loader2, Sparkles } from "lucide-react";
+import { KeyRound, Sparkles } from "lucide-react";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useWaitlistJoin } from "@/lib/use-waitlist-join";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
@@ -34,13 +33,6 @@ export function WorkspaceLayout() {
     return () => window.clearTimeout(timeout);
   }, [providerErrorMessage]);
   const [signedOutDialogOpen, setSignedOutDialogOpen] = useState(false);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const {
-    status: waitlistStatus,
-    errorMessage: waitlistError,
-    join: joinWaitlist,
-    reset: resetWaitlist,
-  } = useWaitlistJoin();
   const activeHistory = state.activeFile?.history;
   const byokSettingsHref = state.isSignedIn
     ? "/dashboard/settings"
@@ -50,13 +42,6 @@ export function WorkspaceLayout() {
   const agentFileIdentity = state.activeFile
     ? `${state.activeFile.projectId}:${state.activeFile.id}`
     : undefined;
-
-  async function handleJoinWaitlist(event: React.FormEvent) {
-    event.preventDefault();
-    if (!state.isSignedIn && !waitlistEmail.trim()) return;
-
-    await joinWaitlist(state.isSignedIn ? undefined : waitlistEmail.trim());
-  }
 
   async function handleSignOut() {
     await actions.signOut();
@@ -193,84 +178,35 @@ export function WorkspaceLayout() {
       <Dialog
         open={quotaMessage !== null}
         onOpenChange={(open) => {
-          if (!open) {
-            setQuotaMessage(null);
-            setWaitlistEmail("");
-            resetWaitlist();
-          }
+          if (!open) setQuotaMessage(null);
         }}
       >
         <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-od-ink">
-              {waitlistStatus === "joined"
-                ? "You're on the waitlist"
-                : "You've used your creation credits"}
-            </DialogTitle>
+            <DialogTitle className="text-od-ink">You've used your creation credits</DialogTitle>
             <DialogDescription className="leading-6 text-od-ink-muted">
-              {waitlistStatus === "joined"
-                ? "We'll let you know when more capacity becomes available."
-                : quotaMessage}
+              {quotaMessage}
             </DialogDescription>
           </DialogHeader>
-          {waitlistStatus !== "joined" && (
-            <div className="space-y-2">
-              {/* Ordered by what actually converts: paying is the primary path now
-                  that billing ships, BYOK is the free alternative we promise
-                  forever, and the waitlist below is the last resort. */}
-              <Link
-                href="/pricing"
-                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
-              >
-                <Sparkles className="size-4" />
-                Upgrade to Pro
-              </Link>
-              <Link
-                href={byokSettingsHref}
-                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
-              >
-                <KeyRound className="size-4" />
-                Use your own AI key - free, unlimited
-              </Link>
-            </div>
-          )}
-          {waitlistStatus !== "joined" && (
-            <form className="mt-2 space-y-3" onSubmit={handleJoinWaitlist}>
-              {!state.isSignedIn && (
-                <div>
-                  <label htmlFor="quota-waitlist-email" className="sr-only">
-                    Email address
-                  </label>
-                  <input
-                    id="quota-waitlist-email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    placeholder="Enter your email"
-                    value={waitlistEmail}
-                    onChange={(event) => {
-                      setWaitlistEmail(event.target.value);
-                      if (waitlistStatus === "error") resetWaitlist();
-                    }}
-                    className="h-10 w-full rounded-lg border border-od-border-soft bg-white px-3 text-sm text-od-ink outline-none transition focus:border-od-ink-muted"
-                  />
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={waitlistStatus === "joining"}
-                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-white transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50"
-              >
-                {waitlistStatus === "joining" && <Loader2 className="size-4 animate-spin" />}
-                {waitlistStatus === "joining" ? "Joining…" : "Join the waitlist"}
-              </button>
-              {waitlistStatus === "error" && (
-                <p aria-live="polite" className="text-center text-xs text-red-600">
-                  {waitlistError}
-                </p>
-              )}
-            </form>
-          )}
+          <div className="space-y-2">
+            {/* Ordered by what actually converts: paying is the primary path now
+                that billing ships, and BYOK is the free alternative we promise
+                forever. */}
+            <Link
+              href="/pricing"
+              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
+            >
+              <Sparkles className="size-4" />
+              Upgrade to Pro
+            </Link>
+            <Link
+              href={byokSettingsHref}
+              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
+            >
+              <KeyRound className="size-4" />
+              Use your own AI key - free, unlimited
+            </Link>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

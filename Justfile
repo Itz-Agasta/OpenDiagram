@@ -68,3 +68,26 @@ web:
 # Start API server
 server:
     bun run dev:server
+
+# Generate a migration from schema changes: just db-generate add_foo
+db-generate name="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd packages/db
+    if [ -n "{{ name }}" ]; then
+        bun run db:generate --name="{{ name }}"
+    else
+        bun run db:generate
+    fi
+
+# Apply pending migrations
+db-migrate:
+    cd packages/db && bun run db:migrate
+
+# Apply plan limits from packages/db/src/seed.ts (`just db-seed --dry-run` to preview)
+db-seed *args:
+    cd packages/db && bun run db:seed -- {{ args }}
+
+# Bring a database up to date: migrate, then seed. Order matters.
+db-setup: db-migrate db-seed
+

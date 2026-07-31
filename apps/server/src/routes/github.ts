@@ -1,17 +1,16 @@
 import { auth } from "@OpenDiagram/auth";
 import { and, db, eq, ne } from "@OpenDiagram/db";
-import { githubImportJob } from "@OpenDiagram/db/schema/github-import-job";
-import { project } from "@OpenDiagram/db/schema/project";
-import { projectFile } from "@OpenDiagram/db/schema/project-file";
+import { githubImportJob, project, projectFile } from "@OpenDiagram/db/schema/projects";
 import { z } from "zod";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { createLogger } from "evlog";
 
-import { indexRepositoryMemory } from "../lib/project-memory";
 import { peekCreationQuotaActor } from "../lib/quota";
 import { cleanupRepositoryClone, cloneAndBuildRepositoryDoc } from "../lib/repo-documentation";
+import { getRequestSession } from "../lib/session";
+import { writeProjectFileContent } from "../lib/project-file-content";
 
 type GitHubRepository = {
   id: number;
@@ -31,7 +30,7 @@ type GitHubImportJob = {
   id: string;
   userId: string;
   repoFullName: string;
-  status: "queued" | "cloning" | "documenting" | "indexing" | "done" | "failed";
+  status: "queued" | "cloning" | "documenting" | "done" | "failed";
   message: string;
   error: string | null;
   project: { id: string; name: string } | null;
@@ -57,7 +56,7 @@ const jobEmitters = new Map<string, (job: GitHubImportJob) => void>();
 const IMPORT_JOB_STALE_MS = 30 * 60 * 1000;
 
 githubRoute.get("/repositories", async (c) => {
-  const token = await getGitHubAccessToken(c.req.raw.headers);
+  const token = await getGitHubAccessToken(c);
 
   if (!token) {
     return c.json({ error: "Connect GitHub before importing repositories." }, 401);
@@ -116,7 +115,7 @@ githubRoute.get("/repositories", async (c) => {
 githubRoute.post("/import", importGitHubRepository);
 githubImportRoute.post("/github", importGitHubRepository);
 githubImportRoute.get("/github/:jobId", async (c) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const session = await getRequestSession(c);
   if (!session) return c.json({ error: "Connect GitHub before importing repositories." }, 401);
 
   const job = await getImportJob(c.req.param("jobId"), session.user.id);
@@ -127,16 +126,16 @@ githubImportRoute.get("/github/:jobId", async (c) => {
 });
 
 async function importGitHubRepository(c: Context) {
-  const authResult = await getGitHubAuth(c.req.raw.headers);
+  const authResult = await getGitHubAuth(c);
 
   if (!authResult) {
     return c.json({ error: "Connect GitHub before importing repositories." }, 401);
   }
 
   // Pro only, and unlike the diagram quota this is not a BYOK carve-out: the
-  // expensive part is the clone, parse, and Cognee embedding on our infra, which
-  // costs the same whoever's inference key gets used afterwards. It is also the
-  // intended upgrade trigger, so it ships with billing rather than after it.
+  // expensive part is the clone and parse on our infra, which costs the same
+  // whoever's inference key gets used afterwards. It is also the intended
+  // upgrade trigger, so it ships with billing rather than after it.
   const actor = await peekCreationQuotaActor(c, { userId: authResult.userId });
   if (actor?.planId !== "pro") {
     return c.json(
@@ -224,21 +223,28 @@ async function importGitHubRepository(c: Context) {
   });
 }
 
-async function getGitHubAccessToken(headers: Headers) {
-  const authResult = await getGitHubAuth(headers);
+async function getGitHubAccessToken(c: Context) {
+  const authResult = await getGitHubAuth(c);
   return authResult?.token ?? null;
 }
 
-async function getGitHubAuth(headers: Headers) {
-  const session = await auth.api.getSession({ headers });
+async function getGitHubAuth(c: Context) {
+  // Takes the Context rather than bare Headers so the session comes from the
+  // per-request memo instead of a resolution of its own. These routes are the
+  // last three that resolved independently.
+  const session = await getRequestSession(c);
 
   if (!session) {
     return null;
   }
 
   try {
+    // Still the raw headers, and deliberately so: `getAccessToken` forces
+    // `disableCookieCache: true` internally, because it hands out a live GitHub
+    // credential and must not do that on the word of a cached cookie. Leave that
+    // alone -- it is a fresh DB read on purpose, not an oversight.
     const token = await auth.api.getAccessToken({
-      headers,
+      headers: c.req.raw.headers,
       body: {
         providerId: "github",
         userId: session.user.id,
@@ -357,10 +363,14 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
 
       if (!pRow) throw new Error("Could not create imported project.");
 
-      await tx.insert(projectFile).values({
-        projectId: pRow.id,
-        name: "Repository overview.md",
-        type: "doc",
+      const [fRow] = await tx
+        .insert(projectFile)
+        .values({ projectId: pRow.id, name: "Repository overview.md", type: "doc" })
+        .returning({ id: projectFile.id });
+
+      if (!fRow) throw new Error("Could not create imported project file.");
+
+      await writeProjectFileContent(tx, fRow.id, {
         content: documentation.markdown,
         spec: documentation.provenance,
       });
@@ -368,25 +378,12 @@ async function runImportJob(input: { jobId: string; repo: GitHubRepository; toke
       return pRow;
     });
 
-    await updateImportJob(job.id, { status: "indexing", message: "Indexing repository memory" });
-    const memoryResult = await indexRepositoryMemory({
-      projectId: projectRow.id,
-      userId: job.userId,
-      repoFullName: input.repo.full_name,
-      branch: input.repo.default_branch,
-      commitSha: documentation.commitSha,
-      sourceDocuments: documentation.sourceDocuments,
-    }).catch((error) => ({
-      status: "failed",
-      error: error instanceof Error ? error.message : "Repository memory indexing failed.",
-    }));
-
+    // The import used to push every source file into a Cognee dataset here,
+    // which was the slowest stage of the job and produced an index nothing read
+    // back. Project answers are grounded from the project's own rows instead.
     await updateImportJob(job.id, {
       status: "done",
-      message:
-        memoryResult?.status === "ready"
-          ? "Repository imported and indexed"
-          : "Repository imported; memory indexing unavailable",
+      message: "Repository imported",
       project: { id: projectRow.id, name: projectRow.name },
     });
   } catch (error) {
@@ -433,7 +430,6 @@ async function updateImportJob(
       error: nextJob.error,
       projectId: nextJob.project?.id ?? null,
       projectName: nextJob.project?.name ?? null,
-      updatedAt: nextJob.updatedAt,
     })
     .where(eq(githubImportJob.id, jobId));
 }
@@ -485,8 +481,8 @@ function toJobRow(job: GitHubImportJob): typeof githubImportJob.$inferInsert {
     error: job.error,
     projectId: job.project?.id ?? null,
     projectName: job.project?.name ?? null,
-    createdAt: job.createdAt,
-    updatedAt: job.updatedAt,
+    createdAt: new Date(job.createdAt),
+    updatedAt: new Date(job.updatedAt),
   };
 }
 
@@ -499,7 +495,7 @@ function fromJobRow(row: typeof githubImportJob.$inferSelect): GitHubImportJob {
     message: row.message,
     error: row.error,
     project: row.projectId && row.projectName ? { id: row.projectId, name: row.projectName } : null,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }

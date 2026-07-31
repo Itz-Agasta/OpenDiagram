@@ -5,7 +5,7 @@
  */
 import { createGoogle } from "@ai-sdk/google";
 import { and, db, eq } from "@OpenDiagram/db";
-import { userAiProvider } from "@OpenDiagram/db/schema/user-ai-provider";
+import { userAiProvider } from "@OpenDiagram/db/schema/ai";
 import { env } from "@OpenDiagram/env/server";
 import type { LanguageModel } from "ai";
 import { decryptSecret } from "./encrypt";

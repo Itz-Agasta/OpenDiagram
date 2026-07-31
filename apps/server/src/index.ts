@@ -2,12 +2,12 @@ import { auth } from "@OpenDiagram/auth";
 import { env } from "@OpenDiagram/env/server";
 import { sentry } from "@sentry/hono/bun";
 import { initLogger } from "evlog";
-import { createAuthMiddleware, type BetterAuthInstance } from "evlog/better-auth";
 import { createFsDrain } from "evlog/fs";
-import { evlog, type EvlogVariables } from "evlog/hono";
+import { evlog } from "evlog/hono";
 import { createSentryDrain } from "evlog/sentry";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { resolveSession, type SessionVariables } from "./lib/session";
 // Registers the AI SDK's OpenTelemetry integration; must load before any AI call.
 import "./lib/telemetry";
 import { aiSettingsRoute } from "./routes/ai-settings";
@@ -17,7 +17,6 @@ import { githubImportRoute, githubRoute } from "./routes/github";
 import { orchestrateRoute } from "./routes/orchestrate";
 import { projectsRoute } from "./routes/projects";
 import { usageRoute } from "./routes/usage";
-import { waitlistRoute } from "./routes/waitlist";
 import { dodoWebhookRoute } from "./routes/webhooks/dodo";
 
 initLogger({
@@ -30,11 +29,6 @@ initLogger({
   redact: true,
 });
 
-const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
-  exclude: ["/api/auth/**"],
-  maskEmail: true,
-});
-
 const origins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
 
 // Server-project DSN (public value). The Bun transport flushes asynchronously;
@@ -43,7 +37,7 @@ const origins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
 const SENTRY_DSN =
   "https://d065bd035ab8612f7d8527b0529c6742@o4511790063812608.ingest.us.sentry.io/4511790076592128";
 
-const app = new Hono<EvlogVariables>();
+const app = new Hono<{ Variables: SessionVariables }>();
 
 // Sentry middleware must run as early as possible; it initializes the SDK.
 app.use(
@@ -95,10 +89,11 @@ app.use(
 app.get("/", (c) => c.text("OK"));
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-app.use("*", async (c, next) => {
-  await identifyUser(c.get("log"), c.req.raw.headers, c.req.path);
-  await next();
-});
+// Resolves the Better Auth session once and attributes the wide event from it.
+// Everything downstream -- `requireAuth`, the quota actor, the BYOK lookup in
+// /api/diagram/chat -- reads that same result via `getRequestSession`, so a
+// request costs one session resolution rather than the two or three it used to.
+app.use("*", resolveSession);
 
 app.use(
   "/*",
@@ -118,7 +113,6 @@ app.route("/api/github", githubRoute);
 app.route("/api/import", githubImportRoute);
 app.route("/api/projects", projectsRoute);
 app.route("/api/usage", usageRoute);
-app.route("/api/waitlist", waitlistRoute);
 app.route("/api/settings/ai", aiSettingsRoute);
 app.route("/api/billing", billingRoute);
 // Server-to-server, signature-verified, no session. The registered Dodo endpoint

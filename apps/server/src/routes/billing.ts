@@ -10,7 +10,7 @@
  */
 import { and, db, eq, inArray, ne, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
-import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/subscription";
+import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/billing";
 import { env } from "@OpenDiagram/env/server";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -63,7 +63,7 @@ billingRoute.use("*", requireAuth);
 /** Current plan and subscription state, for the pricing and settings pages. */
 billingRoute.get("/", async (c) => {
   const userId = c.get("userId");
-  const actor = await getUserActor(userId);
+  const actor = await getUserActor(userId, c);
   const [row] = await db
     .select({
       status: subscription.status,
@@ -376,7 +376,9 @@ billingRoute.post("/reconcile", async (c) => {
     return c.json({ error: "Could not confirm the subscription." }, 409);
   }
 
-  const actor = await getUserActor(userId);
+  // Resolved after the upsert on purpose, so it reports the plan the payment
+  // just bought rather than the one the caller had a moment ago.
+  const actor = await getUserActor(userId, c);
   log.info("Post-checkout reconcile applied", { dodo: { subscriptionId }, plan: actor.planId });
   return c.json({ planId: actor.planId, status: remote.status });
 });

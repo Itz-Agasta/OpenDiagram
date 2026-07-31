@@ -5,85 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1783261294463,
-      "tag": "0000_brainy_jasper_sitwell",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1784618806312,
-      "tag": "0001_puzzling_arclight",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1784630893471,
-      "tag": "0002_gorgeous_gamma_corps",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1784788028191,
-      "tag": "0003_simple_true_believers",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1784792379667,
-      "tag": "0004_chemical_salo",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1785066610013,
-      "tag": "0005_melodic_fallen_one",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1785085200000,
-      "tag": "0006_grandfather_email_verified",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1785088800000,
-      "tag": "0007_retune_burst_and_concurrency",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1785088860000,
-      "tag": "0008_reflective_firedrake",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1785098844604,
-      "tag": "0009_plan_guards_and_ledger_fk",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1785099747169,
-      "tag": "0010_ledger_refunded_status",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1785103505309,
-      "tag": "0011_auth_rate_limit",
+      "when": 1785269645532,
+      "tag": "0000_baseline",
       "breakpoints": true
     }
   ]
