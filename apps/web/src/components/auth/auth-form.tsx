@@ -45,6 +45,26 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
                   : "Start charting your own diagrams in minutes."}
               </p>
 
+              {form.notice ? (
+                <div className="auth-notice" role="status">
+                  <p>{form.notice}</p>
+                  {form.canResend ? (
+                    <button
+                      className="linklike"
+                      type="button"
+                      onClick={form.resendVerification}
+                      disabled={form.resendState !== "idle"}
+                    >
+                      {form.resendState === "sending"
+                        ? "Sending…"
+                        : form.resendState === "sent"
+                          ? "Email sent"
+                          : "Resend verification email"}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="tabs" role="tablist">
                 <div className="tab-pill" data-pos={form.tab} />
                 {(["signin", "signup"] as const).map((tab) => (

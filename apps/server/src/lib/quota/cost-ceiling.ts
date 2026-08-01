@@ -13,7 +13,7 @@ import {
   MICROS_PER_CENT,
   UNCHARGED_LEDGER_STATUSES,
   usageLedger,
-} from "@OpenDiagram/db/schema/usage-ledger";
+} from "@OpenDiagram/db/schema/billing";
 import type { CreationQuotaActor } from "./actor";
 import { CostCeilingExceededError } from "./errors";
 

@@ -7,7 +7,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogle } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import type { UserAiProviderKind } from "@OpenDiagram/db/schema/user-ai-provider";
+import type { UserAiProviderKind } from "@OpenDiagram/db/schema/ai";
 import type { LanguageModel } from "ai";
 
 export type ProviderModel = { id: string; label: string };

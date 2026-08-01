@@ -12,6 +12,7 @@
  * the caller decides. Sends are awaited rather than detached -- see `sendSafely`.
  */
 import { env } from "@OpenDiagram/env/server";
+import { log } from "evlog";
 import { Resend } from "resend";
 import { passwordResetEmail, verificationEmail, welcomeEmail, type EmailBody } from "./templates";
 
@@ -71,9 +72,11 @@ async function sendSafely(
   try {
     await send(to, body, idempotencyKey);
   } catch (error) {
-    // No recipient address in the message. A provider outage logs one line per
-    // failed send, and that must not turn the log into a list of user emails.
-    console.error(`[email] ${label} failed:`, error instanceof Error ? error.message : error);
+    log.error({
+      action: "email.send_failed",
+      email: { kind: label },
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

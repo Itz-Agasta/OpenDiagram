@@ -6,7 +6,12 @@ export const SIDEBAR_MAX_WIDTH = 360;
 export const AGENT_MIN_WIDTH = 300;
 export const AGENT_MAX_WIDTH = 560;
 export const CONTENT_MIN_WIDTH = 420;
-export const AUTOSAVE_DELAY_MS = 800;
+// Was 800 ms, chosen when the network write was the only durable copy and so
+// had to be hurried. IndexedDB now takes the edit immediately (see
+// `useWorkspacePersistence`), which makes this purely the replication interval:
+// a longer window collapses a burst of drawing into one request and, with
+// single-flight, keeps at most one PATCH per file on the wire.
+export const AUTOSAVE_DELAY_MS = 2500;
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 

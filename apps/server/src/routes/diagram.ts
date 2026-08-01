@@ -1,4 +1,3 @@
-import { auth } from "@OpenDiagram/auth";
 import { diagramSpecSchema, themes } from "@OpenDiagram/harness";
 import {
   convertToModelMessages,
@@ -15,6 +14,7 @@ import { z } from "zod";
 import { buildSystemPrompt } from "../lib/agent/prompt";
 import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
+import { getRequestSession } from "../lib/session";
 import { resolveModel } from "../lib/ai-provider/resolve";
 import { LLM_MAX_RETRIES } from "../lib/repo-ai";
 import { aiTelemetry } from "../lib/telemetry";
@@ -107,7 +107,7 @@ diagramRoute.post("/chat", async (c) => {
 
   // BYOK: signed-in users with a configured provider run on their own key/model
   // (and skip the platform quota). Everyone else runs on the platform model.
-  const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
+  const session = await getRequestSession(c);
   const userId = session?.user.id;
   let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {

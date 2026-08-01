@@ -3,8 +3,11 @@
  * and the consume/refund logic layered on top of them.
  */
 import { and, db, eq, sql } from "@OpenDiagram/db";
-import { creationUsage, type CreationUsagePeriod } from "@OpenDiagram/db/schema/creation-usage";
-import type { PlanId } from "@OpenDiagram/db/schema/plan";
+import {
+  creationUsage,
+  type CreationUsagePeriod,
+  type PlanId,
+} from "@OpenDiagram/db/schema/billing";
 import type { CreationQuotaActor } from "./actor";
 import { CreationQuotaExceededError } from "./errors";
 

@@ -1,22 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { User } from "better-auth";
 import { listGuestProjectDrafts, type GuestProjectDraft } from "@/lib/guest-drafts";
 import {
-  listProjectFiles,
-  listProjects,
+  listProjectsWithFiles,
+  type DashboardProjects,
   type SavedProject,
   type SavedProjectFile,
 } from "@/lib/projects-client";
 import type { Project, ProjectFile } from "./types";
 import { getInitials, getProjectColor } from "./utils";
 
+const dashboardProjectsKey = ["dashboard", "projects"] as const;
+const emptyDashboard: DashboardProjects = { projects: [], filesByProject: {} };
+
 export function useDashboardData(user: User | undefined, sessionPending: boolean) {
+  const queryClient = useQueryClient();
   const [guestDrafts, setGuestDrafts] = useState<GuestProjectDraft[]>([]);
-  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
-  const [filesByProject, setFilesByProject] = useState<Record<string, SavedProjectFile[]>>({});
-  const [savedProjectsLoading, setSavedProjectsLoading] = useState(false);
-  const [savedProjectsLoaded, setSavedProjectsLoaded] = useState(false);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [projectSearch, setProjectSearch] = useState("");
   const expandInitRef = useRef(false);
@@ -33,59 +35,72 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => setGuestDrafts(listGuestProjectDrafts()), []);
-
+  // Async now that drafts are durable: the read waits on the one IndexedDB
+  // hydration. `cancelled` guards the late resolve against an unmount.
   useEffect(() => {
-    if (sessionPending) return;
-    if (!user) {
-      setSavedProjectsLoading(false);
-      setSavedProjects([]);
-      setFilesByProject({});
-      setSavedProjectsLoaded(false);
-      return;
-    }
-    let active = true;
-
-    async function loadSavedProjects() {
-      setSavedProjectsLoading(true);
-      setSavedProjectsLoaded(false);
-      setSavedProjects([]);
-      setFilesByProject({});
-      try {
-        const projects = await listProjects();
-        if (!active) return;
-        setSavedProjects(projects);
-        const entries = await Promise.all(
-          projects.map(async (project) => {
-            try {
-              return [project.id, await listProjectFiles(project.id)] as const;
-            } catch {
-              return [project.id, []] as const;
-            }
-          }),
-        );
-        if (active) setFilesByProject(Object.fromEntries(entries));
-      } catch (error) {
-        if (active) {
-          toast.error(
-            error instanceof Error && error.message !== "Internal Server Error"
-              ? error.message
-              : "Could not load saved projects.",
-          );
-        }
-      } finally {
-        if (active) {
-          setSavedProjectsLoading(false);
-          setSavedProjectsLoaded(true);
-        }
-      }
-    }
-
-    void loadSavedProjects();
+    let cancelled = false;
+    void listGuestProjectDrafts().then((drafts) => {
+      if (!cancelled) setGuestDrafts(drafts);
+    });
     return () => {
-      active = false;
+      cancelled = true;
     };
-  }, [sessionPending, user]);
+  }, []);
+
+  // One request for the whole tree, replacing a `listProjects` followed by a
+  // `listProjectFiles` per project. `enabled` holds it until the session has
+  // resolved, and keeps it off entirely for a visitor who only has local drafts.
+  const query = useQuery({
+    queryKey: dashboardProjectsKey,
+    queryFn: listProjectsWithFiles,
+    enabled: !sessionPending && isSignedIn,
+  });
+
+  const { error } = query;
+  useEffect(() => {
+    if (!error) return;
+    toast.error(
+      error instanceof Error && error.message !== "Internal Server Error"
+        ? error.message
+        : "Could not load saved projects.",
+    );
+  }, [error]);
+
+  const savedProjects = query.data?.projects ?? emptyDashboard.projects;
+  const filesByProject = query.data?.filesByProject ?? emptyDashboard.filesByProject;
+
+  // Creation and renaming apply their results optimistically rather than
+  // refetching the tree, so these keep the `useState` setter shape those hooks
+  // were written against and write straight into the query cache instead.
+  const setSavedProjects = useCallback<Dispatch<SetStateAction<SavedProject[]>>>(
+    (update) => {
+      queryClient.setQueryData<DashboardProjects>(dashboardProjectsKey, (current) => {
+        const base = current ?? emptyDashboard;
+        return { ...base, projects: typeof update === "function" ? update(base.projects) : update };
+      });
+    },
+    [queryClient],
+  );
+
+  const setFilesByProject = useCallback<
+    Dispatch<SetStateAction<Record<string, SavedProjectFile[]>>>
+  >(
+    (update) => {
+      queryClient.setQueryData<DashboardProjects>(dashboardProjectsKey, (current) => {
+        const base = current ?? emptyDashboard;
+        return {
+          ...base,
+          filesByProject: typeof update === "function" ? update(base.filesByProject) : update,
+        };
+      });
+    },
+    [queryClient],
+  );
+
+  /** Drop the signed-in tree on sign-out so the next account cannot see it. */
+  const resetSavedProjects = useCallback(() => {
+    queryClient.removeQueries({ queryKey: dashboardProjectsKey });
+  }, [queryClient]);
 
   const projects = useMemo<Project[]>(
     () =>
@@ -149,17 +164,18 @@ export function useDashboardData(user: User | undefined, sessionPending: boolean
     filteredProjects,
     guestDrafts,
     isSignedIn,
-    loading:
-      !mounted || sessionPending || (isSignedIn && !savedProjectsLoaded) || savedProjectsLoading,
+    // A disabled query reports `isPending` forever, so this only counts it once
+    // the caller is signed in and the request is genuinely in flight.
+    loading: !mounted || sessionPending || (isSignedIn && query.isPending),
     projectSearch,
     projects,
+    resetSavedProjects,
     savedProjects,
     setExpandedProjectId,
     setFilesByProject,
     setGuestDrafts,
     setProjectSearch,
     setSavedProjects,
-    setSavedProjectsLoaded,
   };
 }
 
