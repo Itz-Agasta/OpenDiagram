@@ -35,6 +35,10 @@ type StoredCanvasDiagrams = { diagrams: CanvasDiagram[] };
  * the model gets to see every diagram it might be asked about. The cap exists so
  * a pathological canvas cannot quietly double the prompt; the oldest drop out
  * first, since the recent ones are what a conversation is about.
+ *
+ * A PROMPT bound only. Applied in `upsertCanvasDiagram` too it hit the array
+ * `serializeCanvasDiagrams` persists, so the ninth diagram deleted the first
+ * one's spec while its frame stayed on screen -- a drawing nothing could edit.
  */
 export const MAX_PROMPT_DIAGRAMS = 8;
 
@@ -65,13 +69,17 @@ export function parseCanvasDiagrams(stored: unknown): CanvasDiagram[] {
   );
 }
 
-/** Add a diagram, or replace the one already in that frame. Newest last. */
+/**
+ * Add a diagram, or replace the one already in that frame. Newest last.
+ *
+ * Deliberately unbounded: this is the persisted list. See `MAX_PROMPT_DIAGRAMS`.
+ */
 export function upsertCanvasDiagram(
   current: CanvasDiagram[],
   next: CanvasDiagram,
 ): CanvasDiagram[] {
   const without = current.filter((diagram) => diagram.id !== next.id);
-  return [...without, next].slice(-MAX_PROMPT_DIAGRAMS);
+  return [...without, next];
 }
 
 /** The shape written back to `project_file_content.spec`. */

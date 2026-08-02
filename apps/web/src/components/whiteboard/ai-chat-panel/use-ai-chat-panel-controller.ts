@@ -206,18 +206,22 @@ export function useAIChatPanelController({
   // id, so their one diagram cannot be targeted and the first modification would
   // draw a duplicate beside it. The frame is right there on the canvas: when
   // there is exactly one of each, they are unambiguously the same diagram.
+  //
+  // Through `handleDiagramsChange`, not `setDiagrams`, so the repair is WRITTEN
+  // to the file. In state only it was redone every load, and until it had run
+  // `toPromptDiagrams` dropped the entry for having an empty id -- so a message
+  // sent before `excalidrawAPI` arrived told the model the canvas was empty.
   useEffect(() => {
     if (!excalidrawAPI) return;
     const current = diagramsRef.current;
     if (current.length !== 1 || current[0]!.id !== "") return;
     const frames = excalidrawAPI.getSceneElements().filter((element) => element.type === "frame");
     if (frames.length !== 1) return;
-    const paired = [{ ...current[0]!, id: frames[0]!.id }];
-    diagramsRef.current = paired;
-    setDiagrams(paired);
-  }, [excalidrawAPI, diagrams]);
+    handleDiagramsChange([{ ...current[0]!, id: frames[0]!.id }]);
+  }, [excalidrawAPI, diagrams, handleDiagramsChange]);
   const projectChat = useProjectChat({
     activeFileType,
+    diagramMessages: diagramChat.messages,
     fileId,
     normalizedHistory,
     onHistoryChange,
@@ -298,8 +302,16 @@ export function useAIChatPanelController({
   return {
     answerAskUser,
     loadThreadList: thread.loadThreadList,
-    resumeThread: (id: string) => void thread.resumeThread(id),
-    startNewThread: thread.startNewThread,
+    // Surfaced, not swallowed: `isSwitching` clears either way, so a failed
+    // switch looked like a finished one that had simply changed nothing.
+    resumeThread: (id: string) =>
+      thread.resumeThread(id).catch((cause: unknown) => {
+        onProviderError?.(cause instanceof Error ? cause.message : "Could not open that chat.");
+      }),
+    startNewThread: () =>
+      thread.startNewThread().catch((cause: unknown) => {
+        onProviderError?.(cause instanceof Error ? cause.message : "Could not start a new chat.");
+      }),
     threadSwitching: thread.isSwitching,
     threads: thread.threads,
     applyError: canvas.applyError,
