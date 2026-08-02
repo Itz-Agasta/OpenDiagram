@@ -4,12 +4,16 @@ import {
   appendThreadMessages,
   createThread,
   getActiveThread,
+  listThreadMessages,
   listThreads,
   patchThreadTouched,
   type ChatThreadSummary,
 } from "@/lib/projects-client";
 import { uiMessageToStoredChatMessage, type StoredChatMessage } from "@/lib/chat-history";
 import { writeLocalChat } from "@/lib/local-chat";
+
+/** Messages per append request. Mirrors the cap the server enforces. */
+const APPEND_BATCH_LIMIT = 20;
 
 /**
  * Owns which conversation is open for a file, and what of it is already saved.
@@ -35,8 +39,21 @@ export function useChatThread(options: {
   // Ids already in Postgres. Seeded from whatever a thread load returned so a
   // reopened conversation does not re-append everything it just read back.
   const savedIdsRef = useRef(new Set<string>());
+  // Written only from `adoptThread` and the lazy create in `persistTurn`, never
+  // during render: React can replay or discard a render, so a mutation made there
+  // can leak out of UI that never commits.
   const threadIdRef = useRef<string | null>(null);
-  threadIdRef.current = threadId;
+
+  // Bumped by every action that changes which conversation is open. An in-flight
+  // load compares the value it captured against this before adopting, so a slow
+  // `getActiveThread` cannot land after a "New chat" and quietly restore the
+  // conversation the user just left.
+  const switchRef = useRef(0);
+
+  // Appends run one at a time. Two overlapping turns would otherwise both find
+  // `threadIdRef.current` null and create two threads for one canvas, and their
+  // appends would race for the same sequence number on the server.
+  const persistChainRef = useRef<Promise<void>>(Promise.resolve());
 
   const onMessagesLoadedRef = useRef(onMessagesLoaded);
   useEffect(() => {
@@ -51,6 +68,7 @@ export function useChatThread(options: {
       } | null,
     ) => {
       savedIdsRef.current = new Set(thread?.messages.map((message) => message.clientId) ?? []);
+      threadIdRef.current = thread?.id ?? null;
       setThreadId(thread?.id ?? null);
       setThreadLoaded(true);
 
@@ -65,34 +83,36 @@ export function useChatThread(options: {
       // message list, so the panel still clears.
       if (!thread) return;
 
-      onMessagesLoadedRef.current(
-        thread.messages.map((message) => ({
-          id: message.clientId,
-          role: message.role,
-          text: "",
-          parts: message.parts as StoredChatMessage["parts"],
-        })),
-      );
+      const messages = thread.messages.map((message) => ({
+        id: message.clientId,
+        role: message.role,
+        text: "",
+        parts: message.parts as StoredChatMessage["parts"],
+      }));
+      onMessagesLoadedRef.current(messages);
+
+      // The local cache is what paints this panel on the next open, and it holds
+      // one entry per FILE with no thread identity in it. Rewriting it here is
+      // what keeps the two agreeing: without it, reopening an older conversation
+      // and then reloading showed the previously active one back again, because
+      // the cache had never been told the conversation changed.
+      if (fileId && projectId) void writeLocalChat(fileId, projectId, messages);
     },
-    [],
+    [fileId, projectId],
   );
 
   // Load the open conversation for this file. Runs behind the IndexedDB paint in
   // `useWorkspaceProjectLoader`, so this is revalidation rather than first paint.
   useEffect(() => {
     if (!projectId || !fileId) return;
-    let active = true;
+    const generation = ++switchRef.current;
     setThreadLoaded(false);
 
     void getActiveThread(projectId, fileId)
       .then((thread) => {
-        if (active) adoptThread(thread);
+        if (switchRef.current === generation) adoptThread(thread);
       })
       .catch(() => undefined);
-
-    return () => {
-      active = false;
-    };
   }, [adoptThread, fileId, projectId]);
 
   /**
@@ -109,44 +129,56 @@ export function useChatThread(options: {
     async (messages: UIMessage[]) => {
       if (!projectId || !fileId) return;
 
-      const unsaved = messages
-        .filter((message) => !savedIdsRef.current.has(message.id))
-        .flatMap((message) => {
-          const stored = uiMessageToStoredChatMessage(message);
-          return stored?.parts?.length
-            ? [{ clientId: stored.id, role: stored.role, parts: stored.parts as unknown[] }]
-            : [];
-        });
+      // One conversion for both consumers: the cache wants every message, the
+      // append wants the ones with no watermark yet.
+      const stored: StoredChatMessage[] = [];
+      const unsaved: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[] = [];
+      for (const message of messages) {
+        const entry = uiMessageToStoredChatMessage(message);
+        if (!entry) continue;
+        stored.push(entry);
+        if (!savedIdsRef.current.has(message.id) && entry.parts?.length) {
+          unsaved.push({ clientId: entry.id, role: entry.role, parts: entry.parts as unknown[] });
+        }
+      }
 
       // The local cache is written regardless -- it is what paints the panel next
       // time, and it should not depend on the network write succeeding.
-      void writeLocalChat(
-        fileId,
-        projectId,
-        messages.flatMap((message) => {
-          const stored = uiMessageToStoredChatMessage(message);
-          return stored ? [stored] : [];
-        }),
-      );
+      void writeLocalChat(fileId, projectId, stored);
 
       if (unsaved.length === 0) return;
 
-      try {
-        let id = threadIdRef.current;
-        if (!id) {
-          const created = await createThread(projectId, fileId);
-          id = created.id;
-          threadIdRef.current = id;
-          setThreadId(id);
+      // Queued behind any append still running -- turns overlap when the model
+      // answers from cache or the user answers an `ask_user` chip.
+      const run = persistChainRef.current.then(async () => {
+        try {
+          let id = threadIdRef.current;
+          if (!id) {
+            const created = await createThread(projectId, fileId);
+            id = created.id;
+            threadIdRef.current = id;
+            setThreadId(id);
+          }
+
+          // Chunked to the server's cap. `unsaved` is not one turn, it is
+          // everything never acknowledged, so a spell offline leaves a backlog --
+          // and sending it whole was rejected as too large, permanently, because
+          // the backlog only ever grows.
+          for (let start = 0; start < unsaved.length; start += APPEND_BATCH_LIMIT) {
+            const batch = unsaved.slice(start, start + APPEND_BATCH_LIMIT);
+            await appendThreadMessages(projectId, id, batch);
+            // Marked per batch, so a failure partway through does not re-send the
+            // batches the server already took.
+            for (const message of batch) savedIdsRef.current.add(message.clientId);
+          }
+        } catch {
+          // Left unsaved on purpose. The IndexedDB copy above still holds the
+          // turn, and the next turn re-sends everything missing its watermark.
         }
-        await appendThreadMessages(projectId, id, unsaved);
-        // Only after the server took them, so a failed write is retried by the
-        // next turn rather than silently dropped.
-        for (const message of unsaved) savedIdsRef.current.add(message.clientId);
-      } catch {
-        // Left unsaved on purpose. The IndexedDB copy above still holds the turn,
-        // and the next turn re-sends everything still missing its watermark.
-      }
+      });
+
+      persistChainRef.current = run;
+      await run;
     },
     [fileId, projectId],
   );
@@ -155,8 +187,13 @@ export function useChatThread(options: {
   const startNewThread = useCallback(async () => {
     if (!projectId || !fileId) return;
     setIsSwitching(true);
+    // Anything still saving belongs to the conversation being left, so it is
+    // flushed before the switch rather than landing in the new thread.
+    await persistChainRef.current;
+    const generation = ++switchRef.current;
     try {
       const created = await createThread(projectId, fileId);
+      if (switchRef.current !== generation) return;
       adoptThread({ id: created.id, messages: [] });
       setThreads((current) => [created, ...current]);
       void writeLocalChat(fileId, projectId, []);
@@ -165,16 +202,22 @@ export function useChatThread(options: {
     }
   }, [adoptThread, fileId, projectId]);
 
-  /** Reopen an earlier conversation: its messages and the diagram it was editing. */
+  /** Reopen an earlier conversation, by id. */
   const resumeThread = useCallback(
     async (id: string) => {
       if (!projectId || !fileId) return;
       setIsSwitching(true);
+      await persistChainRef.current;
+      const generation = ++switchRef.current;
       try {
-        // Touch first, then re-read: bumping `updated_at` makes this the active
-        // thread, which `getActiveThread` then returns with its messages.
+        // Touched so it becomes the thread this canvas reopens on, then read BY
+        // ID. Re-reading whichever thread was newest is a different question: any
+        // write bumping another thread in between handed the user a conversation
+        // they did not ask for.
         await patchThreadTouched(projectId, id);
-        adoptThread(await getActiveThread(projectId, fileId));
+        const messages = await listThreadMessages(projectId, id);
+        if (switchRef.current !== generation) return;
+        adoptThread({ id, messages });
       } finally {
         setIsSwitching(false);
       }

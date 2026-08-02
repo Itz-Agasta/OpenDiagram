@@ -119,13 +119,10 @@ export type ChatThreadMessage = {
   parts: unknown[];
 };
 
-/** An open thread: its metadata, the diagram it is editing, and its recent messages. */
+/** An open thread: its metadata and its recent messages. Diagrams live on the file. */
 export type ChatThread = {
   id: string;
   title: string;
-  spec?: unknown;
-  /** The Excalidraw frame this conversation owns, so a redraw replaces its own diagram. */
-  frameId: string | null;
   updatedAt: string;
   messages: ChatThreadMessage[];
 };

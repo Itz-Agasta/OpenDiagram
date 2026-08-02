@@ -74,18 +74,12 @@ export async function appendThreadMessages(
   projectId: string,
   threadId: string,
   messages: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[],
-  spec?: unknown,
-  frameId?: string | null,
 ): Promise<{ seq: number; clientId: string }[]> {
   const response = await fetch(`${base(projectId)}/threads/${threadId}/messages`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages,
-      ...(spec === undefined ? {} : { spec }),
-      ...(frameId === undefined ? {} : { frameId }),
-    }),
+    body: JSON.stringify({ messages }),
   });
   const data = await readProjectResponse(response);
   if (!response.ok) throw new Error(data?.error ?? "Could not save chat.");
