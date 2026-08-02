@@ -146,9 +146,15 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
       activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];
     const seeded = seededRef.current;
 
+    // A turn in flight owns the transcript outright, whatever the key says. This
+    // used to sit inside the key comparison below, so a key CHANGE bypassed it --
+    // and the key changes at the worst moment, when `persistTurn` creates the
+    // thread lazily on the first turn and `threadId` flips just as that turn
+    // lands. `chat.status` is a dependency, so this defers the seed, never skips
+    // it.
+    if (chat.status !== "ready") return;
+
     if (seeded?.key === key) {
-      // A turn in flight owns the transcript outright.
-      if (chat.status !== "ready") return;
       // Already showing something, or nothing new to show.
       if (seeded.count > 0 || next.length === 0) return;
     }
