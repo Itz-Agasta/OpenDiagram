@@ -169,22 +169,20 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
 
   const { scene, spec, content, history, ...metadata } = parsed.data;
 
-  // TODO: two things to fix here in a later session, both measured against
-  // us-east-2 (285ms per round trip from India, ~18ms once the DB is co-located
-  // with Cloud Run):
-  //
-  // 1. 4 round trips -- BEGIN, UPDATE, content upsert, COMMIT. A single CTE
-  //    would be atomic without the explicit transaction, so 1. Needs either
-  //    dynamically built SQL or a `CASE WHEN $flag` per content column, since
-  //    the columns are written conditionally.
-  // 2. The response echoes the whole content row back. `writeProjectFileContent`
-  //    returns the large columns and we hand them to the client, so a 15-byte
-  //    rename downloads 12.8KB and an autosave ships the scene twice. Bytes,
-  //    which moving the database does not fix. Not safe to just strip:
-  //    useWorkspaceFileActions and useWorkspaceFileName both do
-  //    `setActiveFile(updated)` and read `updated.content`. The autosave path
-  //    only needs `updatedAt` and `id/name/type`, so a `?fields=meta` opt-out
-  //    used by that caller alone is the additive fix.
+  // `?fields=meta` drops the content echo from the response. The write paths that
+  // use it -- canvas autosave, the agent's spec write, the chat history write --
+  // are all replication behind a local write and read nothing back, yet each was
+  // downloading the scene it had just uploaded. A rename paid 12.8KB to change 15
+  // bytes. Opt-in rather than the default because `useWorkspaceFileActions` and
+  // `useWorkspaceFileName` do `setActiveFile(updated)` and read `updated.content`,
+  // so stripping it unconditionally would blank the editor.
+  const metaOnly = c.req.query("fields") === "meta";
+
+  // TODO: still 4 round trips -- BEGIN, UPDATE, content upsert, COMMIT. A single
+  // CTE would be atomic without the explicit transaction, so 1. Needs either
+  // dynamically built SQL or a `CASE WHEN $flag` per content column, since the
+  // columns are written conditionally. Measured against us-east-2 at 285ms per
+  // round trip from India, ~18ms once the DB is co-located with Cloud Run.
   const row = await db.transaction(async (tx) => {
     // Ownership rides on the UPDATE instead of a select in front of it: no row
     // back means the file is missing or the project isn't this user's. `type`
@@ -225,12 +223,12 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
       nextSpec = markDocSpecUserEdited(existing?.spec ?? null);
     }
 
-    const contentRow = await writeProjectFileContent(tx, fileId, {
-      scene,
-      spec: nextSpec,
-      content,
-      history,
-    });
+    const contentRow = await writeProjectFileContent(
+      tx,
+      fileId,
+      { scene, spec: nextSpec, content, history },
+      { returnContent: !metaOnly },
+    );
 
     return { ...file, ...contentRow };
   });
@@ -239,7 +237,10 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
-  return c.json({ file: withContentDefaults(row) });
+  // `withContentDefaults` normalises a missing content row to `history: []`, which
+  // is exactly the wrong thing for a meta response -- it would tell the client the
+  // chat history is empty when it simply was not asked for.
+  return c.json({ file: metaOnly ? row : withContentDefaults(row) });
 });
 
 filesRoute.delete("/:projectId/files/:fileId", async (c) => {

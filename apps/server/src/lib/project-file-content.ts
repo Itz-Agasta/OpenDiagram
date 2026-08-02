@@ -41,6 +41,11 @@ export async function writeProjectFileContent(
   tx: Db,
   fileId: string,
   patch: ProjectFileContentPatch,
+  // `false` for callers that do not read the content back -- the canvas autosave,
+  // the spec write and the chat history write are all fire-and-forget. Skipping
+  // the RETURNING keeps a multi-hundred-kilobyte scene from being detoasted and
+  // shipped to the server only to be serialised out to a client that discards it.
+  { returnContent = true }: { returnContent?: boolean } = {},
 ) {
   const columns = Object.fromEntries(
     Object.entries(patch).filter(([, value]) => value !== undefined),
@@ -50,6 +55,7 @@ export async function writeProjectFileContent(
   // here means the caller had no content fields at all, so the existing row --
   // or the absence of one -- is already correct.
   if (Object.keys(columns).length === 0) {
+    if (!returnContent) return null;
     const [existing] = await tx
       .select(projectFileContentColumns)
       .from(projectFileContent)
@@ -57,14 +63,19 @@ export async function writeProjectFileContent(
     return existing ?? { scene: null, spec: null, content: null, history: [] };
   }
 
-  const [row] = await tx
+  const insert = tx
     .insert(projectFileContent)
     // `history` is NOT NULL with no database default, so the insert half of the
     // upsert has to carry one even when the caller said nothing about history.
     .values({ fileId, history: [], ...columns })
-    .onConflictDoUpdate({ target: projectFileContent.fileId, set: columns })
-    .returning(projectFileContentColumns);
+    .onConflictDoUpdate({ target: projectFileContent.fileId, set: columns });
 
+  if (!returnContent) {
+    await insert;
+    return null;
+  }
+
+  const [row] = await insert.returning(projectFileContentColumns);
   return row;
 }
 

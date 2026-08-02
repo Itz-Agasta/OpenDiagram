@@ -85,12 +85,42 @@ export function hasDiagramSpec(value: unknown) {
   );
 }
 
+/** `collaborators` is a Map and does not survive a JSON round trip. */
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
 
   const { collaborators: _collaborators, ...rest } = appState as Record<string, unknown>;
 
   return rest;
+}
+
+/**
+ * Whether a saved scene already knows where the camera should sit.
+ *
+ * `Whiteboard.tsx` hands the stored appState to Excalidraw as `initialData`, so a
+ * scene carrying a zoom is positioned correctly at first paint with no work from
+ * us. Auto-fitting on top of that is what produced the "opens on one diagram, then
+ * zooms out" jump: the fit runs from a promise chain that resolves whole seconds
+ * after the canvas is already on screen (measured at 5,057 ms on a 369-element
+ * canvas, zoom 0.5 -> 0.3, landing after the chat panel had finished scrolling).
+ *
+ * So the fit is now the fallback rather than the default: it runs only for a scene
+ * with no viewport of its own -- an import, or anything drawn before viewports were
+ * stored -- where the alternative is opening on Excalidraw's origin and possibly
+ * showing nothing at all.
+ */
+export function sceneHasSavedViewport(appState: unknown) {
+  if (!appState || typeof appState !== "object") return false;
+
+  // All three, not just the zoom: a zoom alone does not say where the camera is,
+  // so such a scene skipped the fit and opened at the origin -- an empty screen
+  // for any diagram laid out away from it.
+  const { zoom, scrollX, scrollY } = appState as {
+    zoom?: { value?: unknown };
+    scrollX?: unknown;
+    scrollY?: unknown;
+  };
+  return Number.isFinite(zoom?.value) && Number.isFinite(scrollX) && Number.isFinite(scrollY);
 }
 
 export function fileContentToText(content: unknown) {

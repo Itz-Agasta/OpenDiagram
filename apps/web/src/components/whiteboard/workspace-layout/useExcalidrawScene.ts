@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { applyDiagramToCanvas, restoreSceneElements } from "@/lib/excalidraw-utils";
-import { resolveDiagramScene, sanitizeSceneAppState } from "./helpers";
+import { resolveDiagramScene, sanitizeSceneAppState, sceneHasSavedViewport } from "./helpers";
 
 export function useExcalidrawScene(initialScene: unknown) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
@@ -23,6 +23,7 @@ export function useExcalidrawScene(initialScene: unknown) {
     let cancelled = false;
     let frame: number | undefined;
     const appState = sanitizeSceneAppState(scene.appState);
+    const hasViewport = sceneHasSavedViewport(scene.appState);
     const baseline = sceneFingerprint(api.getSceneElements());
     if (scene.files && typeof scene.files === "object") api.addFiles(Object.values(scene.files));
     void restoreSceneElements(scene.elements).then((elements) => {
@@ -33,6 +34,12 @@ export function useExcalidrawScene(initialScene: unknown) {
         appState: appState && typeof appState === "object" ? appState : undefined,
       });
       if (elements.length === 0) return;
+
+      // Only when the scene brought no camera of its own -- see
+      // `sceneHasSavedViewport`. Fitting a scene that Excalidraw has already
+      // positioned from `initialData` moves the canvas seconds after the user is
+      // looking at it.
+      if (hasViewport) return;
 
       // Viewport dimensions settle after the editor and adjacent panes render.
       frame = window.requestAnimationFrame(() => {

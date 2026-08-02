@@ -12,18 +12,26 @@ import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import { buildSystemPrompt } from "../lib/agent/prompt";
-import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
+import { askUserTool, createDrawDiagramTool, drawDiagramInputSchema } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
 import { resolveModel } from "../lib/ai-provider/resolve";
 import { LLM_MAX_RETRIES } from "../lib/repo-ai";
 import { aiTelemetry } from "../lib/telemetry";
 
+/** Capped to match `MAX_PROMPT_DIAGRAMS` on the client. */
+const MAX_PROMPT_DIAGRAMS = 8;
+
 const chatRequestSchema = z.object({
   // UIMessage shape is owned by the AI SDK and too deep to mirror — validated
   // structurally by convertToModelMessages below.
   messages: z.array(z.looseObject({})).min(1).max(50),
-  currentSpec: diagramSpecSchema.optional(),
+  // Every diagram on the canvas, not just the one drawn last. `id` is the client's
+  // Excalidraw frame id, which is what `draw_diagram`'s `targetId` names.
+  diagrams: z
+    .array(z.object({ id: z.string().min(1).max(200), spec: diagramSpecSchema }))
+    .max(MAX_PROMPT_DIAGRAMS)
+    .optional(),
   theme: z.enum(["classic", "sketch"]).optional(),
 });
 
@@ -53,7 +61,10 @@ function repairDrawDiagramInput(rawInput: unknown): string | null {
         }
       }
     }
-    return diagramSpecSchema.safeParse(input).success ? JSON.stringify(input) : null;
+    // The TOOL's schema, not the bare spec schema: the SDK re-validates whatever
+    // this returns against it, so checking `diagramSpecSchema` here waved through
+    // a bad `targetId` and burned a step on a repair that failed anyway.
+    return drawDiagramInputSchema.safeParse(input).success ? JSON.stringify(input) : null;
   } catch {
     return null;
   }
@@ -91,13 +102,27 @@ diagramRoute.post("/chat", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
-  const { messages, currentSpec, theme: themeName = "sketch" } = parsed.data;
+  const { messages, diagrams = [], theme: themeName = "sketch" } = parsed.data;
+
+  const tools = {
+    ask_user: askUserTool,
+    draw_diagram: createDrawDiagramTool(log, themes[themeName]),
+  };
 
   // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
   // client payload, not a server fault, so surface it as a 400.
   let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   try {
-    modelMessages = await convertToModelMessages(messages as unknown as UIMessage[]);
+    // `tools` is not optional decoration. Without it the conversion cannot find
+    // `draw_diagram`'s `toModelOutput`, so every past draw's tool result enters
+    // the context as its RAW output -- the full Excalidraw `skeletons` and
+    // `rawElements`, ~184 elements per diagram. Measured on a two-diagram canvas:
+    // 279,666 input tokens for one turn, against ~10k of actual prompt. The next
+    // turn then stalled for 122s and produced nothing.
+    //
+    // With `tools` passed, history collapses to the compact summary the tool
+    // already declares, which is all the model ever needed to read back.
+    modelMessages = await convertToModelMessages(messages as unknown as UIMessage[], { tools });
   } catch (err) {
     return c.json(
       { error: "Invalid messages", detail: err instanceof Error ? err.message : String(err) },
@@ -132,11 +157,6 @@ diagramRoute.post("/chat", async (c) => {
     throw error;
   }
 
-  const tools = {
-    ask_user: askUserTool,
-    draw_diagram: createDrawDiagramTool(log, themes[themeName]),
-  };
-
   // Accumulated per step because `onError` reports no usage. A stream that dies on
   // step four already spent the tokens of the first three, and releasing the whole
   // reservation to zero made that real spend invisible to the cost ceiling.
@@ -144,7 +164,7 @@ diagramRoute.post("/chat", async (c) => {
 
   const result = streamText({
     model: resolved.model,
-    instructions: buildSystemPrompt(currentSpec),
+    instructions: buildSystemPrompt(diagrams),
     messages: modelMessages,
     tools,
     telemetry: aiTelemetry("diagram-chat"),
@@ -171,11 +191,29 @@ diagramRoute.post("/chat", async (c) => {
       log.set({
         chat: {
           messageCount: messages.length,
-          hasCurrentSpec: currentSpec !== undefined,
+          // How many diagrams the canvas held going in, and which one the model
+          // chose to replace. A `targetId` that matches nothing in `diagrams` is
+          // the signature of the model garbling the id -- see the FIXME in
+          // `agent/tools.ts` -- and shows up here as a duplicate frame.
+          canvasDiagrams: diagrams.length,
+          targetedIds: steps.flatMap((s) =>
+            s.toolCalls
+              .filter((t) => t.toolName === "draw_diagram")
+              .map((t) => (t.input as { targetId?: unknown })?.targetId ?? "<new>"),
+          ),
           theme: themeName,
           steps: steps.length,
           toolCalls: steps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
           totalTokens: totalUsage.totalTokens,
+          // The system prompt is ~8k tokens, three quarters of it the static icon
+          // catalog, and it is re-sent once per step. Whether that is billed at
+          // full price or at the cached rate is the single biggest lever on the
+          // AI bill, so it gets measured rather than assumed. `cachedInputTokens`
+          // near zero means the prefix is being broken -- check that nothing was
+          // appended after the spec in buildSystemPrompt.
+          inputTokens: totalUsage.inputTokens,
+          cacheReadTokens: totalUsage.inputTokenDetails.cacheReadTokens ?? 0,
+          noCacheTokens: totalUsage.inputTokenDetails.noCacheTokens ?? 0,
         },
       });
       // Reconciles the pessimistic reservation down to what this run actually

@@ -103,3 +103,26 @@ export type CreationQuota = {
   /** Credits signing up is worth, for the guest upsell. From the plan table. */
   signupCredits?: number;
 };
+
+/** Thread metadata, as the history list returns it. Never carries `spec`. */
+export type ChatThreadSummary = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChatThreadMessage = {
+  seq: number;
+  clientId: string;
+  role: "user" | "assistant";
+  parts: unknown[];
+};
+
+/** An open thread: its metadata and its recent messages. Diagrams live on the file. */
+export type ChatThread = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatThreadMessage[];
+};

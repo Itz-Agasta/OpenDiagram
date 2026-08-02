@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";
 
-export { and, desc, eq, exists, inArray, ne, notInArray, or, sql } from "drizzle-orm";
+export { and, desc, eq, exists, inArray, lt, ne, notInArray, or, sql } from "drizzle-orm";
 
 export function createDb() {
   return drizzle(env.DATABASE_URL, { schema });

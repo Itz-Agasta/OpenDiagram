@@ -1,9 +1,6 @@
 import type { DiagramSpec } from "@OpenDiagram/harness";
-import { env } from "@OpenDiagram/env/web";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { chatWithProject } from "@/lib/projects-client";
-
-export type WorkspaceAgentIntent = "diagram" | "project_chat";
 
 export type WorkspaceAgentId = "router" | "memory" | "diagram" | "canvas" | "answer";
 
@@ -11,11 +8,6 @@ export type WorkspaceAgentProgress = {
   agent: WorkspaceAgentId;
   status: "active" | "complete" | "failed";
   message?: string;
-};
-
-export type WorkspaceAgentRoute = {
-  intent: WorkspaceAgentIntent;
-  pendingMessage: string;
 };
 
 export type WorkspaceAgentResult = {
@@ -32,38 +24,19 @@ const DIAGRAM_TARGETS =
 const ARCHITECTURE_INTENT =
   /\b(how should|what would|help me|can you|design|architect|build|create|model|visuali[sz]e|draw|generate|map)\b[\s\S]{0,100}\b(architecture|system|topology|component|service|api|database|auth|authentication|payment|checkout|event|queue|microservice|infrastructure|flow)\b/i;
 
-export async function orchestrateWorkspaceRequest(input: {
-  text: string;
-  projectId?: string;
-}): Promise<WorkspaceAgentRoute> {
-  if (isLikelyDiagramRequest(input.text)) {
-    return { intent: "diagram", pendingMessage: "Generating diagram…" };
-  }
-
-  try {
-    const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/orchestrate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: input.text }),
-      // The endpoint requires a session (it spends a platform key). Web and
-      // server are separate origins in production, so without this the cookie
-      // is never sent and every signed-in user silently falls back to the regex.
-      credentials: "include",
-      signal: AbortSignal.timeout(5000),
-    });
-    const data = await response.json();
-    const intent: WorkspaceAgentIntent = data?.intent === "diagram" ? "diagram" : "project_chat";
-    return {
-      intent,
-      pendingMessage: intent === "diagram" ? "Generating diagram…" : "Reading project context…",
-    };
-  } catch {
-    return input.projectId
-      ? { intent: "project_chat", pendingMessage: "Reading project context…" }
-      : { intent: "diagram", pendingMessage: "Generating diagram…" };
-  }
-}
-
+/**
+ * Diagram-vs-question routing, decided locally.
+ *
+ * This used to be the fallback behind `POST /api/orchestrate`, which spent a
+ * Groq call to classify the message into the same two buckets. The model call
+ * only ever ran for doc files and GitHub-imported diagrams -- a normal canvas
+ * takes the `shouldUseDiagramChatDirectly` path and never asked -- and it was
+ * already skipped entirely whenever `GROQ_API_KEY` was unset or the request
+ * failed, so this regex was the live path for any deploy without a Groq key.
+ * Deleting the route makes that the only path, which costs routing accuracy on
+ * phrasings the patterns miss and removes an LLM dependency, an auth-gated
+ * endpoint and a rate-limit bucket from in front of every doc-file message.
+ */
 export function isLikelyDiagramRequest(text: string) {
   return (
     DIAGRAM_NOUNS.test(text) ||
