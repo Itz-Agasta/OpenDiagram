@@ -66,6 +66,15 @@ export function useChatThread(options: {
         id: string;
         messages: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[];
       } | null,
+      /**
+       * Whether to overwrite the local cache with what the server returned.
+       *
+       * True only for a deliberate switch. Background revalidation must NOT
+       * write: `persistTurn` leaves a turn whose append failed in the cache to be
+       * retried, and the server copy by definition does not contain it, so
+       * writing here would erase the only surviving copy of that turn.
+       */
+      cacheLocally = false,
     ) => {
       savedIdsRef.current = new Set(thread?.messages.map((message) => message.clientId) ?? []);
       threadIdRef.current = thread?.id ?? null;
@@ -91,12 +100,10 @@ export function useChatThread(options: {
       }));
       onMessagesLoadedRef.current(messages);
 
-      // The local cache is what paints this panel on the next open, and it holds
-      // one entry per FILE with no thread identity in it. Rewriting it here is
-      // what keeps the two agreeing: without it, reopening an older conversation
-      // and then reloading showed the previously active one back again, because
-      // the cache had never been told the conversation changed.
-      if (fileId && projectId) void writeLocalChat(fileId, projectId, messages);
+      // The cache holds one entry per FILE with no thread identity in it, so a
+      // switch has to tell it the conversation changed -- otherwise reopening an
+      // older chat and then reloading showed the previous one again.
+      if (cacheLocally && fileId && projectId) void writeLocalChat(fileId, projectId, messages);
     },
     [fileId, projectId],
   );
@@ -194,7 +201,7 @@ export function useChatThread(options: {
     try {
       const created = await createThread(projectId, fileId);
       if (switchRef.current !== generation) return;
-      adoptThread({ id: created.id, messages: [] });
+      adoptThread({ id: created.id, messages: [] }, true);
       setThreads((current) => [created, ...current]);
       void writeLocalChat(fileId, projectId, []);
     } finally {
@@ -217,7 +224,7 @@ export function useChatThread(options: {
         await patchThreadTouched(projectId, id);
         const messages = await listThreadMessages(projectId, id);
         if (switchRef.current !== generation) return;
-        adoptThread({ id, messages });
+        adoptThread({ id, messages }, true);
       } finally {
         setIsSwitching(false);
       }

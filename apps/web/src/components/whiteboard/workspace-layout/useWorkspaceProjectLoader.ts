@@ -71,6 +71,12 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
 
   useEffect(() => {
     let cancelled = false;
+    // Cleared before the lookup, not just set after it. The flag is what tells
+    // the chat panel that "not a draft" is a fact rather than an assumption, and
+    // it survives a navigation -- so leaving it true from the PREVIOUS project
+    // let the panel treat a freshly opened draft URL as a server project and
+    // fire a thread request at an id that does not exist yet.
+    setDraftResolved(false);
 
     void (async () => {
       const nextDraft = await getGuestProjectDraft(projectId);
@@ -138,6 +144,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     setActiveFile,
     setDocContent,
     setDraft,
+    setDraftResolved,
     setFileLoading,
     setInitialScene,
     setProject,

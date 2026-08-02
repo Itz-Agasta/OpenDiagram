@@ -99,6 +99,9 @@ export function useAIChatPanelController({
     },
     [fileId, projectId],
   );
+  // True only between accepting a submit and the model actually starting, which
+  // is a gap the chat status cannot see. Gates the thread controls.
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [theme, setTheme] = useState<ThemeName>("sketch");
   const [providerUsage, setProviderUsage] = useState<AiProviderUsage | null>(null);
   const [providerId, setProviderIdState] = useState(
@@ -248,7 +251,16 @@ export function useAIChatPanelController({
       const status = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
       if (!text || (status !== "ready" && status !== "error")) return;
 
-      await providerUpdateRef.current;
+      // Held across the provider await below. Until `sendMessage` runs, neither
+      // chat's status has moved off `ready`, so the thread controls would still
+      // be live -- and a switch inside that window files this turn under the
+      // conversation the user moved to instead of the one they typed into.
+      setIsSubmitting(true);
+      try {
+        await providerUpdateRef.current;
+      } finally {
+        setIsSubmitting(false);
+      }
       if (providerUpdateFailedRef.current) return;
 
       canvas.setApplyError(null);
@@ -312,7 +324,7 @@ export function useAIChatPanelController({
       thread.startNewThread().catch((cause: unknown) => {
         onProviderError?.(cause instanceof Error ? cause.message : "Could not start a new chat.");
       }),
-    threadSwitching: thread.isSwitching,
+    threadSwitching: thread.isSwitching || isSubmitting,
     threads: thread.threads,
     applyError: canvas.applyError,
     conversationMessages,

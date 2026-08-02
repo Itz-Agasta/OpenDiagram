@@ -152,7 +152,12 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     // thread lazily on the first turn and `threadId` flips just as that turn
     // lands. `chat.status` is a dependency, so this defers the seed, never skips
     // it.
-    if (chat.status !== "ready") return;
+    //
+    // In flight means `submitted`/`streaming`, NOT "not ready". `error` is a
+    // resting state -- gating on it left a failed turn's transcript on screen
+    // after the user resumed a different conversation, since nothing would ever
+    // seed the one they picked. Same distinction the thread controls make.
+    if (chat.status === "submitted" || chat.status === "streaming") return;
 
     if (seeded?.key === key) {
       // Already showing something, or nothing new to show.
