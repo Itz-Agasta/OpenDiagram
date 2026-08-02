@@ -1,4 +1,4 @@
-import { and, db, desc, eq, lt, sql } from "@OpenDiagram/db";
+import { and, db, desc, eq, exists, lt, sql } from "@OpenDiagram/db";
 import { project, projectFileMessage, projectFileThread } from "@OpenDiagram/db/schema/projects";
 
 /** Either the pooled `db` or an open transaction. */
@@ -9,14 +9,6 @@ type Db = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
  * and paginate in behind `before`; this is only what arrives unasked.
  */
 export const THREAD_PAGE_SIZE = 50;
-
-/**
- * How many trailing messages the model sees. The thread's `spec` already carries
- * the accumulated state of the diagram, so older turns add little beyond stated
- * preferences -- and the whole point of threading was to stop paying for context
- * the current diagram already encodes.
- */
-export const MODEL_CONTEXT_MESSAGES = 20;
 
 export type ThreadMessage = {
   seq: number;
@@ -41,12 +33,32 @@ function ownsThread(threadId: string, projectId: string, userId: string) {
 }
 
 /**
+ * The same predicate as an `EXISTS`, for an UPDATE or DELETE that cannot carry a
+ * join. Folding it into the `WHERE` leaves no gap between proving ownership and
+ * writing; zero rows back means what the preceding SELECT used to: 404.
+ */
+export function ownsThreadSubquery(threadId: string, projectId: string, userId: string) {
+  return and(
+    eq(projectFileThread.id, threadId),
+    eq(projectFileThread.projectId, projectId),
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(project)
+        .where(and(eq(project.id, projectId), eq(project.userId, userId))),
+    ),
+  );
+}
+
+/**
  * The newest thread for a file, with its trailing messages, in one round trip.
  *
  * The messages come back through a json aggregate rather than a join because a
- * join repeats the thread's columns once per message -- and `spec` is the largest
- * of them, so fifty messages would mean fifty copies of a diagram spec on the
- * wire. The aggregate returns one row.
+ * join repeats the thread's columns once per message. The aggregate returns one
+ * row.
+ *
+ * The dead `spec` and `frame_id` columns are deliberately not selected: nothing
+ * reads them any more, and `spec` was the largest thing on this response.
  *
  * Null when the file has no thread yet, which is the normal state of a canvas
  * nobody has talked to.
@@ -56,8 +68,6 @@ export async function loadActiveThread(fileId: string, projectId: string, userId
     .select({
       id: projectFileThread.id,
       title: projectFileThread.title,
-      spec: projectFileThread.spec,
-      frameId: projectFileThread.frameId,
       updatedAt: projectFileThread.updatedAt,
       messages: sql<ThreadMessage[]>`coalesce((
         select json_agg(m order by m.seq)
@@ -148,9 +158,13 @@ export async function listThreadMessages(
  *
  * `seq` is assigned in SQL as `COALESCE(MAX(seq), 0) + 1` scoped to the thread,
  * which the primary key answers with a backward index scan rather than a count.
- * Two writers racing here collide on that key and one fails, which is the right
- * outcome: a rejected write is recoverable, a silently reordered conversation is
- * not. A single user typing into a single thread does not produce that race.
+ * Two writers racing here read the same MAX under READ COMMITTED and collide on
+ * that key, so callers take `lockOwnedThread` first: the second writer then waits
+ * and reads a MAX that includes the first. The lock is per conversation.
+ *
+ * `onConflictDoNothing` makes a re-sent turn a no-op -- see the unique index on
+ * `(thread_id, client_id)` for why the client re-sends -- and `returning` then
+ * reports only the rows this call actually inserted.
  */
 export async function appendThreadMessages(
   tx: Db,
@@ -174,16 +188,29 @@ export async function appendThreadMessages(
         parts: message.parts,
       })),
     )
+    .onConflictDoNothing({
+      target: [projectFileMessage.threadId, projectFileMessage.clientId],
+    })
     .returning({ seq: projectFileMessage.seq, clientId: projectFileMessage.clientId });
 }
 
-/** Confirms a thread belongs to this user before a write touches it. */
-export async function assertThreadOwned(threadId: string, projectId: string, userId: string) {
-  const [row] = await db
+/**
+ * Prove ownership and take the thread's write lock in one statement -- an append
+ * needs both, and separating them costs a round trip on the hottest write here.
+ *
+ * `OF project_file_thread` matters: without it the join locks the `project` row
+ * too, serialising every append across every conversation in the project.
+ *
+ * Must be called inside a transaction; a lock taken outside one is released
+ * immediately and protects nothing.
+ */
+export async function lockOwnedThread(tx: Db, threadId: string, projectId: string, userId: string) {
+  const [row] = await tx
     .select({ id: projectFileThread.id })
     .from(projectFileThread)
     .innerJoin(project, eq(project.id, projectFileThread.projectId))
-    .where(ownsThread(threadId, projectId, userId));
+    .where(ownsThread(threadId, projectId, userId))
+    .for("update", { of: projectFileThread });
 
   return row ?? null;
 }

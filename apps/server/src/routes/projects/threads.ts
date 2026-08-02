@@ -4,10 +4,11 @@ import { Hono } from "hono";
 import { z } from "zod";
 import {
   appendThreadMessages,
-  assertThreadOwned,
   listThreadMessages,
   listThreads,
   loadActiveThread,
+  lockOwnedThread,
+  ownsThreadSubquery,
 } from "../../lib/project-threads";
 import type { AuthVariables } from "../../lib/require-auth";
 
@@ -22,18 +23,13 @@ const appendSchema = z.object({
   // message and still produce a diagram: `uiMessageToStoredChatMessage` drops any
   // message whose parts survive to nothing, which is exactly what an assistant
   // message carrying only a `draw_diagram` tool call becomes. `.min(1)` rejected
-  // those requests with a 400, and because the client's `persistTurn` swallows
-  // failures, the `spec` and `frameId` riding along on the same request were lost
-  // silently -- the thread forgot which diagram it had just drawn. Confirmed in
-  // `.evlog/logs`: two 400s on this route, both on the turn after `ask_user`.
+  // those requests with a 400. Confirmed in `.evlog/logs`: two 400s on this
+  // route, both on the turn after `ask_user`. An empty list is a no-op for the
+  // insert and still bumps `updated_at`.
   //
-  // An empty list is a no-op for the insert (`appendThreadMessages` returns early)
-  // and leaves the spec/frame update in this route's transaction intact.
+  // `max` is a payload bound, not a backlog bound -- `persistTurn` chunks to it
+  // rather than being permanently rejected for having too much to catch up on.
   messages: z.array(messageSchema).max(20),
-  /** Written alongside the turn so the thread always knows its current diagram. */
-  spec: z.unknown().optional(),
-  /** The frame that diagram was drawn into, so the next turn replaces it. */
-  frameId: z.string().min(1).max(200).nullish(),
 });
 
 const createThreadSchema = z.object({
@@ -45,8 +41,6 @@ const createThreadSchema = z.object({
 // other change is exactly how resuming an older conversation makes it active.
 const patchThreadSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  spec: z.unknown().optional(),
-  frameId: z.string().min(1).max(200).nullish(),
 });
 
 export const threadsRoute = new Hono<{ Variables: AuthVariables }>();
@@ -77,7 +71,7 @@ threadsRoute.get("/:projectId/files/:fileId/threads", async (c) => {
   return c.json({ threads });
 });
 
-/** The "New chat" button. Starts blank -- no spec, so the next diagram gets its own frame. */
+/** The "New chat" button. Starts blank; the canvas and its diagrams are untouched. */
 threadsRoute.post("/:projectId/files/:fileId/threads", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");
@@ -148,31 +142,30 @@ threadsRoute.post("/:projectId/threads/:threadId/messages", async (c) => {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
 
-  const owned = await assertThreadOwned(threadId, projectId, userId);
-  if (!owned) return c.json({ error: "Not found" }, 404);
+  const { messages } = parsed.data;
 
-  const { messages, spec, frameId } = parsed.data;
-
-  // One transaction: messages written without the matching `spec` would leave the
-  // thread describing a diagram it no longer reflects, and `updated_at` is what
-  // decides which thread reopens, so it moves with them or not at all.
+  // Ownership rides on the statement that locks the thread, inside the
+  // transaction: two overlapping appends would otherwise read the same
+  // `MAX(seq)` and collide on the message primary key, losing the later turn.
+  // `updated_at` decides which thread reopens, so it moves with the messages or
+  // not at all.
   const written = await db.transaction(async (tx) => {
+    const owned = await lockOwnedThread(tx, threadId, projectId, userId);
+    if (!owned) return null;
+
     const rows = await appendThreadMessages(tx, threadId, messages);
     await tx
       .update(projectFileThread)
-      .set({
-        ...(spec === undefined ? {} : { spec }),
-        ...(frameId === undefined ? {} : { frameId }),
-        updatedAt: new Date(),
-      })
+      .set({ updatedAt: new Date() })
       .where(eq(projectFileThread.id, threadId));
     return rows;
   });
 
+  if (!written) return c.json({ error: "Not found" }, 404);
   return c.json({ messages: written }, 201);
 });
 
-/** Rename a thread, or restamp the diagram it is working on. */
+/** Rename a thread, or touch it so it becomes the one this canvas reopens on. */
 threadsRoute.patch("/:projectId/threads/:threadId", async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = patchThreadSchema.safeParse(body ?? {});
@@ -181,23 +174,18 @@ threadsRoute.patch("/:projectId/threads/:threadId", async (c) => {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
 
-  const owned = await assertThreadOwned(
-    c.req.param("threadId"),
-    c.req.param("projectId"),
-    c.get("userId"),
-  );
-  if (!owned) return c.json({ error: "Not found" }, 404);
-
+  // Ownership folded into the WHERE: one statement instead of two.
   const [thread] = await db
     .update(projectFileThread)
     .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(projectFileThread.id, c.req.param("threadId")))
+    .where(ownsThreadSubquery(c.req.param("threadId"), c.req.param("projectId"), c.get("userId")))
     .returning({
       id: projectFileThread.id,
       title: projectFileThread.title,
       updatedAt: projectFileThread.updatedAt,
     });
 
+  if (!thread) return c.json({ error: "Not found" }, 404);
   return c.json({ thread });
 });
 
@@ -207,9 +195,12 @@ threadsRoute.delete("/:projectId/threads/:threadId", async (c) => {
   const projectId = c.req.param("projectId");
   const threadId = c.req.param("threadId");
 
-  const owned = await assertThreadOwned(threadId, projectId, userId);
-  if (!owned) return c.json({ error: "Not found" }, 404);
+  // Same collapse as the PATCH above: ownership is part of the DELETE.
+  const [deleted] = await db
+    .delete(projectFileThread)
+    .where(ownsThreadSubquery(threadId, projectId, userId))
+    .returning({ id: projectFileThread.id });
 
-  await db.delete(projectFileThread).where(eq(projectFileThread.id, threadId));
+  if (!deleted) return c.json({ error: "Not found" }, 404);
   return c.json({ ok: true });
 });

@@ -14,8 +14,8 @@ projectsRoute.use("*", requireAuth);
 // `projectRoute` last: its `/:id` handlers would otherwise shadow nothing, but
 // keeping the catch-all shape at the bottom is the order that stays correct if
 // someone adds a one-segment path to another file.
-// Before `filesRoute`, whose `/:projectId/files/:fileId` would otherwise match
-// `/:projectId/files/:fileId/threads` on the GET.
+// `threadsRoute` before `filesRoute` is cosmetic: a Hono `:param` matches one
+// segment, so `/:projectId/files/:fileId` never captures `.../threads`.
 projectsRoute.route("/", threadsRoute);
 projectsRoute.route("/", filesRoute);
 projectsRoute.route("/", chatRoute);
