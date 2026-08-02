@@ -8,6 +8,20 @@
       "when": 1785269645532,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785586356861,
+      "tag": "0001_add_chat_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785588122664,
+      "tag": "0002_add_thread_frame_id",
+      "breakpoints": true
     }
   ]
 }
