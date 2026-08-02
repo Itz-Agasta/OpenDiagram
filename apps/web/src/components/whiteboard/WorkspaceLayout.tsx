@@ -33,15 +33,9 @@ export function WorkspaceLayout() {
     return () => window.clearTimeout(timeout);
   }, [providerErrorMessage]);
   const [signedOutDialogOpen, setSignedOutDialogOpen] = useState(false);
-  const activeHistory = state.activeFile?.history;
   const byokSettingsHref = state.isSignedIn
     ? "/dashboard/settings"
     : "/login?redirect=%2Fdashboard%2Fsettings";
-  const agentProjectId = state.isSignedIn ? state.activeFile?.projectId : undefined;
-  const agentFileId = state.activeFile?.id ?? state.currentFileId ?? undefined;
-  const agentFileIdentity = state.activeFile
-    ? `${state.activeFile.projectId}:${state.activeFile.id}`
-    : undefined;
 
   async function handleSignOut() {
     await actions.signOut();
@@ -101,13 +95,13 @@ export function WorkspaceLayout() {
       </main>
 
       <WorkspaceAgentSidebar
-        activeFileType={state.activeFile?.type}
-        allowSeedAutoRun={state.isAgentOpen}
+        activeFileType={state.agentFileType}
+        allowSeedAutoRun={state.isAgentOpen && !state.agentSeedPending}
         agentWidth={state.agentWidth}
         excalidrawAPI={state.excalidrawAPI}
-        fileIdentity={agentFileIdentity}
-        fileId={agentFileId}
-        initialHistory={activeHistory}
+        fileIdentity={state.agentFileIdentity}
+        fileId={state.agentFileId}
+        initialHistory={state.activeHistory}
         initialSpec={state.activeFile?.spec}
         hasExistingScene={
           hasDiagramScene(state.initialScene) || hasDiagramSpec(state.activeFile?.spec)
@@ -122,7 +116,7 @@ export function WorkspaceLayout() {
         initialModelId={searchParams.get("modelId") ?? undefined}
         initialProviderId={searchParams.get("providerId") ?? undefined}
         isOpen={state.isAgentOpen}
-        projectId={agentProjectId}
+        projectId={state.agentProjectId}
         repoGenerationError={state.repoGenerationError}
         repoGenerationJob={state.repoGenerationJob}
       />
