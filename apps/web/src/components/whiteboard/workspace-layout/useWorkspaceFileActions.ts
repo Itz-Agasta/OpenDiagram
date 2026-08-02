@@ -4,11 +4,10 @@ import { useRouter } from "next/navigation";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { deleteLocalChat, writeLocalChat } from "@/lib/local-chat";
-import { cancelQueuedProjectFilePatch } from "@/lib/project-file-sync";
+import { cancelQueuedProjectFilePatch, queueProjectFilePatch } from "@/lib/project-file-sync";
 import {
   createProjectFile,
   deleteProjectFile,
-  updateProjectFile,
   type ProjectFileType,
   type SavedProjectFile,
 } from "@/lib/projects-client";
@@ -82,10 +81,21 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     setSaveStatus("saving");
     persistence.clearAutosave();
     try {
-      const updated = await updateProjectFile(projectId, activeFile.id, {
-        content: activeFile.type === "doc" ? persistence.contentRef.current : undefined,
-        scene: activeFile.type === "diagram" ? persistence.sceneRef.current : undefined,
-      });
+      // Through the shared queue, like the autosave it replaces: direct, it put a
+      // second scene PATCH on the wire against a row an autosave was already
+      // writing -- pressing Save inside the 2.5 s debounce. `clearAutosave` above
+      // stops a NEW one being scheduled, it does not recall a queued one.
+      //
+      // "full" because the response is read back below to re-seed a doc editor.
+      const updated = await queueProjectFilePatch(
+        projectId,
+        activeFile.id,
+        {
+          content: activeFile.type === "doc" ? persistence.contentRef.current : undefined,
+          scene: activeFile.type === "diagram" ? persistence.sceneRef.current : undefined,
+        },
+        "full",
+      );
       setActiveFile(updated);
       upsertStoredFile(toSidebarFile(updated));
       persistence.markClean();

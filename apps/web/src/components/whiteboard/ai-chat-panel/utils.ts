@@ -56,7 +56,9 @@ export function stripDrawDiagramOutput(messages: UIMessage[]): UIMessage[] {
 
       const output = part.output as { summary?: unknown } | undefined;
       // Already trimmed, or an unexpected shape -- leave it rather than guess.
-      if (!output || !("skeletons" in output || "rawElements" in output)) return part;
+      // The typeof guard is what keeps that a promise: `in` throws on a primitive.
+      if (!output || typeof output !== "object") return part;
+      if (!("skeletons" in output || "rawElements" in output)) return part;
 
       touched = true;
       return { ...part, output: { summary: output.summary } };

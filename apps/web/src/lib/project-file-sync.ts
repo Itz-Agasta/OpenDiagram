@@ -24,6 +24,10 @@ import {
  *
  * Keyed by file id alone, not by project. A file id is a UUID and belongs to
  * exactly one project, so two projects cannot collide on one key.
+ *
+ * Every writer of the LARGE columns goes through here: autosave, manual Save, the
+ * agent's `spec` and chat-history writes. Rename still calls `updateProjectFile`
+ * directly on purpose -- `name` is a column no other writer touches.
  */
 
 type PendingWrite = {

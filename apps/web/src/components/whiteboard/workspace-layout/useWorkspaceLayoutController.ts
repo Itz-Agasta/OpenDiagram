@@ -23,6 +23,11 @@ export function useWorkspaceLayoutController() {
   const router = useRouter();
   const session = authClient.useSession();
   const [draft, setDraft] = useState<GuestProjectDraft | null>(null);
+  // Whether the IndexedDB lookup that answers "is this URL a guest draft?" has
+  // come back. Until it has, `draft === null` only means "not known yet" -- it
+  // holds the signed-in loader (which would 404 on an unpromoted draft) and the
+  // chat panel, which needs the same answer before it asks for a thread.
+  const [draftResolved, setDraftResolved] = useState(false);
   const [projectRow, setProjectRow] = useState<SavedProject | null>(null);
   const [activeFile, setActiveFile] = useState<SavedProjectFile | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
@@ -81,6 +86,7 @@ export function useWorkspaceLayoutController() {
     currentFileIdRef,
     draft,
     draftRef,
+    draftResolved,
     initializePersistence: persistence.initialize,
     isSignedIn,
     projectId: params.projectId,
@@ -88,6 +94,7 @@ export function useWorkspaceLayoutController() {
     setActiveFile,
     setDocContent,
     setDraft,
+    setDraftResolved,
     setFileLoading,
     setFirstFileName,
     setLocalFileType,
@@ -213,7 +220,7 @@ export function useWorkspaceLayoutController() {
   // conversation was read in about a millisecond and then covered by a spinner
   // for the three network waves it took to fetch a file the canvas had already
   // painted without.
-  const agentContextPending = session.isPending || Boolean(draft && isSignedIn);
+  const agentContextPending = session.isPending || !draftResolved || Boolean(draft && isSignedIn);
 
   // Agent identity comes from route params, not from the loaded file. Reading it
   // off `activeFile` made the thread request wait for `getProjectFile`, which
@@ -223,7 +230,11 @@ export function useWorkspaceLayoutController() {
   //
   // Undefined for guests and for a signed-in user still sitting on an unpromoted
   // draft: neither has a server-side project to ask about.
-  const agentProjectId = isSignedIn && !draft ? params.projectId : undefined;
+  //
+  // `draftResolved` too: before it answers, `draft` is null for a draft URL as
+  // well as for a real project, and treating that null as "server project" fired
+  // a thread request at a project id that does not exist yet.
+  const agentProjectId = isSignedIn && draftResolved && !draft ? params.projectId : undefined;
   const agentFileId = params.workspaceId ?? activeFile?.id ?? currentFileIdRef.current ?? undefined;
   // Cached type until the file lands, so the panel knows whether it is the canvas
   // agent or the project agent without waiting to be told.
@@ -237,8 +248,14 @@ export function useWorkspaceLayoutController() {
   // Length-checked rather than `??`: the file route normalises a missing content
   // row to `history: []`, and an empty array is not nullish, so `??` handed the
   // panel an empty transcript and threw the cached one away.
+  //
+  // Identity-checked too: `activeFile` is still the PREVIOUS file until the new
+  // one's fetch returns, and the panel remounts on the URL-derived key before
+  // then, so it seeded itself with the old file's conversation. `localHistory` is
+  // already cleared at the start of a switch; this is the same discipline.
+  const activeFileMatchesRoute = activeFile?.id === agentFileId;
   const activeHistory =
-    activeFile?.history && activeFile.history.length > 0
+    activeFileMatchesRoute && activeFile?.history && activeFile.history.length > 0
       ? activeFile.history
       : (localHistory ?? undefined);
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { getGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import type { StoredChatMessage } from "@/lib/chat-history";
@@ -21,6 +21,7 @@ type ProjectSnapshot = Parameters<
 interface LoaderOptions {
   currentFileIdRef: RefObject<string | null>;
   draft: GuestProjectDraft | null;
+  draftResolved: boolean;
   draftRef: RefObject<GuestProjectDraft | null>;
   initializePersistence: (type: SavedProjectFile["type"], scene: unknown, content: string) => void;
   isSignedIn: boolean;
@@ -29,6 +30,7 @@ interface LoaderOptions {
   setActiveFile: Dispatch<SetStateAction<SavedProjectFile | null>>;
   setDocContent: Dispatch<SetStateAction<string>>;
   setDraft: Dispatch<SetStateAction<GuestProjectDraft | null>>;
+  setDraftResolved: Dispatch<SetStateAction<boolean>>;
   setFileLoading: Dispatch<SetStateAction<boolean>>;
   setFirstFileName: Dispatch<SetStateAction<string>>;
   setInitialScene: Dispatch<SetStateAction<unknown>>;
@@ -46,6 +48,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     currentFileIdRef,
     draft,
     draftRef,
+    draftResolved,
     initializePersistence,
     isSignedIn,
     projectId,
@@ -53,6 +56,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     setActiveFile,
     setDocContent,
     setDraft,
+    setDraftResolved,
     setFileLoading,
     setFirstFileName,
     setInitialScene,
@@ -64,14 +68,6 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     setShowFirstFileDialog,
     workspaceId,
   } = options;
-
-  // Guest drafts became durable, so reading one is a trip to IndexedDB rather
-  // than a Map lookup. That makes this effect async, and `draftRef.current` is no
-  // longer populated by the time the signed-in loader below first runs -- which
-  // reads it to decide whether a project is a local draft or a server project.
-  // This flag holds that loader until the answer exists; without it a signed-in
-  // user opening a draft they had not promoted yet would race into a 404.
-  const [draftResolved, setDraftResolved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;

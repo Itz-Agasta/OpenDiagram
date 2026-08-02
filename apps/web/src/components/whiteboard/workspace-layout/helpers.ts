@@ -111,8 +111,16 @@ export function sanitizeSceneAppState(appState: unknown) {
  */
 export function sceneHasSavedViewport(appState: unknown) {
   if (!appState || typeof appState !== "object") return false;
-  const zoom = (appState as { zoom?: unknown }).zoom;
-  return typeof (zoom as { value?: unknown } | undefined)?.value === "number";
+
+  // All three, not just the zoom: a zoom alone does not say where the camera is,
+  // so such a scene skipped the fit and opened at the origin -- an empty screen
+  // for any diagram laid out away from it.
+  const { zoom, scrollX, scrollY } = appState as {
+    zoom?: { value?: unknown };
+    scrollX?: unknown;
+    scrollY?: unknown;
+  };
+  return Number.isFinite(zoom?.value) && Number.isFinite(scrollX) && Number.isFinite(scrollY);
 }
 
 export function fileContentToText(content: unknown) {

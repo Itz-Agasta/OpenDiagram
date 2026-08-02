@@ -34,12 +34,18 @@ export function AIChatThreadBar({
   threads,
 }: AIChatThreadBarProps) {
   const [isLoading, setIsLoading] = useState(false);
+  // A dropped history request used to leave the menu reading "No previous
+  // chats", which is a claim about the data rather than about the request.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function handleOpenChange(open: boolean) {
     if (!open) return;
     setIsLoading(true);
+    setLoadError(null);
     try {
       await loadThreadList();
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : "Could not load chat history.");
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +65,16 @@ export function AIChatThreadBar({
         <DropdownMenuContent align="start" className="max-h-80 w-64 overflow-y-auto">
           <DropdownMenuLabel className="text-xs">Previous chats</DropdownMenuLabel>
           {isLoading && <div className="px-2 py-1.5 text-od-ink/50 text-xs">Loading…</div>}
-          {!isLoading && threads.length === 0 && (
+          {!isLoading && loadError && (
+            <button
+              className="w-full px-2 py-1.5 text-left text-destructive text-xs hover:bg-od-surface"
+              onClick={() => void handleOpenChange(true)}
+              type="button"
+            >
+              {loadError} Tap to retry.
+            </button>
+          )}
+          {!isLoading && !loadError && threads.length === 0 && (
             <div className="px-2 py-1.5 text-od-ink/50 text-xs">No previous chats.</div>
           )}
           {threads.map((thread) => (
