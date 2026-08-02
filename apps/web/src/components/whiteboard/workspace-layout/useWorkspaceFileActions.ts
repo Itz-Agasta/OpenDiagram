@@ -3,6 +3,8 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
+import { deleteLocalChat, writeLocalChat } from "@/lib/local-chat";
+import { cancelQueuedProjectFilePatch } from "@/lib/project-file-sync";
 import {
   createProjectFile,
   deleteProjectFile,
@@ -162,9 +164,14 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       persistence.invalidateFileAutosave(fileId);
       persistence.clearAutosave();
     }
+    // Before the DELETE, not after: a patch still sitting in the write queue would
+    // otherwise go out behind it and 404, reporting a save error for a file the
+    // user just deliberately threw away.
+    cancelQueuedProjectFilePatch(fileId);
     try {
       await deleteProjectFile(projectId, fileId);
       removeStoredFile(fileId);
+      void deleteLocalChat(fileId);
       const nextFile = sidebarFiles.find((file) => file.id !== fileId);
       if (persistence.activeFileRef.current?.id === fileId) {
         setActiveFile(null);
@@ -194,6 +201,14 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       const currentDraft = draftRef.current;
       const fileId = currentFileIdRef.current ?? currentDraft?.files[0]?.id;
       if (!fileId) return;
+
+      // The one place every chat path reports a completed turn -- both chat hooks
+      // call `onHistoryChange` immediately before persisting -- so caching here
+      // covers all six write sites without threading IndexedDB through either of
+      // them. This is what lets the panel paint from disk on the next open
+      // instead of waiting out the file fetch.
+      void writeLocalChat(fileId, projectId, history);
+
       if (!isSignedIn && currentDraft) {
         const nextDraft = {
           ...currentDraft,
@@ -207,7 +222,7 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       }
       setActiveFile((current) => (current?.id === fileId ? { ...current, history } : current));
     },
-    [currentFileIdRef, draftRef, isSignedIn, setActiveFile, setDraft],
+    [currentFileIdRef, draftRef, isSignedIn, projectId, setActiveFile, setDraft],
   );
 
   return {
