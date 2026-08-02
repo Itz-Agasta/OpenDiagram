@@ -23,10 +23,51 @@ export function pendingAskUser(messages: UIMessage[]) {
   return null;
 }
 
-export function diagramRequestLikely(text: string) {
-  return /\b(diagram|flowchart|sequence|architecture|system flow|request flow|data flow|canvas|whiteboard|draw|sketch|map)\b/i.test(
-    text,
-  );
+/**
+ * Drop the rendered element JSON from past `draw_diagram` calls before upload.
+ *
+ * The tool's output carries `skeletons` and `rawElements` -- the whole Excalidraw
+ * payload, ~184 elements per diagram -- alongside a four-field `summary`. The
+ * browser needs the elements: `use-diagram-canvas` draws them. The SERVER never
+ * looks at them, because `draw_diagram` declares a `toModelOutput` that reduces
+ * the result to `summary` before it reaches the model.
+ *
+ * But `DefaultChatTransport` uploads the message array verbatim, so every turn
+ * re-sent every past diagram's element JSON to be parsed, validated and thrown
+ * away. On a canvas whose scene runs to 311 kB for 369 elements, that is roughly
+ * 150 kB per past diagram on every message.
+ *
+ * Only `output` is trimmed. `input` (the spec) is left alone on purpose: the model
+ * does read its own past tool calls, and there is no measurement here saying it is
+ * safe to remove -- the CANVAS block in the system prompt makes it *probably*
+ * redundant, which is not the same thing.
+ *
+ * Returns the original array when nothing needed trimming, so a conversation with
+ * no diagrams in it does no copying.
+ */
+export function stripDrawDiagramOutput(messages: UIMessage[]): UIMessage[] {
+  let touchedAny = false;
+
+  const next = messages.map((message) => {
+    let touched = false;
+
+    const parts = message.parts.map((part) => {
+      if (part.type !== "tool-draw_diagram" || part.state !== "output-available") return part;
+
+      const output = part.output as { summary?: unknown } | undefined;
+      // Already trimmed, or an unexpected shape -- leave it rather than guess.
+      if (!output || !("skeletons" in output || "rawElements" in output)) return part;
+
+      touched = true;
+      return { ...part, output: { summary: output.summary } };
+    });
+
+    if (!touched) return message;
+    touchedAny = true;
+    return { ...message, parts };
+  });
+
+  return touchedAny ? next : messages;
 }
 
 export async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestInit) {

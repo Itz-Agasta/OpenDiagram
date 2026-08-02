@@ -1,19 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DiagramSpec, ThemeName } from "@OpenDiagram/harness";
-import { normalizeStoredChatHistory, storedChatMessageToUIMessage } from "@/lib/chat-history";
+import type { ThemeName } from "@OpenDiagram/harness";
+import {
+  parseCanvasDiagrams,
+  serializeCanvasDiagrams,
+  type CanvasDiagram,
+} from "@/lib/canvas-diagrams";
+import { queueProjectFilePatch } from "@/lib/project-file-sync";
+import {
+  normalizeStoredChatHistory,
+  storedChatMessageToUIMessage,
+  type StoredChatMessage,
+} from "@/lib/chat-history";
 import {
   getAiSettings,
   providerModelOptions,
   selectProviderModel,
   type ProviderModelOption,
 } from "@/lib/settings-client";
-import { orchestrateWorkspaceRequest } from "@/lib/workspace-agents";
+import { isLikelyDiagramRequest } from "@/lib/workspace-agents";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type { AIChatPanelProps, AIChatProviderOption } from "./types";
 import { parseInitialDiagramSpec, shouldUseDiagramChatDirectly } from "./types";
-import { diagramRequestLikely, pendingAskUser } from "./utils";
+import { pendingAskUser } from "./utils";
 import { useDiagramCanvas } from "./use-diagram-canvas";
+import { useChatThread } from "./use-chat-thread";
 import { useDiagramChat } from "./use-diagram-chat";
 import { useProjectChat } from "./use-project-chat";
 
@@ -33,13 +44,61 @@ export function useAIChatPanelController({
   onQuotaError,
   projectId,
 }: AIChatPanelProps) {
-  const parsedInitialSpec = useMemo(() => parseInitialDiagramSpec(initialSpec), [initialSpec]);
+  // Messages now arrive from the thread rather than as an `initialHistory` prop.
+  // The prop is still read once, so an IndexedDB paint upstream still shows before
+  // the thread request lands.
+  const [threadMessages, setThreadMessages] = useState<StoredChatMessage[] | null>(null);
+  const thread = useChatThread({ projectId, fileId, onMessagesLoaded: setThreadMessages });
+
+  // Every diagram on this canvas, read from the FILE rather than the thread.
+  //
+  // The thread used to own a single `spec` and a single `frame_id`, which is why
+  // drawing a second subject destroyed the first: one column, several diagrams.
+  // They belong to the canvas, so they live on the file and survive "New chat" --
+  // the drawings are still on screen after starting a new conversation, so the
+  // next conversation has to be able to see them.
+  const [diagrams, setDiagrams] = useState<CanvasDiagram[]>([]);
+  const diagramsRef = useRef(diagrams);
+
+  // Seeded only while the list is still empty. `initialSpec` arrives with the
+  // file fetch, which lands after the panel has mounted and possibly after a
+  // diagram has already been drawn -- re-seeding then would discard it.
+  useEffect(() => {
+    if (diagramsRef.current.length > 0) return;
+    const seeded = parseCanvasDiagrams(initialSpec);
+    if (seeded.length === 0) {
+      // Files written before the list existed hold one bare spec.
+      const legacy = parseInitialDiagramSpec(initialSpec);
+      if (!legacy) return;
+      seeded.push({ id: "", title: legacy.title, spec: legacy });
+    }
+    diagramsRef.current = seeded;
+    setDiagrams(seeded);
+  }, [initialSpec]);
+
   const useDiagramChatDirectly = shouldUseDiagramChatDirectly(activeFileType, initialSpec);
   const normalizedHistory = useMemo(
-    () => normalizeStoredChatHistory(initialHistory),
-    [initialHistory],
+    () => normalizeStoredChatHistory(threadMessages ?? initialHistory),
+    [threadMessages, initialHistory],
   );
-  const currentSpecRef = useRef<DiagramSpec | undefined>(parsedInitialSpec);
+
+  const handleDiagramsChange = useCallback(
+    (next: CanvasDiagram[]) => {
+      diagramsRef.current = next;
+      setDiagrams(next);
+      if (!projectId || !fileId) return;
+      // Through the shared queue, so this coalesces with the canvas autosave
+      // instead of racing it on the same row. `meta` because nothing here reads
+      // the response -- the client already holds what it just wrote.
+      void queueProjectFilePatch(
+        projectId,
+        fileId,
+        { spec: serializeCanvasDiagrams(next) },
+        "meta",
+      ).catch(() => undefined);
+    },
+    [fileId, projectId],
+  );
   const [theme, setTheme] = useState<ThemeName>("sketch");
   const [providerUsage, setProviderUsage] = useState<AiProviderUsage | null>(null);
   const [providerId, setProviderIdState] = useState(
@@ -51,8 +110,6 @@ export function useAIChatPanelController({
   const providerUpdateFailedRef = useRef(false);
   const providerIdRef = useRef(providerId);
   const providerRequestIdRef = useRef(0);
-  const routingRef = useRef(false);
-  const [routingPending, setRoutingPending] = useState(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -119,7 +176,7 @@ export function useAIChatPanelController({
     activeFileType,
     allowSeedAutoRun,
     autoDiagramPrompt,
-    currentSpecRef,
+    diagramsRef,
     excalidrawAPI,
     fileId,
     hasExistingScene,
@@ -129,19 +186,36 @@ export function useAIChatPanelController({
     onProviderError,
     onRateLimitError,
     onQuotaError,
+    persistTurn: thread.persistTurn,
+    threadId: thread.threadId,
     projectId,
     providerId: selectedProvider?.providerId,
     modelId: selectedProvider?.modelId,
     theme,
   });
   const canvas = useDiagramCanvas({
-    currentSpecRef,
+    diagrams,
+    onDiagramsChange: handleDiagramsChange,
     diagramMessages: diagramChat.messages,
     excalidrawAPI,
     fileId,
-    initialSpec: parsedInitialSpec,
     projectId,
   });
+
+  // Files written before the diagram list existed recorded a spec but no frame
+  // id, so their one diagram cannot be targeted and the first modification would
+  // draw a duplicate beside it. The frame is right there on the canvas: when
+  // there is exactly one of each, they are unambiguously the same diagram.
+  useEffect(() => {
+    if (!excalidrawAPI) return;
+    const current = diagramsRef.current;
+    if (current.length !== 1 || current[0]!.id !== "") return;
+    const frames = excalidrawAPI.getSceneElements().filter((element) => element.type === "frame");
+    if (frames.length !== 1) return;
+    const paired = [{ ...current[0]!, id: frames[0]!.id }];
+    diagramsRef.current = paired;
+    setDiagrams(paired);
+  }, [excalidrawAPI, diagrams]);
   const projectChat = useProjectChat({
     activeFileType,
     fileId,
@@ -185,21 +259,11 @@ export function useAIChatPanelController({
         return;
       }
 
-      let useProjectChat = Boolean(projectId) && !diagramRequestLikely(text);
-      if (projectId && excalidrawAPI) {
-        if (routingRef.current) return;
-        routingRef.current = true;
-        setRoutingPending(true);
-        try {
-          const route = await orchestrateWorkspaceRequest({ text, projectId });
-          useProjectChat = route.intent === "project_chat";
-        } catch {
-          useProjectChat = !diagramRequestLikely(text);
-        } finally {
-          routingRef.current = false;
-          setRoutingPending(false);
-        }
-      }
+      // Routing is a local regex now, not a round trip to a model. It used to
+      // await `POST /api/orchestrate` here, which put a Groq call in front of
+      // every message on a doc file or a GitHub-imported diagram before the
+      // user's text was sent anywhere.
+      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(text);
 
       if (useProjectChat || !excalidrawAPI) {
         await projectChat.run(text);
@@ -217,16 +281,11 @@ export function useAIChatPanelController({
       projectChat.run,
       projectChat.status,
       projectId,
-      routingPending,
       useDiagramChatDirectly,
     ],
   );
 
-  const submitStatus = routingPending
-    ? "submitted"
-    : projectChat.status !== "ready"
-      ? projectChat.status
-      : diagramChat.status;
+  const submitStatus = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
   const stop = useCallback(() => {
     if (projectChat.status !== "ready") projectChat.stop();
     else diagramChat.stop();
@@ -238,6 +297,11 @@ export function useAIChatPanelController({
 
   return {
     answerAskUser,
+    loadThreadList: thread.loadThreadList,
+    resumeThread: (id: string) => void thread.resumeThread(id),
+    startNewThread: thread.startNewThread,
+    threadSwitching: thread.isSwitching,
+    threads: thread.threads,
     applyError: canvas.applyError,
     conversationMessages,
     diagramError: diagramChat.error,
