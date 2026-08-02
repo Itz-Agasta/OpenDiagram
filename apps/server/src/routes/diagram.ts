@@ -12,7 +12,7 @@ import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import { buildSystemPrompt } from "../lib/agent/prompt";
-import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
+import { askUserTool, createDrawDiagramTool, drawDiagramInputSchema } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
 import { resolveModel } from "../lib/ai-provider/resolve";
@@ -61,7 +61,10 @@ function repairDrawDiagramInput(rawInput: unknown): string | null {
         }
       }
     }
-    return diagramSpecSchema.safeParse(input).success ? JSON.stringify(input) : null;
+    // The TOOL's schema, not the bare spec schema: the SDK re-validates whatever
+    // this returns against it, so checking `diagramSpecSchema` here waved through
+    // a bad `targetId` and burned a step on a repair that failed anyway.
+    return drawDiagramInputSchema.safeParse(input).success ? JSON.stringify(input) : null;
   } catch {
     return null;
   }
