@@ -22,6 +22,13 @@
       "when": 1785588122664,
       "tag": "0002_add_thread_frame_id",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785685244645,
+      "tag": "0003_add_message_client_id_unique",
+      "breakpoints": true
     }
   ]
 }

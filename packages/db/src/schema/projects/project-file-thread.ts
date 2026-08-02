@@ -19,11 +19,10 @@ import { projectFile } from "./project-file";
  * one explicitly with "New chat" rather than the app guessing when a subject
  * changed.
  *
- * `spec` lives here rather than on the file, which also fixes a real defect:
- * `project_file_content.spec` is a single column, so a canvas holding N diagram
- * frames clobbered it down to whichever was drawn last. After a reload the model
- * was handed the wrong diagram to modify. One spec per thread means one spec per
- * diagram, which is what the canvas already assumed.
+ * The diagrams do NOT live here. `spec` and `frame_id` below were an earlier
+ * attempt at that and are dead columns now: a canvas holds several diagrams and
+ * they stay on screen through "New chat", so they belong to the file, not to one
+ * conversation. They live in `project_file_content.spec` as a keyed list.
  *
  * There is deliberately no `is_active` flag or `active_thread_id` on the file.
  * The open thread is simply the most recently updated one, which needs no extra
@@ -56,12 +55,11 @@ export const projectFileThread = pgTable(
     // Null for a project-wide conversation; set for a conversation about one canvas.
     fileId: text("file_id").references(() => projectFile.id, { onDelete: "cascade" }),
     title: text("title").default("New chat").notNull(),
-    // The diagram this conversation is editing, sent to the model as the base for
-    // modifications. Null on a fresh thread, which is what makes the next diagram
-    // land in a new frame instead of replacing an existing one.
+    // DEAD -- see the note above; kept only because dropping a column is not free
+    // on a live table. Nothing reads or writes either of these any more.
     spec: jsonb("spec"),
-    // The Excalidraw frame this conversation owns, so a redraw replaces its own
-    // diagram instead of adding another one beside it.
+    // DEAD too. The reasoning below is why frame identity is an id rather than a
+    // title, and still applies where it now lives (`canvas-diagrams.ts`).
     //
     // Frame identity used to ride on `spec.title`, matched through a title->frame
     // map on the client. That breaks because the MODEL owns the title: asked to

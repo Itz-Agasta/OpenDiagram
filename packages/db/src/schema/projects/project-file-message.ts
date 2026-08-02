@@ -1,5 +1,14 @@
 import { relations, sql } from "drizzle-orm";
-import { check, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  check,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 import { projectFileThread } from "./project-file-thread";
 
@@ -28,7 +37,8 @@ export const projectFileMessageRoles = ["user", "assistant"] as const;
  * `client_id` is the message id the browser generated. It has to survive the
  * round trip: the AI SDK matches messages by it, and `turnIdFor` in the diagram
  * route derives the billing turn from the trailing user message's id, so a
- * server-assigned id would break both.
+ * server-assigned id would break both. It is also unique per thread, which is
+ * what makes the append idempotent -- see the index below.
  */
 export const projectFileMessage = pgTable(
   "project_file_message",
@@ -54,6 +64,11 @@ export const projectFileMessage = pgTable(
     // ordering by a timestamp instead would put two messages written in the same
     // millisecond in an arbitrary order.
     primaryKey({ columns: [table.threadId, table.seq] }),
+    // Makes the append idempotent. `persistTurn` only marks messages saved once
+    // the server confirms them, so a response lost after the insert committed
+    // leaves the browser re-sending that turn; without this the retry lands a
+    // second copy under fresh `seq` values and the transcript renders it twice.
+    uniqueIndex("project_file_message_thread_client_idx").on(table.threadId, table.clientId),
     check("project_file_message_role_check", sql`${table.role} IN ('user', 'assistant')`),
     check("project_file_message_seq_check", sql`${table.seq} > 0`),
   ],
