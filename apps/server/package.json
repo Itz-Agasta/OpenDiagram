@@ -16,7 +16,6 @@
     "@OpenDiagram/harness": "workspace:*",
     "@ai-sdk/anthropic": "^4.0.18",
     "@ai-sdk/google": "^4.0.5",
-    "@ai-sdk/groq": "^4.0.5",
     "@ai-sdk/openai": "^4.0.5",
     "@ai-sdk/otel": "^1.0.37",
     "@openrouter/ai-sdk-provider": "^3.0.0",
