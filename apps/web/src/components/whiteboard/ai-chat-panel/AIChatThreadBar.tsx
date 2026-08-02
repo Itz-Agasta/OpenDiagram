@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { History, Plus } from "lucide-react";
 import type { ChatThreadSummary } from "@/lib/projects-client";
 import {
@@ -37,6 +37,15 @@ export function AIChatThreadBar({
   // A dropped history request used to leave the menu reading "No previous
   // chats", which is a claim about the data rather than about the request.
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Controlled so the menu can be dismissed when the panel goes busy. Disabling
+  // the trigger does nothing to a menu that is ALREADY open, and its items stay
+  // clickable -- so a turn submitted with the list open could still be filed
+  // against whichever conversation was picked after the message was typed.
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (disabled) setIsOpen(false);
+  }, [disabled]);
 
   async function handleOpenChange(open: boolean) {
     if (!open) return;
@@ -53,7 +62,13 @@ export function AIChatThreadBar({
 
   return (
     <div className="flex items-center justify-between border-od-line border-b px-3 py-1.5">
-      <DropdownMenu onOpenChange={(open) => void handleOpenChange(open)}>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          void handleOpenChange(open);
+        }}
+        open={isOpen}
+      >
         <DropdownMenuTrigger
           className="flex items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
@@ -80,6 +95,10 @@ export function AIChatThreadBar({
           {threads.map((thread) => (
             <DropdownMenuItem
               className="flex-col items-start gap-0.5 text-xs"
+              // Belt and braces with the auto-close above: the effect runs
+              // after render, so a click landing in the same frame would
+              // otherwise still resolve.
+              disabled={disabled}
               key={thread.id}
               onSelect={() => onResumeThread(thread.id)}
             >
