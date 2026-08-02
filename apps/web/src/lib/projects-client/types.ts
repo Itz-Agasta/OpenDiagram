@@ -103,3 +103,29 @@ export type CreationQuota = {
   /** Credits signing up is worth, for the guest upsell. From the plan table. */
   signupCredits?: number;
 };
+
+/** Thread metadata, as the history list returns it. Never carries `spec`. */
+export type ChatThreadSummary = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChatThreadMessage = {
+  seq: number;
+  clientId: string;
+  role: "user" | "assistant";
+  parts: unknown[];
+};
+
+/** An open thread: its metadata, the diagram it is editing, and its recent messages. */
+export type ChatThread = {
+  id: string;
+  title: string;
+  spec?: unknown;
+  /** The Excalidraw frame this conversation owns, so a redraw replaces its own diagram. */
+  frameId: string | null;
+  updatedAt: string;
+  messages: ChatThreadMessage[];
+};

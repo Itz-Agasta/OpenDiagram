@@ -2,6 +2,7 @@
 
 import { AIChatComposer } from "./ai-chat-panel/AIChatComposer";
 import { AIChatConversation } from "./ai-chat-panel/AIChatConversation";
+import { AIChatThreadBar } from "./ai-chat-panel/AIChatThreadBar";
 import type { AIChatPanelProps } from "./ai-chat-panel/types";
 import { useAIChatPanelController } from "./ai-chat-panel/use-ai-chat-panel-controller";
 
@@ -10,6 +11,15 @@ export function AIChatPanel(props: AIChatPanelProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white text-od-ink">
+      {props.projectId && props.fileId && (
+        <AIChatThreadBar
+          disabled={controller.threadSwitching}
+          loadThreadList={controller.loadThreadList}
+          onResumeThread={controller.resumeThread}
+          startNewThread={controller.startNewThread}
+          threads={controller.threads}
+        />
+      )}
       <AIChatConversation
         answerAskUser={controller.answerAskUser}
         applyError={controller.applyError}

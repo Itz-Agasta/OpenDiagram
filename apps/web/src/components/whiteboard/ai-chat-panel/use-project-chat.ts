@@ -4,11 +4,8 @@ import type { Dispatch, SetStateAction } from "react";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { uiMessagesToStoredChatHistory, type StoredChatMessage } from "@/lib/chat-history";
 import { runProjectChatAgent } from "@/lib/workspace-agents";
-import {
-  CreationQuotaError,
-  updateProjectFile,
-  UpstreamRateLimitError,
-} from "@/lib/projects-client";
+import { CreationQuotaError, UpstreamRateLimitError } from "@/lib/projects-client";
+import { queueProjectFilePatch } from "@/lib/project-file-sync";
 import { appendStoredChatMessage } from "./chat-timeline";
 
 interface UseProjectChatOptions {
@@ -96,7 +93,7 @@ export function useProjectChat({
               window.setTimeout(() => {
                 const history = uiMessagesToStoredChatHistory(updated);
                 onHistoryChange?.(history);
-                void updateProjectFile(projectId, fileId, { history });
+                void queueProjectFilePatch(projectId, fileId, { history }, "meta");
               }, 0);
             }
             return updated;
@@ -107,7 +104,7 @@ export function useProjectChat({
             if (fileId) {
               window.setTimeout(() => {
                 onHistoryChange?.(updated);
-                void updateProjectFile(projectId, fileId, { history: updated });
+                void queueProjectFilePatch(projectId, fileId, { history: updated }, "meta");
               }, 0);
             }
             return updated;
@@ -119,7 +116,7 @@ export function useProjectChat({
             if (!fileId) return previous;
             const history = uiMessagesToStoredChatHistory(previous);
             onHistoryChange?.(history);
-            void updateProjectFile(projectId, fileId, { history });
+            void queueProjectFilePatch(projectId, fileId, { history }, "meta");
             return previous;
           };
           if (activeFileType === "diagram") setDiagramMessages(persistCancelled);
@@ -127,7 +124,7 @@ export function useProjectChat({
             setMessages((previous) => {
               if (fileId) {
                 onHistoryChange?.(previous);
-                void updateProjectFile(projectId, fileId, { history: previous });
+                void queueProjectFilePatch(projectId, fileId, { history: previous }, "meta");
               }
               return previous;
             });
@@ -150,7 +147,7 @@ export function useProjectChat({
             if (fileId) {
               const history = uiMessagesToStoredChatHistory(updated);
               onHistoryChange?.(history);
-              void updateProjectFile(projectId, fileId, { history });
+              void queueProjectFilePatch(projectId, fileId, { history }, "meta");
             }
             return updated;
           });
