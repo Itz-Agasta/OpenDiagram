@@ -11,7 +11,7 @@ import {
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
-import { iconRegistry } from "../icons/registry";
+import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
 
 export interface AskUserInput {
   question: string;
@@ -80,21 +80,8 @@ export function createDrawDiagramTool(
       "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat. Set targetId to update a diagram already on the canvas; omit it to add a new one.",
     inputSchema: drawDiagramInputSchema,
     execute: async ({ targetId: _targetId, ...rawSpec }): Promise<DrawDiagramOutput> => {
-      // Icon keys the registry doesn't know are stripped BEFORE layout so both
-      // sizing and rendering fall back to the theme's icon-less node (a box
-      // with the label inside), never an empty glyph band.
-      const unknownIcons = new Set<string>();
-      const spec: DiagramSpec = {
-        ...rawSpec,
-        nodes: rawSpec.nodes.map((node) => {
-          if (node.icon && !iconRegistry[node.icon]) {
-            unknownIcons.add(node.icon);
-            return { ...node, icon: undefined };
-          }
-          return node;
-        }),
-      };
-      const warnings = [...unknownIcons].map((key) => `unknown icon "${key}" — drawn as a box`);
+      const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(rawSpec);
+      const warnings = unknownIcons.map((key) => `unknown icon "${key}" — drawn as a box`);
 
       // Sequence diagrams use their own lifeline grid, not ELK.
       let skeletons: RenderSkeleton[];

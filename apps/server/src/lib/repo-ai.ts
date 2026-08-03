@@ -2,7 +2,7 @@ import { createGoogle } from "@ai-sdk/google";
 import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel } from "ai";
-import { buildIconCatalog } from "./icons/registry";
+import { buildIconCatalog, normalizeSpecIcons } from "./icons/registry";
 import { aiTelemetry } from "./telemetry";
 
 export type AiUsage = { inputTokens: number; outputTokens: number };
@@ -168,7 +168,10 @@ export async function generateDiagramSpec(
       maxOutputTokens: GOOGLE_DEFAULTS.maxTokens,
     });
     reportUsage(options, result.usage);
-    return result.object;
+    // The catalog names icons by slug, the renderer indexes them by registry id.
+    // Callers here hand the spec straight to `renderToExcalidraw`, so without
+    // this every icon would miss its lookup and silently draw as a bare box.
+    return normalizeSpecIcons<DiagramSpec>(result.object).spec;
   } catch (error) {
     // The failure mode this bounds -- a repetition loop that runs to
     // maxOutputTokens and then fails schema validation -- is the single most
