@@ -8,6 +8,7 @@ import { and, db, eq } from "@OpenDiagram/db";
 import { userAiProvider } from "@OpenDiagram/db/schema/ai";
 import { env } from "@OpenDiagram/env/server";
 import type { LanguageModel } from "ai";
+import { createCachingFetch } from "../agent/cache";
 import { decryptSecret } from "./encrypt";
 import { getProvider } from "./registry";
 
@@ -52,10 +53,19 @@ async function resolveUserModel(userId: string): Promise<ResolvedModel | null> {
   };
 }
 
-/** Platform fallback (server-funded Gemini). Null when no platform key is set. */
+/**
+ * Platform fallback (server-funded Gemini). Null when no platform key is set.
+ *
+ * The context cache is wired in HERE and nowhere else: a Gemini cache can only be
+ * read by the key that created it, so a BYOK provider would pay hourly storage
+ * for a cache that only its own user's requests could hit.
+ */
 function resolvePlatformModel(): ResolvedModel | null {
   if (!env.GOOGLE_GENERATIVE_AI_API_KEY) return null;
-  const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
+  const google = createGoogle({
+    apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
+    fetch: createCachingFetch(env.GOOGLE_GENERATIVE_AI_API_KEY, PLATFORM_MODEL),
+  });
   return {
     model: google(PLATFORM_MODEL),
     source: "platform",
