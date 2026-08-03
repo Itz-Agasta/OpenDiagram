@@ -9,7 +9,7 @@ import { userAiProvider, type UserAiProviderKind } from "@OpenDiagram/db/schema/
 import { env } from "@OpenDiagram/env/server";
 import type { LanguageModel } from "ai";
 import { decryptSecret } from "./encrypt";
-import { getProvider } from "./registry";
+import { getProvider, isKnownModel } from "./registry";
 
 const PLATFORM_MODEL = "gemini-2.5-flash";
 
@@ -74,6 +74,8 @@ function buildResolvedModel(
   }
 
   const modelId = requestedModelId ?? row.modelId;
+
+  if (requestedModelId && !isKnownModel(providerImpl, requestedModelId)) return null;
 
   return {
     model: providerImpl.createModel(apiKey, modelId),

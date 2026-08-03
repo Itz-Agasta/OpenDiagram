@@ -24,7 +24,7 @@ const chatRequestSchema = z.object({
   // structurally by convertToModelMessages below.
   messages: z.array(z.looseObject({})).min(1).max(50),
   modelId: z.string().optional(),
-  provider: z.string().optional(),
+  provider: z.enum(["openai", "anthropic", "google", "openrouter"]).optional(),
   currentSpec: diagramSpecSchema.optional(),
   theme: z.enum(["classic", "sketch"]).optional(),
 });
