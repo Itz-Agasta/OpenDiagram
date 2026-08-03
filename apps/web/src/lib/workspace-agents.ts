@@ -2,14 +2,6 @@ import type { DiagramSpec } from "@OpenDiagram/harness";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { chatWithProject } from "@/lib/projects-client";
 
-export type WorkspaceAgentId = "router" | "memory" | "diagram" | "canvas" | "answer";
-
-export type WorkspaceAgentProgress = {
-  agent: WorkspaceAgentId;
-  status: "active" | "complete" | "failed";
-  message?: string;
-};
-
 export type WorkspaceAgentResult = {
   message: string;
   spec?: DiagramSpec;
@@ -51,13 +43,11 @@ export async function runProjectChatAgent(input: {
   providerId?: string;
   modelId?: string;
   signal?: AbortSignal;
-  onProgress?: (event: WorkspaceAgentProgress) => void;
 }): Promise<WorkspaceAgentResult> {
   if (!input.projectId) {
     throw new Error("Project chat requires a saved project.");
   }
 
-  input.onProgress?.({ agent: "memory", status: "active", message: "Reading project memory" });
   const { answer, sources, aiProvider } = await chatWithProject(
     input.projectId,
     input.text,
@@ -65,12 +55,6 @@ export async function runProjectChatAgent(input: {
     input.modelId,
     input.signal,
   );
-  input.onProgress?.({
-    agent: "memory",
-    status: "complete",
-    message: sources.length ? `Found ${sources.length} sources` : "No sources returned",
-  });
-  input.onProgress?.({ agent: "answer", status: "complete", message: "Response ready" });
 
   const sourceSummary = sources.length
     ? `\n\n*${sources.map((source) => source.title).join(", ")}*`
