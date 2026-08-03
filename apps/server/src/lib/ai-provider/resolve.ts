@@ -5,7 +5,7 @@
  */
 import { createGoogle } from "@ai-sdk/google";
 import { and, db, eq } from "@OpenDiagram/db";
-import { userAiProvider } from "@OpenDiagram/db/schema/ai";
+import { userAiProvider, type UserAiProviderKind } from "@OpenDiagram/db/schema/ai";
 import { env } from "@OpenDiagram/env/server";
 import type { LanguageModel } from "ai";
 import { decryptSecret } from "./encrypt";
@@ -23,19 +23,49 @@ export type ResolvedModel = {
 };
 
 /** The signed-in user's default BYOK model, or null if they have none configured. */
-async function resolveUserModel(userId: string): Promise<ResolvedModel | null> {
-  const [row] = await db
-    .select()
-    .from(userAiProvider)
-    .where(and(eq(userAiProvider.userId, userId), eq(userAiProvider.isDefault, true)))
-    .limit(1);
-  if (!row) return null;
+async function resolveUserModel(
+  userId: string,
+  modelId?: string | null,
+  provider?: string | null,
+): Promise<ResolvedModel | null> {
+  if (!modelId || modelId === "" || !provider || provider === "") {
+    // Fall back to the user's default provider
+    const [row] = await db
+      .select()
+      .from(userAiProvider)
+      .where(and(eq(userAiProvider.userId, userId), eq(userAiProvider.isDefault, true)))
+      .limit(1);
 
-  const provider = getProvider(row.provider);
-  if (!provider) return null;
+    if (!row) return null;
 
-  // If the key can't be decrypted (e.g. BYOK_ENCRYPTION_KEY unset/rotated),
-  // fall back to the platform model rather than failing the whole request.
+    return buildResolvedModel(row, userId);
+  } else {
+    // Use the explicitly requested provider + modelId
+    const [row] = await db
+      .select()
+      .from(userAiProvider)
+      .where(
+        and(
+          eq(userAiProvider.userId, userId),
+          eq(userAiProvider.provider, provider as UserAiProviderKind),
+        ),
+      )
+      .limit(1);
+
+    if (!row) return null;
+
+    return buildResolvedModel(row, userId, modelId);
+  }
+}
+
+function buildResolvedModel(
+  row: typeof userAiProvider.$inferSelect,
+  userId: string,
+  requestedModelId?: string,
+): ResolvedModel | null {
+  const providerImpl = getProvider(row.provider);
+  if (!providerImpl) return null;
+
   let apiKey: string;
   try {
     apiKey = decryptSecret(row.encryptedApiKey, { userId, provider: row.provider });
@@ -43,11 +73,13 @@ async function resolveUserModel(userId: string): Promise<ResolvedModel | null> {
     return null;
   }
 
+  const modelId = requestedModelId ?? row.modelId;
+
   return {
-    model: provider.createModel(apiKey, row.modelId),
+    model: providerImpl.createModel(apiKey, modelId),
     source: "byok",
     provider: row.provider,
-    modelId: row.modelId,
+    modelId,
     countsAgainstQuota: false,
   };
 }
@@ -69,9 +101,13 @@ function resolvePlatformModel(): ResolvedModel | null {
  * Resolve the model for a (maybe-anonymous) request: BYOK first for signed-in
  * users, else platform. Returns null only when neither is available.
  */
-export async function resolveModel(userId?: string | null): Promise<ResolvedModel | null> {
+export async function resolveModel(
+  userId?: string | null,
+  modelId?: string | null,
+  provider?: string | null,
+): Promise<ResolvedModel | null> {
   if (userId) {
-    const byok = await resolveUserModel(userId);
+    const byok = await resolveUserModel(userId, modelId, provider);
     if (byok) return byok;
   }
   return resolvePlatformModel();

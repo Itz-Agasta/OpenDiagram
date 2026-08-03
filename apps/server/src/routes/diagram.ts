@@ -23,6 +23,8 @@ const chatRequestSchema = z.object({
   // UIMessage shape is owned by the AI SDK and too deep to mirror — validated
   // structurally by convertToModelMessages below.
   messages: z.array(z.looseObject({})).min(1).max(50),
+  modelId: z.string().optional(),
+  provider: z.string().optional(),
   currentSpec: diagramSpecSchema.optional(),
   theme: z.enum(["classic", "sketch"]).optional(),
 });
@@ -91,7 +93,7 @@ diagramRoute.post("/chat", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
-  const { messages, currentSpec, theme: themeName = "sketch" } = parsed.data;
+  const { messages, modelId, provider, currentSpec, theme: themeName = "sketch" } = parsed.data;
 
   // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
   // client payload, not a server fault, so surface it as a 400.
@@ -111,7 +113,7 @@ diagramRoute.post("/chat", async (c) => {
   const userId = session?.user.id;
   let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
-    resolved = await resolveModel(userId);
+    resolved = await resolveModel(userId, modelId, provider);
   } catch (error) {
     log.error("Failed to resolve BYOK model", { error });
     return c.json({ error: "Your saved AI provider key could not be used. Check Settings." }, 502);
