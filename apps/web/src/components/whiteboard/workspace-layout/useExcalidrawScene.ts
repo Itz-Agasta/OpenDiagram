@@ -35,13 +35,13 @@ export function useExcalidrawScene(initialScene: unknown) {
       });
       if (elements.length === 0) return;
 
-      // Only when the scene brought no camera of its own -- see
-      // `sceneHasSavedViewport`. Fitting a scene that Excalidraw has already
-      // positioned from `initialData` moves the canvas seconds after the user is
-      // looking at it.
+      // Skip scrollToContent if the scene already has a saved camera —
+      // Excalidraw already positioned it from initialData, so fitting again
+      // would jerk the viewport right after the user sees it.
       if (hasViewport) return;
 
-      // Viewport dimensions settle after the editor and adjacent panes render.
+      // Wait a frame for the editor and adjacent panes to finish laying out
+      // before fitting — viewport dimensions aren't stable until then.
       frame = window.requestAnimationFrame(() => {
         api.scrollToContent(elements, {
           fitToViewport: true,
