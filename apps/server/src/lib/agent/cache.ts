@@ -1,17 +1,13 @@
 /**
  * Gemini explicit context cache for the diagram agent's static head.
  *
- * The system prompt is ~5.4k tokens, three quarters of it the icon catalog, and
- * it is re-sent once per agent step. Implicit caching already discounts it, but
- * only when a matching prefix happens to still be warm -- measured across 122
- * dev steps it hit on roughly one in five. An explicit cache makes the same 90%
- * discount ($0.30 -> $0.03 per 1M input tokens on 2.5 Flash) unconditional.
+ * ~5.4k tokens re-sent once per agent step. Implicit caching already discounts
+ * it but only on a still-warm prefix -- measured, it hit on one dev step in five.
+ * An explicit cache makes the 90% discount ($0.30 -> $0.03 per 1M) unconditional.
  *
- * The catch that shapes this whole file: the API refuses a request that carries
- * `cachedContent` alongside `systemInstruction`, `tools` or `tool_config` --
- * "Proposed fix: move those values to CachedContent from GenerateContent
- * request." So the three fields have to be lifted OUT of every outgoing body and
- * INTO the cache, which is what `createCachingFetch` does.
+ * The catch that shapes this file: the API refuses `cachedContent` alongside
+ * `systemInstruction`, `tools` or `toolConfig`, so all three must be lifted out
+ * of every outgoing body and into the cache. That is `createCachingFetch`.
  * https://ai.google.dev/gemini-api/docs/generate-content/caching#considerations
  */
 import { createHash } from "node:crypto";
@@ -55,9 +51,10 @@ type GeminiBody = {
   cachedContent?: string;
 };
 
+/** Covers every field the cache stores, so a body differing in any of them gets its own. */
 function headKey(body: GeminiBody): string {
   return createHash("sha256")
-    .update(JSON.stringify({ s: body.systemInstruction, t: body.tools }))
+    .update(JSON.stringify({ s: body.systemInstruction, t: body.tools, c: body.toolConfig }))
     .digest("hex");
 }
 
@@ -120,6 +117,12 @@ async function cacheFor(
   if (inFlight) return inFlight;
 
   const creation = createCache(apiKey, model, body)
+    // `createCache` turns an API-level failure into null itself; this covers the
+    // request never completing, which must not take the diagram turn down with it.
+    .catch((error) => {
+      log("warn", "context cache request failed, falling back to inline head", { error });
+      return null;
+    })
     .then((entry) => {
       if (entry) entries.set(key, entry);
       // A stale entry for this key is now either replaced or known-bad; either
@@ -136,14 +139,12 @@ async function cacheFor(
 /**
  * A `fetch` for `createGoogle` that routes generation through a context cache.
  *
- * PLATFORM KEY ONLY. A cache belongs to the key that created it, so this must
- * never wrap a BYOK provider: those users would pay storage for a cache only
- * their own requests could read, and there is no shared prefix across them.
+ * PLATFORM KEY ONLY: a cache is readable only by the key that created it, so a
+ * BYOK user would pay hourly storage for a cache nobody else can hit.
  *
- * Awaits the first creation rather than warming in the background, so the
- * request that pays to build the cache is also the first to read from it. That
- * also keeps the work inside the request, which Cloud Run requires -- CPU is
- * throttled once a response completes.
+ * Awaits the first creation rather than warming in the background, so the request
+ * that pays to build the cache is also the first to read it -- and so the work
+ * stays inside the request, which Cloud Run needs (CPU throttles after response).
  */
 export function createCachingFetch(apiKey: string, model: string): FetchFunction {
   const cachingFetch = async (
@@ -153,9 +154,12 @@ export function createCachingFetch(apiKey: string, model: string): FetchFunction
     if (typeof init?.body !== "string") return fetch(input, init);
 
     const body = JSON.parse(init.body) as GeminiBody;
-    // Requests without a system instruction are not the agent loop (token counts,
-    // for one) and have no head worth caching.
-    if (!body.systemInstruction) return fetch(input, init);
+    // Cache only the diagram agent's head. It is the one platform call that
+    // declares tools, and the only one clearing Gemini 2.5 Flash's 2,048-token
+    // cache minimum -- project chat and repo generation send a few hundred tokens
+    // of system prompt, so they would spend a round trip per request on a
+    // `cachedContents` POST that can only fail. Token counts carry no head at all.
+    if (!body.systemInstruction || !body.tools) return fetch(input, init);
 
     const entry = await cacheFor(apiKey, model, body);
     if (!entry) return fetch(input, init);
