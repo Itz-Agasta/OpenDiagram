@@ -165,11 +165,9 @@ diagramRoute.post("/chat", async (c) => {
   const result = streamText({
     model: resolved.model,
     instructions: buildSystemPrompt(),
-    // Canvas state leads the conversation instead of closing the system prompt.
-    // Forced: once a context cache is in play the API rejects any request that
-    // also sets `systemInstruction`, so the only mutable channel left is the
-    // messages. First rather than last so the model reads the canvas before the
-    // request that refers to it, which is the order it had inside the prompt.
+    // First, not last: the model reads the canvas before the request referring to
+    // it, the order it had while this lived in the system prompt. Why it moved out
+    // of the prompt at all is on `buildSystemPrompt`.
     messages: [{ role: "user" as const, content: buildCanvasContext(diagrams) }, ...modelMessages],
     tools,
     telemetry: aiTelemetry("diagram-chat"),
