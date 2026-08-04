@@ -47,7 +47,12 @@ function packRank(icon: IconEntry): number {
  * model nothing; `name` was curated by hand and says "Postgres".
  */
 function catalogSlug(icon: IconEntry): string {
-  return icon.name
+  return canonical(icon.name);
+}
+
+/** The lookup form for everything that is not a registry id: slugs, keywords, model output. */
+function canonical(text: string): string {
+  return text
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -74,14 +79,7 @@ function getIndexes(): Indexes {
   if (indexes) return indexes;
   indexes = {
     slugs: bestByName((icon) => [catalogSlug(icon)]),
-    keywords: bestByName((icon) =>
-      icon.keywords.map((word) =>
-        word
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-"),
-      ),
-    ),
+    keywords: bestByName((icon) => icon.keywords.map(canonical)),
   };
   return indexes;
 }
@@ -89,28 +87,17 @@ function getIndexes(): Indexes {
 /**
  * Resolve whatever landed in `node.icon` to a registry id, or undefined.
  *
- * Three tiers, most literal first.
- *
- * 1. A registry id. Specs saved before the catalog moved to slugs still hold
- *    these and they are in the production database, so dropping this tier would
- *    silently redraw every existing diagram's icons as plain boxes.
- * 2. A catalog slug — what the prompt actually offers, so the common case.
- * 3. A curated keyword. Measured need: with slugs in the catalog the model
- *    started answering with the product's ordinary name instead of the key it
- *    was shown, emitting `kafka` for `managed-streaming-for-apache-kafka` and
- *    `mongodb` for `documentdb`. Both are already listed in that icon's
- *    `keywords`, which `scripts/icon-fetcher` maintains as "synonyms / alternate
- *    names" for exactly this. Ambiguous keywords resolve by the same pack
- *    precedence as slugs.
- *
- * Still not fuzzy: every tier is an exact lookup, and an unrecognised key stays
- * unrecognised and surfaces as a warning rather than snapping to the nearest
- * plausible icon.
+ * Registry id first: specs saved before the catalog moved to slugs hold those and
+ * live in the production database. Then the canonical form, since the model does
+ * not always echo the key back exactly as shown. Keywords last, and only because
+ * the eval caught it answering `kafka` for `managed-streaming-for-apache-kafka`.
+ * Every tier is an exact lookup; an unknown key stays unknown and warns.
  */
 function resolveIconKey(key: string): string | undefined {
   if (iconRegistry[key]) return key;
   const { slugs, keywords } = getIndexes();
-  return slugs.get(key) ?? keywords.get(key);
+  const lookup = canonical(key);
+  return slugs.get(lookup) ?? keywords.get(lookup);
 }
 
 /** A node as far as icon handling cares. Structural, to keep this file off the harness types. */
@@ -119,13 +106,11 @@ type IconBearingNode = { icon?: string | undefined };
 /**
  * Rewrite every `node.icon` to a registry id, dropping the ones that miss.
  *
- * MUST run before layout: `measure.ts#nodeSize` reserves space by looking the
- * icon up in the registry and the renderer draws it by the same key, so a node
- * still carrying a catalog slug at that point would be measured for an icon and
- * drawn without one. Dropping unknowns here instead is what makes both agree on
- * the theme's icon-less node.
- *
- * Returns the keys it could not place, for the caller to surface as warnings.
+ * MUST run before layout: `measure.ts#nodeSize` reserves the icon's box by
+ * registry lookup and the renderer draws by the same key, so a node still holding
+ * a catalog slug would be measured for an icon and drawn without one. Dropping
+ * unknowns here keeps the two agreeing. Returns what it could not place, for the
+ * caller to warn about.
  */
 export function normalizeSpecIcons<T extends { nodes: IconBearingNode[] }>(
   spec: T,
