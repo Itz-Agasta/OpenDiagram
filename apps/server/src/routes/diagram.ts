@@ -11,7 +11,7 @@ import {
 import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
-import { buildSystemPrompt } from "../lib/agent/prompt";
+import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
 import { askUserTool, createDrawDiagramTool, drawDiagramInputSchema } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
@@ -164,8 +164,11 @@ diagramRoute.post("/chat", async (c) => {
 
   const result = streamText({
     model: resolved.model,
-    instructions: buildSystemPrompt(diagrams),
-    messages: modelMessages,
+    instructions: buildSystemPrompt(),
+    // First, not last: the model reads the canvas before the request referring to
+    // it, the order it had while this lived in the system prompt. Why it moved out
+    // of the prompt at all is on `buildSystemPrompt`.
+    messages: [{ role: "user" as const, content: buildCanvasContext(diagrams) }, ...modelMessages],
     tools,
     telemetry: aiTelemetry("diagram-chat"),
     stopWhen: isStepCount(6),
