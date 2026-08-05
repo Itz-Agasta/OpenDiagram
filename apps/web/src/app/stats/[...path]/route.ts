@@ -1,25 +1,25 @@
 import type { NextRequest } from "next/server";
 
-const UPSTREAM = "https://cloud.umami.is";
-
-// The tracker fetches exactly these two, both derived from its own script src.
-// Anything else 404s instead of being relayed.
-const ALLOWED: Record<string, "GET" | "POST"> = {
-  "script.js": "GET",
-  "api/send": "POST",
+// Two upstreams, not one. The Cloud build of the tracker serves from
+// cloud.umami.is but hardcodes gateway.umami.is as its collector, so beacons go
+// where an unproxied browser would have sent them. Anything not listed here
+// 404s rather than being relayed: a wildcard would let any client bounce
+// arbitrary requests off our domain into Umami's API.
+const ROUTES: Record<string, { method: "GET" | "POST"; upstream: string }> = {
+  "script.js": { method: "GET", upstream: "https://cloud.umami.is/script.js" },
+  "api/send": { method: "POST", upstream: "https://gateway.umami.is/api/send" },
 };
 
 // Everything Umami needs to attribute a hit. Notably absent: `cookie` and
 // `authorization`. A next.config rewrite would have been three lines, but its
-// http-proxy forwards request headers verbatim, and the tracker's POST is
-// same-origin, so the browser attaches our better-auth session cookie and the
-// rewrite hands it to a third party on every pageview of a logged-in user.
-// Verified against Next 16: `cookie` and `authorization` both arrive upstream.
+// http-proxy forwards request headers verbatim (verified against Next 16: both
+// arrive upstream), which hands a live better-auth session cookie to a third
+// party every time a logged-in browser fetches the tracker.
 const FORWARD = ["content-type", "user-agent", "accept-language", "x-forwarded-for"];
 
 async function proxy(req: NextRequest, segments: string[]) {
-  const path = segments.join("/");
-  if (ALLOWED[path] !== req.method) {
+  const route = ROUTES[segments.join("/")];
+  if (route?.method !== req.method) {
     return new Response(null, { status: 404 });
   }
 
@@ -29,10 +29,14 @@ async function proxy(req: NextRequest, segments: string[]) {
     if (value) headers.set(name, value);
   }
 
-  const upstream = await fetch(`${UPSTREAM}/${path}`, {
+  // Bounded so an upstream that hangs costs us one timeout rather than a full
+  // function duration per beacon. A failure here throws and Next answers 500,
+  // which is the honest outcome: analytics is degraded, the page is not.
+  const upstream = await fetch(route.upstream, {
     method: req.method,
     headers,
     body: req.method === "POST" ? await req.text() : undefined,
+    signal: AbortSignal.timeout(5_000),
   });
 
   const response = new Headers();
@@ -46,8 +50,10 @@ async function proxy(req: NextRequest, segments: string[]) {
 
 /**
  * Serves the Umami tracker and its collector from our own origin, because
- * blocklists match on the `cloud.umami.is` hostname and the snippet Umami
- * hands you loses every uBlock/Brave visitor.
+ * blocklists match on the `cloud.umami.is` and `gateway.umami.is` hostnames and
+ * the snippet Umami hands you loses every uBlock/Brave visitor. Pairs with
+ * `data-host-url="/stats"` in the root layout, without which the tracker skips
+ * this route and beacons the blocked host directly.
  *
  * https://umami.is/docs/bypass-ad-blockers
  */

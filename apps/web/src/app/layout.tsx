@@ -85,10 +85,18 @@ export default function RootLayout({
             404s. Same for Sentry's tunnelRoute. */}
         <Analytics />
         <SpeedInsights />
-        {/* Proxied by app/stats/[...path]/route.ts. The tracker hooks pushState
-            itself, so App Router navigations need no extra wiring. */}
+        {/* Proxied by app/stats/[...path]/route.ts. `data-host-url` is required,
+            not cosmetic: the Cloud build of the tracker hardcodes
+            `https://gateway.umami.is` as its collector rather than deriving one
+            from its own src, so without this the beacons skip our proxy and go
+            straight to a blocked host. The tracker hooks pushState itself, so
+            App Router navigations need no extra wiring. */}
         {env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
-          <Script src="/stats/script.js" data-website-id={env.NEXT_PUBLIC_UMAMI_WEBSITE_ID} />
+          <Script
+            src="/stats/script.js"
+            data-website-id={env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+            data-host-url="/stats"
+          />
         )}
       </body>
     </html>
