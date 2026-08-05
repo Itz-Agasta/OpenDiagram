@@ -38,7 +38,11 @@ const SENTRY_DSN =
 
 const app = new Hono<{ Variables: SessionVariables }>();
 
-// Sentry middleware must run as early as possible; it initializes the SDK.
+// The middleware is the SDK's only init, and it runs after the imports above have
+// already pulled in `pg` (@OpenDiagram/auth -> @OpenDiagram/db) -- too late to
+// instrument it. `@sentry/node/preload` wraps modules first, so the run scripts
+// and the Dockerfile pass `--preload`; without that flag every `db` span vanishes.
+// https://docs.sentry.io/platforms/javascript/guides/hono/install/late-initialization/
 app.use(
   sentry(app, {
     dsn: SENTRY_DSN,

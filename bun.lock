@@ -75,6 +75,7 @@
         "@openrouter/ai-sdk-provider": "^3.0.0",
         "@sentry/bun": "10.68.0",
         "@sentry/hono": "10.68.0",
+        "@sentry/node": "10.68.0",
         "ai": "catalog:",
         "better-auth": "catalog:",
         "dodopayments": "^2.43.0",
