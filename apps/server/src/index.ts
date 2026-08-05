@@ -42,6 +42,7 @@ const app = new Hono<{ Variables: SessionVariables }>();
 // already pulled in `pg` (@OpenDiagram/auth -> @OpenDiagram/db) -- too late to
 // instrument it. `@sentry/node/preload` wraps modules first, so the run scripts
 // and the Dockerfile pass `--preload`; without that flag every `db` span vanishes.
+// It patches `require`, so `pg` has to stay external to the bundle to be seen.
 // https://docs.sentry.io/platforms/javascript/guides/hono/install/late-initialization/
 app.use(
   sentry(app, {

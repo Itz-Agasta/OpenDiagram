@@ -8,8 +8,8 @@ export const env = createEnv({
     // Fraction of traces sampled, 0..1. Full sampling by default. The DSN stays
     // hardcoded in apps/web/sentry.dsn.ts.
     NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
-    // Umami Cloud website id. Optional on purpose: unset means the tracker never
-    // renders, so local dev and preview deploys stay out of the production stats.
+    // Optional on purpose: unset = no tracker render, so local/preview stays
+    // out of production stats.
     NEXT_PUBLIC_UMAMI_WEBSITE_ID: z.string().optional(),
   },
   runtimeEnv: {

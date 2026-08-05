@@ -10,11 +10,9 @@ const ROUTES: Record<string, { method: "GET" | "POST"; upstream: string }> = {
   "api/send": { method: "POST", upstream: "https://gateway.umami.is/api/send" },
 };
 
-// Everything Umami needs to attribute a hit. Notably absent: `cookie` and
-// `authorization`. A next.config rewrite would have been three lines, but its
-// http-proxy forwards request headers verbatim (verified against Next 16: both
-// arrive upstream), which hands a live better-auth session cookie to a third
-// party every time a logged-in browser fetches the tracker.
+// Deliberately drops cookie and authorization. A next.config rewrite would
+// work, but its proxy forwards all headers (verified against Next 16), which
+// leaks a live better-auth session to Umami on every beacon.
 const FORWARD = ["content-type", "user-agent", "accept-language", "x-forwarded-for"];
 
 async function proxy(req: NextRequest, segments: string[]) {
@@ -29,9 +27,8 @@ async function proxy(req: NextRequest, segments: string[]) {
     if (value) headers.set(name, value);
   }
 
-  // Bounded so an upstream that hangs costs us one timeout rather than a full
-  // function duration per beacon. A failure here throws and Next answers 500,
-  // which is the honest outcome: analytics is degraded, the page is not.
+  // Timeout so a hanging upstream costs one abort, not the full function
+  // duration. 500 on failure is fine: analytics degraded, page fine.
   const upstream = await fetch(route.upstream, {
     method: req.method,
     headers,
@@ -48,15 +45,10 @@ async function proxy(req: NextRequest, segments: string[]) {
   return new Response(upstream.body, { status: upstream.status, headers: response });
 }
 
-/**
- * Serves the Umami tracker and its collector from our own origin, because
- * blocklists match on the `cloud.umami.is` and `gateway.umami.is` hostnames and
- * the snippet Umami hands you loses every uBlock/Brave visitor. Pairs with
- * `data-host-url="/stats"` in the root layout, without which the tracker skips
- * this route and beacons the blocked host directly.
- *
- * https://umami.is/docs/bypass-ad-blockers
- */
+// Serves Umami's script + collector from our origin so ad blockers that
+// block cloud/gateway.umami.is don't kill tracking. Pairs with
+// data-host-url="/stats" in the root layout.
+// https://umami.is/docs/bypass-ad-blockers
 export async function GET(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   return proxy(req, (await ctx.params).path);
 }
