@@ -73,9 +73,8 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-// Better Auth's rate-limit counter Table.
-// TODO: we can delete it, if we ever move to a vps for api
-// Ref: https://better-auth.com/docs/concepts/rate-limit#schema
+// Better Auth's rate-limit counter table.
+// https://better-auth.com/docs/concepts/rate-limit#schema
 export const rateLimit = pgTable("rate_limit", {
   id: text("id").primaryKey(),
   key: text("key").notNull().unique(),

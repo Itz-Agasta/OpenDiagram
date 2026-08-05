@@ -1,15 +1,8 @@
 /**
- * Seeds the `plan` table -- the only data the app can't boot without.
- *
- * `plan` is configuration, not user data. Every quota decision reads it. An
- * empty `plan` fails at the first AI request rather than at boot, so the app
- * looks healthy while refusing to generate anything.
- *
- * This file is the source of truth. Raising Pro to 500 credits is an edit here,
- * a commit, and `bun run db:seed` against prod.
- *
+ * Seeds the `plan` table -- the only data the app can't boot without. Plans are
+ * configuration, not user data; every quota decision reads them. This file is the
+ * source of truth: change a limit here, commit, `bun run db:seed`.
  * Server caches plans for 60s (`PLAN_CACHE_TTL_MS` in `lib/quota/actor.ts`).
- *
  */
 import dotenv from "dotenv";
 import { sql } from "drizzle-orm";

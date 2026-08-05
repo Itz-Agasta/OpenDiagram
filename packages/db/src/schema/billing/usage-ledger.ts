@@ -1,21 +1,11 @@
 /**
- * Per-request AI cost accounting. Credits stay the user-facing unit ("150
- * diagrams" is legible), but this ledger is the real safety bound underneath:
- * one credit can cost 4x another depending on how many agent steps the model
- * takes, so counting requests cannot cap spend.
+ * Per-request AI cost accounting. One credit can cost 4x another depending on
+ * agent steps, so counting requests can't cap spend.
  *
- * Lifecycle: a row is inserted `reserved` at a pessimistic estimate before the
- * model runs, then resolved to one of three terminal states. They encode two
- * independent facts -- what the call cost us, and whether the user was charged a
- * credit for it -- which are not the same question:
- *
- *   settled   real cost, credit kept       the normal success
- *   refunded  real cost, credit given back the call burned tokens and still failed
- *   released  no cost, credit given back   nothing reached the model (a 503)
- *
- * `refunded` exists because collapsing it into either neighbour loses money or
- * charges twice. Calling it `released` hides real spend from the ceiling; calling
- * it `settled` makes the turn look charged, so the user's retry is free.
+ * Lifecycle: inserted `reserved` before the model runs, resolved to:
+ *   settled   -- real cost, credit kept (normal success)
+ *   refunded  -- real cost, credit returned (burned tokens, still failed)
+ *   released  -- no cost, credit returned (nothing reached the model)
  */
 import { sql } from "drizzle-orm";
 import { bigint, check, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
@@ -64,14 +54,9 @@ export const usageLedger = pgTable(
       // unbounded bucket rather than failing.
       .references(() => plan.id),
     /**
-     * The conversation turn this spend belongs to: one user message, however many
-     * HTTP requests the agent loop needs to answer it.
-     *
-     * Credits are charged per turn, not per request. `ask_user` is a client-side
-     * tool, so the model asking a clarifying question ends the HTTP turn and the
-     * client resubmits -- which used to charge a second credit for the same prompt.
-     * Null for paths with no conversation (repo generation), which are charged once
-     * per job.
+     * Conversation turn this spend belongs to. Credits are per turn, not per HTTP
+     * request. `ask_user` ends the turn and the client resubmits. Null for paths
+     * with no conversation (repo generation).
      */
     turnId: text("turn_id"),
     status: text("status", { enum: usageLedgerStatuses }).default("reserved").notNull(),

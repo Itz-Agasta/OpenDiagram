@@ -5,44 +5,14 @@ import { project } from "./project";
 import { projectFile } from "./project-file";
 
 /**
- * One conversation about one file. A file has many.
+ * One conversation about one file. Replaced the old `history` array approach
+ * where turn N shipped N turns of JSON (O(n^2) cost) and one flat transcript
+ * fed every diagram on the canvas.
  *
- * Chat used to be a single `history` array on `project_file_content`, rewritten
- * whole on every turn, which made two problems inevitable. Bytes: turn twenty
- * shipped twenty turns of JSON to append one message, so cost grew with the
- * square of conversation length. And context: a canvas holds several diagrams --
- * `use-diagram-canvas` keys frames by `spec.title`, so a new title draws a new
- * frame -- while one flat transcript fed all of them to the model on every
- * request, paying for nine dead diagrams to edit the tenth.
- *
- * Threads bound both. Only the open thread reaches the prompt, and the user ends
- * one explicitly with "New chat" rather than the app guessing when a subject
- * changed.
- *
- * The diagrams do NOT live here. An earlier attempt kept a `spec` and `frame_id`
- * on this table; a canvas holds several diagrams and they stay on screen through
- * "New chat", so they belong to the file, not to one conversation. They live in
- * `project_file_content.spec` as a keyed list. Frame identity is discussed below
- * because the reasoning still applies where it now lives (`canvas-diagrams.ts`).
- *
- * There is deliberately no `is_active` flag or `active_thread_id` on the file.
- * The open thread is simply the most recently updated one, which needs no extra
- * column, no partial unique index to keep a single flag honest, and no circular
- * foreign key between file and thread.
- *
- * Two parents, and both earn their place. `project_id` is the ownership anchor:
- * every read and write here has to prove the row belongs to the caller, and
- * carrying the project directly makes that `thread -> project` instead of
- * `thread -> project_file -> project`, one join fewer on every message append,
- * thread load and thread list. It is safe to denormalise because nothing in the
- * codebase moves a file between projects.
- *
- * `file_id` is nullable because the app has two kinds of conversation, not one.
- * A canvas conversation belongs to a file; the project chat behind
- * `POST /:projectId/chat` reads every file in the project and belongs to none of
- * them. Today both are stored against a file, so project-scoped answers sit
- * inside one arbitrary file's transcript. A nullable file id gives the second
- * kind a real home without a second table or a polymorphic foreign key.
+ * `project_id` is denormalised to avoid an extra join on every message append.
+ * `file_id` is nullable: project-wide chats (POST /:projectId/chat) belong to
+ * no file. The open thread is the most recently updated one -- no `is_active`
+ * flag needed.
  */
 export const projectFileThread = pgTable(
   "project_file_thread",

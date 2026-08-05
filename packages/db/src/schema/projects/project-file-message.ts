@@ -15,30 +15,19 @@ import { projectFileThread } from "./project-file-thread";
 export const projectFileMessageRoles = ["user", "assistant"] as const;
 
 /**
- * One message in one thread. Append-only: rows are inserted, never updated.
+ * One message in one thread. Append-only (inserted, never updated).
  *
- * This replaces rewriting a whole `history` array per turn. Appending one row
- * costs one row regardless of how long the conversation is, which is the point --
- * the old shape re-sent the entire transcript to add a message to the end of it.
+ * `seq` is per-thread, starting at 1. Per-thread counters avoid coupling write
+ * throughput across conversations. Concurrent inserts collide on the PK, which
+ * fails cleanly rather than reordering.
  *
- * `seq` is per-thread and starts at 1, assigned as `COALESCE(MAX(seq), 0) + 1`
- * scoped to the thread. A global sequence would couple write throughput across
- * every conversation in the product for no benefit; per-thread counters scale
- * with the number of threads. Two concurrent inserts into one thread would
- * collide on the primary key, which fails the write cleanly rather than silently
- * reordering a conversation -- and a single user typing into a single thread does
- * not produce that race.
+ * `parts` is the AI SDK's part array stored as-is -- pinning it to columns
+ * would mean a migration per SDK release. `role` is promoted because it's the
+ * only field filtered on.
  *
- * `parts` is the AI SDK's own part array, stored as-is. The shape varies by part
- * type and the SDK extends it between versions, so pinning it into columns would
- * mean a migration per SDK release. `role` is promoted out of it because it is
- * the one field ever filtered on.
- *
- * `client_id` is the message id the browser generated. It has to survive the
- * round trip: the AI SDK matches messages by it, and `turnIdFor` in the diagram
- * route derives the billing turn from the trailing user message's id, so a
- * server-assigned id would break both. It is also unique per thread, which is
- * what makes the append idempotent -- see the index below.
+ * `client_id` is the browser-generated message id. The AI SDK matches on it,
+ * and `turnIdFor` derives the billing turn from it. Unique per thread for
+ * idempotent appends (see unique index below).
  */
 export const projectFileMessage = pgTable(
   "project_file_message",
