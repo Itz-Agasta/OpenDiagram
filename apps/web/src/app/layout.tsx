@@ -81,12 +81,12 @@ export default function RootLayout({
         <Toaster position="bottom-right" richColors />
         {/* TODO: delete both (and uninstall @vercel/analytics + @vercel/speed-insights)
             when we move to TanStack Start on Cloudflare. Umami below is the keeper.
-            That move also has to re-create the /stats rewrite in next.config.ts as a
-            Cloudflare route, or the tracker 404s. Same for Sentry's tunnelRoute. */}
+            That move also has to port app/stats/[...path]/route.ts, or the tracker
+            404s. Same for Sentry's tunnelRoute. */}
         <Analytics />
         <SpeedInsights />
-        {/* Proxied through /stats by the next.config rewrite. The tracker hooks
-            pushState itself, so App Router navigations need no extra wiring. */}
+        {/* Proxied by app/stats/[...path]/route.ts. The tracker hooks pushState
+            itself, so App Router navigations need no extra wiring. */}
         {env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
           <Script src="/stats/script.js" data-website-id={env.NEXT_PUBLIC_UMAMI_WEBSITE_ID} />
         )}
