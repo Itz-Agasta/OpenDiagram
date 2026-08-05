@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
 import localFont from "next/font/local";
+import Script from "next/script";
+import { env } from "@OpenDiagram/env/web";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
@@ -77,8 +79,25 @@ export default function RootLayout({
         {/* sonner renders nothing without this. It was never mounted, so every
             existing `toast.*` call in the dashboard was silently a no-op. */}
         <Toaster position="bottom-right" richColors />
+        {/* TODO: delete both (and uninstall @vercel/analytics + @vercel/speed-insights)
+            when we move to TanStack Start on Cloudflare. Umami below is the keeper.
+            That move also has to port app/stats/[...path]/route.ts, or the tracker
+            404s. Same for Sentry's tunnelRoute. */}
         <Analytics />
         <SpeedInsights />
+        {/* Proxied by app/stats/[...path]/route.ts. `data-host-url` is required,
+            not cosmetic: the Cloud build of the tracker hardcodes
+            `https://gateway.umami.is` as its collector rather than deriving one
+            from its own src, so without this the beacons skip our proxy and go
+            straight to a blocked host. The tracker hooks pushState itself, so
+            App Router navigations need no extra wiring. */}
+        {env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
+          <Script
+            src="/stats/script.js"
+            data-website-id={env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+            data-host-url="/stats"
+          />
+        )}
       </body>
     </html>
   );
