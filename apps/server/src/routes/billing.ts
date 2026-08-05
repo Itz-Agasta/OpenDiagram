@@ -12,6 +12,7 @@ import { and, db, eq, inArray, ne, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
 import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/billing";
 import { env } from "@OpenDiagram/env/server";
+import { NotFoundError } from "dodopayments";
 import { Hono } from "hono";
 import { z } from "zod";
 import { appOrigin, billingEnabled, dodoClient } from "../lib/dodo";
@@ -206,10 +207,18 @@ billingRoute.post("/checkout", async (c) => {
     });
     return c.json({ checkoutUrl: checkout.checkout_url });
   } catch (error) {
-    // Error first, context second -- see routes/webhooks/dodo.ts. The inverted
-    // shape drops the reason, and "why did checkout fail" is the whole question
-    // here: an invalid discount code, a rejected product id and a Dodo outage all
-    // reach this line and want different responses.
+    // Discount typos are user error, not a 502. Dodo returns
+    // `404 Discount code 'X' doesn't exist` -- matched on the message, not 404
+    // alone, because a wrong DODO_PRO_PRODUCT_ID also 404s and should stay loud.
+    if (discountCode && error instanceof NotFoundError && /discount code/i.test(error.message)) {
+      log.info("Checkout discount rejected by Dodo", {
+        dodo: { discountRequested: discountCode },
+      });
+      return c.json({ error: "That code isn't valid.", code: "invalid_discount" }, 400);
+    }
+    // Error first, not string+{error}: see routes/webhooks/dodo.ts for why.
+    // A wrong product id and a Dodo outage both land here -- the log.context
+    // tells which.
     log.error(error instanceof Error ? error : String(error), {
       dodo: { stage: "checkout-session" },
     });
