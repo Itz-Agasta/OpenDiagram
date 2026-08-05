@@ -16,6 +16,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      // Serve the Umami tracker and its collector from our own origin. Blocklists
+      // match on the `cloud.umami.is` hostname, so the direct snippet loses every
+      // uBlock/Brave visitor. The tracker derives its host from its own src, so
+      // the wildcard has to cover /stats/api/send too, not just /stats/script.js.
+      // https://umami.is/docs/bypass-ad-blockers
+      {
+        source: "/stats/:match*",
+        destination: "https://cloud.umami.is/:match*",
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
