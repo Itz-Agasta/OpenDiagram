@@ -50,12 +50,18 @@ dodoWebhookRoute.post("/", async (c) => {
     // Error first, not string+{error}: an Error JSON-serialises to {}, so the
     // alert would say only "401 on /api/webhooks/dodo" with no reason.
     //
-    // Level splits on signature presence. Signed-and-rejected means a test-mode
-    // secret left in prod: paid users silently not upgraded, nothing else alarms.
-    // No signature is a scanner or curl probe -- warn, not error.
+    // Level splits on whether a signature was actually presented. Signed-and-
+    // rejected means a test-mode secret left in prod: paid users silently not
+    // upgraded, nothing else alarms. Unsigned is a scanner or curl probe.
+    //
+    // All three headers, because that is the gate `unwrap` itself applies: a
+    // missing or empty id/timestamp/signature throws "Missing required headers"
+    // before any byte comparison, so no such request can be a stale secret.
+    const signed =
+      headers["webhook-signature"] && headers["webhook-id"] && headers["webhook-timestamp"];
     const context = { dodo: { webhookId: headers["webhook-id"] } };
     // warn() has no Error overload, so stringify for the probe path.
-    if (headers["webhook-signature"]) {
+    if (signed) {
       log.error(error instanceof Error ? error : String(error), context);
     } else {
       log.warn(String(error), context);
