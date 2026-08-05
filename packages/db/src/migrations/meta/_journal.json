@@ -29,6 +29,13 @@
       "when": 1785685244645,
       "tag": "0003_add_message_client_id_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785907911720,
+      "tag": "0004_goofy_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

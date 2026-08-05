@@ -1,5 +1,5 @@
 import { desc, relations } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { project } from "./project";
 import { projectFile } from "./project-file";
@@ -19,10 +19,11 @@ import { projectFile } from "./project-file";
  * one explicitly with "New chat" rather than the app guessing when a subject
  * changed.
  *
- * The diagrams do NOT live here. `spec` and `frame_id` below were an earlier
- * attempt at that and are dead columns now: a canvas holds several diagrams and
- * they stay on screen through "New chat", so they belong to the file, not to one
- * conversation. They live in `project_file_content.spec` as a keyed list.
+ * The diagrams do NOT live here. An earlier attempt kept a `spec` and `frame_id`
+ * on this table; a canvas holds several diagrams and they stay on screen through
+ * "New chat", so they belong to the file, not to one conversation. They live in
+ * `project_file_content.spec` as a keyed list. Frame identity is discussed below
+ * because the reasoning still applies where it now lives (`canvas-diagrams.ts`).
  *
  * There is deliberately no `is_active` flag or `active_thread_id` on the file.
  * The open thread is simply the most recently updated one, which needs no extra
@@ -55,24 +56,6 @@ export const projectFileThread = pgTable(
     // Null for a project-wide conversation; set for a conversation about one canvas.
     fileId: text("file_id").references(() => projectFile.id, { onDelete: "cascade" }),
     title: text("title").default("New chat").notNull(),
-    // DEAD -- see the note above; kept only because dropping a column is not free
-    // on a live table. Nothing reads or writes either of these any more.
-    spec: jsonb("spec"),
-    // DEAD too. The reasoning below is why frame identity is an id rather than a
-    // title, and still applies where it now lives (`canvas-diagrams.ts`).
-    //
-    // Frame identity used to ride on `spec.title`, matched through a title->frame
-    // map on the client. That breaks because the MODEL owns the title: asked to
-    // add Redis to "Generic Pub/Sub Design" it returned "Pub/Sub with Redis
-    // Cache", the lookup missed, and a second frame appeared. Anything stored
-    // inside the spec has the same problem -- the model rewrites the whole spec on
-    // every modification and can drop or change a field we put there. Keeping the
-    // id here means it is ours, and a rename is harmless.
-    //
-    // Not a foreign key: frames live in the scene JSON, not in a table. A stale id
-    // simply fails to match and the diagram is drawn fresh, which is the right
-    // degradation.
-    frameId: text("frame_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
