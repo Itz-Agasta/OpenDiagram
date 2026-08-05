@@ -1,4 +1,5 @@
 export * from "./projects-client/files";
+export * from "./projects-client/threads";
 export * from "./projects-client/generation";
 export * from "./projects-client/chat";
 export * from "./projects-client/projects";

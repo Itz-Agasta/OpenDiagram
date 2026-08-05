@@ -3,7 +3,8 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { env } from "@OpenDiagram/env/web";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { writeLocalScene } from "@/lib/local-scene";
-import { updateProjectFile, type SavedProjectFile } from "@/lib/projects-client";
+import { queueProjectFilePatch } from "@/lib/project-file-sync";
+import { type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import {
   AUTOSAVE_DELAY_MS,
@@ -60,10 +61,20 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
     async (snapshot: SaveSnapshot) => {
       if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
       try {
-        const updated = await updateProjectFile(projectId, snapshot.file.id, {
-          scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
-          content: snapshot.file.type === "doc" ? snapshot.content : undefined,
-        });
+        // Through the shared queue, so this coalesces with the `spec` and chat
+        // history writes the agent fires against the same row -- three requests
+        // per diagram turn became one. `"meta"` because everything read back
+        // below (`updatedAt`, and `id/name/type` for `toSidebarFile`) is metadata;
+        // the full form was shipping the scene back down on every autosave.
+        const updated = await queueProjectFilePatch(
+          projectId,
+          snapshot.file.id,
+          {
+            scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
+            content: snapshot.file.type === "doc" ? snapshot.content : undefined,
+          },
+          "meta",
+        );
         if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
         if (snapshot.file.id === activeFileRef.current?.id) {
           lastSavedVersionRef.current = String(snapshot.version);
@@ -203,8 +214,12 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
+      // Deliberately not through the queue: this fires on `pagehide`, where the
+      // page may not live long enough to run another microtask. A direct
+      // `keepalive` fetch is handed to the browser to finish after teardown.
+      // `fields=meta` because nothing is left alive to read the response.
       void fetch(
-        `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}`,
+        `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}?fields=meta`,
         {
           method: "PATCH",
           credentials: "include",

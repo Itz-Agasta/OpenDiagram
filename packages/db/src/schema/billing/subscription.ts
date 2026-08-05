@@ -17,20 +17,11 @@ export const subscriptionStatuses = [
 export type SubscriptionStatus = (typeof subscriptionStatuses)[number];
 
 /**
- * Statuses that still grant paid access, always in combination with
- * `currentPeriodEnd > NOW()` -- that clause is what keeps this honest, since none of
- * them can hand out more than the period the user actually paid for.
- *
- * `cancelled` keeps access until the period ends: they paid for it. `on_hold` is the
- * same case seen from the other side -- the renewal for the *next* period failed
- * while the current one is still running, so the paid period is unaffected and Dodo
- * is retrying. It drops out by itself the moment `currentPeriodEnd` passes, because
- * Dodo only advances `next_billing_date` when a retry succeeds.
- *
- * This is the single definition of "entitled". The quota resolver and the checkout
- * duplicate guard both read it; when they disagreed, a cancelled-but-unexpired user
- * could buy a second overlapping subscription, and an on-hold one could be blocked
- * from checkout while getting no access either.
+ * Statuses that grant paid access, always with `currentPeriodEnd > NOW()`.
+ * `cancelled` keeps access until period end (they paid for it). `on_hold` is
+ * the same case from the other side: next-period renewal failed but the current
+ * period is unaffected. Single definition of "entitled" -- quota resolver and
+ * checkout duplicate guard both read it.
  */
 export const ENTITLING_SUBSCRIPTION_STATUSES = ["active", "cancelled", "on_hold"] as const;
 

@@ -40,9 +40,15 @@ export async function updateProjectFile(
   projectId: string,
   fileId: string,
   input: UpdateProjectFileInput,
+  // `meta` asks the server to leave the content columns out of the response. Use
+  // it from any caller that ignores the return value beyond `updatedAt` -- the
+  // full form ships the scene back down on every autosave. Callers that do
+  // `setActiveFile(updated)` must stay on "full" or they will blank the editor.
+  fields: "full" | "meta" = "full",
 ): Promise<SavedProjectFile> {
+  const query = fields === "meta" ? "?fields=meta" : "";
   const response = await fetch(
-    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${fileId}`,
+    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${fileId}${query}`,
     {
       method: "PATCH",
       credentials: "include",

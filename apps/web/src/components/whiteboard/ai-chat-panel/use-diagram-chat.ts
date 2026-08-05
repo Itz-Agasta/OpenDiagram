@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithToolCalls,
+  type UIMessage,
+} from "ai";
 import type { RefObject } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import type { DiagramSpec, ThemeName } from "@OpenDiagram/harness";
+import type { ThemeName } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
+import { toPromptDiagrams, type CanvasDiagram } from "@/lib/canvas-diagrams";
 import { readAiProviderUsage, type AiProviderUsage } from "@/lib/ai-provider-usage";
 import {
   storedChatMessageToUIMessage,
@@ -15,21 +20,24 @@ import {
 import {
   AiProviderCreditError,
   CreationQuotaError,
-  updateProjectFile,
   UpstreamRateLimitError,
 } from "@/lib/projects-client";
-import { fetchDiagramChat } from "./utils";
+import { fetchDiagramChat, stripDrawDiagramOutput } from "./utils";
 
 interface UseDiagramChatOptions {
   activeFileType?: "diagram" | "doc";
   allowSeedAutoRun: boolean;
   autoDiagramPrompt?: StoredChatMessage;
-  currentSpecRef: RefObject<DiagramSpec | undefined>;
+  /** Every diagram on the canvas, mirrored so the transport body reads it lazily. */
+  diagramsRef: RefObject<CanvasDiagram[]>;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   fileId?: string;
   hasExistingScene?: boolean;
   normalizedHistory: StoredChatMessage[];
   onHistoryChange?: (history: StoredChatMessage[]) => void;
+  persistTurn: (messages: UIMessage[], spec?: unknown) => Promise<void>;
+  /** Part of the seed key: when a thread arrives it supersedes any legacy history. */
+  threadId: string | null;
   onProviderUsage: (usage: AiProviderUsage | null) => void;
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
@@ -45,12 +53,14 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     activeFileType,
     allowSeedAutoRun,
     autoDiagramPrompt,
-    currentSpecRef,
+    diagramsRef,
     excalidrawAPI,
     fileId,
     hasExistingScene,
     normalizedHistory,
     onHistoryChange,
+    persistTurn,
+    threadId,
     onProviderUsage,
     onProviderError,
     onRateLimitError,
@@ -78,15 +88,27 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     () =>
       new DefaultChatTransport({
         api: `${env.NEXT_PUBLIC_SERVER_URL}/api/diagram/chat`,
+        // Every diagram on the canvas, so the model can be asked to modify any of
+        // them and not just the one it drew last. Read through a ref because the
+        // canvas reports a new diagram from inside a promise chain that resolves
+        // after this render.
         body: () => ({
-          currentSpec: currentSpecRef.current,
+          diagrams: toPromptDiagrams(diagramsRef.current),
           modelId,
           providerId,
           theme: themeRef.current,
         }),
+        // Returning a body REPLACES the transport's default one rather than
+        // merging into it, so `id`, `trigger` and `messageId` have to be carried
+        // through by hand -- dropping them silently changes what the SDK tells the
+        // server about why this request was made. `body` arrives already merged
+        // with the callback above.
+        prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
+          body: { ...body, id, messages: stripDrawDiagramOutput(messages), trigger, messageId },
+        }),
         fetch: chatFetch,
       }),
-    [chatFetch, currentSpecRef, modelId, providerId],
+    [chatFetch, diagramsRef, modelId, providerId],
   );
   const initialMessages =
     activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];
@@ -95,17 +117,56 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     transport,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onFinish: ({ messages }) => {
-      const history = uiMessagesToStoredChatHistory(messages);
-      onHistoryChange?.(history);
-      if (projectId && fileId) void updateProjectFile(projectId, fileId, { history });
+      onHistoryChange?.(uiMessagesToStoredChatHistory(messages));
+      // Only what this turn added. The diagrams themselves are written separately,
+      // to the file rather than the thread, because they belong to the canvas and
+      // have to survive "New chat".
+      void persistTurn(messages);
     },
   });
 
+  // Seeding the panel from stored history is now a two-stage arrival -- IndexedDB
+  // answers in about a millisecond, the server copy lands a few hundred later --
+  // so this can no longer blindly overwrite on every change of `normalizedHistory`.
+  // It used to, and that was already a latent way to lose a conversation: anyone
+  // who started typing before the file fetch returned had their messages replaced
+  // the moment it did. The cache makes the panel look ready sooner, which makes
+  // that window far easier to hit, so the rule is explicit now -- seed a file
+  // once, top it up only while the panel is still empty, and never touch it while
+  // the model is mid-turn.
+  const seededRef = useRef<{ key: string; count: number } | null>(null);
   useEffect(() => {
-    chat.setMessages(
-      activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [],
-    );
-  }, [activeFileType, fileId, normalizedHistory, chat.setMessages]);
+    // The thread id is part of the key on purpose. During the migration off the
+    // old `history` column both sources exist, and the legacy copy paints first
+    // (it arrives with the file, the thread needs its own request). Keying on the
+    // thread makes its arrival a new seed rather than a no-op, so the panel ends
+    // up showing the authoritative copy instead of whichever landed first.
+    const key = `${activeFileType}:${fileId}:${threadId ?? "legacy"}`;
+    const next =
+      activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];
+    const seeded = seededRef.current;
+
+    // A turn in flight owns the transcript outright, whatever the key says. This
+    // used to sit inside the key comparison below, so a key CHANGE bypassed it --
+    // and the key changes at the worst moment, when `persistTurn` creates the
+    // thread lazily on the first turn and `threadId` flips just as that turn
+    // lands. `chat.status` is a dependency, so this defers the seed, never skips
+    // it.
+    //
+    // In flight means `submitted`/`streaming`, NOT "not ready". `error` is a
+    // resting state -- gating on it left a failed turn's transcript on screen
+    // after the user resumed a different conversation, since nothing would ever
+    // seed the one they picked. Same distinction the thread controls make.
+    if (chat.status === "submitted" || chat.status === "streaming") return;
+
+    if (seeded?.key === key) {
+      // Already showing something, or nothing new to show.
+      if (seeded.count > 0 || next.length === 0) return;
+    }
+
+    seededRef.current = { key, count: next.length };
+    chat.setMessages(next);
+  }, [activeFileType, fileId, threadId, normalizedHistory, chat.status, chat.setMessages]);
 
   useEffect(() => {
     if (chat.error instanceof CreationQuotaError) onQuotaError?.(chat.error.message);
