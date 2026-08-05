@@ -5,9 +5,8 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsgo --noEmit",
-    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "dev": "bun --hot src/index.ts",
-    "start": "bun run dist/index.mjs"
+    "dev": "bun --hot --preload @sentry/node/preload src/index.ts",
+    "start": "bun run --preload @sentry/node/preload dist/index.mjs"
   },
   "dependencies": {
     "@OpenDiagram/auth": "workspace:*",
@@ -21,6 +20,7 @@
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "@sentry/bun": "10.68.0",
     "@sentry/hono": "10.68.0",
+    "@sentry/node": "10.68.0",
     "ai": "catalog:",
     "better-auth": "catalog:",
     "dodopayments": "^2.43.0",
