@@ -50,16 +50,6 @@ export async function updateProjectFile(
   // setActiveFile(updated) must stay on full or they will blank the editor.
   fields: "full" | "meta" = "full",
 ): Promise<SavedProjectFile> {
-  return sendProjectFileUpdate(projectId, fileId, input, fields, true);
-}
-
-async function sendProjectFileUpdate(
-  projectId: string,
-  fileId: string,
-  input: UpdateProjectFileInput,
-  fields: "full" | "meta",
-  mayRetry: boolean,
-): Promise<SavedProjectFile> {
   // A whole scene goes out as a delta of the elements whose version moved, when
   // the server's revision is known.
   const encoded = input.scene !== undefined ? encodeScene(fileId, input.scene) : null;
@@ -75,13 +65,15 @@ async function sendProjectFileUpdate(
   );
 
   // Delta built against a revision the server has moved past (another tab or
-  // device wrote in between). Drop the baseline so the retry carries the whole
-  // scene (last-writer-wins). Retry once: a second 409 means something is writing
-  // faster than we can respond, and looping is worse than surfacing it.
-  if (response.status === 409 && mayRetry) {
-    resetSceneDelta(fileId);
-    return sendProjectFileUpdate(projectId, fileId, input, fields, false);
-  }
+  // device wrote in between). Drop the baseline so the next save carries a whole
+  // scene, then let the failure surface.
+  //
+  // Deliberately no retry here. Replaying `input` would push a snapshot that is
+  // now older than what the server holds, unconditionally, and that is a write
+  // ordered by arrival rather than by edit. The caller's copy stays dirty in
+  // IndexedDB, so the next scheduled save resends from current state, which is
+  // the only layer that still knows what current state is.
+  if (response.status === 409) resetSceneDelta(fileId);
 
   const data = await readProjectResponse(response);
   if (!response.ok) throw new Error(data?.error ?? "Could not save project file.");

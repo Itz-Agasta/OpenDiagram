@@ -103,7 +103,11 @@ export function resetSceneDelta(fileId: string): void {
   baselines.delete(fileId);
 }
 
-export function encodeScene(fileId: string, scene: unknown): EncodedScene {
+export function encodeScene(
+  fileId: string,
+  scene: unknown,
+  { guarded = true }: { guarded?: boolean } = {},
+): EncodedScene {
   const elements = readElements(scene);
   const baseline = baselines.get(fileId);
 
@@ -151,7 +155,9 @@ export function encodeScene(fileId: string, scene: unknown): EncodedScene {
 
   return {
     wire: {
-      base: baseline.rev,
+      // null asks the server to merge without checking the revision. Only the
+      // unload beacon does that, because a 409 there has no reader and no retry.
+      base: guarded ? baseline.rev : null,
       changed,
       // ~1 kB of viewport and theme, replaced wholesale by the server. Not worth
       // diffing.

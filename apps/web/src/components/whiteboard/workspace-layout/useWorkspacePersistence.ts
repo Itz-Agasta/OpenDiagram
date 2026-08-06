@@ -4,7 +4,7 @@ import { env } from "@OpenDiagram/env/web";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { writeLocalScene } from "@/lib/local-scene";
 import { queueProjectFilePatch } from "@/lib/project-file-sync";
-import { resetSceneDelta } from "@/lib/scene-delta";
+import { encodeScene, resetSceneDelta } from "@/lib/scene-delta";
 import { type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import {
@@ -265,12 +265,16 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
-      // Whole scene, never a delta, and that is not an oversight. This is the only
-      // write with no follow-up, so it cannot be revision-gated: an autosave that
-      // commits between this encode and its arrival would leave the beacon 409ing
-      // with nothing alive to retry it, silently stranding the newest edit on the
-      // device. Unconditional costs ~70 kB once per unload, which is not the
-      // traffic this file exists to reduce.
+      // Unguarded delta, which is the only shape this path can use. A whole scene
+      // does not fit: keepalive bodies share a 64 KiB quota and our scenes average
+      // 70 kB, so the fetch is rejected before it leaves, and `void` swallows it.
+      // A guarded delta would 409 whenever an autosave commits first, with nothing
+      // alive to read the response or retry. So: small enough to send, and
+      // unconditional. https://fetch.spec.whatwg.org/#http-network-or-cache-fetch
+      const scene =
+        snapshot.file.type === "diagram"
+          ? encodeScene(snapshot.file.id, snapshot.scene, { guarded: false }).wire
+          : undefined;
       resetSceneDelta(snapshot.file.id);
       void fetch(
         `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}?fields=meta`,
@@ -280,7 +284,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           keepalive: true,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
+            scene,
             content: snapshot.file.type === "doc" ? snapshot.content : undefined,
           }),
         },

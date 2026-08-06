@@ -19,9 +19,17 @@ import { z } from "zod";
  * so the writer behind it can become a PUT without the wire format changing.
  */
 
-/** A delta is told from a full scene by these two fields, so both are required. */
+/**
+ * A delta is told from a full scene by these two fields, so both are required.
+ *
+ * A null base means merge unconditionally. Only the unload beacon sends that: it
+ * is the one write with nothing alive to read a 409 or retry it, and a keepalive
+ * body cannot carry a whole scene instead (64 KiB quota, our scenes average 70).
+ * Merging is still the safer half of that trade, since it keeps concurrent
+ * changes this client never saw where a full-scene overwrite would drop them.
+ */
 export const sceneDeltaSchema = z.object({
-  base: z.number().int().nonnegative(),
+  base: z.number().int().nonnegative().nullable(),
   changed: z.array(z.unknown()),
   appState: z.unknown().optional(),
   files: z.record(z.string(), z.unknown()).optional(),
@@ -46,7 +54,8 @@ export function isSceneDelta(scene: unknown): boolean {
   // elements has to be absent, not merely ignored. This runs on a request body,
   // so a client sending a whole scene that happens to carry base and changed
   // would otherwise have its elements silently dropped by the merge.
-  return typeof value.base === "number" && Array.isArray(value.changed) && !("elements" in value);
+  const hasBase = typeof value.base === "number" || value.base === null;
+  return hasBase && Array.isArray(value.changed) && !("elements" in value);
 }
 
 function elementId(element: unknown): string | null {

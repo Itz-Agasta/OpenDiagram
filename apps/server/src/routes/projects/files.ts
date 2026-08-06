@@ -215,7 +215,9 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
       );
 
     if (!current) return c.json({ error: "Not found" }, 404);
-    if ((current.sceneRev ?? 0) !== delta.data.base) {
+    // A null base is the unload beacon opting out of the guard, because nothing
+    // is alive to act on a 409. See sceneDeltaSchema.
+    if (delta.data.base !== null && (current.sceneRev ?? 0) !== delta.data.base) {
       return c.json({ error: "Stale scene revision" }, 409);
     }
 
@@ -223,7 +225,7 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
     // Re-checked inside the write as well. This comparison is against a snapshot
     // that another request can invalidate before the write lands; the guard on the
     // statement itself is what actually makes it safe.
-    expectedSceneRev = delta.data.base;
+    expectedSceneRev = delta.data.base ?? undefined;
   } else if (content !== undefined) {
     // Editing a doc's body stamps the spec so the generator knows a human touched
     // it. Keyed on the value, not "content" in parsed.data (an optional Zod field
