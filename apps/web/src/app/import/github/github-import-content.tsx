@@ -11,7 +11,15 @@ import {
   type ImportedGitHubProject,
   type GitHubRepository,
 } from "@/lib/github-import-client";
-import { ConnectPanel, DonePanel, ImportingPanel, LoadingPanel } from "./github-import-panels";
+import { getBillingState, type BillingState } from "@/lib/billing-client";
+import { PricingModal } from "@/components/billing/pricing-modal";
+import {
+  ConnectPanel,
+  DonePanel,
+  ImportingPanel,
+  LoadingPanel,
+  BillingErrorPanel,
+} from "./github-import-panels";
 import { RepositoryPicker } from "./repository-picker";
 import {
   GITHUB_CONNECTION_REQUIRED_ERROR,
@@ -25,6 +33,9 @@ export function GitHubImportContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const session = authClient.useSession();
+  const [billingState, setBillingState] = useState<BillingState | null>(null);
+  const [loadingBilling, setLoadingBilling] = useState(true);
+  const [billingError, setBillingError] = useState(false);
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [query, setQuery] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -79,7 +90,43 @@ export function GitHubImportContent() {
   }, [oauthError, router]);
 
   useEffect(() => {
+    if (session.isPending) return;
+    if (!session.data) {
+      const callbackPath = `/import/github${
+        requestedRepo ? `?repo=${encodeURIComponent(requestedRepo)}` : ""
+      }`;
+      router.replace(`/login?redirect=${encodeURIComponent(callbackPath)}`);
+    }
+  }, [session.data, session.isPending, router, requestedRepo]);
+
+  function fetchBillingState() {
+    setLoadingBilling(true);
+    setBillingError(false);
+    getBillingState()
+      .then((state) => {
+        if (mountedRef.current) {
+          setBillingState(state);
+          setLoadingBilling(false);
+        }
+      })
+      .catch(() => {
+        if (mountedRef.current) {
+          setBillingState(null);
+          setBillingError(true);
+          setLoadingBilling(false);
+        }
+      });
+  }
+
+  useEffect(() => {
+    if (session.isPending || !session.data) return;
+    fetchBillingState();
+  }, [session.data, session.isPending]);
+
+  useEffect(() => {
     if (session.isPending || !session.data || oauthErrorHandledRef.current) return;
+    if (loadingBilling || billingError) return;
+    if (billingState && billingState.billingEnabled && billingState.planId !== "pro") return;
 
     let active = true;
 
@@ -121,7 +168,7 @@ export function GitHubImportContent() {
     return () => {
       active = false;
     };
-  }, [requestedRepo, session.data, session.isPending]);
+  }, [requestedRepo, session.data, session.isPending, loadingBilling, billingState, billingError]);
 
   async function connectGitHub() {
     oauthErrorHandledRef.current = false;
@@ -198,9 +245,16 @@ export function GitHubImportContent() {
 
   const isSignedOut = !session.isPending && !session.data;
   const needsGitHubConnection = isSignedOut || githubConnected === false;
+  const showPaywall =
+    session.data &&
+    !loadingBilling &&
+    billingState !== null &&
+    billingState.billingEnabled &&
+    billingState.planId !== "pro";
 
   return (
     <main className="min-h-dvh bg-white px-4 py-6 text-od-ink md:px-8">
+      {showPaywall && <PricingModal open={true} state={billingState} />}
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-8">
         <header className="flex items-center justify-between gap-4">
           <Link
@@ -220,8 +274,10 @@ export function GitHubImportContent() {
 
         <section className="mx-auto flex min-h-[calc(100dvh-120px)] w-full max-w-[760px] items-center justify-center rounded-[28px] bg-od-surface-elevated p-5 md:p-8">
           <div className="flex w-full items-center justify-center">
-            {session.isPending ? (
-              <LoadingPanel label="Checking GitHub connection" />
+            {session.isPending || (session.data && loadingBilling) ? (
+              <LoadingPanel label="Checking account status" />
+            ) : session.data && billingError ? (
+              <BillingErrorPanel onRetry={fetchBillingState} />
             ) : needsGitHubConnection ? (
               <ConnectPanel
                 isAuthenticated={Boolean(session.data?.user)}
