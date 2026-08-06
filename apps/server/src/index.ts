@@ -93,12 +93,10 @@ app.use(
 app.get("/", (c) => c.text("OK"));
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-// Resolves the Better Auth session once and attributes the wide event from it.
-// Everything downstream -- `requireAuth`, the quota actor, the BYOK lookup in
-// /api/diagram/chat -- reads that same result via `getRequestSession`, so a
-// request costs one session resolution rather than the two or three it used to.
-app.use("*", resolveSession);
-
+// Ahead of `resolveSession` deliberately: cors answers a preflight with 204 and
+// never calls next(), so an OPTIONS stops resolving a session it cannot use.
+// `maxAge` because every PATCH was buying its own preflight -- 8 of them in one
+// drawing session against a single file. Chrome caps the value at 7200s anyway.
 app.use(
   "/*",
   cors({
@@ -107,8 +105,15 @@ app.use(
     allowHeaders: ["Content-Type", "Authorization"],
     exposeHeaders: ["X-CreationQuota-Limit", "X-CreationQuota-Used", "X-CreationQuota-Remaining"],
     credentials: true,
+    maxAge: 86400,
   }),
 );
+
+// Resolves the Better Auth session once and attributes the wide event from it.
+// Everything downstream -- `requireAuth`, the quota actor, the BYOK lookup in
+// /api/diagram/chat -- reads that same result via `getRequestSession`, so a
+// request costs one session resolution rather than the two or three it used to.
+app.use("*", resolveSession);
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api/diagram", diagramRoute);
