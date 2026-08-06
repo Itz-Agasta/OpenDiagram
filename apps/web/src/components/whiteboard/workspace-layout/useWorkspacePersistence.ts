@@ -118,14 +118,10 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
   const snapshotRef = useRef<SaveSnapshot | null>(null);
   const inFlightRef = useRef(false);
-  /** The version the visibilitychange flush sent, so pagehide can skip it. */
-  const hideFlushedVersionRef = useRef<string | null>(null);
 
-  // Clearing the handle is the half that matters, not the clearTimeout.
-  // scheduleAutosave treats a non-null handle as "an interval is already running"
-  // and declines to arm another, so a cancelled timer left set would wedge
-  // autosave for the rest of the session. Harmless under the old debounce, which
-  // reassigned the handle unconditionally.
+  // Nulling the handle is the half that matters. scheduleAutosave reads a non-null
+  // handle as "already running" and declines to arm another, so a cancelled timer
+  // left set wedges autosave for the session. Harmless under the old debounce.
   const cancelPendingAutosave = useCallback(() => {
     if (!autosaveTimer.current) return;
     clearTimeout(autosaveTimer.current);
@@ -145,12 +141,10 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
     inFlightRef.current = true;
     try {
-      // Stops draining once an interval is armed, or the throttle ceiling would
-      // not hold: an edit arriving mid-request arms a timer AND queues a
-      // snapshot, and draining that snapshot on completion puts a second PATCH
-      // on the wire seconds after the first. Leaving it for the armed timer is
-      // what keeps the rate at one per interval. The loop still runs when
-      // nothing is armed, so a snapshot is never stranded.
+      // Stops once an interval is armed, or the ceiling breaks: an edit arriving
+      // mid-request arms a timer and queues a snapshot, and draining it here would
+      // send a second PATCH seconds after the first. Still drains when none is
+      // armed, so nothing is stranded.
       while (snapshotRef.current && !autosaveTimer.current) {
         const snapshot = snapshotRef.current;
         snapshotRef.current = null;
@@ -245,48 +239,35 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
     [currentFileIdRef, draftRef, scheduleAutosave, setDocContent, setDraft],
   );
 
-  // The two end-of-session signals, which do different things on purpose.
-  //
-  // visibilitychange -> hidden is the only one that fires when a tab is closed
-  // from the mobile tab switcher or the browser is killed from the app switcher,
-  // and with a 15 s interval instead of 2.5 s the window it covers is six times
-  // wider. It runs the ordinary save: the page survives a tab switch, so the
-  // response lands and the scene-delta bookkeeping stays in step with the server.
-  //
-  // pagehide is the last resort and cannot read a response, so it posts a full
-  // snapshot outside the queue and drops the delta baseline (see below).
+  // The only signal that fires when a tab is closed from the mobile tab switcher,
+  // and the 15 s interval makes the window it covers six times wider than before.
+  // Runs the ordinary save rather than a beacon: a tab switch leaves the page
+  // alive, so the response lands and the delta baseline stays in step.
   useEffect(() => {
     function flushOnHide() {
       if (document.visibilityState !== "hidden") return;
       if (!isSignedInRef.current || !dirtyRef.current) return;
       cancelPendingAutosave();
       snapshotRef.current ??= snapshotCurrent();
-      hideFlushedVersionRef.current = pendingVersionRef.current;
       void runAutosave();
     }
     document.addEventListener("visibilitychange", flushOnHide);
     return () => document.removeEventListener("visibilitychange", flushOnHide);
   }, [cancelPendingAutosave, runAutosave, snapshotCurrent]);
 
+  // Outside the queue and keepalive, because pagehide may not survive another
+  // microtask. Duplicates the hidden flush when both fire, on purpose: dirtyRef is
+  // the only honest "it landed" signal, and suppressing on anything cheaper drops
+  // saves that were merely queued or that failed.
   useEffect(() => {
     function flush() {
       const file = activeFileRef.current;
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
-      // A navigation fires visibilitychange -> hidden and then pagehide, so without
-      // this the same edit went out twice, and the full scene could land first and
-      // leave the delta to 409 and retry over a newer write.
-      if (hideFlushedVersionRef.current === snapshot.version) return;
-      // Deliberately not through the queue: this fires on pagehide, where the page
-      // may not live long enough to run another microtask. A direct keepalive fetch
-      // is handed to the browser to finish after teardown. fields=meta because
-      // nothing is left alive to read the response.
-      //
-      // A full scene, never a delta, and the baseline is dropped: the response
-      // carrying the new sceneRev is never read, so a page restored from bfcache
-      // would otherwise send its next delta against a revision the server has
-      // already moved past.
+      // Whole scene, and the baseline goes first: nothing here reads the sceneRev
+      // back, so a page restored from bfcache would otherwise delta against a
+      // revision the server has moved past.
       resetSceneDelta(snapshot.file.id);
       void fetch(
         `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}?fields=meta`,
@@ -325,9 +306,6 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       }
       cancelPendingAutosave();
       snapshotRef.current = null;
-      // Two empty files share a version string, so a stale value here would let
-      // one file's hide-flush suppress another's pagehide save.
-      hideFlushedVersionRef.current = null;
       sceneRef.current = type === "diagram" ? scene : null;
       contentRef.current = type === "doc" ? content : "";
       lastSavedVersionRef.current = initialElementsVersion(sceneRef.current);

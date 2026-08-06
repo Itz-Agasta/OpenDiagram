@@ -61,7 +61,7 @@ export async function writeProjectFileContent(
       .select(projectFileContentColumns)
       .from(projectFileContent)
       .where(eq(projectFileContent.fileId, fileId));
-    return existing ?? { scene: null, spec: null, content: null, history: [] };
+    return existing ?? { scene: null, spec: null, content: null, history: [], sceneRev: null };
   }
 
   // Every writer of scene advances scene_rev, not just the PATCH route. Repository
