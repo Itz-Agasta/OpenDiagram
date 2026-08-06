@@ -47,23 +47,25 @@ dodoWebhookRoute.post("/", async (c) => {
   try {
     event = client.webhooks.unwrap(raw, { headers });
   } catch (error) {
-    // Alert on this. A 401 here means paid users silently never get upgraded:
-    // the most likely cause is a test-mode secret left in place after the switch
-    // to live, and nothing else in the system would surface it.
+    // Error first, not string+{error}: an Error JSON-serialises to {}, so the
+    // alert would say only "401 on /api/webhooks/dodo" with no reason.
     //
-    // The Error goes in as the FIRST argument, which is evlog's documented shape
-    // (`log.error(err, { context })`) and the only one that keeps the reason:
-    // it lands as `error.message` with the context merged alongside. Passing a
-    // string first and `{ error }` as context -- which reads more naturally and is
-    // what this used to do -- overwrites the error context with a raw Error, and
-    // an Error JSON-serialises to `{}`. Measured on this exact endpoint: that
-    // shape emitted `"error":{}` with no message at all, so the Sentry alert this
-    // line exists to feed would have said only "401 on /api/webhooks/dodo".
-    // Telling "wrong secret" from "timestamp outside tolerance" is the entire
-    // value of that alert, especially in the hours after the live-mode switch.
-    log.error(error instanceof Error ? error : String(error), {
-      dodo: { webhookId: headers["webhook-id"] },
-    });
+    // Level splits on whether a signature was actually presented. Signed-and-
+    // rejected means a test-mode secret left in prod: paid users silently not
+    // upgraded, nothing else alarms. Unsigned is a scanner or curl probe.
+    //
+    // All three headers, because that is the gate `unwrap` itself applies: a
+    // missing or empty id/timestamp/signature throws "Missing required headers"
+    // before any byte comparison, so no such request can be a stale secret.
+    const signed =
+      headers["webhook-signature"] && headers["webhook-id"] && headers["webhook-timestamp"];
+    const context = { dodo: { webhookId: headers["webhook-id"] } };
+    // warn() has no Error overload, so stringify for the probe path.
+    if (signed) {
+      log.error(error instanceof Error ? error : String(error), context);
+    } else {
+      log.warn(String(error), context);
+    }
     return c.json({ error: "Invalid signature" }, 401);
   }
 
