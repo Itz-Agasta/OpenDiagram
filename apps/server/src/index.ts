@@ -79,8 +79,10 @@ app.use(
   evlog({
     drain: (ctx) => {
       fsDrain(ctx);
-      // On status too, not just level: a handler that answers 500 without throwing
-      // leaves the event at `info`, so the level gate alone never saw those.
+      // On status too, not just level. evlog 2.22.4 does not derive level from the
+      // response: 404, 500, and even a route that throws all arrive here at `info`,
+      // so the level gate on its own forwarded no failed request at all. Verified
+      // against `evlog/hono` directly, because the opposite is easy to assume.
       const status = ctx.event.status;
       const failed = typeof status === "number" && status >= 500;
       if (ctx.event.level === "warn" || ctx.event.level === "error" || failed) {
