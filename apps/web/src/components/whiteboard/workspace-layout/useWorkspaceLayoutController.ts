@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import type { StoredChatMessage } from "@/lib/chat-history";
 import { deleteGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import type { SavedProject, SavedProjectFile } from "@/lib/projects-client";
+import { clearAiSettingsCache } from "@/lib/settings-client";
 import { useWorkspaceLayoutStore } from "@/lib/workspace-layout-store";
 import type { SaveStatus } from "./helpers";
 import { useWorkspacePaneResize } from "./useWorkspacePaneResize";
@@ -22,10 +24,20 @@ export function useWorkspaceLayoutController() {
   const router = useRouter();
   const session = authClient.useSession();
   const [draft, setDraft] = useState<GuestProjectDraft | null>(null);
+  // Whether the IndexedDB lookup that answers "is this URL a guest draft?" has
+  // come back. Until it has, `draft === null` only means "not known yet" -- it
+  // holds the signed-in loader (which would 404 on an unpromoted draft) and the
+  // chat panel, which needs the same answer before it asks for a thread.
+  const [draftResolved, setDraftResolved] = useState(false);
   const [projectRow, setProjectRow] = useState<SavedProject | null>(null);
   const [activeFile, setActiveFile] = useState<SavedProjectFile | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [initialScene, setInitialScene] = useState<unknown>(null);
+  // Chat transcript read from IndexedDB, used only until the thread fetch lands.
+  const [localHistory, setLocalHistory] = useState<StoredChatMessage[] | null>(null);
+  // File type from the same cache entry, so the chat panel knows which agent it
+  // is before `activeFile` arrives.
+  const [localFileType, setLocalFileType] = useState<SavedProjectFile["type"] | null>(null);
   const [docContent, setDocContent] = useState("");
   const [leavePromptOpen, setLeavePromptOpen] = useState(false);
   const [showFirstFileDialog, setShowFirstFileDialog] = useState(false);
@@ -75,6 +87,7 @@ export function useWorkspaceLayoutController() {
     currentFileIdRef,
     draft,
     draftRef,
+    draftResolved,
     initializePersistence: persistence.initialize,
     isSignedIn,
     projectId: params.projectId,
@@ -82,8 +95,11 @@ export function useWorkspaceLayoutController() {
     setActiveFile,
     setDocContent,
     setDraft,
+    setDraftResolved,
     setFileLoading,
     setFirstFileName,
+    setLocalFileType,
+    setLocalHistory,
     setInitialScene,
     setProject: setProjectRow,
     setProjectSnapshot,
@@ -149,6 +165,7 @@ export function useWorkspaceLayoutController() {
 
   async function signOut() {
     await authClient.signOut();
+    clearAiSettingsCache();
   }
 
   function continueAsGuest() {
@@ -179,7 +196,14 @@ export function useWorkspaceLayoutController() {
     activeFile?.name ??
     sidebarFilesForProject.find((file) => file.id === activeFileId)?.name ??
     "Untitled file";
-  const agentContextPending =
+  // Two separate questions, and conflating them is what kept the chat panel
+  // behind a spinner until the network answered.
+  //
+  // This one is the old condition, unchanged. It guards the auto-run of a seed
+  // prompt carried in from the dashboard, which must not fire against an
+  // identity that is still provisional -- a guest draft mid-promotion would
+  // remount the panel underneath a live request.
+  const agentSeedPending =
     session.isPending ||
     fileLoading ||
     Boolean(draft && isSignedIn) ||
@@ -190,6 +214,53 @@ export function useWorkspaceLayoutController() {
         (params.workspaceId && activeFile.id !== params.workspaceId)),
     );
 
+  // This one only hides the panel, and now hides it for the single case that
+  // genuinely has no stable identity: promotion, where the file is about to
+  // change owner. A plain signed-in load no longer waits at all -- the ids come
+  // from the URL and the transcript from IndexedDB, so there is nothing left to
+  // wait for. It used to wait for `activeFile`, which meant the cached
+  // conversation was read in about a millisecond and then covered by a spinner
+  // for the three network waves it took to fetch a file the canvas had already
+  // painted without.
+  const agentContextPending = session.isPending || !draftResolved || Boolean(draft && isSignedIn);
+
+  // Agent identity comes from route params, not from the loaded file. Reading it
+  // off `activeFile` made the thread request wait for `getProjectFile`, which
+  // waits for `getProject` + `listProjectFiles` -- four sequential round trips
+  // before the conversation could even be asked for. Both ids are in the URL the
+  // entire time.
+  //
+  // Undefined for guests and for a signed-in user still sitting on an unpromoted
+  // draft: neither has a server-side project to ask about.
+  //
+  // `draftResolved` too: before it answers, `draft` is null for a draft URL as
+  // well as for a real project, and treating that null as "server project" fired
+  // a thread request at a project id that does not exist yet.
+  const agentProjectId = isSignedIn && draftResolved && !draft ? params.projectId : undefined;
+  const agentFileId = params.workspaceId ?? activeFile?.id ?? currentFileIdRef.current ?? undefined;
+  // Cached type until the file lands, so the panel knows whether it is the canvas
+  // agent or the project agent without waiting to be told.
+  const agentFileType = activeFile?.type ?? localFileType ?? undefined;
+  // The panel's remount key. Built from the same params so it is stable from the
+  // first render of any navigation that names a file -- it used to start
+  // undefined and turn real when the fetch landed, remounting the whole panel and
+  // discarding the transcript it had just painted from cache.
+  const agentFileIdentity =
+    agentProjectId && agentFileId ? `${agentProjectId}:${agentFileId}` : undefined;
+  // Length-checked rather than `??`: the file route normalises a missing content
+  // row to `history: []`, and an empty array is not nullish, so `??` handed the
+  // panel an empty transcript and threw the cached one away.
+  //
+  // Identity-checked too: `activeFile` is still the PREVIOUS file until the new
+  // one's fetch returns, and the panel remounts on the URL-derived key before
+  // then, so it seeded itself with the old file's conversation. `localHistory` is
+  // already cleared at the start of a switch; this is the same discipline.
+  const activeFileMatchesRoute = activeFile?.id === agentFileId;
+  const activeHistory =
+    activeFileMatchesRoute && activeFile?.history && activeFile.history.length > 0
+      ? activeFile.history
+      : (localHistory ?? undefined);
+
   return {
     state: {
       accountImage: session.data?.user?.image,
@@ -197,7 +268,13 @@ export function useWorkspaceLayoutController() {
       activeFile,
       activeFileId,
       activeFileName,
+      activeHistory,
       agentContextPending,
+      agentFileId,
+      agentFileIdentity,
+      agentFileType,
+      agentProjectId,
+      agentSeedPending,
       agentWidth: panes.agentWidth,
       docContent,
       draft,
@@ -220,7 +297,6 @@ export function useWorkspaceLayoutController() {
       sidebarFilesForProject,
       sidebarProjectName,
       sidebarWidth: panes.sidebarWidth,
-      currentFileId: currentFileIdRef.current,
     },
     actions: {
       beginEditName: fileName.beginEditName,

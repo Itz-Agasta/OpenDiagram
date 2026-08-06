@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { getGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
+import type { StoredChatMessage } from "@/lib/chat-history";
+import { readLocalChat } from "@/lib/local-chat";
 import { readLocalScene, writeLocalScene } from "@/lib/local-scene";
 import {
   getProject,
@@ -19,6 +21,7 @@ type ProjectSnapshot = Parameters<
 interface LoaderOptions {
   currentFileIdRef: RefObject<string | null>;
   draft: GuestProjectDraft | null;
+  draftResolved: boolean;
   draftRef: RefObject<GuestProjectDraft | null>;
   initializePersistence: (type: SavedProjectFile["type"], scene: unknown, content: string) => void;
   isSignedIn: boolean;
@@ -27,9 +30,12 @@ interface LoaderOptions {
   setActiveFile: Dispatch<SetStateAction<SavedProjectFile | null>>;
   setDocContent: Dispatch<SetStateAction<string>>;
   setDraft: Dispatch<SetStateAction<GuestProjectDraft | null>>;
+  setDraftResolved: Dispatch<SetStateAction<boolean>>;
   setFileLoading: Dispatch<SetStateAction<boolean>>;
   setFirstFileName: Dispatch<SetStateAction<string>>;
   setInitialScene: Dispatch<SetStateAction<unknown>>;
+  setLocalFileType: Dispatch<SetStateAction<SavedProjectFile["type"] | null>>;
+  setLocalHistory: Dispatch<SetStateAction<StoredChatMessage[] | null>>;
   setProject: Dispatch<SetStateAction<SavedProject | null>>;
   setProjectSnapshot: (snapshot: ProjectSnapshot) => void;
   setSaveError: Dispatch<SetStateAction<string | null>>;
@@ -42,6 +48,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     currentFileIdRef,
     draft,
     draftRef,
+    draftResolved,
     initializePersistence,
     isSignedIn,
     projectId,
@@ -49,9 +56,12 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     setActiveFile,
     setDocContent,
     setDraft,
+    setDraftResolved,
     setFileLoading,
     setFirstFileName,
     setInitialScene,
+    setLocalFileType,
+    setLocalHistory,
     setProject,
     setProjectSnapshot,
     setSaveError,
@@ -59,16 +69,14 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     workspaceId,
   } = options;
 
-  // Guest drafts became durable, so reading one is a trip to IndexedDB rather
-  // than a Map lookup. That makes this effect async, and `draftRef.current` is no
-  // longer populated by the time the signed-in loader below first runs -- which
-  // reads it to decide whether a project is a local draft or a server project.
-  // This flag holds that loader until the answer exists; without it a signed-in
-  // user opening a draft they had not promoted yet would race into a 404.
-  const [draftResolved, setDraftResolved] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
+    // Cleared before the lookup, not just set after it. The flag is what tells
+    // the chat panel that "not a draft" is a fact rather than an assumption, and
+    // it survives a navigation -- so leaving it true from the PREVIOUS project
+    // let the panel treat a freshly opened draft URL as a server project and
+    // fire a thread request at an id that does not exist yet.
+    setDraftResolved(false);
 
     void (async () => {
       const nextDraft = await getGuestProjectDraft(projectId);
@@ -136,6 +144,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     setActiveFile,
     setDocContent,
     setDraft,
+    setDraftResolved,
     setFileLoading,
     setInitialScene,
     setProject,
@@ -150,6 +159,12 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     async function loadActiveFile() {
       setSaveError(null);
       setFileLoading(true);
+      // Dropped before the cache read below, not after: this effect reruns on file
+      // switch, and until the new file's entry is read the previous file's
+      // transcript is still in state. Leaving it there would show one file's
+      // conversation next to another file's canvas.
+      setLocalHistory(null);
+      setLocalFileType(null);
 
       // Local-first paint. When the workspace URL already names a file -- which
       // it does for every navigation out of the dashboard -- IndexedDB can
@@ -158,16 +173,29 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
       // fetch below still runs and still wins if the server copy is newer; this
       // only removes the blank screen in front of it.
       if (workspaceId) {
-        const local = await readLocalScene(workspaceId);
+        const [local, localChat] = await Promise.all([
+          readLocalScene(workspaceId),
+          readLocalChat(workspaceId),
+        ]);
         if (!active) return;
         if (local) {
           const scene = local.type === "diagram" ? (local.scene ?? null) : null;
           initializePersistence(local.type, scene, local.content);
           setDocContent(local.content);
           setInitialScene(scene);
+          // The chat panel branches on file type (a diagram file drives the
+          // canvas agent, a doc file the project agent), so without this it
+          // would have to wait for `activeFile` to know which chat it even is --
+          // which is the wait the cache exists to remove.
+          setLocalFileType(local.type);
           currentFileIdRef.current = workspaceId;
           setFileLoading(false);
         }
+        // The chat transcript gets the same treatment the canvas already had. It
+        // is set independently of `local` above: a file can have a cached
+        // conversation without a cached scene (the agent drew, the scene write
+        // had not landed yet), and the panel should still fill in.
+        if (localChat) setLocalHistory(localChat.messages);
       }
 
       try {
@@ -269,6 +297,8 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
     setFileLoading,
     setFirstFileName,
     setInitialScene,
+    setLocalFileType,
+    setLocalHistory,
     setProject,
     setProjectSnapshot,
     setSaveError,

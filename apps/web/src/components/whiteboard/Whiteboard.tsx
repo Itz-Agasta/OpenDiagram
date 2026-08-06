@@ -7,7 +7,7 @@ import type {
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import dynamic from "next/dynamic";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const Excalidraw = dynamic(
   async () => {
@@ -52,15 +52,45 @@ function toExcalidrawInitialData(scene: unknown): ExcalidrawInitialDataState | u
 }
 
 export function Whiteboard({ onAPIReady, onSceneChange, initialScene }: WhiteboardProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const handleAPI = useCallback(
     (api: ExcalidrawImperativeAPI) => {
+      setIsMounted(true);
       onAPIReady?.(api);
     },
     [onAPIReady],
   );
 
+  // Pane resizes reach Excalidraw only as a window resize. Not `api.refresh()`:
+  // it recomputes scroll offsets but not canvas size, leaving a 1524px canvas
+  // in a 1908px container. Gated on the API callback because the canvases exist
+  // only once the dynamically imported editor has mounted.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!isMounted || !container) return;
+
+    // Watch the canvases as well as the container: either side can settle last.
+    const observer = new ResizeObserver(() => {
+      const canvases = container.querySelectorAll("canvas");
+      // Re-observing a known target is a no-op, so this also picks up the
+      // new-element canvas Excalidraw mounts mid-stroke.
+      for (const element of canvases) observer.observe(element);
+
+      const canvas = canvases[0];
+      if (!canvas) return;
+      const width = container.getBoundingClientRect().width;
+      if (Math.abs(canvas.getBoundingClientRect().width - width) < 1) return;
+      // Terminates: Excalidraw re-measures to `width`, then the two agree.
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [isMounted]);
+
   return (
-    <div className="w-full h-full overflow-hidden relative">
+    <div ref={containerRef} className="w-full h-full overflow-hidden relative">
       <Excalidraw
         excalidrawAPI={handleAPI}
         initialData={toExcalidrawInitialData(initialScene)}
@@ -76,4 +106,4 @@ export function Whiteboard({ onAPIReady, onSceneChange, initialScene }: Whiteboa
   );
 }
 
-// Need to redesign it
+// TODO: Need to redesign it

@@ -1,0 +1,1 @@
+ALTER TABLE "project_file_thread" ADD COLUMN "frame_id" text;

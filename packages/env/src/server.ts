@@ -16,8 +16,6 @@ export const env = createEnv({
     // sharing. Every entry in CORS_ORIGIN must sit under this domain: the cookies
     // are SameSite=Lax, so a genuinely cross-site origin would not receive them.
     COOKIE_DOMAIN: z.string().min(1).optional(),
-    // Orchestrator intent classifier (optional — degrades to regex if unset).
-    GROQ_API_KEY: z.string().min(1).optional(),
     // All LLM tasks (diagrams, docs, analysis, chat) run on Gemini.
     // Functionally required in prod.
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),

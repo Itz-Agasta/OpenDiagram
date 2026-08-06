@@ -4,15 +4,14 @@ import type { Dispatch, SetStateAction } from "react";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { uiMessagesToStoredChatHistory, type StoredChatMessage } from "@/lib/chat-history";
 import { runProjectChatAgent } from "@/lib/workspace-agents";
-import {
-  CreationQuotaError,
-  updateProjectFile,
-  UpstreamRateLimitError,
-} from "@/lib/projects-client";
+import { CreationQuotaError, UpstreamRateLimitError } from "@/lib/projects-client";
+import { queueProjectFilePatch } from "@/lib/project-file-sync";
 import { appendStoredChatMessage } from "./chat-timeline";
 
 interface UseProjectChatOptions {
   activeFileType?: "diagram" | "doc";
+  /** The live diagram transcript, so an append can be computed outside a state updater. */
+  diagramMessages: UIMessage[];
   fileId?: string;
   normalizedHistory: StoredChatMessage[];
   onHistoryChange?: (history: StoredChatMessage[]) => void;
@@ -28,6 +27,7 @@ interface UseProjectChatOptions {
 
 export function useProjectChat({
   activeFileType,
+  diagramMessages,
   fileId,
   normalizedHistory,
   onHistoryChange,
@@ -48,9 +48,35 @@ export function useProjectChat({
   const [error, setError] = useState<string | null>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
 
+  // A mirror of the diagram transcript, so `run` can compute the next list and
+  // hand the SAME value to setState, to the file write and to the thread. Those
+  // last two used to happen inside the state updater, which React is free to
+  // replay -- persistence must not run twice because a render was discarded.
+  const diagramMessagesRef = useRef(diagramMessages);
   useEffect(() => {
+    diagramMessagesRef.current = diagramMessages;
+  }, [diagramMessages]);
+
+  /** The same mirror for the doc transcript, which this hook owns outright. */
+  const messagesRef = useRef(messages);
+
+  // Writes here are replication behind the panel's own state; a rejection is
+  // already reported through `saveError`, and a delete cancels queued patches on
+  // purpose, so an unattached rejection would surface as an unhandled one.
+  const queueHistory = useCallback(
+    (history: StoredChatMessage[]) => {
+      if (!projectId || !fileId) return;
+      onHistoryChange?.(history);
+      void queueProjectFilePatch(projectId, fileId, { history }, "meta").catch(() => undefined);
+    },
+    [fileId, onHistoryChange, projectId],
+  );
+
+  useEffect(() => {
+    const seeded = activeFileType === "diagram" ? [] : normalizedHistory;
     messageIdRef.current = normalizedHistory.length;
-    setMessages(activeFileType === "diagram" ? [] : normalizedHistory);
+    messagesRef.current = seeded;
+    setMessages(seeded);
     setError(null);
     setStatus("ready");
   }, [activeFileType, fileId, normalizedHistory]);
@@ -64,10 +90,18 @@ export function useProjectChat({
         role: "user",
         text,
       };
+      const appendToDiagram = (message: StoredChatMessage) => {
+        const next = appendStoredChatMessage(diagramMessagesRef.current, message);
+        diagramMessagesRef.current = next;
+        setDiagramMessages(next);
+        return next;
+      };
+
       if (activeFileType === "diagram") {
-        setDiagramMessages((previous) => appendStoredChatMessage(previous, userMessage));
+        appendToDiagram(userMessage);
       } else {
-        setMessages((previous) => [...previous, userMessage]);
+        messagesRef.current = [...messagesRef.current, userMessage];
+        setMessages(messagesRef.current);
       }
       setStatus("submitted");
       setError(null);
@@ -90,47 +124,36 @@ export function useProjectChat({
           text: result.message,
         };
         if (activeFileType === "diagram") {
-          setDiagramMessages((previous) => {
-            const updated = appendStoredChatMessage(previous, assistantMessage);
-            if (fileId) {
-              window.setTimeout(() => {
-                const history = uiMessagesToStoredChatHistory(updated);
-                onHistoryChange?.(history);
-                void updateProjectFile(projectId, fileId, { history });
-              }, 0);
-            }
-            return updated;
-          });
+          // FIXME(github-import-chat): this turn is written to the legacy
+          // `history` column and NOT to the thread, so it disappears the next
+          // time the canvas is opened -- the panel renders `threadMessages` in
+          // preference to `history` whenever a thread exists.
+          //
+          // Only reachable for a GitHub-imported diagram: every other canvas
+          // short-circuits to the diagram agent in `handleSubmit` via
+          // `shouldUseDiagramChatDirectly`, so this branch never runs for one.
+          // Left unfixed by decision -- the whole import path is being rewritten,
+          // and routing this through `persistTurn` now would be thrown away with
+          // it. Fix it as part of that rewrite, not before.
+          const updated = appendToDiagram(assistantMessage);
+          queueHistory(uiMessagesToStoredChatHistory(updated));
         } else {
-          setMessages((previous) => {
-            const updated = [...previous, assistantMessage];
-            if (fileId) {
-              window.setTimeout(() => {
-                onHistoryChange?.(updated);
-                void updateProjectFile(projectId, fileId, { history: updated });
-              }, 0);
-            }
-            return updated;
-          });
+          // Doc files have no thread: nothing here ever creates one, so
+          // `getActiveThread` answers 204 and the panel falls back to `history`.
+          // Migrating project chat onto threads is tracked separately.
+          const updated = [...messagesRef.current, assistantMessage];
+          messagesRef.current = updated;
+          setMessages(updated);
+          queueHistory(updated);
         }
       } catch (caught) {
         if (requestController.signal.aborted) {
-          const persistCancelled = (previous: UIMessage[]) => {
-            if (!fileId) return previous;
-            const history = uiMessagesToStoredChatHistory(previous);
-            onHistoryChange?.(history);
-            void updateProjectFile(projectId, fileId, { history });
-            return previous;
-          };
-          if (activeFileType === "diagram") setDiagramMessages(persistCancelled);
-          else
-            setMessages((previous) => {
-              if (fileId) {
-                onHistoryChange?.(previous);
-                void updateProjectFile(projectId, fileId, { history: previous });
-              }
-              return previous;
-            });
+          // Nothing new to append: a stop only records what is already on screen.
+          queueHistory(
+            activeFileType === "diagram"
+              ? uiMessagesToStoredChatHistory(diagramMessagesRef.current)
+              : messagesRef.current,
+          );
           return true;
         }
         const message = caught instanceof Error ? caught.message : "Project chat failed";
@@ -145,17 +168,10 @@ export function useProjectChat({
           text: `Error: ${message}`,
         };
         if (activeFileType === "diagram") {
-          setDiagramMessages((previous) => {
-            const updated = appendStoredChatMessage(previous, errorMessage);
-            if (fileId) {
-              const history = uiMessagesToStoredChatHistory(updated);
-              onHistoryChange?.(history);
-              void updateProjectFile(projectId, fileId, { history });
-            }
-            return updated;
-          });
+          queueHistory(uiMessagesToStoredChatHistory(appendToDiagram(errorMessage)));
         } else {
-          setMessages((previous) => [...previous, errorMessage]);
+          messagesRef.current = [...messagesRef.current, errorMessage];
+          setMessages(messagesRef.current);
         }
         setError(message);
       } finally {
@@ -174,8 +190,6 @@ export function useProjectChat({
     },
     [
       activeFileType,
-      fileId,
-      onHistoryChange,
       onProviderUsage,
       onProviderError,
       onRateLimitError,
@@ -183,6 +197,7 @@ export function useProjectChat({
       projectId,
       providerId,
       modelId,
+      queueHistory,
       setDiagramMessages,
     ],
   );

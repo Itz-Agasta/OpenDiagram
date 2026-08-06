@@ -87,11 +87,13 @@ export function WorkspaceAgentSidebar({
           className={`flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-od-border-soft bg-white ${isContextPending ? "invisible" : ""}`}
         >
           <AIChatPanel
-            // Context is hidden and seed generation is gated until this loaded
-            // identity is authoritative, so promotion cannot remount a live seed request.
+            // Built from route params, so it is stable across the whole load of a
+            // given file and only changes when the file does. Seed generation is
+            // gated separately by the caller, so promotion still cannot remount a
+            // live seed request.
             key={fileIdentity}
             activeFileType={activeFileType}
-            allowSeedAutoRun={!isContextPending && allowSeedAutoRun}
+            allowSeedAutoRun={allowSeedAutoRun}
             excalidrawAPI={activeFileType === "doc" ? null : excalidrawAPI}
             projectId={projectId}
             fileId={fileId}

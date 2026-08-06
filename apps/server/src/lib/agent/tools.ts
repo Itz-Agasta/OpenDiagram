@@ -11,7 +11,7 @@ import {
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
-import { iconRegistry } from "../icons/registry";
+import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
 
 export interface AskUserInput {
   question: string;
@@ -47,31 +47,41 @@ export interface DrawDiagramOutput {
   };
 }
 
+/**
+ * The spec plus the one thing the model has to tell us that is not part of the
+ * drawing: which diagram on the canvas this is.
+ *
+ * Extended rather than nested (`{ targetId, spec }`) on purpose. The schema stays
+ * one flat object, which is the shape the model already emits reliably, and
+ * `repairDrawDiagramInput` in `routes/diagram.ts` keeps finding `edges` at the top
+ * level. Nesting would move it and quietly break the repair path.
+ *
+ * FIXME(gemini-field-fidelity): this assumes the model echoes `targetId` back
+ * accurately. The same model reliably mistypes `from`/`to` as `from1`/`to1` on
+ * edges, so an id it garbles or omits will read as "new diagram" and draw a
+ * duplicate frame. Tracked separately -- no inference fallback here by decision.
+ */
+export const drawDiagramInputSchema = diagramSpecSchema.extend({
+  targetId: z
+    .string()
+    .optional()
+    .describe(
+      "The id of the existing canvas diagram this replaces, copied EXACTLY from the CANVAS list in the system prompt. Omit only when drawing a genuinely new diagram.",
+    ),
+});
+
 /** Server-side tool: validate spec -> layout (ELK) -> render -> canvas payload. */
 export function createDrawDiagramTool(
   log: RequestLogger,
   theme: Theme = classicTheme,
-): Tool<z.infer<typeof diagramSpecSchema>, DrawDiagramOutput> {
+): Tool<z.infer<typeof drawDiagramInputSchema>, DrawDiagramOutput> {
   return tool({
     description:
-      "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat.",
-    inputSchema: diagramSpecSchema,
-    execute: async (rawSpec): Promise<DrawDiagramOutput> => {
-      // Icon keys the registry doesn't know are stripped BEFORE layout so both
-      // sizing and rendering fall back to the theme's icon-less node (a box
-      // with the label inside), never an empty glyph band.
-      const unknownIcons = new Set<string>();
-      const spec: DiagramSpec = {
-        ...rawSpec,
-        nodes: rawSpec.nodes.map((node) => {
-          if (node.icon && !iconRegistry[node.icon]) {
-            unknownIcons.add(node.icon);
-            return { ...node, icon: undefined };
-          }
-          return node;
-        }),
-      };
-      const warnings = [...unknownIcons].map((key) => `unknown icon "${key}" — drawn as a box`);
+      "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat. Set targetId to update a diagram already on the canvas; omit it to add a new one.",
+    inputSchema: drawDiagramInputSchema,
+    execute: async ({ targetId: _targetId, ...rawSpec }): Promise<DrawDiagramOutput> => {
+      const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(rawSpec);
+      const warnings = unknownIcons.map((key) => `unknown icon "${key}" — drawn as a box`);
 
       // Sequence diagrams use their own lifeline grid, not ELK.
       let skeletons: RenderSkeleton[];

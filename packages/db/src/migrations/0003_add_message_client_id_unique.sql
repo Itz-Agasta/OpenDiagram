@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "project_file_message_thread_client_idx" ON "project_file_message" USING btree ("thread_id","client_id");

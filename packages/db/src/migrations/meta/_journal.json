@@ -8,6 +8,41 @@
       "when": 1785269645532,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785586356861,
+      "tag": "0001_add_chat_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785588122664,
+      "tag": "0002_add_thread_frame_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785685244645,
+      "tag": "0003_add_message_client_id_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785907911720,
+      "tag": "0004_goofy_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786002230091,
+      "tag": "0005_add_scene_rev",
+      "breakpoints": true
     }
   ]
 }

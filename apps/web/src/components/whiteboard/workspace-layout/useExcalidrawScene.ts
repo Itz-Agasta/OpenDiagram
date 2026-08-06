@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { applyDiagramToCanvas, restoreSceneElements } from "@/lib/excalidraw-utils";
-import { resolveDiagramScene, sanitizeSceneAppState } from "./helpers";
+import { resolveDiagramScene, sanitizeSceneAppState, sceneHasSavedViewport } from "./helpers";
 
 export function useExcalidrawScene(initialScene: unknown) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
@@ -23,6 +23,7 @@ export function useExcalidrawScene(initialScene: unknown) {
     let cancelled = false;
     let frame: number | undefined;
     const appState = sanitizeSceneAppState(scene.appState);
+    const hasViewport = sceneHasSavedViewport(scene.appState);
     const baseline = sceneFingerprint(api.getSceneElements());
     if (scene.files && typeof scene.files === "object") api.addFiles(Object.values(scene.files));
     void restoreSceneElements(scene.elements).then((elements) => {
@@ -34,7 +35,13 @@ export function useExcalidrawScene(initialScene: unknown) {
       });
       if (elements.length === 0) return;
 
-      // Viewport dimensions settle after the editor and adjacent panes render.
+      // Skip scrollToContent if the scene already has a saved camera —
+      // Excalidraw already positioned it from initialData, so fitting again
+      // would jerk the viewport right after the user sees it.
+      if (hasViewport) return;
+
+      // Wait a frame for the editor and adjacent panes to finish laying out
+      // before fitting — viewport dimensions aren't stable until then.
       frame = window.requestAnimationFrame(() => {
         api.scrollToContent(elements, {
           fitToViewport: true,

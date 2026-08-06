@@ -1,10 +1,10 @@
-import { db, eq } from "@OpenDiagram/db";
+import { db, eq, sql } from "@OpenDiagram/db";
 import { projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
 
-/** Either the pooled `db` or an open transaction -- both satisfy these calls. */
+/** Either the pooled db or an open transaction; both satisfy these calls. */
 type Db = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** The large columns, which live in `project_file_content`, not `project_file`. */
+/** The large columns, living in project_file_content, not project_file. */
 export type ProjectFileContentPatch = {
   scene?: unknown;
   spec?: unknown;
@@ -12,64 +12,87 @@ export type ProjectFileContentPatch = {
   history?: unknown[];
 };
 
-/** Selected alongside `project_file` wherever a caller wants the whole file. */
+/** Selected alongside project_file wherever a caller wants the whole file. */
 export const projectFileContentColumns = {
   scene: projectFileContent.scene,
   spec: projectFileContent.spec,
   content: projectFileContent.content,
   history: projectFileContent.history,
+  /** The canvas keeps this to send its next save as a delta. */
+  sceneRev: projectFileContent.sceneRev,
 };
 
 /**
- * Write the content row for a file, creating it if it is not there yet.
+ * Write the content row for a file, creating it if missing.
  *
- * An upsert rather than an insert-then-update pair because every caller is
- * already in the position of not knowing or not caring which case it is in: the
- * create paths know the row is new, the generation and PATCH paths know it
- * should exist, and none of them benefits from finding out. It also means a file
- * whose content row went missing repairs itself on the next write instead of
- * failing forever.
+ * An upsert rather than insert-then-update because every caller already does not
+ * know or care which case it is in: create paths know the row is new, generation
+ * and PATCH paths know it should exist, none benefits from finding out. It also
+ * means a file whose content row went missing repairs itself on the next write
+ * instead of failing forever.
  *
- * Only the columns whose value is not `undefined` are written. That matters for
- * PATCH, where the client sends `scene` alone and must not blank `history` and
- * `spec` as a side effect. The test is on the value rather than key presence
- * (`"scene" in patch`) because an optional Zod field can land in the parsed
- * object as an explicit `undefined`, which key presence would treat as a write.
- * An explicit `null` still clears the column, which is the intended way to do it.
+ * Only columns whose value is not undefined are written. That matters for PATCH,
+ * where the client sends scene alone and must not blank history and spec as a
+ * side effect. The test is on the value rather than key presence ("scene" in
+ * patch) because an optional Zod field can land in the parsed object as explicit
+ * undefined, which key presence would treat as a write. An explicit null still
+ * clears the column, which is the intended way to do it.
  */
 export async function writeProjectFileContent(
   tx: Db,
   fileId: string,
   patch: ProjectFileContentPatch,
+  // false for callers that do not read the content back: the canvas autosave, the
+  // spec write, and the chat history write are all fire-and-forget. Skipping the
+  // RETURNING keeps a multi-hundred-kilobyte scene from being detoasted and shipped
+  // to the server only to be serialized out to a client that discards it.
+  { returnContent = true }: { returnContent?: boolean } = {},
 ) {
   const columns = Object.fromEntries(
     Object.entries(patch).filter(([, value]) => value !== undefined),
   );
 
-  // Nothing to write, and Postgres rejects an empty `DO UPDATE SET`. Reaching
-  // here means the caller had no content fields at all, so the existing row --
-  // or the absence of one -- is already correct.
+  // Nothing to write, and Postgres rejects an empty DO UPDATE SET. Reaching
+  // here means the caller had no content fields at all, so the existing row (or
+  // the absence of one) is already correct.
   if (Object.keys(columns).length === 0) {
+    if (!returnContent) return null;
     const [existing] = await tx
       .select(projectFileContentColumns)
       .from(projectFileContent)
       .where(eq(projectFileContent.fileId, fileId));
-    return existing ?? { scene: null, spec: null, content: null, history: [] };
+    return existing ?? { scene: null, spec: null, content: null, history: [], sceneRev: null };
   }
 
-  const [row] = await tx
-    .insert(projectFileContent)
-    // `history` is NOT NULL with no database default, so the insert half of the
-    // upsert has to carry one even when the caller said nothing about history.
-    .values({ fileId, history: [], ...columns })
-    .onConflictDoUpdate({ target: projectFileContent.fileId, set: columns })
-    .returning(projectFileContentColumns);
+  // Every writer of scene advances scene_rev, not just the PATCH route. Repository
+  // generation replaces whole scenes through here, and a canvas holding the file
+  // open would otherwise keep a baseline the server had silently moved past and
+  // have its next delta merged into the generated scene instead of rejected.
+  const writesScene = columns.scene !== undefined;
 
+  const insert = tx
+    .insert(projectFileContent)
+    // history is NOT NULL with no database default, so the insert half of the
+    // upsert has to carry one even when the caller said nothing about history.
+    .values({ fileId, history: [], ...columns, sceneRev: writesScene ? 1 : 0 })
+    .onConflictDoUpdate({
+      target: projectFileContent.fileId,
+      set: writesScene
+        ? { ...columns, sceneRev: sql`${projectFileContent.sceneRev} + 1` }
+        : columns,
+    });
+
+  if (!returnContent) {
+    await insert;
+    return null;
+  }
+
+  const [row] = await insert.returning(projectFileContentColumns);
   return row;
 }
 
 /**
- * Read one file whole -- metadata joined to its content row.
+ * Read one file whole; metadata joined to its content row.
  *
  * Left, not inner: a file is a file even if its content row is missing, and the
  * canvas would rather open empty than 404 on a document the file list just
@@ -87,7 +110,7 @@ export function selectProjectFileColumns() {
   };
 }
 
-/** A file row joined to its content: what `selectProjectFileColumns` produces. */
+/** A file row joined to its content: what selectProjectFileColumns produces. */
 export type ProjectFileWithContent = {
   id: string;
   projectId: string;
@@ -99,6 +122,7 @@ export type ProjectFileWithContent = {
   spec: unknown;
   content: unknown;
   history: unknown;
+  sceneRev: number | null;
 };
 
 /** Normalise a left-joined row so a missing content row reads as an empty file. */
