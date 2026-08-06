@@ -109,8 +109,8 @@ export function GitHubImportContent() {
 
   useEffect(() => {
     if (session.isPending || !session.data || oauthErrorHandledRef.current) return;
-    if (loadingBilling || !billingState) return;
-    if (billingState.planId !== "pro") return;
+    if (loadingBilling) return;
+    if (billingState && billingState.billingEnabled && billingState.planId !== "pro") return;
 
     let active = true;
 
@@ -230,11 +230,15 @@ export function GitHubImportContent() {
   const isSignedOut = !session.isPending && !session.data;
   const needsGitHubConnection = isSignedOut || githubConnected === false;
   const showPaywall =
-    session.data && !loadingBilling && (!billingState || billingState.planId !== "pro");
+    session.data &&
+    !loadingBilling &&
+    billingState !== null &&
+    billingState.billingEnabled &&
+    billingState.planId !== "pro";
 
   return (
     <main className="min-h-dvh bg-white px-4 py-6 text-od-ink md:px-8">
-      {showPaywall && <PricingModal open={true} />}
+      {showPaywall && <PricingModal open={true} state={billingState} />}
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-8">
         <header className="flex items-center justify-between gap-4">
           <Link

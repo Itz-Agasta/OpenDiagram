@@ -3,17 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, ArrowLeft } from "lucide-react";
-import {
-  getBillingState,
-  openBillingPortal,
-  startCheckout,
-  type BillingState,
-} from "@/lib/billing-client";
+import { openBillingPortal, startCheckout, type BillingState } from "@/lib/billing-client";
 import { PlanCard } from "@/components/billing/plan-card";
 import { FREE_FEATURES, proFeatures } from "@/components/billing/plan-features";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +21,7 @@ interface PricingModalProps {
   onOpenChange?: (open: boolean) => void;
   title?: string;
   description?: string;
+  state: BillingState;
 }
 
 export function PricingModal({
@@ -34,11 +29,10 @@ export function PricingModal({
   onOpenChange,
   title = "Upgrade to Pro",
   description = "Choose a plan to unlock advanced features and raise your usage limits.",
+  state,
 }: PricingModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [state, setState] = useState<BillingState | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [discountCode, setDiscountCode] = useState("");
   const [pending, setPending] = useState<"checkout" | "portal" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -49,11 +43,9 @@ export function PricingModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    getBillingState()
-      .then(setState)
-      .catch((error: unknown) => {
-        setLoadError(error instanceof Error ? error.message : "Failed to load billing.");
-      });
+    setActionError(null);
+    setPending(null);
+    setDiscountCode("");
   }, [isOpen]);
 
   async function go(kind: "checkout" | "portal") {
@@ -78,9 +70,9 @@ export function PricingModal({
     }
   };
 
-  const isPro = state?.planId === "pro";
-  const sub = state?.subscription;
-  const allowance = state ? `Your current plan · ${state.credits.limit} credits this period` : "";
+  const isPro = state.planId === "pro";
+  const sub = state.subscription;
+  const allowance = `Your current plan · ${state.credits.limit} credits this period`;
 
   return (
     <Dialog
@@ -92,22 +84,16 @@ export function PricingModal({
         }
       }}
     >
-      <DialogContent className="max-w-3xl p-6 md:p-8" showCloseButton={true}>
+      <DialogContent
+        className="max-w-3xl p-6 md:p-8 max-h-[90vh] overflow-y-auto"
+        showCloseButton={true}
+      >
         <DialogHeader className="mb-4">
           <DialogTitle className="text-2xl font-semibold text-od-ink">{title}</DialogTitle>
           <DialogDescription className="text-sm text-od-ink-muted">{description}</DialogDescription>
         </DialogHeader>
 
-        {loadError ? (
-          <div className="rounded-lg border border-od-border-soft bg-od-canvas/35 px-4 py-3 text-sm text-od-ink-muted">
-            {loadError}
-          </div>
-        ) : !state ? (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Skeleton className="h-[340px] rounded-xl" />
-            <Skeleton className="h-[340px] rounded-xl" />
-          </div>
-        ) : !state.billingEnabled ? (
+        {!state.billingEnabled ? (
           <div className="rounded-lg border border-od-border-soft bg-od-canvas/35 px-4 py-3 text-sm text-od-ink-muted">
             Billing isn&apos;t configured on this instance. Every account has the Free allowance,
             and your own AI key gives unlimited diagrams.
