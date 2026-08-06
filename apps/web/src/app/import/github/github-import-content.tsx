@@ -111,6 +111,7 @@ export function GitHubImportContent() {
       })
       .catch(() => {
         if (mountedRef.current) {
+          setBillingState(null);
           setBillingError(true);
           setLoadingBilling(false);
         }
