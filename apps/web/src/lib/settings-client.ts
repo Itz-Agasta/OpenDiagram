@@ -57,9 +57,11 @@ async function readError(response: Response, fallback: string): Promise<string> 
  */
 let settingsCache: { settings: AiSettings; fetchedAt: number } | null = null;
 let settingsRequest: Promise<AiSettings> | null = null;
+let generation = 0;
 const SETTINGS_TTL_MS = 30_000;
 
 export function clearAiSettingsCache(): void {
+  generation += 1;
   settingsCache = null;
   settingsRequest = null;
 }
@@ -69,11 +71,15 @@ export async function getAiSettings(): Promise<AiSettings> {
   if (cached && Date.now() - cached.fetchedAt < SETTINGS_TTL_MS) return cached.settings;
   if (settingsRequest) return settingsRequest;
 
+  const started = generation;
   const request = (async () => {
     const response = await fetch(`${BASE}/providers`, { credentials: "include" });
     if (!response.ok) throw new Error(await readError(response, "Failed to load Settings."));
     const settings = (await response.json()) as AiSettings;
-    settingsCache = { settings, fetchedAt: Date.now() };
+    // Clearing only drops the pending promise; this response is still in flight and
+    // would otherwise refill the cache it was meant to evict. A sign-out mid-fetch
+    // is exactly the case that leaks, so a bumped generation must not be cached.
+    if (started === generation) settingsCache = { settings, fetchedAt: Date.now() };
     return settings;
   })();
   settingsRequest = request;

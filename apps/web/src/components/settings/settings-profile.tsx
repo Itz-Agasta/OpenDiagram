@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { clearAiSettingsCache } from "@/lib/settings-client";
 import { assetUrl } from "@/lib/site";
 import { getInitials } from "@/components/dashboard/dashboard-page/utils";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ export function SettingsProfileCard() {
     setSignOutPending(true);
     try {
       await authClient.signOut();
+      clearAiSettingsCache();
       router.push("/dashboard");
       router.refresh();
     } finally {
