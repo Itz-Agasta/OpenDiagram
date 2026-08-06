@@ -48,10 +48,41 @@ async function readError(response: Response, fallback: string): Promise<string> 
   return body?.error ?? fallback;
 }
 
+/**
+ * Cached because `AgentInputPanel` and `use-ai-chat-panel-controller` each fetch
+ * this on mount, so one dashboard-then-workspace visit made four identical calls.
+ *
+ * Per-account: the payload carries `keyLast4`, so sign-out MUST clear it. Nothing
+ * here reloads the page, and module state would otherwise outlive the account.
+ */
+let settingsCache: { settings: AiSettings; fetchedAt: number } | null = null;
+let settingsRequest: Promise<AiSettings> | null = null;
+const SETTINGS_TTL_MS = 30_000;
+
+export function clearAiSettingsCache(): void {
+  settingsCache = null;
+  settingsRequest = null;
+}
+
 export async function getAiSettings(): Promise<AiSettings> {
-  const response = await fetch(`${BASE}/providers`, { credentials: "include" });
-  if (!response.ok) throw new Error(await readError(response, "Failed to load Settings."));
-  return response.json();
+  const cached = settingsCache;
+  if (cached && Date.now() - cached.fetchedAt < SETTINGS_TTL_MS) return cached.settings;
+  if (settingsRequest) return settingsRequest;
+
+  const request = (async () => {
+    const response = await fetch(`${BASE}/providers`, { credentials: "include" });
+    if (!response.ok) throw new Error(await readError(response, "Failed to load Settings."));
+    const settings = (await response.json()) as AiSettings;
+    settingsCache = { settings, fetchedAt: Date.now() };
+    return settings;
+  })();
+  settingsRequest = request;
+
+  try {
+    return await request;
+  } finally {
+    if (settingsRequest === request) settingsRequest = null;
+  }
 }
 
 export async function connectProvider(input: {
@@ -66,6 +97,7 @@ export async function connectProvider(input: {
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(await readError(response, "Could not connect provider."));
+  clearAiSettingsCache();
 }
 
 export async function updateProvider(
@@ -79,6 +111,7 @@ export async function updateProvider(
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(await readError(response, "Could not update provider."));
+  clearAiSettingsCache();
 }
 
 export function providerModelOptions(settings: AiSettings): ProviderModelOption[] {
@@ -113,4 +146,5 @@ export async function disconnectProvider(id: string): Promise<void> {
     credentials: "include",
   });
   if (!response.ok) throw new Error(await readError(response, "Could not disconnect provider."));
+  clearAiSettingsCache();
 }

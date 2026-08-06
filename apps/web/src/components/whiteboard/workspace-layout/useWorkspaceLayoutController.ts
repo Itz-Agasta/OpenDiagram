@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { deleteGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import type { SavedProject, SavedProjectFile } from "@/lib/projects-client";
+import { clearAiSettingsCache } from "@/lib/settings-client";
 import { useWorkspaceLayoutStore } from "@/lib/workspace-layout-store";
 import type { SaveStatus } from "./helpers";
 import { useWorkspacePaneResize } from "./useWorkspacePaneResize";
@@ -164,6 +165,7 @@ export function useWorkspaceLayoutController() {
 
   async function signOut() {
     await authClient.signOut();
+    clearAiSettingsCache();
   }
 
   function continueAsGuest() {
