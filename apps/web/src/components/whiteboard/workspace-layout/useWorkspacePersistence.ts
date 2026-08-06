@@ -118,6 +118,8 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
   const snapshotRef = useRef<SaveSnapshot | null>(null);
   const inFlightRef = useRef(false);
+  /** The version the visibilitychange flush sent, so pagehide can skip it. */
+  const hideFlushedVersionRef = useRef<string | null>(null);
 
   // Clearing the handle is the half that matters, not the clearTimeout.
   // scheduleAutosave treats a non-null handle as "an interval is already running"
@@ -143,7 +145,13 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
     inFlightRef.current = true;
     try {
-      while (snapshotRef.current) {
+      // Stops draining once an interval is armed, or the throttle ceiling would
+      // not hold: an edit arriving mid-request arms a timer AND queues a
+      // snapshot, and draining that snapshot on completion puts a second PATCH
+      // on the wire seconds after the first. Leaving it for the armed timer is
+      // what keeps the rate at one per interval. The loop still runs when
+      // nothing is armed, so a snapshot is never stranded.
+      while (snapshotRef.current && !autosaveTimer.current) {
         const snapshot = snapshotRef.current;
         snapshotRef.current = null;
         await saveSnapshot(snapshot);
@@ -253,6 +261,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       if (!isSignedInRef.current || !dirtyRef.current) return;
       cancelPendingAutosave();
       snapshotRef.current ??= snapshotCurrent();
+      hideFlushedVersionRef.current = pendingVersionRef.current;
       void runAutosave();
     }
     document.addEventListener("visibilitychange", flushOnHide);
@@ -265,6 +274,10 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
+      // A navigation fires visibilitychange -> hidden and then pagehide, so without
+      // this the same edit went out twice, and the full scene could land first and
+      // leave the delta to 409 and retry over a newer write.
+      if (hideFlushedVersionRef.current === snapshot.version) return;
       // Deliberately not through the queue: this fires on pagehide, where the page
       // may not live long enough to run another microtask. A direct keepalive fetch
       // is handed to the browser to finish after teardown. fields=meta because
@@ -312,6 +325,9 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       }
       cancelPendingAutosave();
       snapshotRef.current = null;
+      // Two empty files share a version string, so a stale value here would let
+      // one file's hide-flush suppress another's pagehide save.
+      hideFlushedVersionRef.current = null;
       sceneRef.current = type === "diagram" ? scene : null;
       contentRef.current = type === "doc" ? content : "";
       lastSavedVersionRef.current = initialElementsVersion(sceneRef.current);

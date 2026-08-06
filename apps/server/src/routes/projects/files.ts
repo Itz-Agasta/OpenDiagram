@@ -239,7 +239,11 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
       );
 
     if (!current) return c.json({ error: "Not found" }, 404);
-    if (current.type === "doc") nextSpec = markDocSpecUserEdited(current.spec ?? null);
+    // The type after this write, not before it. A request that converts a diagram
+    // to a doc and supplies the body in one go still owes the spec its stamp.
+    if ((metadata.type ?? current.type) === "doc") {
+      nextSpec = markDocSpecUserEdited(current.spec ?? null);
+    }
   }
 
   const result = await writeProjectFile({
@@ -253,10 +257,10 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
   });
 
   if (result.status === "not-found") return c.json({ error: "Not found" }, 404);
-  // Revision moved between the merge above and the write. The client answers by
-  // dropping its baseline and resending the whole scene, so there is nothing useful
-  // to put in the body (shipping the current scene back would cost the 70 kB this
-  // endpoint exists to avoid).
+  // Empty body on purpose: the client answers a 409 by resending the whole scene,
+  // so returning the current one would cost the 70 kB this endpoint exists to
+  // avoid. Note the write already advanced updatedAt even though the scene did not
+  // land, since both are sub-statements of one statement. See project-file-write.
   if (result.status === "stale") return c.json({ error: "Stale scene revision" }, 409);
 
   const row = { ...result.file, sceneRev: result.sceneRev };

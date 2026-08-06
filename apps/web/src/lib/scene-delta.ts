@@ -21,8 +21,8 @@
 
 type Baseline = {
   rev: number;
-  /** Element id to the version the server is known to hold. */
-  versions: Map<string, number>;
+  /** Element id to the stamp of the value the server is known to hold. */
+  stamps: Map<string, string>;
   /** Ids of binary blobs already uploaded, so they are sent exactly once. */
   fileIds: Set<string>;
 };
@@ -44,14 +44,32 @@ function readElements(scene: unknown): unknown[] | null {
   return Array.isArray(elements) ? elements : null;
 }
 
-function versionsOf(elements: readonly unknown[]): Map<string, number> {
-  const versions = new Map<string, number>();
+// Not version alone: it is a local counter, so two devices editing the same
+// element from the same base both reach n+1 for different content, and comparing
+// counters would call the local value unchanged and drop it. versionNonce is
+// random per mutation, which is why upstream reconciliation tie-breaks on it.
+function stampOf(element: unknown): string {
+  const { version, versionNonce } = element as { version?: unknown; versionNonce?: unknown };
+  return `${version ?? 0}:${versionNonce ?? 0}`;
+}
+
+function stampsOf(elements: readonly unknown[]): Map<string, string> {
+  const stamps = new Map<string, string>();
   for (const element of elements) {
     if (!element || typeof element !== "object") continue;
-    const { id, version } = element as { id?: unknown; version?: unknown };
-    if (typeof id === "string") versions.set(id, typeof version === "number" ? version : 0);
+    const { id } = element as { id?: unknown };
+    if (typeof id === "string") stamps.set(id, stampOf(element));
   }
-  return versions;
+  return stamps;
+}
+
+// A scene without fractional indices carries z-order in array position alone, so
+// reordering it produces no changed elements and the server would keep its old
+// order. Only reachable for scenes stored before restoreElements assigned indices.
+function hasFractionalIndices(elements: readonly unknown[]): boolean {
+  return elements.every(
+    (element) => typeof (element as { index?: unknown } | null)?.index === "string",
+  );
 }
 
 function fileIdsOf(scene: unknown): Set<string> {
@@ -75,7 +93,7 @@ export function seedSceneDelta(fileId: string, scene: unknown, sceneRev: unknown
   }
   baselines.set(fileId, {
     rev: sceneRev,
-    versions: versionsOf(elements),
+    stamps: stampsOf(elements),
     fileIds: fileIdsOf(scene),
   });
 }
@@ -98,21 +116,24 @@ export function encodeScene(fileId: string, scene: unknown): EncodedScene {
     }
     baselines.set(fileId, {
       rev: sceneRev,
-      versions: versionsOf(elements),
+      stamps: stampsOf(elements),
       fileIds: fileIdsOf(scene),
     });
   };
 
   // No baseline, or a scene we can't reason about (legacy skeletons payload,
-  // explicit null clearing the column, first save after file opens). Send the
-  // whole thing and let the response establish the baseline.
-  if (baseline === undefined || elements === null) return { wire: scene, commit };
+  // explicit null clearing the column, first save after file opens, or elements
+  // with no fractional index to carry z-order). Send the whole thing and let the
+  // response establish the baseline.
+  if (baseline === undefined || elements === null || !hasFractionalIndices(elements)) {
+    return { wire: scene, commit };
+  }
 
   const changed = elements.filter((element) => {
     if (!element || typeof element !== "object") return true;
-    const { id, version } = element as { id?: unknown; version?: unknown };
+    const { id } = element as { id?: unknown };
     if (typeof id !== "string") return true;
-    return baseline.versions.get(id) !== (typeof version === "number" ? version : 0);
+    return baseline.stamps.get(id) !== stampOf(element);
   });
 
   // Deletions need no separate channel: Excalidraw keeps removed elements in the

@@ -43,7 +43,10 @@ type StoredScene = { elements?: unknown; appState?: unknown; files?: unknown };
 export function isSceneDelta(scene: unknown): boolean {
   if (!scene || typeof scene !== "object") return false;
   const value = scene as { base?: unknown; changed?: unknown };
-  return typeof value.base === "number" && Array.isArray(value.changed);
+  // elements has to be absent, not merely ignored. This runs on a request body,
+  // so a client sending a whole scene that happens to carry base and changed
+  // would otherwise have its elements silently dropped by the merge.
+  return typeof value.base === "number" && Array.isArray(value.changed) && !("elements" in value);
 }
 
 function elementId(element: unknown): string | null {

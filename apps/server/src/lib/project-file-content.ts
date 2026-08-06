@@ -1,4 +1,4 @@
-import { db, eq } from "@OpenDiagram/db";
+import { db, eq, sql } from "@OpenDiagram/db";
 import { projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
 
 /** Either the pooled db or an open transaction; both satisfy these calls. */
@@ -64,12 +64,23 @@ export async function writeProjectFileContent(
     return existing ?? { scene: null, spec: null, content: null, history: [] };
   }
 
+  // Every writer of scene advances scene_rev, not just the PATCH route. Repository
+  // generation replaces whole scenes through here, and a canvas holding the file
+  // open would otherwise keep a baseline the server had silently moved past and
+  // have its next delta merged into the generated scene instead of rejected.
+  const writesScene = columns.scene !== undefined;
+
   const insert = tx
     .insert(projectFileContent)
     // history is NOT NULL with no database default, so the insert half of the
     // upsert has to carry one even when the caller said nothing about history.
-    .values({ fileId, history: [], ...columns })
-    .onConflictDoUpdate({ target: projectFileContent.fileId, set: columns });
+    .values({ fileId, history: [], ...columns, sceneRev: writesScene ? 1 : 0 })
+    .onConflictDoUpdate({
+      target: projectFileContent.fileId,
+      set: writesScene
+        ? { ...columns, sceneRev: sql`${projectFileContent.sceneRev} + 1` }
+        : columns,
+    });
 
   if (!returnContent) {
     await insert;
@@ -111,6 +122,7 @@ export type ProjectFileWithContent = {
   spec: unknown;
   content: unknown;
   history: unknown;
+  sceneRev: number | null;
 };
 
 /** Normalise a left-joined row so a missing content row reads as an empty file. */
