@@ -9,9 +9,15 @@ export { and, desc, eq, exists, inArray, lt, ne, notInArray, or, sql } from "dri
 export function createDb() {
   const pool = new Pool({
     connectionString: env.DATABASE_URL,
-    // `pg` defaults this to 0, which means queue forever: one PATCH sat 66s
-    // against the Supavisor pooler before the socket died.
+    // Both default to off, so a request had no deadline of any kind.
     connectionTimeoutMillis: 10_000,
+    // The one that bounds the 66s PATCH: that hang was a query on an already
+    // checked-out client, which `connectionTimeoutMillis` does not cover. Client
+    // side (`pg/lib/client.js` arms a plain timer), so unlike `statement_timeout`
+    // it still fires when the pooler has dropped the socket and nothing replies.
+    // Ceiling on hangs, not a target: the slowest real statement we have measured
+    // is the 8.7s scene upsert.
+    query_timeout: 30_000,
   });
 
   // Drizzle attaches no 'error' listener of its own, and pg-pool re-emits an idle
