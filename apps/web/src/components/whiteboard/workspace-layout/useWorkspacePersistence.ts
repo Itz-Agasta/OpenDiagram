@@ -4,10 +4,11 @@ import { env } from "@OpenDiagram/env/web";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { writeLocalScene } from "@/lib/local-scene";
 import { queueProjectFilePatch } from "@/lib/project-file-sync";
+import { encodeScene, resetSceneDelta } from "@/lib/scene-delta";
 import { type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import {
-  AUTOSAVE_DELAY_MS,
+  AUTOSAVE_THROTTLE_MS,
   initialElementsVersion,
   sanitizeSceneAppState,
   sceneElementsVersion,
@@ -61,10 +62,11 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
     async (snapshot: SaveSnapshot) => {
       if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
       try {
-        // Through the shared queue, so this coalesces with the `spec` and chat
-        // history writes the agent fires against the same row -- three requests
-        // per diagram turn became one. `"meta"` because everything read back
-        // below (`updatedAt`, and `id/name/type` for `toSidebarFile`) is metadata;
+        // Through the shared queue, so this coalesces with the spec and chat
+        // history writes the agent fires against the same row (three requests per
+        // diagram turn became one), and updateProjectFile below narrows the scene to
+        // a delta. meta because everything read back below (updatedAt, and
+        // id/name/type for toSidebarFile) is metadata;
         // the full form was shipping the scene back down on every autosave.
         const updated = await queueProjectFilePatch(
           projectId,
@@ -82,7 +84,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           setSaveStatus("saved");
         }
         // Clear the local dirty flag only once the server has taken the write,
-        // and stamp the server's own `updatedAt` so the next open compares the
+        // and stamp the server's own updatedAt so the next open compares the
         // two copies on the same clock rather than on this device's.
         void writeLocalScene({
           fileId: snapshot.file.id,
@@ -117,21 +119,33 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   const snapshotRef = useRef<SaveSnapshot | null>(null);
   const inFlightRef = useRef(false);
 
+  // Nulling the handle is the half that matters. scheduleAutosave reads a non-null
+  // handle as "already running" and declines to arm another, so a cancelled timer
+  // left set wedges autosave for the session. Harmless under the old debounce.
+  const cancelPendingAutosave = useCallback(() => {
+    if (!autosaveTimer.current) return;
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = null;
+  }, []);
+
   // Single-flight. Autosave used to fire on a bare timer, so drawing without
-  // pausing put overlapping PATCHes of the same file on the wire with no
-  // ordering guarantee beyond whichever response happened to land last. Now a
-  // save in progress simply leaves the newest snapshot queued and picks it up
-  // on completion, which also collapses a burst of edits into one request.
+  // pausing put overlapping PATCHes on the wire with no ordering guarantee. Now a
+  // save in progress leaves the newest snapshot queued and picks it up on
+  // completion, collapsing a burst of edits into one request.
   //
   // Drains in a loop rather than calling itself back through a ref. The ref
-  // version had to be reassigned on every render to stay current, and a write
-  // to `ref.current` during render can leak out of work React discards.
+  // version had to be reassigned on every render to stay current, and a write to
+  // ref.current during render can leak out of work React discards.
   const runAutosave = useCallback(async () => {
     if (inFlightRef.current) return;
 
     inFlightRef.current = true;
     try {
-      while (snapshotRef.current) {
+      // Stops once an interval is armed, or the ceiling breaks: an edit arriving
+      // mid-request arms a timer and queues a snapshot, and draining it here would
+      // send a second PATCH seconds after the first. Still drains when none is
+      // armed, so nothing is stranded.
+      while (snapshotRef.current && !autosaveTimer.current) {
         const snapshot = snapshotRef.current;
         snapshotRef.current = null;
         await saveSnapshot(snapshot);
@@ -144,14 +158,15 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   const scheduleAutosave = useCallback(() => {
     dirtyRef.current = true;
     setSaveStatus("saving");
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     const snapshot = snapshotCurrent();
+    // Assigned before either guard below returns, so whichever save eventually runs
+    // sends the newest state rather than the state that armed the timer.
     snapshotRef.current = snapshot;
 
     // The durable write happens here, not in the request. IndexedDB takes it in
-    // about a millisecond, so the edit survives a refresh, a crash or an offline
-    // stretch the moment it is made; the PATCH below is replication, not saving.
-    // That is what lets the debounce grow without the user risking anything.
+    // about a millisecond, so the edit survives a refresh, a crash, or an offline
+    // stretch the moment it is made. The PATCH below is replication, not saving.
+    // That is what lets the interval grow without the user risking anything.
     if (snapshot) {
       void writeLocalScene({
         fileId: snapshot.file.id,
@@ -164,7 +179,23 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       });
     }
 
-    autosaveTimer.current = setTimeout(() => void runAutosave(), AUTOSAVE_DELAY_MS);
+    // Excalidraw's LocalData.isSavePaused: a hidden tab replicates nothing.
+    // The local write above already happened and the snapshot stays queued, so the
+    // visibilitychange flush that fired alongside this picks it up.
+    if (document.hidden) return;
+
+    // Throttle, not debounce. Re-arming the timer on every change is what made a
+    // 2500 ms delay fire on every pause in drawing instead of bounding the rate.
+    // Bailing while one is pending caps this at one PATCH per interval no matter
+    // how the edits arrive. Same shape as tldraw's TLLocalSyncClient.schedulePersist.
+    if (autosaveTimer.current) return;
+    autosaveTimer.current = setTimeout(() => {
+      // Cleared before the run, not after: runAutosave awaits a request, and leaving
+      // the handle set would swallow every edit made while it was in flight instead
+      // of arming the next interval.
+      autosaveTimer.current = null;
+      void runAutosave();
+    }, AUTOSAVE_THROTTLE_MS);
   }, [projectId, runAutosave, setSaveStatus, snapshotCurrent]);
 
   const handleSceneChange = useCallback(
@@ -208,16 +239,44 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
     [currentFileIdRef, draftRef, scheduleAutosave, setDocContent, setDraft],
   );
 
+  // The only signal that fires when a tab is closed from the mobile tab switcher,
+  // and the 15 s interval makes the window it covers six times wider than before.
+  // Runs the ordinary save rather than a beacon: a tab switch leaves the page
+  // alive, so the response lands and the delta baseline stays in step.
+  useEffect(() => {
+    function flushOnHide() {
+      if (document.visibilityState !== "hidden") return;
+      if (!isSignedInRef.current || !dirtyRef.current) return;
+      cancelPendingAutosave();
+      snapshotRef.current ??= snapshotCurrent();
+      void runAutosave();
+    }
+    document.addEventListener("visibilitychange", flushOnHide);
+    return () => document.removeEventListener("visibilitychange", flushOnHide);
+  }, [cancelPendingAutosave, runAutosave, snapshotCurrent]);
+
+  // Outside the queue and keepalive, because pagehide may not survive another
+  // microtask. Duplicates the hidden flush when both fire, on purpose: dirtyRef is
+  // the only honest "it landed" signal, and gating on anything cheaper drops saves
+  // that were merely queued behind an in-flight request, or that failed.
   useEffect(() => {
     function flush() {
       const file = activeFileRef.current;
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
-      // Deliberately not through the queue: this fires on `pagehide`, where the
-      // page may not live long enough to run another microtask. A direct
-      // `keepalive` fetch is handed to the browser to finish after teardown.
-      // `fields=meta` because nothing is left alive to read the response.
+      // A delta that names no base, the only shape this path can use. A whole scene
+      // does not fit: keepalive bodies share a 64 KiB quota and our scenes average
+      // 70 kB, so the fetch is rejected before it leaves, and `void` swallows it.
+      // A delta carrying this client's revision would 409 whenever an autosave
+      // commits first, with nothing alive to read the response or retry; naming no
+      // base merges onto whatever the server holds instead.
+      // https://fetch.spec.whatwg.org/#http-network-or-cache-fetch
+      const scene =
+        snapshot.file.type === "diagram"
+          ? encodeScene(snapshot.file.id, snapshot.scene, { withBase: false }).wire
+          : undefined;
+      resetSceneDelta(snapshot.file.id);
       void fetch(
         `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}?fields=meta`,
         {
@@ -226,7 +285,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           keepalive: true,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
+            scene,
             content: snapshot.file.type === "doc" ? snapshot.content : undefined,
           }),
         },
@@ -253,7 +312,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         const snapshot = snapshotRef.current ?? snapshotCurrent();
         if (snapshot) void saveSnapshot(snapshot);
       }
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      cancelPendingAutosave();
       snapshotRef.current = null;
       sceneRef.current = type === "diagram" ? scene : null;
       contentRef.current = type === "doc" ? content : "";
@@ -265,7 +324,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   );
 
   const clearAutosave = useCallback(() => {
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    cancelPendingAutosave();
     snapshotRef.current = null;
   }, []);
   const invalidateFileAutosave = useCallback((fileId: string) => {

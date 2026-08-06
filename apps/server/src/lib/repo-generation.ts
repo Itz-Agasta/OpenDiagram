@@ -552,19 +552,22 @@ async function runRepoGenerationJob(
       });
 
       try {
-        // The content write and the parent touch go together: `updatedAt` lives
-        // on `project_file`, so now that the generated output lands in a
-        // different table, writing it alone would leave the file reading as
-        // untouched in the dashboard and the file list.
+        // The content write and the parent touch go together: updatedAt lives on
+        // project_file, so writing the generated output alone would leave the file
+        // reading as untouched in the dashboard and the file list.
+        //
+        // project_file first, and the order is load-bearing: writeProjectFile takes
+        // the same two row locks in that order, so a canvas autosave landing on a
+        // file this job is generating into would deadlock if the two disagreed.
         await db.transaction(async (tx) => {
-          await writeProjectFileContent(tx, fileId, {
-            content,
-            spec: createGeneratedSpec(projectRow, item, "complete"),
-          });
           await tx
             .update(projectFile)
             .set({ updatedAt: new Date() })
             .where(eq(projectFile.id, fileId));
+          await writeProjectFileContent(tx, fileId, {
+            content,
+            spec: createGeneratedSpec(projectRow, item, "complete"),
+          });
         });
       } catch (dbError) {
         logJob(
@@ -630,15 +633,17 @@ async function runRepoGenerationJob(
       }
 
       try {
+        // project_file first, same lock order as writeProjectFile. See the note
+        // on the doc write above.
         await db.transaction(async (tx) => {
-          await writeProjectFileContent(tx, fileId, {
-            scene: diagram.scene,
-            spec: createGeneratedSpec(projectRow, item, "complete", diagram.spec),
-          });
           await tx
             .update(projectFile)
             .set({ updatedAt: new Date() })
             .where(eq(projectFile.id, fileId));
+          await writeProjectFileContent(tx, fileId, {
+            scene: diagram.scene,
+            spec: createGeneratedSpec(projectRow, item, "complete", diagram.spec),
+          });
         });
       } catch (dbError) {
         logJob(

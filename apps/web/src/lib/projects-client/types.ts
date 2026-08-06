@@ -34,6 +34,8 @@ export type SavedProjectFile = {
   spec?: RepositoryDocProvenance | unknown;
   content?: unknown;
   history?: unknown[];
+  /** Revision of the stored scene. Only what `lib/scene-delta.ts` reads it for. */
+  sceneRev?: number | null;
   createdAt: string;
   updatedAt: string;
 };

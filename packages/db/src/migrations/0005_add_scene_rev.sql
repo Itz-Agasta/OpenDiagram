@@ -1,0 +1,1 @@
+ALTER TABLE "project_file_content" ADD COLUMN "scene_rev" integer DEFAULT 0 NOT NULL;
