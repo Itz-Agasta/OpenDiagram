@@ -4,7 +4,7 @@ import { env } from "@OpenDiagram/env/web";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { writeLocalScene } from "@/lib/local-scene";
 import { queueProjectFilePatch } from "@/lib/project-file-sync";
-import { resetSceneDelta } from "@/lib/scene-delta";
+import { encodeScene, resetSceneDelta } from "@/lib/scene-delta";
 import { type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import {
@@ -257,17 +257,22 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
   // Outside the queue and keepalive, because pagehide may not survive another
   // microtask. Duplicates the hidden flush when both fire, on purpose: dirtyRef is
-  // the only honest "it landed" signal, and suppressing on anything cheaper drops
-  // saves that were merely queued or that failed.
+  // the only honest "it landed" signal, and gating on anything cheaper drops saves
+  // that were merely queued behind an in-flight request, or that failed.
   useEffect(() => {
     function flush() {
       const file = activeFileRef.current;
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
-      // Whole scene, and the baseline goes first: nothing here reads the sceneRev
-      // back, so a page restored from bfcache would otherwise delta against a
-      // revision the server has moved past.
+      // Encoded before the baseline is dropped, so a navigation that also ran the
+      // hidden flush duplicates a ~2 kB delta rather than a 70 kB scene. Both carry
+      // the same base, so whichever lands second is a 409 that writes nothing.
+      // The baseline goes after, because nothing here reads the new sceneRev back.
+      const scene =
+        snapshot.file.type === "diagram"
+          ? encodeScene(snapshot.file.id, snapshot.scene).wire
+          : undefined;
       resetSceneDelta(snapshot.file.id);
       void fetch(
         `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/files/${snapshot.file.id}?fields=meta`,
@@ -277,7 +282,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           keepalive: true,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            scene: snapshot.file.type === "diagram" ? snapshot.scene : undefined,
+            scene,
             content: snapshot.file.type === "doc" ? snapshot.content : undefined,
           }),
         },
