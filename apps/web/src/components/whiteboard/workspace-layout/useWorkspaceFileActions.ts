@@ -83,8 +83,8 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     try {
       // Through the shared queue, like the autosave it replaces: direct, it put a
       // second scene PATCH on the wire against a row an autosave was already
-      // writing -- pressing Save inside the 2.5 s debounce. `clearAutosave` above
-      // stops a NEW one being scheduled, it does not recall a queued one.
+      // writing -- pressing Save inside the autosave interval. `clearAutosave`
+      // above stops a NEW one being scheduled, it does not recall a queued one.
       //
       // "full" because the response is read back below to re-seed a doc editor.
       const updated = await queueProjectFilePatch(
