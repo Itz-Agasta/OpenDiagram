@@ -79,7 +79,11 @@ app.use(
   evlog({
     drain: (ctx) => {
       fsDrain(ctx);
-      if (ctx.event.level === "warn" || ctx.event.level === "error") {
+      // On status too, not just level: a handler that answers 500 without throwing
+      // leaves the event at `info`, so the level gate alone never saw those.
+      const status = ctx.event.status;
+      const failed = typeof status === "number" && status >= 500;
+      if (ctx.event.level === "warn" || ctx.event.level === "error" || failed) {
         // Defer into the chain so a synchronous throw is caught too, rather
         // than escaping as an uncaught error.
         void Promise.resolve()
