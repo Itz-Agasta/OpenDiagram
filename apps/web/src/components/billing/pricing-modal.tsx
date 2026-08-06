@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, ArrowLeft } from "lucide-react";
 import { openBillingPortal, startCheckout, type BillingState } from "@/lib/billing-client";
@@ -37,6 +37,14 @@ export function PricingModal({
   const [pending, setPending] = useState<"checkout" | "portal" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     setIsOpen(open);
   }, [open]);
@@ -52,13 +60,18 @@ export function PricingModal({
     setActionError(null);
     setPending(kind);
     try {
-      window.location.href =
+      const url =
         kind === "checkout"
           ? await startCheckout(discountCode.trim() || undefined)
           : await openBillingPortal();
+      if (mountedRef.current && isOpen) {
+        window.location.href = url;
+      }
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Something went wrong.");
-      setPending(null);
+      if (mountedRef.current) {
+        setActionError(error instanceof Error ? error.message : "Something went wrong.");
+        setPending(null);
+      }
     }
   }
 
@@ -78,6 +91,7 @@ export function PricingModal({
     <Dialog
       open={isOpen}
       onOpenChange={(openVal) => {
+        if (pending !== null) return;
         setIsOpen(openVal);
         if (!openVal) {
           handleClose();
@@ -86,7 +100,17 @@ export function PricingModal({
     >
       <DialogContent
         className="max-w-3xl p-6 md:p-8 max-h-[90vh] overflow-y-auto"
-        showCloseButton={true}
+        showCloseButton={pending === null}
+        onPointerDownOutside={(e) => {
+          if (pending !== null) {
+            e.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          if (pending !== null) {
+            e.preventDefault();
+          }
+        }}
       >
         <DialogHeader className="mb-4">
           <DialogTitle className="text-2xl font-semibold text-od-ink">{title}</DialogTitle>
@@ -149,6 +173,7 @@ export function PricingModal({
                     aria-label="Promo code"
                     autoComplete="off"
                     spellCheck={false}
+                    disabled={pending !== null}
                   />
                   <Button
                     className="w-full cursor-pointer"
@@ -177,6 +202,7 @@ export function PricingModal({
             variant="ghost"
             onClick={handleClose}
             className="sm:ml-auto cursor-pointer text-xs"
+            disabled={pending !== null}
           >
             <ArrowLeft className="mr-2 size-3" />
             Go Back

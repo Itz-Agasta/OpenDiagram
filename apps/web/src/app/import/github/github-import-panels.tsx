@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { GithubLogoIcon } from "@phosphor-icons/react";
-import { Check, GitBranch, Loader2, Lock } from "lucide-react";
+import { Check, GitBranch, Loader2, Lock, AlertCircle } from "lucide-react";
 import type { ImportedGitHubProject } from "@/lib/github-import-client";
 
 const progressSteps = [
@@ -149,6 +149,36 @@ export function DonePanel({ project }: { project: ImportedGitHubProject }) {
       >
         Open workspace
       </Link>
+    </div>
+  );
+}
+
+export function BillingErrorPanel({
+  onRetry,
+  error,
+}: {
+  onRetry: () => void;
+  error?: string | null;
+}) {
+  return (
+    <div className="flex w-full max-w-[480px] flex-col items-center gap-5 rounded-[24px] border border-[#d9d9d9] bg-white p-8 text-center">
+      <div className="grid h-14 w-14 place-items-center rounded-full bg-red-50 text-red-600 border border-red-100">
+        <AlertCircle className="h-6 w-6" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-[30px] font-normal -tracking-[0.04em]">Billing check failed</h2>
+        <p className="text-[14px] leading-[1.7] text-od-ink-muted">
+          {error ||
+            "We couldn't verify your subscription status. Please check your connection and try again."}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-full bg-od-ink px-6 py-3 text-[14px] text-od-on-dark cursor-pointer transition hover:bg-[#2a2a2a] active:translate-y-px"
+      >
+        Retry check
+      </button>
     </div>
   );
 }
