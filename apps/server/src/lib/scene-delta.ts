@@ -22,11 +22,12 @@ import { z } from "zod";
 /**
  * A delta is told from a full scene by these two fields, so both are required.
  *
- * A null base means merge unconditionally. Only the unload beacon sends that: it
- * is the one write with nothing alive to read a 409 or retry it, and a keepalive
- * body cannot carry a whole scene instead (64 KiB quota, our scenes average 70).
- * Merging is still the safer half of that trade, since it keeps concurrent
- * changes this client never saw where a full-scene overwrite would drop them.
+ * A null base means "merge onto whatever revision the row holds now". Only the
+ * unload beacon sends that: it is the one write with nothing alive to read a 409
+ * or retry it, and a keepalive body cannot carry a whole scene instead (64 KiB
+ * quota, our scenes average 70). It waives the client's revision check, not the
+ * write's own guard, so a save landing between the merge and the write is still
+ * rejected rather than silently overwritten.
  */
 export const sceneDeltaSchema = z.object({
   base: z.number().int().nonnegative().nullable(),

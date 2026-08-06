@@ -265,15 +265,16 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       if (!isSignedInRef.current || !dirtyRef.current || !file) return;
       const snapshot = snapshotCurrent();
       if (!snapshot) return;
-      // Unguarded delta, which is the only shape this path can use. A whole scene
+      // A delta that names no base, the only shape this path can use. A whole scene
       // does not fit: keepalive bodies share a 64 KiB quota and our scenes average
       // 70 kB, so the fetch is rejected before it leaves, and `void` swallows it.
-      // A guarded delta would 409 whenever an autosave commits first, with nothing
-      // alive to read the response or retry. So: small enough to send, and
-      // unconditional. https://fetch.spec.whatwg.org/#http-network-or-cache-fetch
+      // A delta carrying this client's revision would 409 whenever an autosave
+      // commits first, with nothing alive to read the response or retry; naming no
+      // base merges onto whatever the server holds instead.
+      // https://fetch.spec.whatwg.org/#http-network-or-cache-fetch
       const scene =
         snapshot.file.type === "diagram"
-          ? encodeScene(snapshot.file.id, snapshot.scene, { guarded: false }).wire
+          ? encodeScene(snapshot.file.id, snapshot.scene, { withBase: false }).wire
           : undefined;
       resetSceneDelta(snapshot.file.id);
       void fetch(

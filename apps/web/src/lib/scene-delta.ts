@@ -106,7 +106,7 @@ export function resetSceneDelta(fileId: string): void {
 export function encodeScene(
   fileId: string,
   scene: unknown,
-  { guarded = true }: { guarded?: boolean } = {},
+  { withBase = true }: { withBase?: boolean } = {},
 ): EncodedScene {
   const elements = readElements(scene);
   const baseline = baselines.get(fileId);
@@ -155,9 +155,10 @@ export function encodeScene(
 
   return {
     wire: {
-      // null asks the server to merge without checking the revision. Only the
-      // unload beacon does that, because a 409 there has no reader and no retry.
-      base: guarded ? baseline.rev : null,
+      // null asks the server to merge onto its current revision rather than the
+      // one held here. Only the unload beacon does that, because a 409 there has
+      // no reader and no retry. The write stays guarded either way.
+      base: withBase ? baseline.rev : null,
       changed,
       // ~1 kB of viewport and theme, replaced wholesale by the server. Not worth
       // diffing.
