@@ -90,10 +90,17 @@ function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton 
         x: skeleton.x,
         y: skeleton.y,
         points: skeleton.points,
-        // Id-based bindings snap the visible endpoints to the bound cards'
-        // edges; interior bend points from the layout engine are preserved.
-        start: skeleton.startId ? { id: skeleton.startId } : undefined,
-        end: skeleton.endId ? { id: skeleton.endId } : undefined,
+        // Deliberately UNBOUND. Excalidraw treats a bound arrow's `points` as a
+        // cache: dragging a bound node moves the endpoints but pins the interior
+        // bends, so a measured 3-segment orthogonal route came back as
+        // [[0,0],[412,30],[412,283],[688,393]] -- 2 of 3 segments diagonal.
+        // Unbound, ELK's route is what stays on the canvas.
+        // Cost: arrows no longer follow a dragged node. A static correct route
+        // beats a corrupted one; revisit when we own the arrow layer and can
+        // re-route on drag ourselves.
+        // NOT the fix for arrowheads appearing to stop short of an icon -- that
+        // is the node footprint being label-width while the icon is narrower,
+        // and unbinding measurably did not change it (tip-to-footprint gap 0).
         strokeColor: skeleton.strokeColor,
         strokeStyle: skeleton.strokeStyle,
         strokeWidth: skeleton.strokeWidth,
