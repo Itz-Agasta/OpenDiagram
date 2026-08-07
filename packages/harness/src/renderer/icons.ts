@@ -42,6 +42,13 @@ export function cloneIconInstance(
   // extent. 126 of 302 registry icons disagree; centring the wrong box left
   // bare-stroke icons visibly off-centre while icons with a full-bleed
   // background rect masked it.
+  //
+  // We deliberately do NOT rotate points by `angle` first. It looks like the
+  // same class of bug (337 registry elements carry a non-zero angle), but a
+  // linear element rotates about its own points-bbox centre, so the rotated
+  // extent barely moves: measured across all 302 icons, 2 shift by more than a
+  // pixel, worst 1.7px in an 88px box.
+  // https://github.com/excalidraw/excalidraw/blob/1acf66edabc2ac5bbd4aed0714aed7dca7cc2aab/packages/element/src/linearElementEditor.ts#L2026
   const extents = raw.map((el) => {
     if (Array.isArray(el.points) && el.points.length > 0) {
       const xs = el.points.map(([px]) => px);

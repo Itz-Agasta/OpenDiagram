@@ -149,6 +149,13 @@ export function createDrawDiagramTool(
           elementCount: skeletons.length + rawElements.length,
           // The spec itself, so a bad diagram can be replayed into the harness
           // test corpus. Counts alone are not reproducible.
+          //
+          // FIXME(launch): logged on EVERY draw, good scores included, because
+          // the corpus needs clean layouts as regression floors as much as it
+          // needs broken ones. That is a fair trade while the only user is us
+          // and evlog writes to our own disk. Before opening signups, gate it --
+          // this is a user's architecture, and a wide event is not the place to
+          // keep it once "user" stops meaning "me".
           spec: JSON.stringify(spec),
           ...(report && {
             score: report.score,

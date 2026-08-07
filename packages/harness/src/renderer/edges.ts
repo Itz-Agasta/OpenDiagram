@@ -93,8 +93,11 @@ export function renderEdge(
     groupId,
     x: start.x,
     y: start.y,
-    // ELK's orthogonal route, bends included — labels were measured against
-    // this exact path, so it must be drawn verbatim.
+    // ELK's route, never re-routed: labels were measured against this path.
+    // `roundCorners` is the one permitted edit and only ever cuts a corner
+    // inward by CORNER_RADIUS, leaving every straight run untouched. Label
+    // chips sit on straight runs (0 of 43 corpus labels land within a radius of
+    // a bend), so the chip still masks the line it was measured against.
     points: [[0, 0], ...rest.map((p): [number, number] => [p.x - start.x, p.y - start.y])],
     startId: edge.from,
     endId: edge.to,
