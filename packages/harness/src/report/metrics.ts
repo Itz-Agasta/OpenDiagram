@@ -140,7 +140,12 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     }
   }
 
-  const labelled = routes.filter((r): r is [string, EdgeRoute & { label: Box }] => !!r[1].label);
+  // A box with no text draws nothing, so it can neither collide nor widen the
+  // diagram. Matches `renderEdge`, which needs BOTH before it emits a chip.
+  const labelled = routes.filter((r): r is [string, EdgeRoute & { label: Box }] => {
+    const edge = edgeById.get(r[0]);
+    return !!r[1].label && !!edge && edgeLabelText(edge) !== undefined;
+  });
   const labelCollision: string[] = [];
   for (let i = 0; i < labelled.length; i++) {
     const [id, route] = labelled[i]!;
@@ -201,10 +206,8 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     ...Object.values(spec.positions),
     ...Object.values(spec.groupBoxes),
     ...Object.values(spec.zoneBoxes),
-    ...routes.flatMap(([, route]) => [
-      ...route.points.map((p) => ({ x: p.x, y: p.y, width: 0, height: 0 })),
-      ...(route.label ? [route.label] : []),
-    ]),
+    ...routes.flatMap(([, route]) => route.points.map((p) => ({ ...p, width: 0, height: 0 }))),
+    ...labelled.map(([, route]) => route.label),
   ];
   let aspect = 1;
   if (boxes.length > 0) {
