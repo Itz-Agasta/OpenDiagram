@@ -148,11 +148,12 @@ export function createDrawDiagramTool(
           nodeCount: spec.nodes.length,
           edgeCount,
           elementCount: skeletons.length + rawElements.length,
-          // Dev only. The spec is how a bad diagram gets replayed into the
-          // harness test corpus, and counts alone are not reproducible, but
-          // wide events reach Sentry, and this is the user's architecture.
-          // Harvest corpus fixtures locally, never off a production request.
-          ...(env.NODE_ENV === "development" && { spec: JSON.stringify(spec) }),
+          // Off unless LOG_DIAGRAM_SPEC is set. The spec is how a bad diagram
+          // gets replayed into the harness corpus and counts alone are not
+          // reproducible, but wide events reach Sentry and this is the user's
+          // architecture. Turn it on locally to harvest fixtures, never in a
+          // deployment serving anyone else.
+          ...(env.LOG_DIAGRAM_SPEC && { spec: JSON.stringify(spec) }),
           ...(report && {
             score: report.score,
             metrics: report.metrics,
