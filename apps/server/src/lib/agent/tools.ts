@@ -10,6 +10,7 @@ import {
   type RenderSkeleton,
   type Theme,
 } from "@OpenDiagram/harness";
+import { env } from "@OpenDiagram/env/server";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
@@ -147,16 +148,11 @@ export function createDrawDiagramTool(
           nodeCount: spec.nodes.length,
           edgeCount,
           elementCount: skeletons.length + rawElements.length,
-          // The spec itself, so a bad diagram can be replayed into the harness
-          // test corpus. Counts alone are not reproducible.
-          //
-          // FIXME(launch): logged on EVERY draw, good scores included, because
-          // the corpus needs clean layouts as regression floors as much as it
-          // needs broken ones. That is a fair trade while the only user is us
-          // and evlog writes to our own disk. Before opening signups, gate it --
-          // this is a user's architecture, and a wide event is not the place to
-          // keep it once "user" stops meaning "me".
-          spec: JSON.stringify(spec),
+          // Dev only. The spec is how a bad diagram gets replayed into the
+          // harness test corpus, and counts alone are not reproducible -- but
+          // wide events reach Sentry, and this is the user's architecture.
+          // Harvest corpus fixtures locally, never off a production request.
+          ...(env.NODE_ENV === "development" && { spec: JSON.stringify(spec) }),
           ...(report && {
             score: report.score,
             metrics: report.metrics,
