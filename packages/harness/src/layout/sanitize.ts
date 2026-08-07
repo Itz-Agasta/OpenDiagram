@@ -114,18 +114,20 @@ function dedupeCorridorLabels(edges: Sanitized["edges"], warnings: string[]): vo
   for (const edge of edges) {
     const text = [edge.label, edge.protocol].filter(Boolean).join(" · ");
     if (!text) continue;
-    for (const key of [`from:${edge.from}|${text}`, `to:${edge.to}|${text}`]) {
-      const first = seen.get(key);
-      if (first === undefined) {
-        seen.set(key, edge.id);
-      } else if (first !== edge.id) {
-        edge.label = undefined;
-        edge.protocol = undefined;
-        warnings.push(
-          `unlabelled ${edge.id} — "${text}" already labels ${first} in the same corridor`,
-        );
-        break;
-      }
+    // Decide against BOTH corridors before claiming either. Registering as we
+    // go let an edge become the representative of its source corridor and then
+    // lose its own label to its target corridor, leaving the source corridor
+    // with no labelled edge at all.
+    const keys = [`from:${edge.from}|${text}`, `to:${edge.to}|${text}`];
+    const first = keys.map((key) => seen.get(key)).find((id) => id !== undefined);
+    if (first !== undefined) {
+      edge.label = undefined;
+      edge.protocol = undefined;
+      warnings.push(
+        `unlabelled ${edge.id} — "${text}" already labels ${first} in the same corridor`,
+      );
+      continue;
     }
+    for (const key of keys) seen.set(key, edge.id);
   }
 }

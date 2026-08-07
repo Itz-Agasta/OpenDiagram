@@ -153,6 +153,29 @@ describe("two-phase fold layout", () => {
   });
 });
 
+test("corridor dedupe leaves every corridor a labelled edge", async () => {
+  // b loses its label to a (shared target d), so it must not also be holding
+  // the representative slot for its own source corridor -- otherwise c is
+  // stripped too and the b/c fan ends up with no label at all.
+  const spec: DiagramSpec = {
+    type: "system-design",
+    title: "Shared Corridors",
+    nodes: ["src", "hub", "d", "e"].map((id) => ({
+      id,
+      label: id.toUpperCase(),
+      category: "service" as const,
+    })),
+    edges: [
+      { id: "a", from: "src", to: "d", label: "HTTPS" },
+      { id: "b", from: "hub", to: "d", label: "HTTPS" },
+      { id: "c", from: "hub", to: "e", label: "HTTPS" },
+    ],
+  };
+  const { edges } = await layoutDiagram(spec, classicTheme);
+  const labelled = edges.filter((e) => e.label).map((e) => e.id);
+  expect(labelled).toEqual(["a", "c"]);
+});
+
 test("sketch theme: icon-less node renders label INSIDE its box", async () => {
   const spec: DiagramSpec = {
     type: "system-design",
