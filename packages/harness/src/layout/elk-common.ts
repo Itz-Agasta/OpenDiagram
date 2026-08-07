@@ -28,8 +28,9 @@ export const BASE_OPTIONS: Record<string, string> = {
   "elk.spacing.edgeLabel": "8",
   // Keep bend points only where an edge actually turns. `true` does the
   // opposite of what the name suggests -- it ADDS a bend per long-edge dummy
-  // and at every hierarchy crossing. (NETWORK_SIMPLEX node placement was tried
-  // here and made routing WORSE -- see future.md.)
+  // and at every hierarchy crossing. (Measured negative result:
+  // `elk.layered.nodePlacement.strategy: NETWORK_SIMPLEX` made routing worse
+  // here. Don't re-add.)
   // https://eclipse.dev/elk/reference/options/org-eclipse-elk-layered-unnecessaryBendpoints.html
   "elk.layered.unnecessaryBendpoints": "false",
   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
