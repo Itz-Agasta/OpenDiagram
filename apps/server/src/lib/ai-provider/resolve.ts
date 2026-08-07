@@ -25,20 +25,15 @@ export type ResolvedModel = {
 };
 
 /**
- * One request's override of the user's saved default.
- *
- * `providerId` is the `user_ai_provider` ROW id that `GET /api/ai-settings/providers`
- * hands the client, NOT the provider kind ("openai"). A user holds one row per kind
- * and the row is what carries the key, so the row id is the only thing that
- * identifies a runnable choice.
+ * One request's override of the user's saved default. `providerId` is the
+ * `user_ai_provider` ROW id, NOT the provider kind ("openai").
  */
 export type ModelSelection = { providerId?: string | null; modelId?: string | null };
 
 /**
- * A selection the caller cannot run. Separate from a decrypt failure because this
- * one is the client's fault and is worth a 400. Degrading to the platform model
- * instead would silently answer on a model the user did not pick and bill it to
- * their creation quota.
+ * A selection the caller cannot run, which routes turn into a 400. Degrading to
+ * the platform model instead would answer on a model the user did not pick and
+ * bill it to their creation quota.
  */
 export class ModelSelectionError extends Error {}
 
@@ -53,8 +48,9 @@ async function resolveUserModel(
     .where(
       and(
         eq(userAiProvider.userId, userId),
-        // Scoping every lookup by userId is what makes an unguessed row id
-        // someone else's problem: a stolen id resolves to no row, not their key.
+        // Never drop the userId predicate and match on the row id alone, even
+        // though it is the primary key: that is what stops one user naming
+        // another user's row and running on their key.
         providerId ? eq(userAiProvider.id, providerId) : eq(userAiProvider.isDefault, true),
       ),
     )

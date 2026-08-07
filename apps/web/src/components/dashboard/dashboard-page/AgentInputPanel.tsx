@@ -97,8 +97,8 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
     return [...groups.entries()];
   }, [providerOptions]);
 
-  // The pick travels to the workspace in the URL and from there into each chat
-  // request, so choosing a model writes nothing to the database.
+  // No write: the pick reaches the workspace through the URL, and the workspace
+  // sends it on every chat request.
   function handleProviderSelect(option: ProviderModelOption) {
     setProviderId(option.id);
     setProviderDialogOpen(false);

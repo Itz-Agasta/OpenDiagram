@@ -33,9 +33,8 @@ const chatRequestSchema = z.object({
     .max(MAX_PROMPT_DIAGRAMS)
     .optional(),
   theme: z.enum(["classic", "sketch"]).optional(),
-  // Run this one request on a specific BYOK row + model instead of the caller's
-  // saved default. Both are checked against the caller's own rows in
-  // `resolveModel`; matching the catalog is not enough to make them runnable.
+  // Overrides the caller's saved default for this request only. Validated in
+  // `resolveModel` against their own rows, not here.
   providerId: z.string().min(1).max(64).optional(),
   modelId: z.string().min(1).max(120).optional(),
 });
