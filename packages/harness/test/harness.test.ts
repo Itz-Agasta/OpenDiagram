@@ -9,6 +9,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  buildReport,
   classicTheme,
   layoutDiagram,
   renderSequenceDiagram,
@@ -353,4 +354,91 @@ test("sketch theme: icon-less node renders label INSIDE its box", async () => {
   if (box?.kind !== "container" || label?.kind !== "text") throw new Error("missing api node");
   expect(label.y).toBeGreaterThan(box.y);
   expect(label.y).toBeLessThan(box.y + box.height);
+});
+
+describe("report", () => {
+  // A shape the generator produces constantly: one group of backends plus a
+  // few loose front-door nodes. Single-run ELK draws it as a wide ribbon, so
+  // it exercises EXTREME_ASPECT while staying clean on the hard defects.
+  const blog: DiagramSpec = {
+    type: "system-design",
+    title: "Blogging Application Architecture",
+    nodes: [
+      { id: "fe", label: "Web/Mobile Frontend", category: "user" },
+      { id: "gw", label: "API Gateway", category: "gateway" },
+      { id: "cdn", label: "CDN", category: "gateway" },
+      { id: "user", label: "User Service", category: "service" },
+      { id: "post", label: "Post Service", category: "service" },
+      { id: "comment", label: "Comment Service", category: "service" },
+      { id: "es", label: "Elasticsearch", sublabel: "Search Service", category: "service" },
+      { id: "pg", label: "PostgreSQL DB", category: "database" },
+      { id: "redis", label: "Redis Cache", category: "cache" },
+    ],
+    edges: [
+      { from: "fe", to: "gw", label: "API Requests · HTTPS" },
+      { from: "fe", to: "cdn", label: "Serve Assets · HTTPS" },
+      { from: "gw", to: "es", label: "Search Queries" },
+      { from: "gw", to: "user", label: "Auth/User API" },
+      { from: "gw", to: "post", label: "Post API" },
+      { from: "gw", to: "comment", label: "Comment API" },
+      { from: "user", to: "pg", label: "Read/Write Users" },
+      { from: "post", to: "es", label: "Index Posts", kind: "async" },
+      { from: "post", to: "pg", label: "Read/Write Posts" },
+      { from: "post", to: "redis", label: "Cache Posts" },
+      { from: "comment", to: "pg", label: "Read/Write Comments" },
+      { from: "comment", to: "redis", label: "Cache Comments" },
+    ],
+    groups: [
+      {
+        id: "backend",
+        label: "Backend Services",
+        contains: ["user", "post", "comment", "es", "pg", "redis"],
+        style: "cluster",
+      },
+    ],
+  };
+
+  test("every edge is routed and no node overlaps another", async () => {
+    const report = buildReport(await layoutDiagram(blog, classicTheme));
+    expect(report.metrics.unrouted).toBe(0);
+    expect(report.metrics.nodeOverlaps).toBe(0);
+    expect(report.diagnostics.filter((d) => d.code === "UNROUTED_EDGE")).toHaveLength(0);
+  });
+
+  test("diagnostics name real spec ids, never coordinates", async () => {
+    const report = buildReport(await layoutDiagram(blog, classicTheme));
+    const known = new Set([
+      ...blog.nodes.map((n) => n.id),
+      ...Object.keys((await layoutDiagram(blog, classicTheme)).edgeRoutes),
+    ]);
+    for (const d of report.diagnostics) {
+      for (const subject of d.subjects) expect(known.has(subject)).toBe(true);
+    }
+  });
+
+  test("scoring is deterministic and penalises a known-bad layout", async () => {
+    const a = buildReport(await layoutDiagram(blog, classicTheme));
+    const b = buildReport(await layoutDiagram(blog, classicTheme));
+    expect(a.score).toBe(b.score);
+    // This spec is the wide-ribbon case: it must be flagged, not scored clean.
+    expect(a.metrics.aspect).toBeGreaterThan(2.6);
+    expect(a.diagnostics.some((d) => d.code === "EXTREME_ASPECT")).toBe(true);
+    expect(a.score).toBeLessThan(100);
+  });
+
+  test("a clean small layout scores at or near the top", async () => {
+    const simple: DiagramSpec = {
+      type: "system-design",
+      title: "Two Node",
+      nodes: [
+        { id: "api", label: "API", category: "service" },
+        { id: "db", label: "Postgres", category: "database" },
+      ],
+      edges: [{ from: "api", to: "db", label: "SQL" }],
+    };
+    const report = buildReport(await layoutDiagram(simple, classicTheme));
+    expect(report.metrics.crossings).toBe(0);
+    expect(report.metrics.edgeThroughNode).toBe(0);
+    expect(report.score).toBeGreaterThanOrEqual(95);
+  });
 });

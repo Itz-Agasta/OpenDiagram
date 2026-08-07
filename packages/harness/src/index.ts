@@ -25,5 +25,14 @@ export type {
   RenderResult,
 } from "./renderer.js";
 
+export { buildReport, summarizeReport } from "./report/index.js";
+export type {
+  DiagnosticCode,
+  Diagnostic,
+  DiagramReport,
+  Metrics,
+  Offenders,
+} from "./report/index.js";
+
 export { classicTheme, sketchTheme, themes } from "./theme/index.js";
 export type { Theme, ThemeName } from "./theme/index.js";
