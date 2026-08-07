@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Check, Loader2, Star, Trash2 } from "lucide-react";
+import { Check, KeyRound, Loader2, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { assetUrl } from "@/lib/site";
 import {
@@ -112,6 +112,7 @@ export function Providers() {
       <ConnectDialog
         key={connecting?.id ?? "closed"}
         provider={connecting}
+        connected={connecting ? (connectedByProvider.get(connecting.id) ?? null) : null}
         onClose={() => setConnecting(null)}
         onConnected={refresh}
       />
@@ -232,6 +233,15 @@ function ProviderCard({
           <Button
             variant="outline"
             size="sm"
+            disabled={disabled || busy}
+            onClick={onConnect}
+            title="Replace API key"
+          >
+            <KeyRound className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             disabled={busy}
             onClick={() => run(() => disconnectProvider(connected.id), "Disconnected.")}
             title="Disconnect"
@@ -248,17 +258,25 @@ function ProviderCard({
   );
 }
 
+/**
+ * Also the key-rotation dialog: `POST /providers` upserts on (userId, provider),
+ * so reconnecting an already-connected provider replaces its key in place and
+ * keeps the row, its id and its default flag. Seeding `modelId` from the saved
+ * row matters because that upsert writes whatever model this form submits.
+ */
 function ConnectDialog({
   provider,
+  connected,
   onClose,
   onConnected,
 }: {
   provider: CatalogProvider | null;
+  connected: ConnectedProvider | null;
   onClose: () => void;
   onConnected: () => Promise<void>;
 }) {
   const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState(provider?.models[0]?.id ?? "");
+  const [modelId, setModelId] = useState(connected?.modelId ?? provider?.models[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -266,7 +284,7 @@ function ConnectDialog({
     setSaving(true);
     try {
       await connectProvider({ provider: provider.id, apiKey: apiKey.trim(), modelId });
-      toast.success(`${provider.label} connected.`);
+      toast.success(connected ? `${provider.label} key replaced.` : `${provider.label} connected.`);
       await onConnected();
       onClose();
     } catch (error) {
@@ -284,11 +302,12 @@ function ConnectDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2.5">
                 <ProviderIcon providerId={provider.id} label={provider.label} />
-                Connect {provider.label}
+                {connected ? `Replace ${provider.label} key` : `Connect ${provider.label}`}
               </DialogTitle>
               <DialogDescription>
-                Your key is validated, then encrypted before it&apos;s stored. It&apos;s never shown
-                again.
+                {connected
+                  ? `Replaces the key ending ${connected.keyLast4}. The new one is validated first, so a bad key leaves the old one in place.`
+                  : "Your key is validated, then encrypted before it's stored. It's never shown again."}
               </DialogDescription>
             </DialogHeader>
 
@@ -334,7 +353,7 @@ function ConnectDialog({
               </Button>
               <Button onClick={save} disabled={saving || apiKey.trim().length < 8}>
                 {saving && <Loader2 className="size-4 animate-spin" />}
-                Validate & connect
+                {connected ? "Validate & replace" : "Validate & connect"}
               </Button>
             </DialogFooter>
           </>

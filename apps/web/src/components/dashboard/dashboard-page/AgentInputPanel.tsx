@@ -3,7 +3,6 @@ import { Check, ChevronsUpDown, FileText, PenTool, Sparkles } from "lucide-react
 import {
   getAiSettings,
   providerModelOptions,
-  selectProviderModel,
   type ProviderModelOption,
 } from "@/lib/settings-client";
 import {
@@ -60,7 +59,6 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
   const [providerOptions, setProviderOptions] = useState<ProviderModelOption[]>([]);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [providerError, setProviderError] = useState<string | null>(null);
-  const [selectingProvider, setSelectingProvider] = useState(false);
   useEffect(() => setCtaIndex(Math.floor(Math.random() * agentCtas.length)), []);
   useEffect(() => {
     setProviderError(null);
@@ -99,21 +97,11 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
     return [...groups.entries()];
   }, [providerOptions]);
 
-  async function handleProviderSelect(option: ProviderModelOption) {
-    if (selectingProvider) return;
-
-    setSelectingProvider(true);
-    setProviderError(null);
-    try {
-      await selectProviderModel(option);
-      setProviderId(option.id);
-      setProviderDialogOpen(false);
-    } catch (cause) {
-      setProviderError(cause instanceof Error ? cause.message : "Could not select this provider.");
-      setProviderDialogOpen(false);
-    } finally {
-      setSelectingProvider(false);
-    }
+  // The pick travels to the workspace in the URL and from there into each chat
+  // request, so choosing a model writes nothing to the database.
+  function handleProviderSelect(option: ProviderModelOption) {
+    setProviderId(option.id);
+    setProviderDialogOpen(false);
   }
 
   return (
@@ -125,7 +113,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
         onSubmit={(event) => {
           event.preventDefault();
           const text = prompt.trim();
-          if (!text || creating || selectingProvider) return;
+          if (!text || creating) return;
 
           setProviderError(null);
           onSubmit({
@@ -174,7 +162,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
               type="button"
               variant="ghost"
               size="sm"
-              disabled={creating || selectingProvider || providerOptions.length === 0}
+              disabled={creating || providerOptions.length === 0}
               className="h-8 min-w-0 max-w-56 justify-start gap-1.5 rounded-[10px] px-2 text-[13px] font-semibold text-[#9ca3af]"
               aria-label="Choose AI provider model"
               onClick={() => setProviderDialogOpen(true)}
@@ -186,7 +174,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
             <Dialog
               open={providerDialogOpen}
               onOpenChange={(open) => {
-                if (!selectingProvider) setProviderDialogOpen(open);
+                setProviderDialogOpen(open);
               }}
             >
               <DialogContent className="max-w-2xl overflow-hidden p-0">
@@ -204,8 +192,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
                           <CommandItem
                             key={option.id}
                             value={option.label}
-                            disabled={selectingProvider}
-                            onSelect={() => void handleProviderSelect(option)}
+                            onSelect={() => handleProviderSelect(option)}
                             className="items-start gap-3 px-3 py-3"
                           >
                             <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
@@ -232,10 +219,10 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
             </Dialog>
             <button
               type="submit"
-              disabled={creating || selectingProvider || prompt.trim().length === 0}
+              disabled={creating || prompt.trim().length === 0}
               className="h-8 rounded-[10px] bg-od-ink px-4 text-[13px] font-semibold text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {creating || selectingProvider ? "Creating..." : "Create"}
+              {creating ? "Creating..." : "Create"}
             </button>
           </div>
           {providerError && (

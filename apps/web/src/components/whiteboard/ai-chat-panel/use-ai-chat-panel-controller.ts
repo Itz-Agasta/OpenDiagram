@@ -11,12 +11,7 @@ import {
   storedChatMessageToUIMessage,
   type StoredChatMessage,
 } from "@/lib/chat-history";
-import {
-  getAiSettings,
-  providerModelOptions,
-  selectProviderModel,
-  type ProviderModelOption,
-} from "@/lib/settings-client";
+import { getAiSettings, providerModelOptions } from "@/lib/settings-client";
 import { isLikelyDiagramRequest } from "@/lib/workspace-agents";
 import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -99,20 +94,14 @@ export function useAIChatPanelController({
     },
     [fileId, projectId],
   );
-  // True only between accepting a submit and the model actually starting, which
-  // is a gap the chat status cannot see. Gates the thread controls.
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [theme, setTheme] = useState<ThemeName>("sketch");
   const [providerUsage, setProviderUsage] = useState<AiProviderUsage | null>(null);
-  const [providerId, setProviderIdState] = useState(
+  // Picking a model is local state only. It rides along on the next request as
+  // `providerId`/`modelId`; the saved default is changed from Settings, not here.
+  const [providerId, setProviderId] = useState(
     initialProviderId && initialModelId ? `${initialProviderId}:${initialModelId}` : "platform",
   );
   const [providerOptions, setProviderOptions] = useState<AIChatProviderOption[]>([]);
-  const providerOptionsRef = useRef<ProviderModelOption[]>([]);
-  const providerUpdateRef = useRef<Promise<void>>(Promise.resolve());
-  const providerUpdateFailedRef = useRef(false);
-  const providerIdRef = useRef(providerId);
-  const providerRequestIdRef = useRef(0);
 
   useEffect(() => {
     if (!projectId) return;
@@ -121,7 +110,6 @@ export function useAIChatPanelController({
       .then((settings) => {
         if (!active) return;
         const options = providerModelOptions(settings);
-        providerOptionsRef.current = options;
         setProviderOptions(options);
         const initialOption =
           initialProviderId && initialModelId
@@ -130,10 +118,9 @@ export function useAIChatPanelController({
                   option.providerId === initialProviderId && option.modelId === initialModelId,
               )
             : undefined;
-        const nextProviderId =
-          initialOption?.id ?? options.find((option) => option.isDefault)?.id ?? "platform";
-        providerIdRef.current = nextProviderId;
-        setProviderIdState(nextProviderId);
+        setProviderId(
+          initialOption?.id ?? options.find((option) => option.isDefault)?.id ?? "platform",
+        );
       })
       .catch(() => undefined);
     return () => {
@@ -142,35 +129,6 @@ export function useAIChatPanelController({
   }, [initialModelId, initialProviderId, projectId]);
 
   const selectedProvider = providerOptions.find((option) => option.id === providerId);
-
-  const setProviderId = useCallback(
-    (nextProviderId: string) => {
-      const option = providerOptionsRef.current.find(
-        (candidate) => candidate.id === nextProviderId,
-      );
-      if (!option) return;
-
-      const requestId = ++providerRequestIdRef.current;
-      const previousProviderId = providerIdRef.current;
-      providerIdRef.current = nextProviderId;
-      setProviderIdState(nextProviderId);
-      providerUpdateFailedRef.current = false;
-      const request = providerUpdateRef.current
-        .catch(() => undefined)
-        .then(() => selectProviderModel(option));
-      providerUpdateRef.current = request.catch(() => undefined);
-      void request.catch((cause) => {
-        if (requestId !== providerRequestIdRef.current) return;
-        providerUpdateFailedRef.current = true;
-        providerIdRef.current = previousProviderId;
-        setProviderIdState(previousProviderId);
-        onProviderError?.(
-          cause instanceof Error ? cause.message : "Could not select this provider.",
-        );
-      });
-    },
-    [onProviderError],
-  );
   const autoDiagramPrompt =
     activeFileType === "diagram"
       ? normalizedHistory.find((message) => message.role === "user")
@@ -251,18 +209,6 @@ export function useAIChatPanelController({
       const status = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
       if (!text || (status !== "ready" && status !== "error")) return;
 
-      // Held across the provider await below. Until `sendMessage` runs, neither
-      // chat's status has moved off `ready`, so the thread controls would still
-      // be live -- and a switch inside that window files this turn under the
-      // conversation the user moved to instead of the one they typed into.
-      setIsSubmitting(true);
-      try {
-        await providerUpdateRef.current;
-      } finally {
-        setIsSubmitting(false);
-      }
-      if (providerUpdateFailedRef.current) return;
-
       canvas.setApplyError(null);
       const pending = pendingAskUser(diagramChat.messages);
       if (pending) {
@@ -324,7 +270,7 @@ export function useAIChatPanelController({
       thread.startNewThread().catch((cause: unknown) => {
         onProviderError?.(cause instanceof Error ? cause.message : "Could not start a new chat.");
       }),
-    threadSwitching: thread.isSwitching || isSubmitting,
+    threadSwitching: thread.isSwitching,
     threads: thread.threads,
     applyError: canvas.applyError,
     conversationMessages,
