@@ -32,16 +32,16 @@ export function cloneIconInstance(
   instanceGroupId: string,
   roughness: number,
 ): Record<string, unknown>[] {
-  // Icon packs bundle their own caption text baked into the library snapshot --
+  // Icon packs bundle their own caption text baked into the library snapshot,
   // dropped since every card renders its own label.
   const raw = (elements as unknown as RawExcalidrawElement[]).filter((el) => el.type !== "text");
   if (raw.length === 0) return [];
 
   // A linear element's `width`/`height` do not always match the span of its
   // `points`, and points may be negative, so `x .. x + width` is not the ink
-  // extent. 126 of 302 registry icons disagree; centring the wrong box left
-  // bare-stroke icons visibly off-centre while icons with a full-bleed
-  // background rect masked it.
+  // extent. Centring the wrong box put 184 of 302 registry icons off-centre,
+  // worst 51.9px in an 88px box: visible on bare-stroke icons, masked on the
+  // ones with a full-bleed background rect.
   //
   // We deliberately do NOT rotate points by `angle` first. It looks like the
   // same class of bug (337 registry elements carry a non-zero angle), but a

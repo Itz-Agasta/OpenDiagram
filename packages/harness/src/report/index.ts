@@ -17,7 +17,7 @@ export type DiagnosticCode =
 export interface Diagnostic {
   code: DiagnosticCode;
   severity: "error" | "warn";
-  /** Spec ids (edge or node), never pixels -- the model reasons in these. */
+  /** Spec ids (edge or node), never pixels; the model reasons in these. */
   subjects: string[];
   message: string;
 }
@@ -34,8 +34,9 @@ export interface DiagramReport {
  * crossings dominate readability, an edge through a node reads as broken, and
  * bends are a mild tax. Aspect is scored as a band, not per-unit.
  *
- * These are tuned against the fixture corpus in test/. Changing one changes
- * which candidate layout `layoutDiagram` picks -- re-baseline when you do.
+ * Ordinal, not calibrated: tuned until the corpus ranked the way a reader
+ * does. Changing one moves every corpus floor in test/, so re-baseline when you
+ * do. (Layout's own candidate pick is `scoreLayout` in macro.js, not this.)
  * https://www2.cs.arizona.edu/~kobourov/gd-metrics2024.pdf
  */
 const PENALTY = {
@@ -52,7 +53,7 @@ const PENALTY = {
 const ASPECT_MIN = 0.5;
 const ASPECT_MAX = 2.6;
 
-// Below this the layout has no freedom to reshape -- two nodes side by side are
+// Below this the layout has no freedom to reshape: two nodes side by side are
 // necessarily wide, and charging them for it makes every small diagram look
 // broken. Only score aspect once there is a choice to get wrong.
 const ASPECT_MIN_NODES = 5;
@@ -74,8 +75,8 @@ function bendPenalty(metrics: Metrics): number {
 
 /**
  * Grades a laid-out spec. Deterministic and geometry-only: same input, same
- * report, no model and no screenshot. Use it to gate output, to pick between
- * candidate layouts, and as the regression signal for layout changes.
+ * report, no model and no screenshot. Advisory today: the agent gets the
+ * score and acts on it or not; nothing here blocks a render.
  */
 export function buildReport(spec: PositionedSpec): DiagramReport {
   const metrics = computeMetrics(spec);

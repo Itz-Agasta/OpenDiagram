@@ -83,7 +83,7 @@ export function renderEdge(
     head === "arrow" ? defaultHead : head;
   const cardinalityHeads = edge.cardinality ? CROWFEET[edge.cardinality] : undefined;
   // Arrow and its label chip share one group so dragging the arrow takes the
-  // label with it. Unlabelled arrows stay ungrouped -- a one-member group would
+  // label with it. Unlabelled arrows stay ungrouped, since a one-member group would
   // make the user click twice to select a single arrow.
   const text = edgeLabelText(edge);
   const groupId = text && route.label ? crypto.randomUUID() : undefined;

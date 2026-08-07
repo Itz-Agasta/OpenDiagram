@@ -97,12 +97,10 @@ describe("report", () => {
 });
 
 describe("golden-score corpus", () => {
-  // Real specs lifted from evlog, spanning score ~64 to ~96. Floors sit a few
-  // points under the measured score so tuning does not break the suite but a
-  // real regression does. Any of this session's fixes breaking -- icon centring,
-  // node-label wrapping, corridor dedupe, ELK options, routing -- drops a score
-  // here, because the score aggregates. That is the point: the bugs we shipped
-  // were emergent, not functional, and no unit test would have caught them.
+  // Real specs lifted from evlog. Floors sit a few points under the measured
+  // score: tuning should not break the suite, a regression should. The score
+  // aggregates, so icon centring, label wrapping, corridor dedupe and ELK
+  // options all land here, none of which broke a unit test while broken.
   //
   // Regenerate floors with: buildReport(await layoutDiagram(spec, theme)).score
   const corpus: {

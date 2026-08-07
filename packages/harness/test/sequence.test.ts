@@ -24,7 +24,7 @@ const seqSpec: DiagramSpec = {
     { id: "bad", from: "auth", to: "web", label: "401 Unauthorized", kind: "error" },
     { from: "auth", to: "auth", label: "sign JWT" },
     { from: "web", to: "browser", label: "200 OK", style: "dashed" },
-    { from: "ghost", to: "web", label: "bad actor" }, // unknown actor — must be dropped
+    { from: "ghost", to: "web", label: "bad actor" }, // unknown actor, must be dropped
   ],
   groups: [
     {

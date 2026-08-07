@@ -58,7 +58,6 @@ export function renderSoloNode(
 
   const centerX = box.x + box.width / 2;
   const labelY = box.y + solo.iconSize + solo.gapIconLabel;
-  // Same wrap `nodeSize` reserved space for -- see measure.ts#wrapLabel.
   const wrapAt = labelWrapWidth(solo.iconSize);
   const labelLines = wrapLabel(node.label, text.soloLabel.size, theme.fontFamily, wrapAt);
   skeletons.push({
@@ -119,7 +118,6 @@ export function renderBoxNode(
   });
 
   const centerX = box.x + box.width / 2;
-  // Same wrap `nodeSize` reserved space for -- see measure.ts#wrapLabel.
   const wrapAt = labelWrapWidth(theme.solo.iconSize);
   const labelLines = wrapLabel(node.label, text.nodeLabel.size, theme.fontFamily, wrapAt);
   const sublabelLines = node.sublabel
@@ -309,7 +307,6 @@ export function renderNode(
   // text is centered on — so pass the card's horizontal center.
   const centerX = box.x + box.width / 2;
   const labelY = box.y + card.padTop + card.iconSize + card.gapIconLabel;
-  // Same wrap `nodeSize` reserved space for -- see measure.ts#wrapLabel.
   const wrapAt = labelWrapWidth(card.iconSize);
   const labelLines = wrapLabel(node.label, text.nodeLabel.size, theme.fontFamily, wrapAt);
   skeletons.push({

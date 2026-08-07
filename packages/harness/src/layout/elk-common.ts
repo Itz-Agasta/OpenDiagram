@@ -27,7 +27,7 @@ export const BASE_OPTIONS: Record<string, string> = {
   "elk.spacing.edgeEdge": "30", // gap between parallel edges (label chips need air)
   "elk.spacing.edgeLabel": "8",
   // Keep bend points only where an edge actually turns. `true` does the
-  // opposite of what the name suggests -- it ADDS a bend per long-edge dummy
+  // opposite of what the name suggests: it ADDS a bend per long-edge dummy
   // and at every hierarchy crossing. (Measured negative result:
   // `elk.layered.nodePlacement.strategy: NETWORK_SIMPLEX` made routing worse
   // here. Don't re-add.)
@@ -35,10 +35,10 @@ export const BASE_OPTIONS: Record<string, string> = {
   "elk.layered.unnecessaryBendpoints": "false",
   "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
   // Measured negative result: `elk.layered.mergeEdges: true` collapses a hub's
-  // spokes onto one shared port, and they then cross each other on approach --
+  // spokes onto one shared port, and they then cross each other on approach,
   // 0 -> 15 crossings on an 11-node/10-edge bus. Don't re-add.
   // Edge/section/label coordinates come back relative to the root instead
-  // of each edge's containing node -- saves offset bookkeeping below.
+  // of each edge's containing node, which saves offset bookkeeping below.
   "elk.json.edgeCoords": "ROOT",
 };
 

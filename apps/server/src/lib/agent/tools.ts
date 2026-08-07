@@ -54,7 +54,7 @@ export interface DrawDiagramOutput {
 
 // Defect codes the model can actually act on by changing the SPEC. It has no
 // pixels to move, so reporting EDGE_THROUGH_NODE or LABEL_COLLISION would only
-// invite a redraw that cannot help -- those are ours to fix in layout.
+// invite a redraw that cannot help; those are ours to fix in layout.
 const MODEL_ACTIONABLE = new Set([
   "EXTREME_ASPECT",
   "EDGE_CROSSING",
@@ -89,7 +89,7 @@ function qualityNote(report: DiagramReport): { score: number; issues: string[] }
  * FIXME(gemini-field-fidelity): this assumes the model echoes `targetId` back
  * accurately. The same model reliably mistypes `from`/`to` as `from1`/`to1` on
  * edges, so an id it garbles or omits will read as "new diagram" and draw a
- * duplicate frame. Tracked separately -- no inference fallback here by decision.
+ * duplicate frame. Tracked separately; no inference fallback here by decision.
  */
 export const drawDiagramInputSchema = diagramSpecSchema.extend({
   targetId: z
@@ -131,7 +131,7 @@ export function createDrawDiagramTool(
         skeletons = result.skeletons;
         rawElements = result.rawElements;
         warnings.push(...positioned.warnings);
-        // Post-sanitize count -- matches what actually renders on canvas.
+        // Post-sanitize count, matching what actually renders on canvas.
         edgeCount = positioned.edges.length;
         report = buildReport(positioned);
       }
@@ -149,7 +149,7 @@ export function createDrawDiagramTool(
           edgeCount,
           elementCount: skeletons.length + rawElements.length,
           // Dev only. The spec is how a bad diagram gets replayed into the
-          // harness test corpus, and counts alone are not reproducible -- but
+          // harness test corpus, and counts alone are not reproducible, but
           // wide events reach Sentry, and this is the user's architecture.
           // Harvest corpus fixtures locally, never off a production request.
           ...(env.NODE_ENV === "development" && { spec: JSON.stringify(spec) }),

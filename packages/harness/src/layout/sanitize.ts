@@ -96,18 +96,12 @@ export function sanitize(spec: DiagramSpec): Sanitized {
 }
 
 /**
- * Strips repeated labels from edges that share an endpoint, keeping the first as
- * the representative. Three "Route Request · HTTP" chips stacked in one gap read
- * as noise, and every extra chip is another white mask punched through the
- * diagram.
+ * Strips repeated labels from edges sharing a source or target, keeping the
+ * first as the representative; every extra chip is one more white mask
+ * punched through the diagram. Scoped to that fan corridor on purpose: two
+ * unrelated edges elsewhere may legitimately carry the same words.
  *
- * Scoped to a shared source or target on purpose: that is the fan-in/fan-out
- * corridor where the repetition actually stacks up. Two unrelated edges in
- * different parts of the diagram may legitimately carry the same words.
- *
- * The system prompt already asks the model to do this ("label ONE representative
- * edge and leave the twins unlabeled") and it reliably does not, so the harness
- * enforces it rather than trusting the instruction.
+ * The system prompt already asks the model for this and it reliably does not.
  */
 function dedupeCorridorLabels(edges: Sanitized["edges"], warnings: string[]): void {
   const seen = new Map<string, string>();
@@ -124,7 +118,7 @@ function dedupeCorridorLabels(edges: Sanitized["edges"], warnings: string[]): vo
       edge.label = undefined;
       edge.protocol = undefined;
       warnings.push(
-        `unlabelled ${edge.id} — "${text}" already labels ${first} in the same corridor`,
+        `unlabelled ${edge.id}: "${text}" already labels ${first} in the same corridor`,
       );
       continue;
     }

@@ -155,7 +155,7 @@ describe("two-phase fold layout", () => {
 
 test("corridor dedupe leaves every corridor a labelled edge", async () => {
   // b loses its label to a (shared target d), so it must not also be holding
-  // the representative slot for its own source corridor -- otherwise c is
+  // the representative slot for its own source corridor, otherwise c is
   // stripped too and the b/c fan ends up with no label at all.
   const spec: DiagramSpec = {
     type: "system-design",

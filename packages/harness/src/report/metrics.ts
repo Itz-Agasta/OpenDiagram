@@ -3,7 +3,7 @@ import { edgeLabelText } from "../measure.js";
 
 /**
  * Geometric defect counts for a laid-out spec. Pure functions over
- * `PositionedSpec` -- no rendering, no image, no model. See README "Report".
+ * `PositionedSpec`, with no rendering, no image, no model.
  */
 export interface Metrics {
   edges: number;
@@ -19,7 +19,7 @@ export interface Metrics {
   /** Edges running against `meta.direction`. */
   backEdges: number;
   aspect: number;
-  /** Edges with no route at all -- layout dropped them. */
+  /** Edges with no route at all; layout dropped them. */
   unrouted: number;
   /** Spec ids behind each count, so diagnostics can point at something. */
   offenders: Offenders;
@@ -120,7 +120,7 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
       const b = allSegments[j]!;
       if (a.edge === b.edge) continue;
       if (!segmentsCross(a.seg, b.seg)) continue;
-      // Report each edge PAIR once even when their polylines cross twice --
+      // Report each edge PAIR once even when their polylines cross twice,
       // a reader sees one tangle, not two.
       const key = a.edge < b.edge ? `${a.edge}|${b.edge}` : `${b.edge}|${a.edge}`;
       if (seenPair.has(key)) continue;
@@ -177,7 +177,7 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
   // Only ever fires on edges in DIFFERENT corridors: `dedupeCorridorLabels` has
   // already stripped the stacked-in-one-gap case by the time we measure. Those
   // survivors are the ones sanitize deliberately keeps, and this still counts
-  // them, because the two passes carry different risk -- sanitize DELETES a
+  // them, because the two passes carry different risk: sanitize DELETES a
   // label, so it stays conservative; the report only advises the model, which
   // can drop a redundant "HTTPS" or leave it. Do not "fix" the mismatch by
   // scoping this to corridors: sanitize guarantees that count is zero.
@@ -201,7 +201,7 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
   // Route points and label chips count toward the bounds, not just node boxes.
   // A back edge loops through the margin outside every node, so nodes alone
   // measured one 4-node retry loop at aspect 6.14 where the drawn diagram is
-  // 5.58 -- the shape the reader sees, and the shape the aspect gate is about.
+  // 5.58, the shape the reader sees and the shape the aspect gate is about.
   const boxes = [
     ...Object.values(spec.positions),
     ...Object.values(spec.groupBoxes),

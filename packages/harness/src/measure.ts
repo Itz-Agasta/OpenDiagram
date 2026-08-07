@@ -66,7 +66,7 @@ export function widestLine(lines: string[], fontSize: number, fontFamily?: numbe
 
 /**
  * Greedy word wrap to `maxWidth`. Shared by `nodeSize` and the renderer so the
- * reserved box and the drawn text can never disagree -- call it from both, never
+ * reserved box and the drawn text can never disagree; call it from both, never
  * reimplement. A single word longer than `maxWidth` is left alone rather than
  * broken mid-word.
  */
