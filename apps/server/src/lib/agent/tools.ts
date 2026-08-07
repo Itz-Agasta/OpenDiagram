@@ -1,9 +1,11 @@
 import {
+  buildReport,
   classicTheme,
   diagramSpecSchema,
   layoutDiagram,
   renderSequenceDiagram,
   renderToExcalidraw,
+  type DiagramReport,
   type DiagramSpec,
   type RenderSkeleton,
   type Theme,
@@ -44,6 +46,31 @@ export interface DrawDiagramOutput {
     nodes: number;
     edges: number;
     warnings: string[];
+    /** Layout grade, advisory. Absent for sequence diagrams. */
+    quality?: { score: number; issues: string[] };
+  };
+}
+
+// Defect codes the model can actually act on by changing the SPEC. It has no
+// pixels to move, so reporting EDGE_THROUGH_NODE or LABEL_COLLISION would only
+// invite a redraw that cannot help -- those are ours to fix in layout.
+const MODEL_ACTIONABLE = new Set(["EXTREME_ASPECT", "EDGE_CROSSING", "BACK_EDGE", "BEND_HEAVY"]);
+
+/**
+ * Compact, advisory quality note for the model. Deliberately not a retry
+ * trigger: the agent decides whether a restructure is worth it, and a hard gate
+ * here would loop on diagrams whose density is inherent to the request.
+ */
+function qualityNote(report: DiagramReport): { score: number; issues: string[] } {
+  const issues = report.diagnostics
+    .filter((d) => MODEL_ACTIONABLE.has(d.code))
+    .map((d) => d.message);
+  // Crossings repeat once per pair; collapse so one tangle is not 9 lines.
+  const crossings = issues.filter((m) => m.includes("cross")).length;
+  const rest = issues.filter((m) => !m.includes("cross"));
+  return {
+    score: report.score,
+    issues: crossings > 0 ? [...rest, `${crossings} pairs of edges cross`] : rest,
   };
 }
 
@@ -87,6 +114,9 @@ export function createDrawDiagramTool(
       let skeletons: RenderSkeleton[];
       let rawElements: Record<string, unknown>[];
       let edgeCount = spec.edges.length;
+      // Sequence diagrams skip the report: its metrics assume ELK routes, and a
+      // lifeline grid crosses its own messages by construction.
+      let report: DiagramReport | undefined;
       if (spec.type === "sequence") {
         const result = renderSequenceDiagram(spec, theme);
         skeletons = result.skeletons;
@@ -100,6 +130,7 @@ export function createDrawDiagramTool(
         warnings.push(...positioned.warnings);
         // Post-sanitize count -- matches what actually renders on canvas.
         edgeCount = positioned.edges.length;
+        report = buildReport(positioned);
       }
 
       if (warnings.length > 0) {
@@ -114,6 +145,14 @@ export function createDrawDiagramTool(
           nodeCount: spec.nodes.length,
           edgeCount,
           elementCount: skeletons.length + rawElements.length,
+          // The spec itself, so a bad diagram can be replayed into the harness
+          // test corpus. Counts alone are not reproducible.
+          spec: JSON.stringify(spec),
+          ...(report && {
+            score: report.score,
+            metrics: report.metrics,
+            diagnostics: report.diagnostics.map((d) => `${d.code}:${d.subjects.join(",")}`),
+          }),
         },
       });
       return {
@@ -124,6 +163,7 @@ export function createDrawDiagramTool(
           nodes: spec.nodes.length,
           edges: edgeCount,
           warnings,
+          ...(report && { quality: qualityNote(report) }),
         },
       };
     },
