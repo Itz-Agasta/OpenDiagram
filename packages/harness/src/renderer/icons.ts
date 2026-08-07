@@ -37,10 +37,28 @@ export function cloneIconInstance(
   const raw = (elements as unknown as RawExcalidrawElement[]).filter((el) => el.type !== "text");
   if (raw.length === 0) return [];
 
-  const minX = Math.min(...raw.map((el) => el.x));
-  const minY = Math.min(...raw.map((el) => el.y));
-  const maxX = Math.max(...raw.map((el) => el.x + el.width));
-  const maxY = Math.max(...raw.map((el) => el.y + el.height));
+  // A linear element's `width`/`height` do not always match the span of its
+  // `points`, and points may be negative, so `x .. x + width` is not the ink
+  // extent. 126 of 302 registry icons disagree; centring the wrong box left
+  // bare-stroke icons visibly off-centre while icons with a full-bleed
+  // background rect masked it.
+  const extents = raw.map((el) => {
+    if (Array.isArray(el.points) && el.points.length > 0) {
+      const xs = el.points.map(([px]) => px);
+      const ys = el.points.map(([, py]) => py);
+      return {
+        x1: el.x + Math.min(...xs),
+        x2: el.x + Math.max(...xs),
+        y1: el.y + Math.min(...ys),
+        y2: el.y + Math.max(...ys),
+      };
+    }
+    return { x1: el.x, x2: el.x + el.width, y1: el.y, y2: el.y + el.height };
+  });
+  const minX = Math.min(...extents.map((e) => e.x1));
+  const minY = Math.min(...extents.map((e) => e.y1));
+  const maxX = Math.max(...extents.map((e) => e.x2));
+  const maxY = Math.max(...extents.map((e) => e.y2));
   const bboxWidth = maxX - minX || 1;
   const bboxHeight = maxY - minY || 1;
 
