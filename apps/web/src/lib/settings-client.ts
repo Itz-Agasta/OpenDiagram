@@ -139,13 +139,6 @@ export function providerModelOptions(settings: AiSettings): ProviderModelOption[
   });
 }
 
-export async function selectProviderModel(option: ProviderModelOption): Promise<void> {
-  await updateProvider(option.providerId, {
-    modelId: option.modelId,
-    makeDefault: true,
-  });
-}
-
 export async function disconnectProvider(id: string): Promise<void> {
   const response = await fetch(`${BASE}/providers/${id}`, {
     method: "DELETE",

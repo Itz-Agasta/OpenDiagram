@@ -7,6 +7,9 @@ import type { AuthVariables } from "../../lib/require-auth";
 
 const chatSchema = z.object({
   message: z.string().min(1).max(4000),
+  // See `chatRequestSchema` in routes/diagram.ts, same per-request BYOK override.
+  providerId: z.string().min(1).max(64).optional(),
+  modelId: z.string().min(1).max(120).optional(),
 });
 
 export const chatRoute = new Hono<{ Variables: AuthVariables }>();
@@ -29,7 +32,9 @@ chatRoute.post("/:projectId/chat", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
-  const grant = await takeAiGrant(c, userId, "project-chat");
+  const grant = await takeAiGrant(c, userId, "project-chat", {
+    selection: { providerId: parsed.data.providerId, modelId: parsed.data.modelId },
+  });
   if (grant instanceof Response) return grant;
 
   let answer: string;

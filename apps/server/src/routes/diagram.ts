@@ -15,7 +15,7 @@ import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
 import { askUserTool, createDrawDiagramTool, drawDiagramInputSchema } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
-import { resolveModel } from "../lib/ai-provider/resolve";
+import { ModelSelectionError, resolveModel } from "../lib/ai-provider/resolve";
 import { LLM_MAX_RETRIES } from "../lib/repo-ai";
 import { aiTelemetry } from "../lib/telemetry";
 
@@ -33,6 +33,10 @@ const chatRequestSchema = z.object({
     .max(MAX_PROMPT_DIAGRAMS)
     .optional(),
   theme: z.enum(["classic", "sketch"]).optional(),
+  // Overrides the caller's saved default for this request only. Validated in
+  // `resolveModel` against their own rows, not here.
+  providerId: z.string().min(1).max(64).optional(),
+  modelId: z.string().min(1).max(120).optional(),
 });
 
 // gemini-2.5-flash reliably mangles edge keys in draw_diagram calls (emits
@@ -102,7 +106,7 @@ diagramRoute.post("/chat", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
-  const { messages, diagrams = [], theme: themeName = "sketch" } = parsed.data;
+  const { messages, providerId, modelId, diagrams = [], theme: themeName = "sketch" } = parsed.data;
 
   const tools = {
     ask_user: askUserTool,
@@ -136,8 +140,11 @@ diagramRoute.post("/chat", async (c) => {
   const userId = session?.user.id;
   let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
-    resolved = await resolveModel(userId);
+    resolved = await resolveModel(userId, { providerId, modelId });
   } catch (error) {
+    if (error instanceof ModelSelectionError) {
+      return c.json({ error: error.message, code: "model_unavailable" }, 400);
+    }
     log.error("Failed to resolve BYOK model", { error });
     return c.json({ error: "Your saved AI provider key could not be used. Check Settings." }, 502);
   }
