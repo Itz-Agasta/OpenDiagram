@@ -61,19 +61,29 @@ async function resolveUserModel(
   }
 
   const provider = getProvider(row.provider);
-  if (!provider) return null;
+  if (!provider) {
+    if (providerId) throw new ModelSelectionError("That provider is no longer supported.");
+    return null;
+  }
 
   if (modelId && !isKnownModel(provider, modelId)) {
     throw new ModelSelectionError(`${provider.label} does not offer that model.`);
   }
   const chosenModelId = modelId ?? row.modelId;
 
-  // If the key can't be decrypted (e.g. BYOK_ENCRYPTION_KEY unset/rotated),
-  // fall back to the platform model rather than failing the whole request.
+  // If the key can't be decrypted (e.g. BYOK_ENCRYPTION_KEY unset/rotated) the
+  // caller who named no provider falls back to the platform model rather than
+  // failing the whole request. One who named this row does not: they would be
+  // billed quota for a model they did not pick.
   let apiKey: string;
   try {
     apiKey = decryptSecret(row.encryptedApiKey, { userId, provider: row.provider });
   } catch {
+    if (providerId) {
+      throw new ModelSelectionError(
+        `Your saved ${provider.label} key could not be used. Reconnect it in Settings.`,
+      );
+    }
     return null;
   }
 

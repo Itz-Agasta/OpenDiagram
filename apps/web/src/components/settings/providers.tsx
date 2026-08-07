@@ -276,7 +276,14 @@ function ConnectDialog({
   onConnected: () => Promise<void>;
 }) {
   const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState(connected?.modelId ?? provider?.models[0]?.id ?? "");
+  // Only seed from the saved row while the catalog still offers that model. A row
+  // written before a model was retired would otherwise leave the select blank and
+  // submit the retired id, which the server rejects, blocking the rotation.
+  const [modelId, setModelId] = useState(
+    (provider?.models.some((m) => m.id === connected?.modelId)
+      ? connected?.modelId
+      : provider?.models[0]?.id) ?? "",
+  );
   const [saving, setSaving] = useState(false);
 
   async function save() {
