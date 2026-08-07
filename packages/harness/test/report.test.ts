@@ -112,7 +112,7 @@ describe("golden-score corpus", () => {
   }[] = require("./fixtures/corpus.json");
 
   describe.each(corpus)("$title", ({ minScore, spec }) => {
-    test.each([classicTheme, sketchTheme])("scores at least $minScore ($id)", async (theme) => {
+    test.each([classicTheme, sketchTheme])(`scores at least ${minScore} ($id)`, async (theme) => {
       const report = buildReport(await layoutDiagram(spec, theme));
       expect(report.score).toBeGreaterThanOrEqual(minScore);
     });
