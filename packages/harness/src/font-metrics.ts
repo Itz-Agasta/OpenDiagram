@@ -1,7 +1,7 @@
 /**
  * Per-glyph width ratios (advance width / fontSize) for the fonts generated
  * diagrams use, measured once from canvas `measureText` in Chrome with the
- * real font files loaded (see future.md §1). Keyed by Excalidraw FONT_FAMILY
+ * real font files loaded. Keyed by Excalidraw FONT_FAMILY
  * code. Characters outside the table (unicode, emoji) fall back to `avg`.
  *
  * Regenerate by running the measurement snippet in a browser with the app

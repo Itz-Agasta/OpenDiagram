@@ -1,13 +1,16 @@
 import {
+  buildReport,
   classicTheme,
   diagramSpecSchema,
   layoutDiagram,
   renderSequenceDiagram,
   renderToExcalidraw,
+  type DiagramReport,
   type DiagramSpec,
   type RenderSkeleton,
   type Theme,
 } from "@OpenDiagram/harness";
+import { env } from "@OpenDiagram/env/server";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
@@ -44,7 +47,34 @@ export interface DrawDiagramOutput {
     nodes: number;
     edges: number;
     warnings: string[];
+    /** Layout grade, advisory. Absent for sequence diagrams. */
+    quality?: { score: number; issues: string[] };
   };
+}
+
+// Defect codes the model can actually act on by changing the SPEC. It has no
+// pixels to move, so reporting EDGE_THROUGH_NODE or LABEL_COLLISION would only
+// invite a redraw that cannot help; those are ours to fix in layout.
+const MODEL_ACTIONABLE = new Set([
+  "EXTREME_ASPECT",
+  "EDGE_CROSSING",
+  "BACK_EDGE",
+  "BEND_HEAVY",
+  "DUPLICATE_LABEL",
+]);
+
+/**
+ * Compact, advisory quality note for the model. Deliberately not a retry
+ * trigger: the agent decides whether a restructure is worth it, and a hard gate
+ * here would loop on diagrams whose density is inherent to the request.
+ */
+function qualityNote(report: DiagramReport): { score: number; issues: string[] } {
+  const actionable = report.diagnostics.filter((d) => MODEL_ACTIONABLE.has(d.code));
+  // Crossings report once per edge pair; collapse so one tangle is not 9 lines.
+  const crossings = actionable.filter((d) => d.code === "EDGE_CROSSING").length;
+  const issues = actionable.filter((d) => d.code !== "EDGE_CROSSING").map((d) => d.message);
+  if (crossings > 0) issues.push(`${crossings} pairs of edges cross`);
+  return { score: report.score, issues };
 }
 
 /**
@@ -59,7 +89,7 @@ export interface DrawDiagramOutput {
  * FIXME(gemini-field-fidelity): this assumes the model echoes `targetId` back
  * accurately. The same model reliably mistypes `from`/`to` as `from1`/`to1` on
  * edges, so an id it garbles or omits will read as "new diagram" and draw a
- * duplicate frame. Tracked separately -- no inference fallback here by decision.
+ * duplicate frame. Tracked separately; no inference fallback here by decision.
  */
 export const drawDiagramInputSchema = diagramSpecSchema.extend({
   targetId: z
@@ -87,6 +117,9 @@ export function createDrawDiagramTool(
       let skeletons: RenderSkeleton[];
       let rawElements: Record<string, unknown>[];
       let edgeCount = spec.edges.length;
+      // Sequence diagrams skip the report: its metrics assume ELK routes, and a
+      // lifeline grid crosses its own messages by construction.
+      let report: DiagramReport | undefined;
       if (spec.type === "sequence") {
         const result = renderSequenceDiagram(spec, theme);
         skeletons = result.skeletons;
@@ -98,8 +131,9 @@ export function createDrawDiagramTool(
         skeletons = result.skeletons;
         rawElements = result.rawElements;
         warnings.push(...positioned.warnings);
-        // Post-sanitize count -- matches what actually renders on canvas.
+        // Post-sanitize count, matching what actually renders on canvas.
         edgeCount = positioned.edges.length;
+        report = buildReport(positioned);
       }
 
       if (warnings.length > 0) {
@@ -114,6 +148,17 @@ export function createDrawDiagramTool(
           nodeCount: spec.nodes.length,
           edgeCount,
           elementCount: skeletons.length + rawElements.length,
+          // Off unless LOG_DIAGRAM_SPEC is set. The spec is how a bad diagram
+          // gets replayed into the harness corpus and counts alone are not
+          // reproducible, but wide events reach Sentry and this is the user's
+          // architecture. Turn it on locally to harvest fixtures, never in a
+          // deployment serving anyone else.
+          ...(env.LOG_DIAGRAM_SPEC && { spec: JSON.stringify(spec) }),
+          ...(report && {
+            score: report.score,
+            metrics: report.metrics,
+            diagnostics: report.diagnostics.map((d) => `${d.code}:${d.subjects.join(",")}`),
+          }),
         },
       });
       return {
@@ -124,6 +169,7 @@ export function createDrawDiagramTool(
           nodes: spec.nodes.length,
           edges: edgeCount,
           warnings,
+          ...(report && { quality: qualityNote(report) }),
         },
       };
     },

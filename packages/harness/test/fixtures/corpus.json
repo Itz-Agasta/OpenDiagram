@@ -1,0 +1,681 @@
+[
+  {
+    "title": "Netflix Streaming and Content Delivery",
+    "minScore": 68,
+    "spec": {
+      "type": "system-design",
+      "title": "Netflix Streaming and Content Delivery",
+      "nodes": [
+        {
+          "id": "client_devices",
+          "label": "Client Devices",
+          "icon": "architecture-diagram-components__device",
+          "category": "client"
+        },
+        {
+          "id": "cdn",
+          "label": "CDN (Open Connect)",
+          "icon": "aws-architecture-icons__cloudfront",
+          "category": "external"
+        },
+        {
+          "id": "api_gateway",
+          "label": "API Gateway",
+          "icon": "aws-architecture-icons__api-gateway",
+          "category": "gateway"
+        },
+        {
+          "id": "streaming_service",
+          "label": "Streaming Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "content_catalog",
+          "label": "Content Catalog",
+          "sublabel": "Metadata DB",
+          "icon": "software-logos__software-logos-1",
+          "category": "database"
+        },
+        {
+          "id": "content_storage",
+          "label": "Content Storage",
+          "sublabel": "Video Files (S3)",
+          "icon": "aws-architecture-icons__s3",
+          "category": "storage"
+        },
+        {
+          "id": "recommendation_engine",
+          "label": "Recommendation Engine",
+          "icon": "aws-architecture-icons__sagemaker",
+          "category": "service"
+        },
+        {
+          "id": "user_profile_service",
+          "label": "User Profile Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "billing_service",
+          "label": "Billing Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        }
+      ],
+      "edges": [
+        {
+          "from": "client_devices",
+          "to": "cdn",
+          "label": "Stream Video",
+          "protocol": "HTTPS",
+          "kind": "sync"
+        },
+        {
+          "from": "client_devices",
+          "to": "api_gateway",
+          "label": "API Requests",
+          "protocol": "HTTPS",
+          "kind": "sync"
+        },
+        {
+          "from": "api_gateway",
+          "to": "streaming_service",
+          "label": "Playback Requests",
+          "kind": "sync"
+        },
+        {
+          "from": "api_gateway",
+          "to": "recommendation_engine",
+          "label": "Get Recommendations",
+          "kind": "sync"
+        },
+        {
+          "from": "api_gateway",
+          "to": "user_profile_service",
+          "label": "Manage Profile",
+          "kind": "sync"
+        },
+        {
+          "from": "api_gateway",
+          "to": "billing_service",
+          "label": "Billing Info",
+          "kind": "sync"
+        },
+        {
+          "from": "streaming_service",
+          "to": "content_catalog",
+          "label": "Lookup Metadata",
+          "kind": "sync"
+        },
+        {
+          "from": "streaming_service",
+          "to": "content_storage",
+          "label": "Fetch Video Chunks",
+          "kind": "sync"
+        },
+        {
+          "from": "recommendation_engine",
+          "to": "content_catalog",
+          "label": "Fetch Content Data",
+          "kind": "sync"
+        },
+        {
+          "from": "recommendation_engine",
+          "to": "user_profile_service",
+          "label": "Fetch User History",
+          "kind": "sync"
+        },
+        {
+          "from": "user_profile_service",
+          "to": "content_catalog",
+          "label": "User Watchlist",
+          "kind": "sync"
+        }
+      ],
+      "groups": [
+        {
+          "id": "backend_services",
+          "label": "Backend Services",
+          "contains": [
+            "streaming_service",
+            "content_storage",
+            "recommendation_engine",
+            "user_profile_service",
+            "billing_service"
+          ],
+          "style": "cluster"
+        },
+        {
+          "id": "databases",
+          "label": "Databases",
+          "contains": ["content_catalog"],
+          "style": "cluster"
+        }
+      ],
+      "meta": {
+        "direction": "LR"
+      }
+    }
+  },
+  {
+    "title": "E-commerce Platform High-Level System Design",
+    "minScore": 58,
+    "spec": {
+      "type": "system-design",
+      "title": "E-commerce Platform High-Level System Design",
+      "description": "High-level overview of an e-commerce platform with Kafka for event streaming.",
+      "nodes": [
+        {
+          "id": "client",
+          "label": "Web/Mobile Client",
+          "icon": "software-logos__software-logos-16",
+          "category": "client"
+        },
+        {
+          "id": "frontend",
+          "label": "Web Frontend",
+          "icon": "software-logos__software-logos-6",
+          "category": "gateway"
+        },
+        {
+          "id": "api-gateway",
+          "label": "API Gateway",
+          "icon": "aws-architecture-icons__api-gateway",
+          "category": "gateway"
+        },
+        {
+          "id": "order-service",
+          "label": "Order Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "product-service",
+          "label": "Product Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "user-service",
+          "label": "User Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka Cluster",
+          "icon": "aws-architecture-icons__managed-streaming-for-apache-kafka",
+          "category": "queue"
+        },
+        {
+          "id": "db",
+          "label": "Database",
+          "sublabel": "PostgreSQL",
+          "icon": "aws-architecture-icons__rds",
+          "category": "database"
+        },
+        {
+          "id": "analytics",
+          "label": "Analytics Platform",
+          "icon": "aws-architecture-icons__emr",
+          "category": "service"
+        }
+      ],
+      "edges": [
+        {
+          "from": "client",
+          "to": "frontend",
+          "label": "HTTP/S Request",
+          "kind": "sync"
+        },
+        {
+          "from": "frontend",
+          "to": "api-gateway",
+          "label": "Route",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "order-service",
+          "label": "Create Order",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "product-service",
+          "label": "Get Products",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "user-service",
+          "label": "User Auth",
+          "kind": "sync"
+        },
+        {
+          "from": "order-service",
+          "to": "db",
+          "label": "R/W Orders",
+          "kind": "sync"
+        },
+        {
+          "from": "product-service",
+          "to": "db",
+          "label": "R/W Products",
+          "kind": "sync"
+        },
+        {
+          "from": "user-service",
+          "to": "db",
+          "label": "R/W Users",
+          "kind": "sync"
+        },
+        {
+          "from": "order-service",
+          "to": "kafka",
+          "label": "Order Events",
+          "kind": "async"
+        },
+        {
+          "from": "product-service",
+          "to": "kafka",
+          "label": "Product Updates",
+          "kind": "async"
+        },
+        {
+          "from": "kafka",
+          "to": "analytics",
+          "label": "Consume Events",
+          "kind": "async"
+        }
+      ],
+      "groups": [
+        {
+          "id": "backend-services",
+          "label": "Backend Services",
+          "contains": ["order-service", "product-service", "user-service"],
+          "style": "cluster"
+        }
+      ],
+      "meta": {
+        "direction": "LR"
+      }
+    }
+  },
+  {
+    "title": "URL Shortener Architecture",
+    "minScore": 74,
+    "spec": {
+      "type": "system-design",
+      "title": "URL Shortener Architecture",
+      "nodes": [
+        {
+          "id": "browser",
+          "label": "Browser",
+          "icon": "software-logos__software-logos-16",
+          "category": "client"
+        },
+        {
+          "id": "load_balancer",
+          "label": "Load Balancer",
+          "icon": "aws-architecture-icons__alb",
+          "category": "gateway"
+        },
+        {
+          "id": "api_service",
+          "label": "API Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "redis_cache",
+          "label": "Redis Cache",
+          "icon": "software-logos__software-logos-5",
+          "category": "cache"
+        },
+        {
+          "id": "postgres_db",
+          "label": "PostgreSQL DB",
+          "icon": "software-logos__software-logos-12",
+          "category": "database"
+        },
+        {
+          "id": "kafka_queue",
+          "label": "Kafka Queue",
+          "icon": "aws-architecture-icons__managed-streaming-for-apache-kafka",
+          "category": "queue"
+        },
+        {
+          "id": "analytics_worker",
+          "label": "Analytics Worker",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        }
+      ],
+      "edges": [
+        {
+          "from": "browser",
+          "to": "load_balancer",
+          "label": "Shorten/Redirect Request",
+          "protocol": "HTTPS",
+          "kind": "sync"
+        },
+        {
+          "from": "load_balancer",
+          "to": "api_service",
+          "label": "Route Request",
+          "protocol": "HTTP",
+          "kind": "sync"
+        },
+        {
+          "from": "api_service",
+          "to": "redis_cache",
+          "label": "Read/Write URL",
+          "kind": "sync"
+        },
+        {
+          "from": "api_service",
+          "to": "postgres_db",
+          "label": "Read/Write URL",
+          "kind": "sync"
+        },
+        {
+          "from": "api_service",
+          "to": "kafka_queue",
+          "label": "Publish Click Event",
+          "kind": "async"
+        },
+        {
+          "from": "kafka_queue",
+          "to": "analytics_worker",
+          "label": "Consume Click Event",
+          "kind": "async"
+        }
+      ],
+      "groups": [
+        {
+          "id": "backend_group",
+          "label": "Backend Services",
+          "contains": [
+            "api_service",
+            "redis_cache",
+            "postgres_db",
+            "kafka_queue",
+            "analytics_worker"
+          ],
+          "style": "cluster"
+        }
+      ],
+      "meta": {
+        "direction": "LR"
+      }
+    }
+  },
+  {
+    "title": "Payment Processing Architecture",
+    "minScore": 82,
+    "spec": {
+      "type": "system-design",
+      "title": "Payment Processing Architecture",
+      "nodes": [
+        {
+          "id": "frontend",
+          "label": "Checkout Frontend",
+          "icon": "software-logos__software-logos-16",
+          "category": "client"
+        },
+        {
+          "id": "api-gateway",
+          "label": "API Gateway",
+          "icon": "aws-serverless-icons-v2__apigateway",
+          "category": "gateway"
+        },
+        {
+          "id": "payment-service",
+          "label": "Payment Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "order-service",
+          "label": "Order Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL DB",
+          "sublabel": "Transactions",
+          "icon": "software-logos__software-logos-12",
+          "category": "database"
+        },
+        {
+          "id": "redis",
+          "label": "Redis Cache",
+          "icon": "software-logos__software-logos-5",
+          "category": "cache"
+        },
+        {
+          "id": "webhook-worker",
+          "label": "Webhook Worker",
+          "icon": "aws-architecture-icons__lambda",
+          "category": "service"
+        }
+      ],
+      "edges": [
+        {
+          "from": "frontend",
+          "to": "api-gateway",
+          "label": "Process Payment Request",
+          "protocol": "HTTPS",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "payment-service",
+          "label": "Authorize Payment",
+          "kind": "sync"
+        },
+        {
+          "from": "payment-service",
+          "to": "order-service",
+          "label": "Create Order",
+          "kind": "sync"
+        },
+        {
+          "from": "payment-service",
+          "to": "postgres",
+          "label": "Record Transaction",
+          "kind": "sync"
+        },
+        {
+          "from": "order-service",
+          "to": "postgres",
+          "label": "Store Order Data",
+          "kind": "sync"
+        },
+        {
+          "from": "payment-service",
+          "to": "redis",
+          "label": "Cache Payment Details",
+          "kind": "sync"
+        },
+        {
+          "from": "payment-service",
+          "to": "webhook-worker",
+          "label": "Send Payment Confirmation",
+          "kind": "async"
+        }
+      ],
+      "groups": [
+        {
+          "id": "backend-group",
+          "label": "Payment Backend",
+          "contains": [
+            "api-gateway",
+            "payment-service",
+            "order-service",
+            "postgres",
+            "redis",
+            "webhook-worker"
+          ],
+          "style": "cluster"
+        }
+      ]
+    }
+  },
+  {
+    "title": "Ride Hailing Backend",
+    "minScore": 90,
+    "spec": {
+      "type": "system-design",
+      "title": "Ride Hailing Backend",
+      "description": "Core services and data flow for a ride-hailing platform.",
+      "nodes": [
+        {
+          "id": "rider-app",
+          "label": "Rider App",
+          "icon": "software-logos__software-logos-16",
+          "category": "client"
+        },
+        {
+          "id": "driver-app",
+          "label": "Driver App",
+          "icon": "architecture-diagram-components__device",
+          "category": "client"
+        },
+        {
+          "id": "api-gateway",
+          "label": "API Gateway",
+          "icon": "aws-architecture-icons__api-gateway",
+          "category": "gateway"
+        },
+        {
+          "id": "trip-service",
+          "label": "Trip Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "matching-service",
+          "label": "Matching Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "pricing-service",
+          "label": "Pricing Service",
+          "icon": "aws-architecture-icons__service",
+          "category": "service"
+        },
+        {
+          "id": "driver-location-store",
+          "label": "Driver Location Store",
+          "sublabel": "Geo-DB",
+          "icon": "software-logos__software-logos-1",
+          "category": "database"
+        },
+        {
+          "id": "trips-db",
+          "label": "Trips Database",
+          "sublabel": "PostgreSQL",
+          "icon": "software-logos__software-logos-12",
+          "category": "database"
+        },
+        {
+          "id": "kafka",
+          "label": "Kafka Queue",
+          "icon": "aws-architecture-icons__managed-streaming-for-apache-kafka",
+          "category": "queue"
+        },
+        {
+          "id": "notification-worker",
+          "label": "Notification Worker",
+          "icon": "aws-architecture-icons__lambda",
+          "category": "service"
+        }
+      ],
+      "edges": [
+        {
+          "from": "rider-app",
+          "to": "api-gateway",
+          "label": "Request Ride",
+          "protocol": "HTTPS",
+          "direction": "uni",
+          "kind": "sync"
+        },
+        {
+          "from": "driver-app",
+          "to": "api-gateway",
+          "label": "Receive Trips",
+          "protocol": "HTTPS",
+          "direction": "uni",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "trip-service",
+          "label": "Manage Trip",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "matching-service",
+          "label": "Find Drivers",
+          "kind": "sync"
+        },
+        {
+          "from": "api-gateway",
+          "to": "pricing-service",
+          "label": "Calculate Fare",
+          "kind": "sync"
+        },
+        {
+          "from": "trip-service",
+          "to": "trips-db",
+          "label": "Read/Write Trip Data",
+          "kind": "sync"
+        },
+        {
+          "from": "matching-service",
+          "to": "driver-location-store",
+          "label": "Query/Update Location",
+          "kind": "sync"
+        },
+        {
+          "from": "trip-service",
+          "to": "kafka",
+          "label": "Trip Events",
+          "kind": "async"
+        },
+        {
+          "from": "kafka",
+          "to": "notification-worker",
+          "label": "Process Notifications",
+          "kind": "async"
+        }
+      ],
+      "groups": [
+        {
+          "id": "backend-group",
+          "label": "Backend",
+          "contains": [
+            "api-gateway",
+            "trip-service",
+            "matching-service",
+            "pricing-service",
+            "driver-location-store",
+            "trips-db",
+            "kafka",
+            "notification-worker"
+          ],
+          "style": "cluster"
+        }
+      ],
+      "meta": {
+        "direction": "LR"
+      }
+    }
+  }
+]

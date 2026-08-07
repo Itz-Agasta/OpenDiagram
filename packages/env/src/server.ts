@@ -49,6 +49,11 @@ export const env = createEnv({
     // entire agent run. Lower it here if span volume becomes a problem.
     SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    // Writes the whole DiagramSpec into the draw_diagram wide event, which is
+    // how harness corpus fixtures get captured. Opt-in rather than keyed off
+    // NODE_ENV: that defaults to "development", so a self-hosted deploy that
+    // never sets it would ship a user's architecture to Sentry by default.
+    LOG_DIAGRAM_SPEC: z.stringbool().default(false),
   },
   runtimeEnv: process.env,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
