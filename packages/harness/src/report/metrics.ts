@@ -1,4 +1,5 @@
 import type { Box, EdgeRoute, PositionedSpec } from "../geometry.js";
+import { edgeLabelText } from "../measure.js";
 
 /**
  * Geometric defect counts for a laid-out spec. Pure functions over
@@ -12,6 +13,8 @@ export interface Metrics {
   /** Edges whose polyline passes through a node that is not an endpoint. */
   edgeThroughNode: number;
   labelCollisions: number;
+  /** Edges beyond the first carrying an identical label. */
+  duplicateLabels: number;
   nodeOverlaps: number;
   /** Edges running against `meta.direction`. */
   backEdges: number;
@@ -23,6 +26,8 @@ export interface Metrics {
 }
 
 export interface Offenders {
+  /** Label text repeated across edges, with the edges carrying it. */
+  duplicateLabel: { text: string; edges: string[] }[];
   crossing: [string, string][];
   edgeThroughNode: { edge: string; node: string }[];
   labelCollision: string[];
@@ -164,6 +169,21 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     if (back) backEdge.push(id);
   }
 
+  // Identical labels carry no distinguishing information but each still costs a
+  // masking chip on the canvas, and they cluster in exactly the corridors that
+  // already have the most edges. Three "Route Request · HTTP" chips stacked in
+  // one gap is the single most common reason a clean layout still reads as
+  // cluttered.
+  const byLabel = new Map<string, string[]>();
+  for (const edge of spec.edges) {
+    const text = edgeLabelText(edge);
+    if (!text || !edge.id) continue;
+    byLabel.set(text, [...(byLabel.get(text) ?? []), edge.id]);
+  }
+  const duplicateLabel = [...byLabel]
+    .filter(([, edges]) => edges.length > 1)
+    .map(([text, edges]) => ({ text, edges }));
+
   // `layoutDiagram` assigns every edge an id during sanitize, but the shared
   // `DiagramEdge` type keeps it optional for hand-written specs.
   const routed = new Set(routes.map(([id]) => id));
@@ -190,10 +210,19 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     crossings: crossing.length,
     edgeThroughNode: edgeThroughNode.length,
     labelCollisions: labelCollision.length,
+    duplicateLabels: duplicateLabel.reduce((n, d) => n + d.edges.length - 1, 0),
     nodeOverlaps: nodeOverlap.length,
     backEdges: backEdge.length,
     aspect,
     unrouted: unrouted.length,
-    offenders: { crossing, edgeThroughNode, labelCollision, nodeOverlap, backEdge, unrouted },
+    offenders: {
+      duplicateLabel,
+      crossing,
+      edgeThroughNode,
+      labelCollision,
+      nodeOverlap,
+      backEdge,
+      unrouted,
+    },
   };
 }

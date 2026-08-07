@@ -25,7 +25,7 @@ export type {
   RenderResult,
 } from "./renderer.js";
 
-export { buildReport, summarizeReport } from "./report/index.js";
+export { buildReport } from "./report/index.js";
 export type {
   DiagnosticCode,
   Diagnostic,

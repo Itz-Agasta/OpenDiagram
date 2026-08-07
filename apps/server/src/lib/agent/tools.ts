@@ -54,7 +54,13 @@ export interface DrawDiagramOutput {
 // Defect codes the model can actually act on by changing the SPEC. It has no
 // pixels to move, so reporting EDGE_THROUGH_NODE or LABEL_COLLISION would only
 // invite a redraw that cannot help -- those are ours to fix in layout.
-const MODEL_ACTIONABLE = new Set(["EXTREME_ASPECT", "EDGE_CROSSING", "BACK_EDGE", "BEND_HEAVY"]);
+const MODEL_ACTIONABLE = new Set([
+  "EXTREME_ASPECT",
+  "EDGE_CROSSING",
+  "BACK_EDGE",
+  "BEND_HEAVY",
+  "DUPLICATE_LABEL",
+]);
 
 /**
  * Compact, advisory quality note for the model. Deliberately not a retry
@@ -62,16 +68,12 @@ const MODEL_ACTIONABLE = new Set(["EXTREME_ASPECT", "EDGE_CROSSING", "BACK_EDGE"
  * here would loop on diagrams whose density is inherent to the request.
  */
 function qualityNote(report: DiagramReport): { score: number; issues: string[] } {
-  const issues = report.diagnostics
-    .filter((d) => MODEL_ACTIONABLE.has(d.code))
-    .map((d) => d.message);
-  // Crossings repeat once per pair; collapse so one tangle is not 9 lines.
-  const crossings = issues.filter((m) => m.includes("cross")).length;
-  const rest = issues.filter((m) => !m.includes("cross"));
-  return {
-    score: report.score,
-    issues: crossings > 0 ? [...rest, `${crossings} pairs of edges cross`] : rest,
-  };
+  const actionable = report.diagnostics.filter((d) => MODEL_ACTIONABLE.has(d.code));
+  // Crossings report once per edge pair; collapse so one tangle is not 9 lines.
+  const crossings = actionable.filter((d) => d.code === "EDGE_CROSSING").length;
+  const issues = actionable.filter((d) => d.code !== "EDGE_CROSSING").map((d) => d.message);
+  if (crossings > 0) issues.push(`${crossings} pairs of edges cross`);
+  return { score: report.score, issues };
 }
 
 /**

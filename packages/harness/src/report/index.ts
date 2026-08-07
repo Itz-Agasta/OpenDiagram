@@ -9,6 +9,7 @@ export type DiagnosticCode =
   | "EDGE_THROUGH_NODE"
   | "LABEL_COLLISION"
   | "EDGE_CROSSING"
+  | "DUPLICATE_LABEL"
   | "BACK_EDGE"
   | "EXTREME_ASPECT"
   | "BEND_HEAVY";
@@ -43,6 +44,7 @@ const PENALTY = {
   edgeThroughNode: 12,
   labelCollision: 8,
   crossing: 6,
+  duplicateLabel: 5,
   backEdge: 3,
 } as const;
 
@@ -112,6 +114,14 @@ export function buildReport(spec: PositionedSpec): DiagramReport {
       message: `Label of ${edge} overlaps a node or another label.`,
     });
   }
+  for (const { text, edges } of o.duplicateLabel) {
+    diagnostics.push({
+      code: "DUPLICATE_LABEL",
+      severity: "warn",
+      subjects: edges,
+      message: `${edges.length} edges all labelled "${text}"; label only what differs.`,
+    });
+  }
   for (const [a, b] of o.crossing) {
     diagnostics.push({
       code: "EDGE_CROSSING",
@@ -155,6 +165,7 @@ export function buildReport(spec: PositionedSpec): DiagramReport {
     metrics.edgeThroughNode * PENALTY.edgeThroughNode +
     metrics.labelCollisions * PENALTY.labelCollision +
     metrics.crossings * PENALTY.crossing +
+    metrics.duplicateLabels * PENALTY.duplicateLabel +
     metrics.backEdges * PENALTY.backEdge +
     aspectCost +
     bendCost;
@@ -163,14 +174,4 @@ export function buildReport(spec: PositionedSpec): DiagramReport {
   diagnostics.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1));
 
   return { score: Math.max(0, 100 - cost), metrics, diagnostics };
-}
-
-/** One-line summary for logs and for the model's tool result. */
-export function summarizeReport(report: DiagramReport): string {
-  const m = report.metrics;
-  return (
-    `score=${report.score} bends=${m.bends} crossings=${m.crossings} ` +
-    `thruNode=${m.edgeThroughNode} labelHits=${m.labelCollisions} ` +
-    `back=${m.backEdges} aspect=${m.aspect.toFixed(2)}`
-  );
 }
