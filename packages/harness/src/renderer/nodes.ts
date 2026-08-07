@@ -1,5 +1,5 @@
 import type { Box } from "../geometry.js";
-import { entityColumnTexts, estimateTextWidth } from "../measure.js";
+import { entityColumnTexts, estimateTextWidth, labelWrapWidth, wrapLabel } from "../measure.js";
 import type { DiagramNode } from "../schema.js";
 import type { HarnessIconRegistry, RenderSkeleton } from "../skeleton.js";
 import type { Theme } from "../theme/index.js";
@@ -58,10 +58,13 @@ export function renderSoloNode(
 
   const centerX = box.x + box.width / 2;
   const labelY = box.y + solo.iconSize + solo.gapIconLabel;
+  // Same wrap `nodeSize` reserved space for -- see measure.ts#wrapLabel.
+  const wrapAt = labelWrapWidth(solo.iconSize);
+  const labelLines = wrapLabel(node.label, text.soloLabel.size, theme.fontFamily, wrapAt);
   skeletons.push({
     kind: "text",
     id: `${node.id}-label`,
-    text: node.label,
+    text: labelLines.join("\n"),
     x: centerX,
     y: labelY,
     fontSize: text.soloLabel.size,
@@ -74,9 +77,9 @@ export function renderSoloNode(
     skeletons.push({
       kind: "text",
       id: `${node.id}-sublabel`,
-      text: node.sublabel,
+      text: wrapLabel(node.sublabel, text.soloSublabel.size, theme.fontFamily, wrapAt).join("\n"),
       x: centerX,
-      y: labelY + solo.labelHeight,
+      y: labelY + solo.labelHeight * labelLines.length,
       fontSize: text.soloSublabel.size,
       fontFamily: theme.fontFamily,
       color: text.soloSublabel.color,
@@ -116,12 +119,19 @@ export function renderBoxNode(
   });
 
   const centerX = box.x + box.width / 2;
-  const textBlockHeight = boxNode.labelHeight + (node.sublabel ? boxNode.sublabelHeight : 0);
+  // Same wrap `nodeSize` reserved space for -- see measure.ts#wrapLabel.
+  const wrapAt = labelWrapWidth(theme.solo.iconSize);
+  const labelLines = wrapLabel(node.label, text.nodeLabel.size, theme.fontFamily, wrapAt);
+  const sublabelLines = node.sublabel
+    ? wrapLabel(node.sublabel, text.nodeSublabel.size, theme.fontFamily, wrapAt)
+    : [];
+  const textBlockHeight =
+    boxNode.labelHeight * labelLines.length + sublabelLines.length * boxNode.sublabelHeight;
   const labelY = box.y + (box.height - textBlockHeight) / 2;
   out.push({
     kind: "text",
     id: `${node.id}-label`,
-    text: node.label,
+    text: labelLines.join("\n"),
     x: centerX,
     y: labelY,
     fontSize: text.nodeLabel.size,
@@ -134,9 +144,9 @@ export function renderBoxNode(
     out.push({
       kind: "text",
       id: `${node.id}-sublabel`,
-      text: node.sublabel,
+      text: sublabelLines.join("\n"),
       x: centerX,
-      y: labelY + boxNode.labelHeight,
+      y: labelY + boxNode.labelHeight * labelLines.length,
       fontSize: text.nodeSublabel.size,
       fontFamily: theme.fontFamily,
       color: text.nodeSublabel.color,
@@ -299,10 +309,13 @@ export function renderNode(
   // text is centered on — so pass the card's horizontal center.
   const centerX = box.x + box.width / 2;
   const labelY = box.y + card.padTop + card.iconSize + card.gapIconLabel;
+  // Same wrap `nodeSize` reserved space for -- see measure.ts#wrapLabel.
+  const wrapAt = labelWrapWidth(card.iconSize);
+  const labelLines = wrapLabel(node.label, text.nodeLabel.size, theme.fontFamily, wrapAt);
   skeletons.push({
     kind: "text",
     id: `${node.id}-label`,
-    text: node.label,
+    text: labelLines.join("\n"),
     x: centerX,
     y: labelY,
     fontSize: text.nodeLabel.size,
@@ -315,9 +328,9 @@ export function renderNode(
     skeletons.push({
       kind: "text",
       id: `${node.id}-sublabel`,
-      text: node.sublabel,
+      text: wrapLabel(node.sublabel, text.nodeSublabel.size, theme.fontFamily, wrapAt).join("\n"),
       x: centerX,
-      y: labelY + card.labelHeight,
+      y: labelY + card.labelHeight * labelLines.length,
       fontSize: text.nodeSublabel.size,
       fontFamily: theme.fontFamily,
       color: text.nodeSublabel.color,
