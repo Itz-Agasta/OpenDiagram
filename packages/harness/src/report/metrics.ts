@@ -169,11 +169,13 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     if (back) backEdge.push(id);
   }
 
-  // Identical labels carry no distinguishing information but each still costs a
-  // masking chip on the canvas, and they cluster in exactly the corridors that
-  // already have the most edges. Three "Route Request · HTTP" chips stacked in
-  // one gap is the single most common reason a clean layout still reads as
-  // cluttered.
+  // Only ever fires on edges in DIFFERENT corridors: `dedupeCorridorLabels` has
+  // already stripped the stacked-in-one-gap case by the time we measure. Those
+  // survivors are the ones sanitize deliberately keeps, and this still counts
+  // them, because the two passes carry different risk -- sanitize DELETES a
+  // label, so it stays conservative; the report only advises the model, which
+  // can drop a redundant "HTTPS" or leave it. Do not "fix" the mismatch by
+  // scoping this to corridors: sanitize guarantees that count is zero.
   const byLabel = new Map<string, string[]>();
   for (const edge of spec.edges) {
     const text = edgeLabelText(edge);
@@ -191,10 +193,18 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     .map((e) => e.id)
     .filter((id): id is string => id !== undefined && !routed.has(id));
 
+  // Route points and label chips count toward the bounds, not just node boxes.
+  // A back edge loops through the margin outside every node, so nodes alone
+  // measured one 4-node retry loop at aspect 6.14 where the drawn diagram is
+  // 5.58 -- the shape the reader sees, and the shape the aspect gate is about.
   const boxes = [
     ...Object.values(spec.positions),
     ...Object.values(spec.groupBoxes),
     ...Object.values(spec.zoneBoxes),
+    ...routes.flatMap(([, route]) => [
+      ...route.points.map((p) => ({ x: p.x, y: p.y, width: 0, height: 0 })),
+      ...(route.label ? [route.label] : []),
+    ]),
   ];
   let aspect = 1;
   if (boxes.length > 0) {
