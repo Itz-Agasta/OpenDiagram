@@ -6,16 +6,16 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "dotenv -e .env.local -- sh -c \"NODE_OPTIONS='--import ./instrument.server.mjs' vite dev --port 3001\"",
+    "dev": "dotenv -e .env.local -- sh -c \"NODE_OPTIONS='--import ./instrument.server.mjs' vite dev --port 3002\"",
     "generate-routes": "tsr generate",
-    "build": "vite build && cp instrument.server.mjs .output/server",
-    "preview": "pnpm run build && vite preview",
+    "build": "vite build && cp instrument.server.mjs dist/server",
+    "preview": "bun run build && vite preview",
     "test": "vitest run",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
-    "deploy": "pnpm run build && wrangler deploy",
-    "start": "node --import ./.output/server/instrument.server.mjs .output/server/index.mjs",
+    "deploy": "bun run build && wrangler deploy",
+    "start": "node --import ./dist/server/instrument.server.mjs dist/server/index.js",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

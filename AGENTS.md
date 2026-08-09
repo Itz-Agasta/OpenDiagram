@@ -20,7 +20,7 @@ This is NOT the Next.js you know. Next.js 16 has breaking changes — APIs, conv
 
 - **Runtime/PM:** Bun 1.3
 - **Frontend(Legacy):** Next.js 16 + React 19 + TypeScript
-- **Frontend(New):** Tanstack Start + React + TypeScript
+- **Frontend(New):** Tanstack Start + React 19 + TypeScript
 - **Backend:** Hono (Bun)
 - **Database:** PostgreSQL (supabase) (via packages/db)
 - **Auth:** Better Auth
@@ -55,7 +55,6 @@ bun run dev:server     # Server only
 bun run build          # All packages via turbo
 
 # Type check (tsgo)
-bun run check-types    # All packages via turbo
 just types             # Same, via justfile
 
 # Lint + format
