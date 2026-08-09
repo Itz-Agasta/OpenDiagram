@@ -41,6 +41,61 @@ export function countTextLines(text: string): number {
 }
 
 /**
+ * A solo node's footprint is set by its label, so "Recommendation Engine" on one
+ * line makes a node three times wider than its icon. That widens the whole
+ * diagram, pushes the aspect ratio out, and leaves arrowheads stopping at an
+ * invisible label-width boundary well clear of the icon.
+ *
+ * Wrapping caps the width instead. Multiplier is of the icon size so both themes
+ * scale with their own art; the floor keeps short two-word labels on one line.
+ */
+const LABEL_WRAP_FACTOR = 1.6;
+const LABEL_WRAP_FLOOR = 150;
+
+export function labelWrapWidth(iconSize: number): number {
+  return Math.max(LABEL_WRAP_FLOOR, iconSize * LABEL_WRAP_FACTOR);
+}
+
+/** Width of the longest wrapped line; 0 for no lines. */
+export function widestLine(lines: string[], fontSize: number, fontFamily?: number): number {
+  let widest = 0;
+  for (const line of lines)
+    widest = Math.max(widest, estimateTextWidth(line, fontSize, fontFamily));
+  return widest;
+}
+
+/**
+ * Greedy word wrap to `maxWidth`. Shared by `nodeSize` and the renderer so the
+ * reserved box and the drawn text can never disagree; call it from both, never
+ * reimplement. A single word longer than `maxWidth` is left alone rather than
+ * broken mid-word.
+ */
+export function wrapLabel(
+  text: string,
+  fontSize: number,
+  fontFamily: number | undefined,
+  maxWidth: number,
+): string[] {
+  // Respect newlines the model already chose, then wrap within each.
+  const out: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (words.length === 0) continue;
+    let line = words[0]!;
+    for (const word of words.slice(1)) {
+      const candidate = `${line} ${word}`;
+      if (estimateTextWidth(candidate, fontSize, fontFamily) <= maxWidth) line = candidate;
+      else {
+        out.push(line);
+        line = word;
+      }
+    }
+    out.push(line);
+  }
+  return out.length > 0 ? out : [text];
+}
+
+/**
  * Node footprint.
  * - "card" mode: contained nodes render as cards (box + icon band + label),
  *   top-level nodes render solo (big boxless icon + label underneath).
@@ -84,45 +139,56 @@ export function nodeSize(
 
   if (theme.nodeMode === "icon" && !node.icon) {
     const { boxNode, text } = theme;
-    const labelWidth = estimateTextWidth(node.label, text.nodeLabel.size, theme.fontFamily);
-    const sublabelWidth = node.sublabel
-      ? estimateTextWidth(node.sublabel, text.nodeSublabel.size, theme.fontFamily)
-      : 0;
+    const wrapAt = labelWrapWidth(theme.solo.iconSize);
+    const labelLines = wrapLabel(node.label, text.nodeLabel.size, theme.fontFamily, wrapAt);
+    const sublabelLines = node.sublabel
+      ? wrapLabel(node.sublabel, text.nodeSublabel.size, theme.fontFamily, wrapAt)
+      : [];
+    const labelWidth = widestLine(labelLines, text.nodeLabel.size, theme.fontFamily);
+    const sublabelWidth = widestLine(sublabelLines, text.nodeSublabel.size, theme.fontFamily);
     return {
       width: Math.max(boxNode.minWidth, Math.max(labelWidth, sublabelWidth) + boxNode.paddingX * 2),
       height:
-        boxNode.paddingY * 2 + boxNode.labelHeight + (node.sublabel ? boxNode.sublabelHeight : 0),
+        boxNode.paddingY * 2 +
+        boxNode.labelHeight * labelLines.length +
+        sublabelLines.length * boxNode.sublabelHeight,
     };
   }
 
   if (theme.nodeMode === "icon" || !contained) {
     const { solo, text } = theme;
-    const labelWidth = estimateTextWidth(node.label, text.soloLabel.size, theme.fontFamily);
-    const sublabelWidth = node.sublabel
-      ? estimateTextWidth(node.sublabel, text.soloSublabel.size, theme.fontFamily)
-      : 0;
+    const wrapAt = labelWrapWidth(solo.iconSize);
+    const labelLines = wrapLabel(node.label, text.soloLabel.size, theme.fontFamily, wrapAt);
+    const sublabelLines = node.sublabel
+      ? wrapLabel(node.sublabel, text.soloSublabel.size, theme.fontFamily, wrapAt)
+      : [];
+    const labelWidth = widestLine(labelLines, text.soloLabel.size, theme.fontFamily);
+    const sublabelWidth = widestLine(sublabelLines, text.soloSublabel.size, theme.fontFamily);
     return {
       width: Math.max(solo.iconSize, labelWidth, sublabelWidth) + 8,
       height:
         solo.iconSize +
         solo.gapIconLabel +
-        solo.labelHeight +
-        (node.sublabel ? solo.sublabelHeight : 0),
+        solo.labelHeight * labelLines.length +
+        sublabelLines.length * solo.sublabelHeight,
     };
   }
 
   const { card, text } = theme;
-  const labelWidth = estimateTextWidth(node.label, text.nodeLabel.size, theme.fontFamily);
-  const sublabelWidth = node.sublabel
-    ? estimateTextWidth(node.sublabel, text.nodeSublabel.size, theme.fontFamily)
-    : 0;
+  const wrapAt = labelWrapWidth(card.iconSize);
+  const labelLines = wrapLabel(node.label, text.nodeLabel.size, theme.fontFamily, wrapAt);
+  const sublabelLines = node.sublabel
+    ? wrapLabel(node.sublabel, text.nodeSublabel.size, theme.fontFamily, wrapAt)
+    : [];
+  const labelWidth = widestLine(labelLines, text.nodeLabel.size, theme.fontFamily);
+  const sublabelWidth = widestLine(sublabelLines, text.nodeSublabel.size, theme.fontFamily);
   const width = Math.max(card.minWidth, Math.max(labelWidth, sublabelWidth) + card.paddingX * 2);
   const height =
     card.padTop +
     card.iconSize +
     card.gapIconLabel +
-    card.labelHeight +
-    (node.sublabel ? card.sublabelHeight : 0) +
+    card.labelHeight * labelLines.length +
+    sublabelLines.length * card.sublabelHeight +
     card.padBottom;
   return { width, height };
 }

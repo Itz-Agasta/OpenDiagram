@@ -1,17 +1,3 @@
-/**
- * Transactional email templates.
- *
- * All three share one shell so the brand reads the same whichever message a user
- * gets first. Constraints that shape the markup: Gmail strips `<style>` blocks
- * and Outlook ignores most layout CSS, so every rule is inline and the layout is
- * a single column with no floats or flexbox. Colours are literal hex rather than
- * CSS variables for the same reason.
- *
- * Every template returns HTML *and* plain text. The text part isn't a courtesy:
- * a missing text/plain alternative is a spam-filter signal, and these are the
- * mails that must not land in spam.
- */
-
 export type EmailBody = { subject: string; html: string; text: string };
 
 /** User-controlled strings (display names) can't go into markup unescaped. */

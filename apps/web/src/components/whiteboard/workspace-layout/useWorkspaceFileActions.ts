@@ -3,10 +3,11 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
+import { deleteLocalChat, writeLocalChat } from "@/lib/local-chat";
+import { cancelQueuedProjectFilePatch, queueProjectFilePatch } from "@/lib/project-file-sync";
 import {
   createProjectFile,
   deleteProjectFile,
-  updateProjectFile,
   type ProjectFileType,
   type SavedProjectFile,
 } from "@/lib/projects-client";
@@ -80,10 +81,21 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     setSaveStatus("saving");
     persistence.clearAutosave();
     try {
-      const updated = await updateProjectFile(projectId, activeFile.id, {
-        content: activeFile.type === "doc" ? persistence.contentRef.current : undefined,
-        scene: activeFile.type === "diagram" ? persistence.sceneRef.current : undefined,
-      });
+      // Through the shared queue, like the autosave it replaces: direct, it put a
+      // second scene PATCH on the wire against a row an autosave was already
+      // writing -- pressing Save inside the autosave interval. `clearAutosave`
+      // above stops a NEW one being scheduled, it does not recall a queued one.
+      //
+      // "full" because the response is read back below to re-seed a doc editor.
+      const updated = await queueProjectFilePatch(
+        projectId,
+        activeFile.id,
+        {
+          content: activeFile.type === "doc" ? persistence.contentRef.current : undefined,
+          scene: activeFile.type === "diagram" ? persistence.sceneRef.current : undefined,
+        },
+        "full",
+      );
       setActiveFile(updated);
       upsertStoredFile(toSidebarFile(updated));
       persistence.markClean();
@@ -162,9 +174,14 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       persistence.invalidateFileAutosave(fileId);
       persistence.clearAutosave();
     }
+    // Before the DELETE, not after: a patch still sitting in the write queue would
+    // otherwise go out behind it and 404, reporting a save error for a file the
+    // user just deliberately threw away.
+    cancelQueuedProjectFilePatch(fileId);
     try {
       await deleteProjectFile(projectId, fileId);
       removeStoredFile(fileId);
+      void deleteLocalChat(fileId);
       const nextFile = sidebarFiles.find((file) => file.id !== fileId);
       if (persistence.activeFileRef.current?.id === fileId) {
         setActiveFile(null);
@@ -194,6 +211,14 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       const currentDraft = draftRef.current;
       const fileId = currentFileIdRef.current ?? currentDraft?.files[0]?.id;
       if (!fileId) return;
+
+      // The one place every chat path reports a completed turn -- both chat hooks
+      // call `onHistoryChange` immediately before persisting -- so caching here
+      // covers all six write sites without threading IndexedDB through either of
+      // them. This is what lets the panel paint from disk on the next open
+      // instead of waiting out the file fetch.
+      void writeLocalChat(fileId, projectId, history);
+
       if (!isSignedIn && currentDraft) {
         const nextDraft = {
           ...currentDraft,
@@ -207,7 +232,7 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
       }
       setActiveFile((current) => (current?.id === fileId ? { ...current, history } : current));
     },
-    [currentFileIdRef, draftRef, isSignedIn, setActiveFile, setDraft],
+    [currentFileIdRef, draftRef, isSignedIn, projectId, setActiveFile, setDraft],
   );
 
   return {

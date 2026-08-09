@@ -26,4 +26,5 @@ ENV SKIP_ENV_VALIDATION=
 EXPOSE 3000
 
 WORKDIR /app/apps/server
-CMD ["bun", "run", "dist/index.mjs"]
+# --preload is load-bearing for db tracing. See the Sentry note in src/index.ts.
+CMD ["bun", "run", "--preload", "@sentry/node/preload", "dist/index.mjs"]

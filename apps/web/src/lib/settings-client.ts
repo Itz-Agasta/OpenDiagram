@@ -48,10 +48,47 @@ async function readError(response: Response, fallback: string): Promise<string> 
   return body?.error ?? fallback;
 }
 
+/**
+ * Cached because `AgentInputPanel` and `use-ai-chat-panel-controller` each fetch
+ * this on mount, so one dashboard-then-workspace visit made four identical calls.
+ *
+ * Per-account: the payload carries `keyLast4`, so sign-out MUST clear it. Nothing
+ * here reloads the page, and module state would otherwise outlive the account.
+ */
+let settingsCache: { settings: AiSettings; fetchedAt: number } | null = null;
+let settingsRequest: Promise<AiSettings> | null = null;
+let generation = 0;
+const SETTINGS_TTL_MS = 30_000;
+
+export function clearAiSettingsCache(): void {
+  generation += 1;
+  settingsCache = null;
+  settingsRequest = null;
+}
+
 export async function getAiSettings(): Promise<AiSettings> {
-  const response = await fetch(`${BASE}/providers`, { credentials: "include" });
-  if (!response.ok) throw new Error(await readError(response, "Failed to load Settings."));
-  return response.json();
+  const cached = settingsCache;
+  if (cached && Date.now() - cached.fetchedAt < SETTINGS_TTL_MS) return cached.settings;
+  if (settingsRequest) return settingsRequest;
+
+  const started = generation;
+  const request = (async () => {
+    const response = await fetch(`${BASE}/providers`, { credentials: "include" });
+    if (!response.ok) throw new Error(await readError(response, "Failed to load Settings."));
+    const settings = (await response.json()) as AiSettings;
+    // Clearing only drops the pending promise; this response is still in flight and
+    // would otherwise refill the cache it was meant to evict. A sign-out mid-fetch
+    // is exactly the case that leaks, so a bumped generation must not be cached.
+    if (started === generation) settingsCache = { settings, fetchedAt: Date.now() };
+    return settings;
+  })();
+  settingsRequest = request;
+
+  try {
+    return await request;
+  } finally {
+    if (settingsRequest === request) settingsRequest = null;
+  }
 }
 
 export async function connectProvider(input: {
@@ -66,6 +103,7 @@ export async function connectProvider(input: {
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(await readError(response, "Could not connect provider."));
+  clearAiSettingsCache();
 }
 
 export async function updateProvider(
@@ -79,6 +117,7 @@ export async function updateProvider(
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(await readError(response, "Could not update provider."));
+  clearAiSettingsCache();
 }
 
 export function providerModelOptions(settings: AiSettings): ProviderModelOption[] {
@@ -100,17 +139,11 @@ export function providerModelOptions(settings: AiSettings): ProviderModelOption[
   });
 }
 
-export async function selectProviderModel(option: ProviderModelOption): Promise<void> {
-  await updateProvider(option.providerId, {
-    modelId: option.modelId,
-    makeDefault: true,
-  });
-}
-
 export async function disconnectProvider(id: string): Promise<void> {
   const response = await fetch(`${BASE}/providers/${id}`, {
     method: "DELETE",
     credentials: "include",
   });
   if (!response.ok) throw new Error(await readError(response, "Could not disconnect provider."));
+  clearAiSettingsCache();
 }

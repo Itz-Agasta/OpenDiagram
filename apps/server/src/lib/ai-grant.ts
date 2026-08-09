@@ -14,7 +14,7 @@
  */
 import type { AuditableLogger } from "evlog";
 import type { Context } from "hono";
-import { resolveModel } from "./ai-provider/resolve";
+import { ModelSelectionError, resolveModel, type ModelSelection } from "./ai-provider/resolve";
 import { enforceAiQuota, quotaErrorResponse } from "./quota";
 import type { AiCallOptions, AiUsage } from "./repo-ai";
 
@@ -39,18 +39,23 @@ export type AiGrant = {
  *
  * `meter: false` resolves a model but takes no credit — for work already paid for
  * on a previous request, such as resuming an in-flight repo generation.
+ *
+ * `selection` overrides the user's saved default for this call only.
  */
 export async function takeAiGrant<E extends { Variables: { log: AuditableLogger } }>(
   c: Context<E>,
   userId: string,
   route: string,
-  options: { meter?: boolean } = {},
+  options: { meter?: boolean; selection?: ModelSelection } = {},
 ): Promise<AiGrant | Response> {
   const log = c.get("log");
   let resolved: Awaited<ReturnType<typeof resolveModel>>;
   try {
-    resolved = await resolveModel(userId);
+    resolved = await resolveModel(userId, options.selection);
   } catch (error) {
+    if (error instanceof ModelSelectionError) {
+      return c.json({ error: error.message, code: "model_unavailable" }, 400);
+    }
     log.error("Failed to resolve BYOK model", { error });
     return c.json({ error: "Your saved AI provider key could not be used. Check Settings." }, 502);
   }

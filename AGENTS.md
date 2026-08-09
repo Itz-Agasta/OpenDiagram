@@ -61,6 +61,13 @@ just types             # Same, via justfile
 # Lint + format
 just check             # oxlint + oxfmt --write
 
+# Database
+just db-generate <name>  # Generate a migration from schema changes
+just db-migrate          # Apply pending migrations
+just db-seed             # Apply plan limits from packages/db/src/seed.ts
+just db-seed --dry-run   # Preview what db-seed would change
+just db-setup            # migrate + seed, in that order (a fresh DB needs both)
+
 # Cleanup
 just clean             # Nuke node_modules, .turbo, .next, dist
 just reinstall         # clean + bun install

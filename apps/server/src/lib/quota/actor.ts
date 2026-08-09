@@ -3,15 +3,20 @@
  * the plan table read, the billing window math, and the resolution that ties
  * them together into a `CreationQuotaActor`.
  */
-import { auth } from "@OpenDiagram/auth";
 import { and, db, eq, inArray, sql } from "@OpenDiagram/db";
 import { user } from "@OpenDiagram/db/schema/auth";
-import { plan, type PlanId } from "@OpenDiagram/db/schema/plan";
-import { ENTITLING_SUBSCRIPTION_STATUSES, subscription } from "@OpenDiagram/db/schema/subscription";
+import {
+  ENTITLING_SUBSCRIPTION_STATUSES,
+  plan,
+  subscription,
+  type PlanId,
+} from "@OpenDiagram/db/schema/billing";
 import { env } from "@OpenDiagram/env/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
+
+import { getRequestSession } from "../session";
 
 export type Plan = typeof plan.$inferSelect;
 
@@ -49,9 +54,10 @@ export async function getPlan(id: PlanId): Promise<Plan> {
 
   const [row] = await db.select().from(plan).where(eq(plan.id, id)).limit(1);
   if (!row) {
-    // The seed migration inserts guest/free/pro. A missing row means migrations
-    // haven't run, and silently defaulting would hand out free inference.
-    throw new Error(`Plan "${id}" is missing from the plan table. Run db:migrate.`);
+    // `db:seed` inserts guest/free/pro, and it is a separate step from
+    // `db:migrate` -- a migrated but unseeded database has the table and none of
+    // the rows. Silently defaulting would hand out free inference.
+    throw new Error(`Plan "${id}" is missing from the plan table. Run db:seed.`);
   }
 
   planCache.set(id, { plan: row, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
@@ -107,8 +113,13 @@ function readOrIssueGuestId(c: Context): string {
  * request, and mint a fresh bucket every time. Since the guest cookie is
  * deletable by design, that left guest spend with no bound at all.
  *
- * If a CDN is ever put in front of Cloud Run, this becomes "rightmost minus N
- * trusted hops" -- still counted from the right, never from the left.
+ * This is *not* the same rule as Better Auth's `advanced.ipAddress
+ * .trustedProxies` (see packages/auth/src/index.ts), which walks right to left
+ * and steps over hops it trusts. The two agree only while the rightmost hop is
+ * untrusted, which prod measurement says it is: X-Forwarded-For carries a single
+ * value there, so both pick the same address. Put a CDN in front of the API and
+ * they diverge -- Better Auth would step over the edge hop once its range is
+ * listed, this would bucket everyone under the edge. Update both together.
  */
 function hashClientIp(c: Context): string | null {
   const forwarded = c.req.header("x-forwarded-for");
@@ -210,20 +221,43 @@ async function guestActor(c: Context, actorId: string): Promise<CreationQuotaAct
 }
 
 /**
- * The actor for a known user id. `c` is optional because the webhook handler and
- * the billing route act on a user with no inbound request to read an IP from.
+ * The actor for a known user id.
+ *
+ * Pass `c` from inside a request: it lets `accountFacts` read the session this
+ * request already resolved instead of going back to the `user` table. The
+ * webhook handler has no request to pass, which is why it stays optional.
  */
-export async function getUserActor(userId: string): Promise<CreationQuotaActor> {
-  return userActor(userId);
+export async function getUserActor(userId: string, c?: Context): Promise<CreationQuotaActor> {
+  return userActor(userId, c);
 }
 
-async function userActor(userId: string, c?: Context): Promise<CreationQuotaActor> {
-  const now = new Date();
-  const [account] = await db
+/**
+ * `createdAt` and `emailVerified` for the actor, from the session when we have
+ * one. The session Better Auth already resolved for this request carries both
+ * fields, so re-selecting them was an extra round trip on every metered route --
+ * the same waste `getRequestSession` exists to avoid.
+ *
+ * Falls back to the database when there is no request context (the webhook and
+ * billing paths) or when the request belongs to a different user than the one
+ * being priced, which the explicit `userId` option in `getCreationQuotaActor`
+ * allows.
+ */
+async function accountFacts(userId: string, c?: Context) {
+  const session = c ? await getRequestSession(c) : null;
+  if (session?.user.id === userId) {
+    return { createdAt: session.user.createdAt, emailVerified: session.user.emailVerified };
+  }
+  const [row] = await db
     .select({ createdAt: user.createdAt, emailVerified: user.emailVerified })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
+  return row;
+}
+
+async function userActor(userId: string, c?: Context): Promise<CreationQuotaActor> {
+  const now = new Date();
+  const account = await accountFacts(userId, c);
 
   const paid = await resolvePaidWindow(userId);
 
@@ -278,7 +312,7 @@ async function userActor(userId: string, c?: Context): Promise<CreationQuotaActo
 
 async function currentUserId(c: Context, explicit?: string): Promise<string | undefined> {
   if (explicit) return explicit;
-  const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
+  const session = await getRequestSession(c);
   return session?.user.id;
 }
 

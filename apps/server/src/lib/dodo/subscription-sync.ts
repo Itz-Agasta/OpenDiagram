@@ -17,7 +17,7 @@ import {
   subscription,
   subscriptionStatuses,
   type SubscriptionStatus,
-} from "@OpenDiagram/db/schema/subscription";
+} from "@OpenDiagram/db/schema/billing";
 import type { Dispute } from "dodopayments/resources/disputes";
 import type { Refund } from "dodopayments/resources/refunds";
 import type { Subscription } from "dodopayments/resources/subscriptions";

@@ -10,12 +10,12 @@ export const env = createEnv({
     CORS_ORIGIN: z.string().min(1),
     GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
-    // Prod split deploy: set to the shared parent domain (e.g. ".vyse.site") so
-    // the session cookie is shared across app.* (web) and api.* (server). Leave
-    // unset locally -- localhost needs no cross-subdomain sharing.
+    // Prod split deploy: set to the shared parent domain ("opendiagram.ink") so
+    // the session cookie is shared between the web app on the apex and the API on
+    // its subdomain. Leave unset locally -- localhost needs no cross-subdomain
+    // sharing. Every entry in CORS_ORIGIN must sit under this domain: the cookies
+    // are SameSite=Lax, so a genuinely cross-site origin would not receive them.
     COOKIE_DOMAIN: z.string().min(1).optional(),
-    // Orchestrator intent classifier (optional — degrades to regex if unset).
-    GROQ_API_KEY: z.string().min(1).optional(),
     // All LLM tasks (diagrams, docs, analysis, chat) run on Gemini.
     // Functionally required in prod.
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
@@ -44,13 +44,16 @@ export const env = createEnv({
     // address, which is enough for local testing and nothing else.
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM: z.string().min(1).default("OpenDiagram <onboarding@resend.dev>"),
-    COGNEE_BASE_URL: z.url().optional(),
-    COGNEE_API_KEY: z.string().min(1).optional(),
     // Fraction of traces sampled, 0..1. Full sampling by default: gen_ai runs
     // are sampled as a whole span tree, so dropping a root span loses the
     // entire agent run. Lower it here if span volume becomes a problem.
     SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    // Writes the whole DiagramSpec into the draw_diagram wide event, which is
+    // how harness corpus fixtures get captured. Opt-in rather than keyed off
+    // NODE_ENV: that defaults to "development", so a self-hosted deploy that
+    // never sets it would ship a user's architecture to Sentry by default.
+    LOG_DIAGRAM_SPEC: z.stringbool().default(false),
   },
   runtimeEnv: process.env,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

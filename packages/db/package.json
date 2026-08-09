@@ -5,6 +5,12 @@
     ".": {
       "default": "./src/index.ts"
     },
+    "./schema": {
+      "default": "./src/schema/index.ts"
+    },
+    "./schema/*": {
+      "default": "./src/schema/*/index.ts"
+    },
     "./*": {
       "default": "./src/*.ts"
     }
@@ -13,13 +19,14 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "bun run src/seed.ts"
   },
   "dependencies": {
     "@OpenDiagram/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
-    "pg": "^8.17.1",
+    "pg": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

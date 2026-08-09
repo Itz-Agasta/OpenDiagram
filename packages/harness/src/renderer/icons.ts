@@ -32,15 +32,40 @@ export function cloneIconInstance(
   instanceGroupId: string,
   roughness: number,
 ): Record<string, unknown>[] {
-  // Icon packs bundle their own caption text baked into the library snapshot --
+  // Icon packs bundle their own caption text baked into the library snapshot,
   // dropped since every card renders its own label.
   const raw = (elements as unknown as RawExcalidrawElement[]).filter((el) => el.type !== "text");
   if (raw.length === 0) return [];
 
-  const minX = Math.min(...raw.map((el) => el.x));
-  const minY = Math.min(...raw.map((el) => el.y));
-  const maxX = Math.max(...raw.map((el) => el.x + el.width));
-  const maxY = Math.max(...raw.map((el) => el.y + el.height));
+  // A linear element's `width`/`height` do not always match the span of its
+  // `points`, and points may be negative, so `x .. x + width` is not the ink
+  // extent. Centring the wrong box put 184 of 302 registry icons off-centre,
+  // worst 51.9px in an 88px box: visible on bare-stroke icons, masked on the
+  // ones with a full-bleed background rect.
+  //
+  // We deliberately do NOT rotate points by `angle` first. It looks like the
+  // same class of bug (337 registry elements carry a non-zero angle), but a
+  // linear element rotates about its own points-bbox centre, so the rotated
+  // extent barely moves: measured across all 302 icons, 2 shift by more than a
+  // pixel, worst 1.7px in an 88px box.
+  // https://github.com/excalidraw/excalidraw/blob/1acf66edabc2ac5bbd4aed0714aed7dca7cc2aab/packages/element/src/linearElementEditor.ts#L2026
+  const extents = raw.map((el) => {
+    if (Array.isArray(el.points) && el.points.length > 0) {
+      const xs = el.points.map(([px]) => px);
+      const ys = el.points.map(([, py]) => py);
+      return {
+        x1: el.x + Math.min(...xs),
+        x2: el.x + Math.max(...xs),
+        y1: el.y + Math.min(...ys),
+        y2: el.y + Math.max(...ys),
+      };
+    }
+    return { x1: el.x, x2: el.x + el.width, y1: el.y, y2: el.y + el.height };
+  });
+  const minX = Math.min(...extents.map((e) => e.x1));
+  const minY = Math.min(...extents.map((e) => e.y1));
+  const maxX = Math.max(...extents.map((e) => e.x2));
+  const maxY = Math.max(...extents.map((e) => e.y2));
   const bboxWidth = maxX - minX || 1;
   const bboxHeight = maxY - minY || 1;
 

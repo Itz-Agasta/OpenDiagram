@@ -84,6 +84,29 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+/* OAuth / verification notice */
+
+.auth-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--od-border-soft);
+  border-left: 3px solid var(--destructive);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--od-ink-muted);
+}
+
+.auth-notice .linklike:disabled {
+  color: var(--od-ink-faint);
+  text-decoration-color: transparent;
+  cursor: not-allowed;
+}
+
 /* Divider */
 
 .divider {

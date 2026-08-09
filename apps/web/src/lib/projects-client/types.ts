@@ -6,9 +6,6 @@ export type SavedProject = {
   description: string | null;
   source: "manual" | "github_import";
   sourceMetadata?: unknown;
-  memoryDatasetId?: string | null;
-  memoryStatus?: string;
-  memoryError?: string | null;
   generationStatus?: "none" | "queued" | "planning" | "creating" | "generating" | "done" | "failed";
   createdAt: string;
   updatedAt: string;
@@ -37,6 +34,8 @@ export type SavedProjectFile = {
   spec?: RepositoryDocProvenance | unknown;
   content?: unknown;
   history?: unknown[];
+  /** Revision of the stored scene. Only what `lib/scene-delta.ts` reads it for. */
+  sceneRev?: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -71,23 +70,8 @@ export type ProjectChatSource = {
 export type ProjectChatResult = {
   answer: string;
   sources: ProjectChatSource[];
-  provider?: "cognee" | "local";
+  provider?: "local";
   aiProvider?: AiProviderUsage;
-};
-
-export type ProjectMemoryContextResult = {
-  context: string;
-  sources: ProjectChatSource[];
-  provider: "cognee" | "local";
-};
-
-export type ProjectMemoryStatus = {
-  provider: string;
-  status: string;
-  datasetId: string | null;
-  datasetName: string;
-  error: string | null;
-  health?: { ok: boolean; disabled: boolean } | null;
 };
 
 export type RepoGenerationTask = {
@@ -112,8 +96,6 @@ export type RepoGenerationJob = {
   updatedAt: string;
 };
 
-export type WaitlistResult = { message: string };
-
 export type CreationQuota = {
   actorType: "guest" | "user";
   limit: number;
@@ -122,4 +104,27 @@ export type CreationQuota = {
   resetAt: string | null;
   /** Credits signing up is worth, for the guest upsell. From the plan table. */
   signupCredits?: number;
+};
+
+/** Thread metadata, as the history list returns it. Never carries `spec`. */
+export type ChatThreadSummary = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChatThreadMessage = {
+  seq: number;
+  clientId: string;
+  role: "user" | "assistant";
+  parts: unknown[];
+};
+
+/** An open thread: its metadata and its recent messages. Diagrams live on the file. */
+export type ChatThread = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatThreadMessage[];
 };

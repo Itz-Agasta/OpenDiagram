@@ -1,17 +1,20 @@
 import {
+  buildReport,
   classicTheme,
   diagramSpecSchema,
   layoutDiagram,
   renderSequenceDiagram,
   renderToExcalidraw,
+  type DiagramReport,
   type DiagramSpec,
   type RenderSkeleton,
   type Theme,
 } from "@OpenDiagram/harness";
+import { env } from "@OpenDiagram/env/server";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
-import { iconRegistry } from "../icons/registry";
+import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
 
 export interface AskUserInput {
   question: string;
@@ -44,39 +47,79 @@ export interface DrawDiagramOutput {
     nodes: number;
     edges: number;
     warnings: string[];
+    /** Layout grade, advisory. Absent for sequence diagrams. */
+    quality?: { score: number; issues: string[] };
   };
 }
+
+// Defect codes the model can actually act on by changing the SPEC. It has no
+// pixels to move, so reporting EDGE_THROUGH_NODE or LABEL_COLLISION would only
+// invite a redraw that cannot help; those are ours to fix in layout.
+const MODEL_ACTIONABLE = new Set([
+  "EXTREME_ASPECT",
+  "EDGE_CROSSING",
+  "BACK_EDGE",
+  "BEND_HEAVY",
+  "DUPLICATE_LABEL",
+]);
+
+/**
+ * Compact, advisory quality note for the model. Deliberately not a retry
+ * trigger: the agent decides whether a restructure is worth it, and a hard gate
+ * here would loop on diagrams whose density is inherent to the request.
+ */
+function qualityNote(report: DiagramReport): { score: number; issues: string[] } {
+  const actionable = report.diagnostics.filter((d) => MODEL_ACTIONABLE.has(d.code));
+  // Crossings report once per edge pair; collapse so one tangle is not 9 lines.
+  const crossings = actionable.filter((d) => d.code === "EDGE_CROSSING").length;
+  const issues = actionable.filter((d) => d.code !== "EDGE_CROSSING").map((d) => d.message);
+  if (crossings > 0) issues.push(`${crossings} pairs of edges cross`);
+  return { score: report.score, issues };
+}
+
+/**
+ * The spec plus the one thing the model has to tell us that is not part of the
+ * drawing: which diagram on the canvas this is.
+ *
+ * Extended rather than nested (`{ targetId, spec }`) on purpose. The schema stays
+ * one flat object, which is the shape the model already emits reliably, and
+ * `repairDrawDiagramInput` in `routes/diagram.ts` keeps finding `edges` at the top
+ * level. Nesting would move it and quietly break the repair path.
+ *
+ * FIXME(gemini-field-fidelity): this assumes the model echoes `targetId` back
+ * accurately. The same model reliably mistypes `from`/`to` as `from1`/`to1` on
+ * edges, so an id it garbles or omits will read as "new diagram" and draw a
+ * duplicate frame. Tracked separately; no inference fallback here by decision.
+ */
+export const drawDiagramInputSchema = diagramSpecSchema.extend({
+  targetId: z
+    .string()
+    .optional()
+    .describe(
+      "The id of the existing canvas diagram this replaces, copied EXACTLY from the CANVAS list in the system prompt. Omit only when drawing a genuinely new diagram.",
+    ),
+});
 
 /** Server-side tool: validate spec -> layout (ELK) -> render -> canvas payload. */
 export function createDrawDiagramTool(
   log: RequestLogger,
   theme: Theme = classicTheme,
-): Tool<z.infer<typeof diagramSpecSchema>, DrawDiagramOutput> {
+): Tool<z.infer<typeof drawDiagramInputSchema>, DrawDiagramOutput> {
   return tool({
     description:
-      "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat.",
-    inputSchema: diagramSpecSchema,
-    execute: async (rawSpec): Promise<DrawDiagramOutput> => {
-      // Icon keys the registry doesn't know are stripped BEFORE layout so both
-      // sizing and rendering fall back to the theme's icon-less node (a box
-      // with the label inside), never an empty glyph band.
-      const unknownIcons = new Set<string>();
-      const spec: DiagramSpec = {
-        ...rawSpec,
-        nodes: rawSpec.nodes.map((node) => {
-          if (node.icon && !iconRegistry[node.icon]) {
-            unknownIcons.add(node.icon);
-            return { ...node, icon: undefined };
-          }
-          return node;
-        }),
-      };
-      const warnings = [...unknownIcons].map((key) => `unknown icon "${key}" — drawn as a box`);
+      "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat. Set targetId to update a diagram already on the canvas; omit it to add a new one.",
+    inputSchema: drawDiagramInputSchema,
+    execute: async ({ targetId: _targetId, ...rawSpec }): Promise<DrawDiagramOutput> => {
+      const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(rawSpec);
+      const warnings = unknownIcons.map((key) => `unknown icon "${key}" — drawn as a box`);
 
       // Sequence diagrams use their own lifeline grid, not ELK.
       let skeletons: RenderSkeleton[];
       let rawElements: Record<string, unknown>[];
       let edgeCount = spec.edges.length;
+      // Sequence diagrams skip the report: its metrics assume ELK routes, and a
+      // lifeline grid crosses its own messages by construction.
+      let report: DiagramReport | undefined;
       if (spec.type === "sequence") {
         const result = renderSequenceDiagram(spec, theme);
         skeletons = result.skeletons;
@@ -88,8 +131,9 @@ export function createDrawDiagramTool(
         skeletons = result.skeletons;
         rawElements = result.rawElements;
         warnings.push(...positioned.warnings);
-        // Post-sanitize count -- matches what actually renders on canvas.
+        // Post-sanitize count, matching what actually renders on canvas.
         edgeCount = positioned.edges.length;
+        report = buildReport(positioned);
       }
 
       if (warnings.length > 0) {
@@ -104,6 +148,17 @@ export function createDrawDiagramTool(
           nodeCount: spec.nodes.length,
           edgeCount,
           elementCount: skeletons.length + rawElements.length,
+          // Off unless LOG_DIAGRAM_SPEC is set. The spec is how a bad diagram
+          // gets replayed into the harness corpus and counts alone are not
+          // reproducible, but wide events reach Sentry and this is the user's
+          // architecture. Turn it on locally to harvest fixtures, never in a
+          // deployment serving anyone else.
+          ...(env.LOG_DIAGRAM_SPEC && { spec: JSON.stringify(spec) }),
+          ...(report && {
+            score: report.score,
+            metrics: report.metrics,
+            diagnostics: report.diagnostics.map((d) => `${d.code}:${d.subjects.join(",")}`),
+          }),
         },
       });
       return {
@@ -114,6 +169,7 @@ export function createDrawDiagramTool(
           nodes: spec.nodes.length,
           edges: edgeCount,
           warnings,
+          ...(report && { quality: qualityNote(report) }),
         },
       };
     },

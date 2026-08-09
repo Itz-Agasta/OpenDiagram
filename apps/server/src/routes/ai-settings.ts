@@ -1,6 +1,6 @@
 /** BYOK settings: list the catalog, connect/update/remove a user's own provider key. */
 import { and, db, eq } from "@OpenDiagram/db";
-import { userAiProvider, userAiProviderKinds } from "@OpenDiagram/db/schema/user-ai-provider";
+import { userAiProvider, userAiProviderKinds } from "@OpenDiagram/db/schema/ai";
 import { generateText } from "ai";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -45,7 +45,16 @@ function publicProvider(row: typeof userAiProvider.$inferSelect) {
   };
 }
 
-/** Confirm a key actually works before we store it (cheap 1-token call). */
+/**
+ * Confirm a key actually works before we store it (cheap 1-token call).
+ *
+ * The timeout is load-bearing. A provider that accepts the connection and then
+ * never answers held this request open for 258s in testing, and because the
+ * dialog disables its own Cancel while saving, the only way out was a reload.
+ * Successful checks measured 5.6s and 7.7s against OpenRouter.
+ *
+ * https://github.com/vercel/ai/blob/main/content/docs/03-ai-sdk-core/25-settings.mdx
+ */
 async function assertKeyWorks(provider: string, apiKey: string, modelId: string) {
   const def = getProvider(provider);
   if (!def) throw new Error("Unknown provider.");
@@ -55,6 +64,7 @@ async function assertKeyWorks(provider: string, apiKey: string, modelId: string)
     telemetry: aiTelemetry("byok-key-check"),
     maxOutputTokens: 8,
     maxRetries: 0,
+    abortSignal: AbortSignal.timeout(20_000),
   });
 }
 
@@ -209,6 +219,10 @@ function keyErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message.toLowerCase() : "";
   if (msg.includes("401") || msg.includes("unauthorized") || msg.includes("invalid api key")) {
     return "That API key was rejected by the provider.";
+  }
+  // Says nothing about the key, so it must not read as a rejection.
+  if (msg.includes("abort") || msg.includes("timed out") || msg.includes("timeout")) {
+    return "The provider did not respond in time. Try again in a moment.";
   }
   return "Could not verify that key. Check it and try again.";
 }

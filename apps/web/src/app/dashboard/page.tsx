@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { clearAiSettingsCache } from "@/lib/settings-client";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import { CheckoutReturn } from "@/components/billing/checkout-return";
 import { DashboardDialogs } from "@/components/dashboard/dashboard-page/DashboardDialogs";
@@ -28,8 +29,8 @@ export default function DashboardPage() {
     setSignOutPending(true);
     try {
       await authClient.signOut();
-      data.setSavedProjects([]);
-      data.setSavedProjectsLoaded(false);
+      clearAiSettingsCache();
+      data.resetSavedProjects();
       setSignedOutDialogOpen(true);
     } finally {
       setSignOutPending(false);
