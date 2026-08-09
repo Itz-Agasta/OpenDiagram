@@ -8,163 +8,217 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as ProtectedRouteImport } from "./routes/_protected";
-import { Route as AboutRouteImport } from "./routes/about";
-import { Route as FeaturesRouteImport } from "./routes/features";
-import { Route as ProtectedAppRouteImport } from "./routes/_protected/App";
-import { Route as ProtectedUserRouteImport } from "./routes/_protected/User";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/App'
+import { Route as ProtectedRouteImport } from './routes/_protected'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ProtectedUserRouteImport } from './routes/_protected/User'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/App',
+  path: '/App',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProtectedRoute = ProtectedRouteImport.update({
-  id: "/_protected",
+  id: '/_protected',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AboutRoute = AboutRouteImport.update({
-  id: "/about",
-  path: "/about",
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const FeaturesRoute = FeaturesRouteImport.update({
-  id: "/features",
-  path: "/features",
+  id: '/features',
+  path: '/features',
   getParentRoute: () => rootRouteImport,
-} as any);
-const ProtectedAppRoute = ProtectedAppRouteImport.update({
-  id: "/App",
-  path: "/App",
-  getParentRoute: () => ProtectedRoute,
-} as any);
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProtectedUserRoute = ProtectedUserRouteImport.update({
-  id: "/User",
-  path: "/User",
+  id: '/User',
+  path: '/User',
   getParentRoute: () => ProtectedRoute,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/about": typeof AboutRoute;
-  "/features": typeof FeaturesRoute;
-  "/App": typeof ProtectedAppRoute;
-  "/User": typeof ProtectedUserRoute;
+  '/': typeof IndexRoute
+  '/App': typeof AppRoute
+  '/about': typeof AboutRoute
+  '/features': typeof FeaturesRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/User': typeof ProtectedUserRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/about": typeof AboutRoute;
-  "/features": typeof FeaturesRoute;
-  "/App": typeof ProtectedAppRoute;
-  "/User": typeof ProtectedUserRoute;
+  '/': typeof IndexRoute
+  '/App': typeof AppRoute
+  '/about': typeof AboutRoute
+  '/features': typeof FeaturesRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/User': typeof ProtectedUserRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/_protected": typeof ProtectedRouteWithChildren;
-  "/about": typeof AboutRoute;
-  "/features": typeof FeaturesRoute;
-  "/_protected/App": typeof ProtectedAppRoute;
-  "/_protected/User": typeof ProtectedUserRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/App': typeof AppRoute
+  '/_protected': typeof ProtectedRouteWithChildren
+  '/about': typeof AboutRoute
+  '/features': typeof FeaturesRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/_protected/User': typeof ProtectedUserRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/about" | "/features" | "/App" | "/User";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/about" | "/features" | "/App" | "/User";
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/App'
+    | '/about'
+    | '/features'
+    | '/login'
+    | '/reset-password'
+    | '/User'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/App'
+    | '/about'
+    | '/features'
+    | '/login'
+    | '/reset-password'
+    | '/User'
   id:
-    | "__root__"
-    | "/"
-    | "/_protected"
-    | "/about"
-    | "/features"
-    | "/_protected/App"
-    | "/_protected/User";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/App'
+    | '/_protected'
+    | '/about'
+    | '/features'
+    | '/login'
+    | '/reset-password'
+    | '/_protected/User'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  ProtectedRoute: typeof ProtectedRouteWithChildren;
-  AboutRoute: typeof AboutRoute;
-  FeaturesRoute: typeof FeaturesRoute;
+  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRoute
+  ProtectedRoute: typeof ProtectedRouteWithChildren
+  AboutRoute: typeof AboutRoute
+  FeaturesRoute: typeof FeaturesRoute
+  LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_protected": {
-      id: "/_protected";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof ProtectedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/about": {
-      id: "/about";
-      path: "/about";
-      fullPath: "/about";
-      preLoaderRoute: typeof AboutRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/features": {
-      id: "/features";
-      path: "/features";
-      fullPath: "/features";
-      preLoaderRoute: typeof FeaturesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_protected/App": {
-      id: "/_protected/App";
-      path: "/App";
-      fullPath: "/App";
-      preLoaderRoute: typeof ProtectedAppRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
-    "/_protected/User": {
-      id: "/_protected/User";
-      path: "/User";
-      fullPath: "/User";
-      preLoaderRoute: typeof ProtectedUserRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/App': {
+      id: '/App'
+      path: '/App'
+      fullPath: '/App'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected': {
+      id: '/_protected'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected/User': {
+      id: '/_protected/User'
+      path: '/User'
+      fullPath: '/User'
+      preLoaderRoute: typeof ProtectedUserRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
   }
 }
 
 interface ProtectedRouteChildren {
-  ProtectedAppRoute: typeof ProtectedAppRoute;
-  ProtectedUserRoute: typeof ProtectedUserRoute;
+  ProtectedUserRoute: typeof ProtectedUserRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedAppRoute: ProtectedAppRoute,
   ProtectedUserRoute: ProtectedUserRoute,
-};
+}
 
-const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(ProtectedRouteChildren);
+const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
+  ProtectedRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
   FeaturesRoute: FeaturesRoute,
-};
+  LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }
