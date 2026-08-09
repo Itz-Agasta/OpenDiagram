@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { sessionQueryOptions } from "#/lib/session-query";
+import { sessionQueryOptions } from "#/lib/api";
 
 export function Account() {
   const { data: session, isPending, error } = useQuery(sessionQueryOptions);

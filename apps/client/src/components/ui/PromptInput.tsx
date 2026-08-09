@@ -41,6 +41,17 @@ const SKILLS = [
   { id: "summarize", name: "Summarize" },
 ];
 
+const PROMPT_PLACEHOLDERS = [
+  "draw a pub sub architecture",
+  "design a multi-tenant SaaS system",
+  "map out an event-driven checkout flow",
+  "sketch a microservices architecture for a chat app",
+  "draw an ER diagram for a blog platform",
+  "diagram a CQRS + event sourcing setup",
+  "show a load balancer with auto-scaling groups",
+  "design an auth flow with OAuth and JWT",
+];
+
 const skillName = (id: string) => SKILLS.find((sk) => sk.id === id)?.name ?? id;
 
 const escapeHtml = (str: string) =>
@@ -57,6 +68,9 @@ export function PromptInput({
   // label), so it drives the empty/placeholder + enhance/send logic.
   const [value, setValue] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
+  const [placeholder] = useState(
+    () => PROMPT_PLACEHOLDERS[Math.floor(Math.random() * PROMPT_PLACEHOLDERS.length)],
+  );
 
   // Keep the enhance pill mounted through a short exit so it leaves the same
   // soft way it arrives (mirrors pi-pill-in / pi-pill-out).
@@ -504,9 +518,9 @@ export function PromptInput({
               suppressContentEditableWarning
               role="textbox"
               aria-multiline="true"
-              aria-label="Ask AI Agent"
+              aria-label={placeholder}
               data-empty={!hasText || undefined}
-              data-placeholder="Ask AI Agent"
+              data-placeholder={placeholder}
               onInput={onEditorInput}
               onKeyDown={onEditorKeyDown}
               onKeyUp={saveSelection}

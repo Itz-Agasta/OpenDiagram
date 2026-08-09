@@ -12,7 +12,7 @@ import {
   useKumoToastManager,
 } from "@cloudflare/kumo";
 import { EnvelopeSimpleIcon, GithubLogoIcon, ArrowRightIcon } from "@phosphor-icons/react";
-import { authClient, frontendCallbackURL, safeFrontendPath } from "#/lib/auth-client";
+import { authClient, frontendCallbackURL, safeFrontendPath } from "#/lib/api";
 
 interface SignUpPageProps {
   initialTab?: "signin" | "signup";

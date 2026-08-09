@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button, InputGroup, SensitiveInput, Text } from "@cloudflare/kumo";
 import { EnvelopeSimpleIcon, ArrowRightIcon } from "@phosphor-icons/react";
-import { authClient } from "#/lib/auth-client";
+import { authClient } from "#/lib/api";
 
 interface ResetPasswordFormProps {
   token?: string;

@@ -1,7 +1,16 @@
 import { queryOptions } from "@tanstack/react-query";
-import type { Project, CreateProjectInput, UpdateProjectInput, ProjectFile } from "./types";
+import type {
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  ProjectFile,
+  CreateProjectFileInput,
+  UpdateProjectFileInput,
+} from "../types";
+import { getDevFetch } from "../dev-telemetry";
 
 const BASE_URL = import.meta.env.VITE_SERVER_URL || "";
+const devFetch = getDevFetch();
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
@@ -11,7 +20,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, {
+  const response = await devFetch(url, {
     credentials: "include",
     ...options,
     headers,
@@ -19,7 +28,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   if (!response.ok) {
     const errorData = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    const errorMsg = errorData.error || `HTTP error! status: ${response.status}`;
+    throw new Error(errorMsg);
   }
 
   return response.json() as Promise<T>;
@@ -83,14 +93,25 @@ export const projectFilesQueryOptions = (projectId: string) =>
     enabled: !!projectId,
   });
 
+export async function fetchProjectFile(projectId: string, fileId: string): Promise<ProjectFile> {
+  const data = await apiFetch<{ file: ProjectFile }>(`/api/projects/${projectId}/files/${fileId}`);
+  return data.file;
+}
+
+export const projectFileQueryOptions = (projectId: string, fileId: string) =>
+  queryOptions({
+    queryKey: ["projects", projectId, "files", fileId],
+    queryFn: () => fetchProjectFile(projectId, fileId),
+    enabled: !!projectId && !!fileId,
+  });
+
 export async function createProjectFile(
   projectId: string,
-  name: string,
-  type: "diagram" | "doc",
+  input: CreateProjectFileInput,
 ): Promise<ProjectFile> {
   const data = await apiFetch<{ file: ProjectFile }>(`/api/projects/${projectId}/files`, {
     method: "POST",
-    body: JSON.stringify({ name, type }),
+    body: JSON.stringify(input),
   });
   return data.file;
 }
@@ -98,7 +119,7 @@ export async function createProjectFile(
 export async function updateProjectFile(
   projectId: string,
   fileId: string,
-  input: { name?: string; content?: string },
+  input: UpdateProjectFileInput,
 ): Promise<ProjectFile> {
   const data = await apiFetch<{ file: ProjectFile }>(`/api/projects/${projectId}/files/${fileId}`, {
     method: "PATCH",

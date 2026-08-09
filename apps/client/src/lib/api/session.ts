@@ -4,13 +4,8 @@ import { authClient } from "./auth-client";
 export const sessionQueryOptions = queryOptions({
   queryKey: ["auth", "session"],
   queryFn: async () => {
-    const { data, error } = await authClient.getSession();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data;
+    const res = await authClient.getSession();
+    if (res.error) throw new Error(res.error.message);
+    return res.data;
   },
-  staleTime: 30_000,
 });

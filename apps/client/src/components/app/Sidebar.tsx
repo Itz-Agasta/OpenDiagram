@@ -1,404 +1,21 @@
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
+import { HouseIcon, GearIcon, SignOutIcon, PlusIcon } from "@phosphor-icons/react";
 import {
-  HouseIcon,
-  PencilIcon,
-  GearIcon,
-  SignOutIcon,
-  ShapesIcon,
-  FileTextIcon,
-  PlusIcon,
-  DotsThreeVerticalIcon,
-} from "@phosphor-icons/react";
-import { SkeletonLine, DropdownMenu, Dialog, DialogClose, DialogTitle } from "@cloudflare/kumo";
+  SkeletonLine,
+  DropdownMenu,
+  Dialog,
+  DialogClose,
+  DialogTitle,
+  DialogDescription,
+  useKumoToastManager,
+} from "@cloudflare/kumo";
 import { useNavigate } from "@tanstack/react-router";
-import { authClient } from "#/lib/auth-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  projectsQueryOptions,
-  projectFilesQueryOptions,
-  createProject,
-  updateProject,
-  deleteProject,
-  createProjectFile,
-  updateProjectFile,
-  deleteProjectFile,
-} from "#/lib/api";
-import type { Project, ProjectFile } from "#/lib/types";
+import { projectsQueryOptions, createProject, authClient } from "#/lib/api";
+import { getInitials } from "#/lib/utils";
 import { HeroButton, CustomButton } from "#/components/ui/button";
 import { useState } from "react";
-
-const ProjectMenuItem = ({ project, isFirst }: { project: Project; isFirst: boolean }) => {
-  const queryClient = useQueryClient();
-  const { data: files } = useQuery(projectFilesQueryOptions(project.id));
-
-  // Modal State hooks
-  const [isRenameProjectOpen, setIsRenameProjectOpen] = useState(false);
-  const [renameProjectName, setRenameProjectName] = useState(project.name);
-
-  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
-
-  const [isCreateFileOpen, setIsCreateFileOpen] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [newFileType, setNewFileType] = useState<"diagram" | "doc">("diagram");
-
-  const [isRenameFileOpen, setIsRenameFileOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
-  const [renameFileName, setRenameFileName] = useState("");
-
-  const [isDeleteFileOpen, setIsDeleteFileOpen] = useState(false);
-
-  // Operations
-  const handleRenameProject = async () => {
-    if (!renameProjectName.trim()) return;
-    try {
-      await updateProject(project.id, { name: renameProjectName.trim() });
-      setIsRenameProjectOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeleteProject = async () => {
-    try {
-      await deleteProject(project.id);
-      setIsDeleteProjectOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleCreateFile = async () => {
-    if (!newFileName.trim()) return;
-    try {
-      await createProjectFile(project.id, newFileName.trim(), newFileType);
-      setNewFileName("");
-      setIsCreateFileOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["projects", project.id, "files"] });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleRenameFile = async () => {
-    if (!selectedFile || !renameFileName.trim()) return;
-    try {
-      await updateProjectFile(project.id, selectedFile.id, { name: renameFileName.trim() });
-      setSelectedFile(null);
-      setIsRenameFileOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["projects", project.id, "files"] });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeleteFile = async () => {
-    if (!selectedFile) return;
-    try {
-      await deleteProjectFile(project.id, selectedFile.id);
-      setSelectedFile(null);
-      setIsDeleteFileOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["projects", project.id, "files"] });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  return (
-    <Sidebar.MenuItem className={isFirst ? "mt-6" : "mt-2"}>
-      <Sidebar.Collapsible>
-        <div className="group flex items-center justify-between w-full pr-1">
-          <Sidebar.CollapsibleTrigger
-            render={
-              <Sidebar.MenuButton
-                icon={PencilIcon}
-                className="text-[13px] text-gray-700 font-medium flex-1"
-              >
-                {project.name} <Sidebar.MenuChevron />
-              </Sidebar.MenuButton>
-            }
-          />
-          {/* Project actions dropdown */}
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            <DropdownMenu>
-              <DropdownMenu.Trigger
-                render={(p) => (
-                  <button
-                    {...p}
-                    className="p-1 hover:cursor-pointer rounded hover:bg-gray-100 transition text-gray-500 hover:text-gray-900"
-                  >
-                    <DotsThreeVerticalIcon size={14} weight="bold" />
-                  </button>
-                )}
-              />
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  side="right"
-                  align="start"
-                  sideOffset={5}
-                  className="p-1 bg-white border border-gray-200/80 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.02)] flex flex-col gap-0.5 min-w-[130px] z-[9999] font-sans"
-                >
-                  <DropdownMenu.Item
-                    onClick={() => {
-                      setNewFileName("");
-                      setIsCreateFileOpen(true);
-                    }}
-                    className="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 text-gray-700 hover:bg-gray-50 hover:text-gray-950 transition cursor-pointer"
-                  >
-                    <span>Create File</span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onClick={() => {
-                      setRenameProjectName(project.name);
-                      setIsRenameProjectOpen(true);
-                    }}
-                    className="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 text-gray-700 hover:bg-gray-50 hover:text-gray-950 transition cursor-pointer"
-                  >
-                    <span>Rename Project</span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Separator className="h-[1px] bg-gray-100 my-0.5" />
-                  <DropdownMenu.Item
-                    onClick={() => setIsDeleteProjectOpen(true)}
-                    className="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 text-red-600 hover:bg-red-50/50 hover:text-red-700 transition cursor-pointer"
-                    variant="danger"
-                  >
-                    <span>Delete Project</span>
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <Sidebar.CollapsibleContent>
-          <Sidebar.MenuSub>
-            {files?.map((file) => (
-              <div
-                key={file.id}
-                className="group flex items-center justify-between w-full pr-1 mt-1"
-              >
-                <Sidebar.MenuSubButton className="text-[12px] text-gray-500 flex-1 min-w-0">
-                  {file.type === "diagram" ? (
-                    <ShapesIcon size={14} className="mr-2 text-gray-400 shrink-0" />
-                  ) : (
-                    <FileTextIcon size={14} className="mr-2 text-gray-400 shrink-0" />
-                  )}
-                  <span className="truncate">{file.name}</span>
-                </Sidebar.MenuSubButton>
-                {/* File actions dropdown */}
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <DropdownMenu>
-                    <DropdownMenu.Trigger
-                      render={(p) => (
-                        <button
-                          {...p}
-                          className="p-1 hover:cursor-pointer rounded hover:bg-gray-100 transition text-gray-500 hover:text-gray-900"
-                        >
-                          <DotsThreeVerticalIcon size={12} weight="bold" />
-                        </button>
-                      )}
-                    />
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        side="right"
-                        align="start"
-                        sideOffset={5}
-                        className="p-1 bg-white border border-gray-200/80 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.02)] flex flex-col gap-0.5 min-w-[120px] z-[9999] font-sans"
-                      >
-                        <DropdownMenu.Item
-                          onClick={() => {
-                            setSelectedFile(file);
-                            setRenameFileName(file.name);
-                            setIsRenameFileOpen(true);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 text-gray-700 hover:bg-gray-50 hover:text-gray-950 transition cursor-pointer"
-                        >
-                          <span>Rename File</span>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Separator className="h-[1px] bg-gray-100 my-0.5" />
-                        <DropdownMenu.Item
-                          onClick={() => {
-                            setSelectedFile(file);
-                            setIsDeleteFileOpen(true);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 text-red-600 hover:bg-red-50/50 hover:text-red-700 transition cursor-pointer"
-                          variant="danger"
-                        >
-                          <span>Delete File</span>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))}
-            {files && files.length === 0 && (
-              <div className="px-6 py-1.5 text-[11px] text-gray-400 italic">
-                No files in project
-              </div>
-            )}
-          </Sidebar.MenuSub>
-        </Sidebar.CollapsibleContent>
-      </Sidebar.Collapsible>
-
-      {/* Rename Project Dialog */}
-      <Dialog.Root open={isRenameProjectOpen} onOpenChange={setIsRenameProjectOpen}>
-        <Dialog size="base">
-          <div className="p-6 flex flex-col gap-4 font-geist">
-            <DialogTitle className="text-base font-semibold text-gray-900">
-              Rename Project
-            </DialogTitle>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500">Project Name</label>
-              <input
-                type="text"
-                value={renameProjectName}
-                onChange={(e) => setRenameProjectName(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 transition"
-              />
-            </div>
-            <div className="flex justify-end gap-2 mt-2">
-              <DialogClose render={<CustomButton text="Cancel" className="h-8" />} />
-              <HeroButton
-                text="Save"
-                color="blue"
-                onClick={handleRenameProject}
-                disabled={!renameProjectName.trim()}
-                className="h-8 py-0 text-xs shadow-none"
-              />
-            </div>
-          </div>
-        </Dialog>
-      </Dialog.Root>
-
-      {/* Delete Project Dialog */}
-      <Dialog.Root open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>
-        <Dialog size="base">
-          <div className="p-6 flex flex-col gap-4 font-geist">
-            <DialogTitle className="text-base font-semibold text-gray-900">
-              Delete Project
-            </DialogTitle>
-            <p className="text-sm text-gray-500">
-              Are you sure you want to delete &quot;{project.name}&quot;? This action cannot be
-              undone.
-            </p>
-            <div className="flex justify-end gap-2 mt-2">
-              <DialogClose render={<CustomButton text="Cancel" className="h-8" />} />
-              <HeroButton
-                text="Delete"
-                color="red-500"
-                onClick={handleDeleteProject}
-                className="h-8 py-0 text-xs shadow-none !bg-red-600 hover:!bg-red-700"
-              />
-            </div>
-          </div>
-        </Dialog>
-      </Dialog.Root>
-
-      {/* Create File Dialog */}
-      <Dialog.Root open={isCreateFileOpen} onOpenChange={setIsCreateFileOpen}>
-        <Dialog size="base">
-          <div className="p-6 flex flex-col gap-4 font-geist">
-            <DialogTitle className="text-base font-semibold text-gray-900">
-              Create New File
-            </DialogTitle>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500">File Name</label>
-              <input
-                type="text"
-                value={newFileName}
-                onChange={(e) => setNewFileName(e.target.value)}
-                placeholder="e.g. architecture"
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 transition"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500">File Type</label>
-              <select
-                value={newFileType}
-                onChange={(e) => setNewFileType(e.target.value as "diagram" | "doc")}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 bg-white transition"
-              >
-                <option value="diagram">Diagram (editable architecture spec)</option>
-                <option value="doc">Document (notes, reference text)</option>
-              </select>
-            </div>
-            <div className="flex justify-end gap-2 mt-2">
-              <DialogClose render={<CustomButton text="Cancel" className="h-8" />} />
-              <HeroButton
-                text="Create"
-                color="blue"
-                onClick={handleCreateFile}
-                disabled={!newFileName.trim()}
-                className="h-8 py-0 text-xs shadow-none"
-              />
-            </div>
-          </div>
-        </Dialog>
-      </Dialog.Root>
-
-      {/* Rename File Dialog */}
-      <Dialog.Root open={isRenameFileOpen} onOpenChange={setIsRenameFileOpen}>
-        <Dialog size="base">
-          <div className="p-6 flex flex-col gap-4 font-geist">
-            <DialogTitle className="text-base font-semibold text-gray-900">Rename File</DialogTitle>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500">File Name</label>
-              <input
-                type="text"
-                value={renameFileName}
-                onChange={(e) => setRenameFileName(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 transition"
-              />
-            </div>
-            <div className="flex justify-end gap-2 mt-2">
-              <DialogClose render={<CustomButton text="Cancel" className="h-8" />} />
-              <HeroButton
-                text="Save"
-                color="blue"
-                onClick={handleRenameFile}
-                disabled={!renameFileName.trim()}
-                className="h-8 py-0 text-xs shadow-none"
-              />
-            </div>
-          </div>
-        </Dialog>
-      </Dialog.Root>
-
-      {/* Delete File Dialog */}
-      <Dialog.Root open={isDeleteFileOpen} onOpenChange={setIsDeleteFileOpen}>
-        <Dialog size="base">
-          <div className="p-6 flex flex-col gap-4 font-geist">
-            <DialogTitle className="text-base font-semibold text-gray-900">Delete File</DialogTitle>
-            <p className="text-sm text-gray-500">
-              Are you sure you want to delete &quot;{selectedFile?.name}&quot;? This action cannot
-              be undone.
-            </p>
-            <div className="flex justify-end gap-2 mt-2">
-              <DialogClose render={<CustomButton text="Cancel" className="h-8" />} />
-              <HeroButton
-                text="Delete"
-                color="red-500"
-                onClick={handleDeleteFile}
-                className="h-8 py-0 text-xs shadow-none !bg-red-600 hover:!bg-red-700"
-              />
-            </div>
-          </div>
-        </Dialog>
-      </Dialog.Root>
-    </Sidebar.MenuItem>
-  );
-};
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+import { ProjectMenuItem } from "./ProjectMenuItem";
 
 export const SideBar = ({
   imageUrl,
@@ -415,31 +32,50 @@ export const SideBar = ({
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toastManager = useKumoToastManager();
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [isLoggedOutOpen, setIsLoggedOutOpen] = useState(false);
 
   const { data: projects, isLoading: isProjectsLoading } = useQuery({
     ...projectsQueryOptions,
     enabled: isAuthenticated,
   });
 
-  const handleCreateProject = async () => {
+  const handleCreateProject = () => {
     if (!newProjectName.trim()) return;
-    try {
-      await createProject({ name: newProjectName.trim() });
-      setNewProjectName("");
-      setIsCreateProjectOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-    } catch (err) {
-      console.error(err);
-    }
+    toastManager.promise(createProject({ name: newProjectName.trim() }), {
+      loading: {
+        title: "Creating project...",
+        description: "Setting up your new workspace.",
+      },
+      success: () => {
+        setNewProjectName("");
+        setIsCreateProjectOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        return {
+          title: "Project created",
+          description: "Project was successfully created.",
+          variant: "success",
+        };
+      },
+      error: (err) => ({
+        title: "Failed to create project",
+        description: err.message,
+        variant: "error",
+      }),
+    });
   };
 
   const handleLogout = async () => {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
-          navigate({ to: "/login" as any });
+          // Clear session in place so App stays on the same SideBar instance
+          // (avoids remount that would drop this dialog's open state).
+          queryClient.setQueryData(["auth", "session"], null);
+          queryClient.removeQueries({ queryKey: ["projects"] });
+          setIsLoggedOutOpen(true);
         },
       },
     });
@@ -461,8 +97,7 @@ export const SideBar = ({
                 <div className="flex items-center justify-between w-full pr-1.5">
                   <Sidebar.MenuButton
                     icon={HouseIcon}
-                    active
-                    className="text-sm font-semibold flex-1"
+                    className="text-sm font-semibold flex-1 hover:!bg-transparent cursor-default select-none"
                   >
                     Your Projects
                   </Sidebar.MenuButton>
@@ -478,7 +113,10 @@ export const SideBar = ({
                   </button>
                 </div>
               ) : (
-                <Sidebar.MenuButton icon={HouseIcon} active className="text-sm font-semibold">
+                <Sidebar.MenuButton
+                  icon={HouseIcon}
+                  className="text-sm font-semibold hover:!bg-transparent cursor-default select-none"
+                >
                   Your Projects
                 </Sidebar.MenuButton>
               )}
@@ -605,6 +243,36 @@ export const SideBar = ({
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim()}
                 className="h-8 py-0 text-xs shadow-none"
+              />
+            </div>
+          </div>
+        </Dialog>
+      </Dialog.Root>
+
+      {/* Logged out → guest mode */}
+      <Dialog.Root open={isLoggedOutOpen} onOpenChange={setIsLoggedOutOpen}>
+        <Dialog size="base">
+          <div className="p-6 flex flex-col gap-1.5 font-geist">
+            <DialogTitle className="text-base font-semibold text-gray-900">
+              You&apos;re logged out
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Guest mode lets you try OpenDiagram with a single demo file. Sign in anytime to save
+              projects and create more.
+            </DialogDescription>
+            <div className="flex justify-end gap-2 mt-4">
+              <CustomButton
+                text="Stay as guest"
+                className="h-8"
+                onClick={() => setIsLoggedOutOpen(false)}
+              />
+              <HeroButton
+                text="Log in"
+                color="blue"
+                className="h-8 py-0 text-xs shadow-none"
+                onClick={() => {
+                  navigate({ to: "/login" as any });
+                }}
               />
             </div>
           </div>

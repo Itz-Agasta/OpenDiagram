@@ -1,7 +1,12 @@
 import { createAuthClient } from "better-auth/react";
+import { getDevFetch } from "../dev-telemetry";
 
 export const authClient = createAuthClient({
   baseURL: import.meta.env.VITE_SERVER_URL,
+  // DEV-only timing via customFetchImpl; production uses plain fetch.
+  fetchOptions: {
+    customFetchImpl: getDevFetch(),
+  },
 });
 
 const DEFAULT_FRONTEND_PATH = "/App";

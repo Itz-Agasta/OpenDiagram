@@ -3,7 +3,7 @@ import { SideBar } from "#/components/app/Sidebar";
 import { PromptInput } from "#/components/ui/PromptInput";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { sessionQueryOptions } from "#/lib/session-query";
+import { sessionQueryOptions } from "#/lib/api";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
 
 const TAGLINE_POOL = [
