@@ -14,7 +14,19 @@ function client(): Resend | null {
 
 async function send(to: string, body: EmailBody, idempotencyKey?: string): Promise<void> {
   const mailer = client();
-  if (!mailer) return;
+  if (!mailer) {
+    console.log("==================================================");
+    console.log(`[DEVELOPMENT ONLY] Mock Email Sent To: ${to}`);
+    console.log(`Subject: ${body.subject}`);
+    const urlMatch = body.text.match(/https?:\/\/[^\s]+/);
+    if (urlMatch) {
+      console.log(`Link: ${urlMatch[0]}`);
+    } else {
+      console.log(`Text: ${body.text}`);
+    }
+    console.log("==================================================");
+    return;
+  }
 
   // Resend returns errors in-band rather than throwing.
   const { error } = await mailer.emails.send(

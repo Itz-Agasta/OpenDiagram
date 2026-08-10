@@ -1,0 +1,5 @@
+Excalifont is licensed under the SIL Open Font License, Version 1.1.
+https://scripts.sil.org/OFL
+
+Copyright notices and the full license text are included in the font file
+(Excalifont-Regular.woff2). Free for personal and commercial use under OFL 1.1.
