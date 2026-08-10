@@ -11,9 +11,7 @@
     "build": "vite build && cp instrument.server.mjs dist/server",
     "preview": "bun run build && vite preview",
     "test": "vitest run",
-    "format": "biome format",
-    "lint": "biome lint",
-    "check": "biome check",
+    "check-types": "tsgo --noEmit",
     "deploy": "bun run build && wrangler deploy",
     "start": "node --import ./dist/server/instrument.server.mjs dist/server/index.js",
     "cf-typegen": "wrangler types"
@@ -42,7 +40,6 @@
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.5",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.132.0",
