@@ -89,6 +89,30 @@ to the user.
 **Themes own all styling.** A new look means a new file in `theme/` satisfying
 `Theme` and registered in `theme/index.ts`. Nothing else should change.
 
+## Server-only runtime boundary
+
+`@OpenDiagram/harness` is a **server-only runtime** package. Its barrel
+(`src/index.ts`) pulls in the full engine — elkjs graph layout, the renderer and
+the theme registry — so it must never be value-imported from client code
+(`apps/web`). The browser only ever receives **specs + types**; all layout,
+sizing and rendering happens on the server.
+
+| Client wants…                                             | Import this                                               | Why                                                                                |
+| --------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `DiagramSpec`, `ThemeName`, `RenderSkeleton` (types only) | `import type { … } from "@OpenDiagram/harness"`           | Allowed — `verbatimModuleSyntax` erases type imports, nothing ships to the browser |
+| `diagramTypeSchema` (a runtime value)                     | `import { … } from "@OpenDiagram/harness/diagram-schema"` | The lightweight subpath has no engine deps (elkjs, renderer, themes)               |
+
+Rules of thumb:
+
+- `import type` from the barrel is always fine — it is erased at compile time.
+- Any **value** import from the barrel (`layoutDiagram`, `renderToExcalidraw`,
+  themes, …) in client code is a bug: it drags the whole server-only engine
+  into the browser bundle.
+- The root `.oxlintrc.json` enforces this with `no-restricted-imports` on
+  `apps/web/**` (`allowTypeImports: true`, subpath unrestricted), so a stray
+  value import fails `bunx oxlint --deny-warnings` before it can reach a bundle.
+- Server code (`apps/server`, other packages) keeps using the full barrel.
+
 ## Diagram-type dispatch
 
 - `sequence` calls `renderSequenceDiagram(spec, theme)`, which lays out and
