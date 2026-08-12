@@ -7,5 +7,24 @@
   "rules": {},
   "env": {
     "builtin": true
-  }
+  },
+  "overrides": [
+    {
+      "files": ["apps/web/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@OpenDiagram/harness",
+                "message": "Client code must not import runtime values from the harness barrel. Use `import type` or the lightweight subpath @OpenDiagram/harness/diagram-schema.",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
