@@ -4,6 +4,14 @@
 
 OpenDiagram — open-source AI workspace for software architecture. Design systems with natural language, generate diagrams, document decisions, iterate with AI.
 
+## Currently we are working on web migration to tanstack start, follow these rules
+
+- Always ask user first about the files you want to edit and proceed only after approval. After finishing a task, always show which file u edited.
+- Always use `@cloudflare/kumo` for ui components.
+- Every component u write inside `apps/client/src/components/ui` should be reusable.
+- For buttons, always use choose from the 2 buttons designed inside `apps/client/src/components/ui/button`, do not create new buttons unless you are explicitly told.
+- Use the 2 font configs defined in `apps/client/src/styles.css` in majority of ui except in custom pages like landing.
+
 ## Next.js 16 Warning
 
 This is NOT the Next.js you know. Next.js 16 has breaking changes — APIs, conventions, and file structure may differ from older versions. Read guides in `node_modules/next/dist/docs/` before writing code. Heed deprecation notices.
@@ -11,19 +19,21 @@ This is NOT the Next.js you know. Next.js 16 has breaking changes — APIs, conv
 ## Tech Stack
 
 - **Runtime/PM:** Bun 1.3
-- **Frontend:** Next.js 16 + React 19 + TypeScript
+- **Frontend(Legacy):** Next.js 16 + React 19 + TypeScript
+- **Frontend(New):** Tanstack Start + React 19 + TypeScript
 - **Backend:** Hono (Bun)
 - **Database:** PostgreSQL (supabase) (via packages/db)
 - **Auth:** Better Auth
 - **AI:** Provider agnostic (OpenRouter, Anthropic, OpenAI, etc.)
 - **Type checking:** tsgo (Go-native TS compiler, `@typescript/native-preview`)
 - **Linting:** oxlint + oxfmt
-- **Task runner:** Turbo (orchestration) + Just (dev shortcuts)
+- **Task runner:** Nx (orchestration) + Just (dev shortcuts)
 
 ## Workspace Structure
 
 ```
 apps/
+  client/       # Tanstack Start App as replacement to web/
   web/          # Next.js 16 frontend (port 3001)
   server/       # Hono API server (port 3000, bun --hot)
   fumadocs/     # Documentation site (port 4000)
@@ -38,8 +48,6 @@ packages/
 ## Commands
 
 ```bash
-# Dev
-bun run dev            # All services via turbo
 bun run dev:web        # Web only
 bun run dev:server     # Server only
 
@@ -47,7 +55,6 @@ bun run dev:server     # Server only
 bun run build          # All packages via turbo
 
 # Type check (tsgo)
-bun run check-types    # All packages via turbo
 just types             # Same, via justfile
 
 # Lint + format
@@ -93,6 +100,7 @@ The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
 
 ## Architecture
 
+- `apps/client` is the tanstack app being built with `@cloudflare/kumo` components as replacement to nextjs app.
 - `apps/web` is the primary frontend with shadcn components in `src/components/`.
 - `apps/server` is the API layer using Hono with evlog middleware.
 - `packages/env` provides typed env vars — import from `@OpenDiagram/env/web` or `@OpenDiagram/env/server`.
@@ -100,7 +108,7 @@ The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
 
 ## Rules
 
-- Never modify files in `node_modules/`, `.turbo/`, or `.next/`.
+- Never modify files in `node_modules/`, `.turbo/`, or `.next/`, or `.tanstack/`.
 - Read docs and get latest context about libraries before coding.
 - Run `just check` & `just types` after finishing a coding session & fix those.
 - Keep changes surgical — don't refactor adjacent code.
@@ -168,6 +176,8 @@ When editing existing code:
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it — don't delete it.
+- Do not change the copy content of the web.
+- Do not change the format of robots.txt and llms.txt unless told explicitly too.
 
 When your changes create orphans:
 
