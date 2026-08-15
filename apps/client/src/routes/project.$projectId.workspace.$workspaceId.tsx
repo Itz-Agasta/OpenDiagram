@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { projectQueryOptions, projectFileQueryOptions, projectFilesQueryOptions } from "#/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import {
+  projectQueryOptions,
+  projectFileQueryOptions,
+  projectFilesQueryOptions,
+  updateProjectFile,
+} from "#/lib/api";
 import {
   ArrowLeftIcon,
   ShapesIcon,
@@ -12,6 +19,15 @@ import {
 import { Whiteboard } from "#/components/whiteboard/Whiteboard";
 import { AssistantBar } from "#/components/workspace/AssistantBar";
 import { AssistantPanel } from "#/components/workspace/AssistantPanel";
+import { applyDiagramToCanvas } from "#/lib/utils/excalidraw-utils";
+import {
+  parseCanvasDiagrams,
+  upsertCanvasDiagram,
+  toPromptDiagrams,
+  type CanvasDiagram,
+} from "#/lib/utils/canvas-diagrams";
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
 
 export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId")({
   component: WorkspaceRouteComponent,
@@ -19,9 +35,11 @@ export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId
 
 function WorkspaceRouteComponent() {
   const { projectId, workspaceId } = Route.useParams();
+  const queryClient = useQueryClient();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAssistantMaximized, setIsAssistantMaximized] = useState(false);
   const [assistantInput, setAssistantInput] = useState("");
+  const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
 
   // Queries
   const { data: project, isLoading: isProjectLoading } = useQuery(projectQueryOptions(projectId));
@@ -30,8 +48,173 @@ function WorkspaceRouteComponent() {
   );
   const { data: files, isLoading: isFilesLoading } = useQuery(projectFilesQueryOptions(projectId));
 
+  // Canvas diagrams ref
+  const diagramsRef = useRef<CanvasDiagram[]>([]);
+
+  // Update diagrams ref when activeFile query loads new data
+  useEffect(() => {
+    if (activeFile?.spec && typeof activeFile.spec === "object") {
+      diagramsRef.current = parseCanvasDiagrams(activeFile.spec);
+    } else {
+      diagramsRef.current = [];
+    }
+  }, [activeFile]);
+
+  // Vercel AI SDK useChat Hook with custom transport
+  const transport = useRef<DefaultChatTransport<any> | null>(null);
+  if (!transport.current) {
+    transport.current = new DefaultChatTransport<any>({
+      api: `${SERVER_URL.replace(/\/$/, "")}/api/diagram/chat`,
+      body: () => ({
+        diagrams: toPromptDiagrams(diagramsRef.current),
+        theme: "sketch",
+      }),
+      prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
+        body: { ...body, id, messages, trigger, messageId },
+      }),
+      fetch: ((input: any, init: any) => fetch(input, { ...init, credentials: "include" })) as any,
+    });
+  }
+
+  const chat = useChat({
+    transport: transport.current,
+  });
+
+  const appliedToolCallsRef = useRef(new Set<string>());
+
+  // Listen to new messages and apply draw_diagram tool calls dynamically
+  useEffect(() => {
+    if (!excalidrawAPI || !chat.messages) return;
+
+    const processToolCalls = async () => {
+      for (const message of chat.messages) {
+        if (message.role !== "assistant") continue;
+
+        const parts = (message as any).parts || [];
+        const toolInvocations = (message as any).toolInvocations || [];
+
+        // 1. Check parts format
+        for (const part of parts) {
+          if (part.type === "tool-draw_diagram" && part.state === "output-available") {
+            if (appliedToolCallsRef.current.has(part.toolCallId)) continue;
+            appliedToolCallsRef.current.add(part.toolCallId);
+
+            const { targetId, ...spec } = part.input as any;
+            const output = part.output as any;
+
+            if (output && output.skeletons) {
+              const replaceFrameId =
+                targetId && diagramsRef.current.some((d) => d.id === targetId) ? targetId : null;
+
+              try {
+                const { frameId } = await applyDiagramToCanvas(
+                  excalidrawAPI,
+                  output.skeletons,
+                  output.rawElements || [],
+                  { replaceFrameId },
+                );
+
+                if (frameId) {
+                  const base = replaceFrameId
+                    ? diagramsRef.current.filter((d) => d.id !== replaceFrameId)
+                    : diagramsRef.current;
+
+                  const updated = upsertCanvasDiagram(base, {
+                    id: frameId,
+                    title: spec.title || "Untitled",
+                    spec,
+                  });
+
+                  diagramsRef.current = updated;
+
+                  // Save back to DB
+                  await updateProjectFile(projectId, workspaceId, {
+                    spec: { diagrams: updated } as any,
+                  });
+
+                  // Invalidate cache
+                  queryClient.invalidateQueries({
+                    queryKey: ["projects", projectId, "files", workspaceId],
+                  });
+                }
+              } catch (err) {
+                console.error("Failed to apply diagram to canvas", err);
+              }
+            }
+          }
+        }
+
+        // 2. Check toolInvocations format
+        for (const invocation of toolInvocations) {
+          if (invocation.toolName === "draw_diagram" && invocation.state === "result") {
+            if (appliedToolCallsRef.current.has(invocation.toolCallId)) continue;
+            appliedToolCallsRef.current.add(invocation.toolCallId);
+
+            const { targetId, ...spec } = invocation.args as any;
+            const output = invocation.result as any;
+
+            if (output && output.skeletons) {
+              const replaceFrameId =
+                targetId && diagramsRef.current.some((d) => d.id === targetId) ? targetId : null;
+
+              try {
+                const { frameId } = await applyDiagramToCanvas(
+                  excalidrawAPI,
+                  output.skeletons,
+                  output.rawElements || [],
+                  { replaceFrameId },
+                );
+
+                if (frameId) {
+                  const base = replaceFrameId
+                    ? diagramsRef.current.filter((d) => d.id !== replaceFrameId)
+                    : diagramsRef.current;
+
+                  const updated = upsertCanvasDiagram(base, {
+                    id: frameId,
+                    title: spec.title || "Untitled",
+                    spec,
+                  });
+
+                  diagramsRef.current = updated;
+
+                  // Save back to DB
+                  await updateProjectFile(projectId, workspaceId, {
+                    spec: { diagrams: updated } as any,
+                  });
+
+                  // Invalidate cache
+                  queryClient.invalidateQueries({
+                    queryKey: ["projects", projectId, "files", workspaceId],
+                  });
+                }
+              } catch (err) {
+                console.error("Failed to apply diagram to canvas", err);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    void processToolCalls();
+  }, [chat.messages, excalidrawAPI, projectId, workspaceId, queryClient]);
+
   const handleAssistantSubmit = () => {
+    const text = assistantInput.trim();
+    if (!text) return;
+
+    void chat.sendMessage({ text });
+    setAssistantInput("");
     setIsAssistantMaximized(true);
+  };
+
+  const handlePanelSubmit = () => {
+    const text = assistantInput.trim();
+    if (!text) return;
+
+    void chat.sendMessage({ text });
+    setAssistantInput("");
   };
 
   return (
@@ -147,8 +330,13 @@ function WorkspaceRouteComponent() {
       {/* AI Assistant Overlay/Bar */}
       {isAssistantMaximized ? (
         <AssistantPanel
-          initialValue={assistantInput}
+          messages={chat.messages}
+          input={assistantInput}
+          handleInputChange={(e) => setAssistantInput(e.target.value)}
+          handleSubmit={handlePanelSubmit}
+          setInput={setAssistantInput}
           onClose={() => setIsAssistantMaximized(false)}
+          isLoading={chat.status === "streaming" || chat.status === "submitted"}
         />
       ) : (
         <AssistantBar
@@ -161,7 +349,7 @@ function WorkspaceRouteComponent() {
 
       {/* Main Canvas Area */}
       <div className="w-full h-full relative overflow-hidden bg-white">
-        <Whiteboard />
+        <Whiteboard onAPIReady={setExcalidrawAPI} />
       </div>
     </div>
   );

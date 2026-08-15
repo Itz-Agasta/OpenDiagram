@@ -1,63 +1,38 @@
 import { CaretLeft, ArrowUp, ArrowUUpLeft, ArrowUUpRight } from "@phosphor-icons/react";
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useRef, useEffect, type KeyboardEvent, type ChangeEvent } from "react";
 
 const DEFAULT_MODEL = "Roxy";
 
 interface Message {
   id: string;
-  sender: "user" | "assistant";
-  text: string;
+  role: "user" | "assistant" | "data" | "system";
+  content?: string;
 }
 
 interface AssistantPanelProps {
-  initialValue: string;
+  messages: Message[];
+  input: string;
+  handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+  handleSubmit: (e?: any) => void;
+  setInput: (value: string) => void;
   onClose: () => void;
+  isLoading: boolean;
 }
 
-export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      sender: "assistant",
-      text: "Hello! I can help you design software architectures, ER diagrams, or microservices flows. What would you like to build today?",
-    },
-  ]);
-  const [inputValue, setInputValue] = useState(initialValue);
+export function AssistantPanel({
+  messages,
+  input,
+  handleInputChange,
+  handleSubmit,
+  setInput,
+  onClose,
+  isLoading,
+}: AssistantPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Sync initial input value if it changes from the bottom bar
-  useEffect(() => {
-    if (initialValue) {
-      setInputValue(initialValue);
-    }
-  }, [initialValue]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const handleSubmit = () => {
-    if (!inputValue.trim()) return;
-
-    const userMsg: Message = {
-      id: Math.random().toString(),
-      sender: "user",
-      text: inputValue.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInputValue("");
-
-    // Simulate Assistant Response
-    setTimeout(() => {
-      const assistantMsg: Message = {
-        id: Math.random().toString(),
-        sender: "assistant",
-        text: `Here is a preliminary design for "${userMsg.text}". Let me generate the diagram specification for you.`,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-    }, 1000);
-  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -67,7 +42,7 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
   };
 
   const handleSuggestionClick = (text: string) => {
-    setInputValue(text);
+    setInput(text);
   };
 
   const suggestions = [
@@ -85,6 +60,9 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
         <div className="p-3 border-b border-gray-200/80 flex items-center justify-between select-none">
           <div className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-gray-800">
             <span>Chat Assistant</span>
+            {isLoading && (
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse ml-1" />
+            )}
           </div>
           <button
             onClick={onClose}
@@ -97,22 +75,34 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
 
         {/* Messages Thread */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
-                  msg.sender === "user"
-                    ? "bg-blue-600 text-white rounded-tr-none"
-                    : "bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60"
-                }`}
-              >
-                {msg.text}
+          {messages.length === 0 && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60">
+                Hello! I can help you design software architectures, ER diagrams, or microservices
+                flows. What would you like to build today?
               </div>
             </div>
-          ))}
+          )}
+          {messages.map((msg) => {
+            if (!msg.content && msg.role === "assistant") return null;
+
+            return (
+              <div
+                key={msg.id}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white rounded-tr-none"
+                      : "bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60"
+                  }`}
+                >
+                  {msg.content || ""}
+                </div>
+              </div>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
 
@@ -133,8 +123,8 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
         <div className="p-4 border-t border-gray-100">
           <div className="border border-gray-200 rounded-xl bg-gray-50/50 focus-within:bg-white focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all flex flex-col">
             <textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              value={input}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Ask assistant to draw architecture or edit diagram..."
               className="w-full px-3.5 py-2.5 bg-transparent border-none outline-none resize-none text-sm text-gray-800 placeholder-gray-400 h-16"
@@ -159,7 +149,7 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={!inputValue.trim()}
+                  disabled={!input.trim()}
                   className="p-1.5 bg-blue-600 disabled:bg-blue-300 text-white rounded-full transition cursor-pointer flex items-center justify-center"
                 >
                   <ArrowUp size={14} weight="bold" />

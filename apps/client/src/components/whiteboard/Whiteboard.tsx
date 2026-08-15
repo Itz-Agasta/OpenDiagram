@@ -5,7 +5,13 @@ const Excalidraw = lazy(() =>
   import("@excalidraw/excalidraw").then((mod) => ({ default: mod.Excalidraw })),
 );
 
-export function Whiteboard() {
+interface WhiteboardProps {
+  onAPIReady?: (api: any) => void;
+  onChange?: (elements: readonly any[], appState: any, files: any) => void;
+  initialData?: any;
+}
+
+export function Whiteboard({ onAPIReady, onChange, initialData }: WhiteboardProps) {
   return (
     <div className="h-full w-full overflow-hidden relative">
       <Suspense
@@ -17,7 +23,7 @@ export function Whiteboard() {
           </div>
         }
       >
-        <Excalidraw />
+        <Excalidraw excalidrawAPI={onAPIReady} onChange={onChange} initialData={initialData} />
       </Suspense>
     </div>
   );

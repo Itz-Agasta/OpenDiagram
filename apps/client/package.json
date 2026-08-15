@@ -17,6 +17,8 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "@OpenDiagram/harness": "workspace:*",
+    "@ai-sdk/react": "^4.0.69",
     "@cloudflare/kumo": "^2.8.0",
     "@cloudflare/vite-plugin": "^1.26.0",
     "@excalidraw/excalidraw": "^0.18.1",
@@ -29,6 +31,7 @@
     "@tanstack/react-router-ssr-query": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "^1.132.0",
+    "ai": "^7.0.66",
     "better-auth": "^1.6.25",
     "dotenv-cli": "^11.0.0",
     "evlog": "^2.25.0",
