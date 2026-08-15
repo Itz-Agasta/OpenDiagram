@@ -19,6 +19,20 @@ interface AssistantPanelProps {
   isLoading: boolean;
 }
 
+function getMessageText(message: any): string {
+  if (typeof message.content === "string" && message.content.length > 0) {
+    return message.content;
+  }
+  if (Array.isArray(message.parts)) {
+    return message.parts
+      .filter((part: any) => part.type === "text")
+      .map((part: any) => part.text)
+      .join("\n")
+      .trim();
+  }
+  return "";
+}
+
 export function AssistantPanel({
   messages,
   input,
@@ -84,7 +98,8 @@ export function AssistantPanel({
             </div>
           )}
           {messages.map((msg) => {
-            if (!msg.content && msg.role === "assistant") return null;
+            const text = getMessageText(msg);
+            if (!text && msg.role === "assistant") return null;
 
             return (
               <div
@@ -98,7 +113,7 @@ export function AssistantPanel({
                       : "bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60"
                   }`}
                 >
-                  {msg.content || ""}
+                  {text}
                 </div>
               </div>
             );
