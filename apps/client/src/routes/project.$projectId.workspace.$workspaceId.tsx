@@ -10,6 +10,8 @@ import {
   SidebarSimpleIcon,
 } from "@phosphor-icons/react";
 import { Whiteboard } from "#/components/whiteboard/Whiteboard";
+import { AssistantBar } from "#/components/workspace/AssistantBar";
+import { AssistantPanel } from "#/components/workspace/AssistantPanel";
 
 export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId")({
   component: WorkspaceRouteComponent,
@@ -18,6 +20,8 @@ export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId
 function WorkspaceRouteComponent() {
   const { projectId, workspaceId } = Route.useParams();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isAssistantMaximized, setIsAssistantMaximized] = useState(false);
+  const [assistantInput, setAssistantInput] = useState("");
 
   // Queries
   const { data: project, isLoading: isProjectLoading } = useQuery(projectQueryOptions(projectId));
@@ -25,6 +29,10 @@ function WorkspaceRouteComponent() {
     projectFileQueryOptions(projectId, workspaceId),
   );
   const { data: files, isLoading: isFilesLoading } = useQuery(projectFilesQueryOptions(projectId));
+
+  const handleAssistantSubmit = () => {
+    setIsAssistantMaximized(true);
+  };
 
   return (
     <div
@@ -134,6 +142,21 @@ function WorkspaceRouteComponent() {
         >
           <SidebarSimpleIcon size={18} weight="bold" />
         </button>
+      )}
+
+      {/* AI Assistant Overlay/Bar */}
+      {isAssistantMaximized ? (
+        <AssistantPanel
+          initialValue={assistantInput}
+          onClose={() => setIsAssistantMaximized(false)}
+        />
+      ) : (
+        <AssistantBar
+          value={assistantInput}
+          onChange={setAssistantInput}
+          onMaximize={() => setIsAssistantMaximized(true)}
+          onSubmit={handleAssistantSubmit}
+        />
       )}
 
       {/* Main Canvas Area */}
