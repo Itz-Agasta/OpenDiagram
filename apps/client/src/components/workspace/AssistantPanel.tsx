@@ -1,16 +1,7 @@
-import {
-  Plus,
-  CaretLeft,
-  CaretDown,
-  Paperclip,
-  PaintBrush,
-  ArrowsOut,
-  Image as ImageIcon,
-  ArrowUp,
-  ArrowUUpLeft,
-  ArrowUUpRight,
-} from "@phosphor-icons/react";
+import { CaretLeft, ArrowUp, ArrowUUpLeft, ArrowUUpRight } from "@phosphor-icons/react";
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+
+const DEFAULT_MODEL = "Roxy";
 
 interface Message {
   id: string;
@@ -87,51 +78,20 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
   ];
 
   return (
-    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-[760px] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-row overflow-hidden z-50 font-geist">
-      {/* Left Pane - Chats Explorer */}
-      <div className="w-[220px] bg-gray-50 border-r border-gray-200/80 flex flex-col select-none">
-        {/* Chats Header */}
-        <div className="p-3.5 border-b border-gray-200/80 flex flex-row items-center justify-between">
-          <span className="text-xs font-semibold text-gray-700">Chats</span>
-          <div className="flex items-center gap-1">
-            <button className="p-1 hover:bg-gray-200/60 rounded-md transition text-gray-500 hover:text-gray-900 cursor-pointer">
-              <Plus size={14} weight="bold" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-200/60 rounded-md transition text-gray-500 hover:text-gray-900 cursor-pointer"
-              title="Close Panel"
-            >
-              <CaretLeft size={14} weight="bold" />
-            </button>
-          </div>
-        </div>
-
-        {/* Chats List */}
-        <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
-          <div className="flex items-center justify-between px-3 py-2 bg-gray-200/60 text-gray-900 rounded-lg text-xs font-semibold cursor-pointer">
-            <span>New Chat</span>
-            <span className="text-[10px] text-gray-400 bg-white/80 border border-gray-200/60 px-1 rounded">
-              ⌘1
-            </span>
-          </div>
-
-          <div className="pt-4 px-3 pb-1">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-              Archived
-            </span>
-          </div>
-          <div className="px-3 py-1.5 text-[11px] text-gray-400 italic">No archived chats</div>
-        </div>
-      </div>
-
-      {/* Right Pane - Conversation View */}
+    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-[580px] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 font-geist">
+      {/* Conversation View */}
       <div className="flex-1 flex flex-col bg-white">
         {/* Active Chat Header */}
         <div className="p-3 border-b border-gray-200/80 flex items-center justify-between select-none">
-          <button className="flex items-center gap-1 px-2 py-1 hover:bg-gray-50 rounded-md transition text-xs font-semibold text-gray-800 cursor-pointer">
-            <span>New Chat</span>
-            <CaretDown size={12} weight="bold" className="text-gray-400" />
+          <div className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-gray-800">
+            <span>Chat Assistant</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-md transition text-gray-500 hover:text-gray-900 cursor-pointer"
+            title="Close Panel"
+          >
+            <CaretLeft size={16} weight="bold" />
           </button>
         </div>
 
@@ -183,24 +143,8 @@ export function AssistantPanel({ initialValue, onClose }: AssistantPanelProps) {
             <div className="flex flex-row items-center justify-between px-3 py-2 border-t border-gray-100 select-none">
               {/* Tool Indicators */}
               <div className="flex items-center gap-1.5 text-gray-400">
-                <button className="p-1.5 hover:bg-gray-100 rounded-lg hover:text-gray-700 transition cursor-pointer">
-                  <Paperclip size={14} weight="bold" />
-                </button>
-                <button className="p-1.5 hover:bg-gray-100 rounded-lg hover:text-gray-700 transition cursor-pointer">
-                  <PaintBrush size={14} weight="bold" />
-                </button>
-                <button className="p-1.5 hover:bg-gray-100 rounded-lg hover:text-gray-700 transition cursor-pointer">
-                  <ArrowsOut size={14} weight="bold" />
-                </button>
-                <button className="p-1.5 hover:bg-gray-100 rounded-lg hover:text-gray-700 transition cursor-pointer">
-                  <ImageIcon size={14} weight="bold" />
-                </button>
-                <div className="h-4 w-[1px] bg-gray-200 mx-1" />
                 <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 border border-gray-200/60 px-1.5 py-0.5 rounded">
-                  Opus 4.8
-                </span>
-                <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 border border-gray-200/60 px-1.5 py-0.5 rounded">
-                  Default
+                  {DEFAULT_MODEL}
                 </span>
               </div>
 
