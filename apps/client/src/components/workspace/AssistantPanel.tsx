@@ -17,6 +17,7 @@ interface AssistantPanelProps {
   setInput: (value: string) => void;
   onClose: () => void;
   isLoading: boolean;
+  onAnswerAskUser?: (toolCallId: string, answer: string) => void;
 }
 
 function getMessageText(message: any): string {
@@ -41,6 +42,7 @@ export function AssistantPanel({
   setInput,
   onClose,
   isLoading,
+  onAnswerAskUser,
 }: AssistantPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -98,23 +100,122 @@ export function AssistantPanel({
             </div>
           )}
           {messages.map((msg) => {
-            const text = getMessageText(msg);
-            if (!text && msg.role === "assistant") return null;
+            if (msg.role === "user") {
+              const text = getMessageText(msg);
+              return (
+                <div key={msg.id} className="flex justify-end">
+                  <div className="max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed bg-blue-600 text-white rounded-tr-none">
+                    {text}
+                  </div>
+                </div>
+              );
+            }
+
+            const parts = (msg as any).parts || [];
+            const toolInvocations = (msg as any).toolInvocations || [];
 
             return (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60"
-                  }`}
-                >
-                  {text}
-                </div>
+              <div key={msg.id} className="space-y-3">
+                {parts.map((part: any, partIdx: number) => {
+                  if (part.type === "text" && part.text) {
+                    return (
+                      <div key={partIdx} className="flex justify-start">
+                        <div className="max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60">
+                          {part.text}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (part.type === "tool-ask_user") {
+                    if (part.state === "input-streaming") {
+                      return (
+                        <div key={partIdx} className="flex justify-start">
+                          <div className="text-xs text-gray-400 italic">
+                            Preparing a question...
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (part.state === "output-error") {
+                      return (
+                        <div key={partIdx} className="flex justify-start">
+                          <div className="text-xs text-red-500 font-medium">{part.errorText}</div>
+                        </div>
+                      );
+                    }
+
+                    const input = part.input as any;
+                    if (!input?.question) return null;
+                    const answered =
+                      part.state === "output-available" ? (part.output as string) : null;
+
+                    return (
+                      <div key={partIdx} className="flex justify-start">
+                        <div className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60 space-y-2.5">
+                          <p className="font-medium text-gray-900">{input.question}</p>
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {(input.options ?? []).map((option: string) => (
+                              <button
+                                key={option}
+                                disabled={answered !== null}
+                                onClick={() => onAnswerAskUser?.(part.toolCallId, option)}
+                                className={`px-2.5 py-1 text-xs rounded-full font-medium transition cursor-pointer border ${
+                                  answered === option
+                                    ? "bg-blue-600 border-blue-600 text-white"
+                                    : answered !== null
+                                      ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+
+                {toolInvocations.map((invocation: any, invIdx: number) => {
+                  if (invocation.toolName === "ask_user") {
+                    const input = invocation.args as any;
+                    if (!input?.question) return null;
+                    const answered =
+                      invocation.state === "result" ? (invocation.result as string) : null;
+
+                    return (
+                      <div key={invIdx} className="flex justify-start">
+                        <div className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60 space-y-2.5">
+                          <p className="font-medium text-gray-900">{input.question}</p>
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {(input.options ?? []).map((option: string) => (
+                              <button
+                                key={option}
+                                disabled={answered !== null}
+                                onClick={() => onAnswerAskUser?.(invocation.toolCallId, option)}
+                                className={`px-2.5 py-1 text-xs rounded-full font-medium transition cursor-pointer border ${
+                                  answered === option
+                                    ? "bg-blue-600 border-blue-600 text-white"
+                                    : answered !== null
+                                      ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
               </div>
             );
           })}

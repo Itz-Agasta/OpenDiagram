@@ -200,11 +200,20 @@ function WorkspaceRouteComponent() {
     void processToolCalls();
   }, [chat.messages, excalidrawAPI, projectId, workspaceId, queryClient]);
 
+  const answerAskUser = (toolCallId: string, answer: string) => {
+    chat.addToolOutput({ tool: "ask_user", toolCallId, output: answer });
+  };
+
   const handleAssistantSubmit = () => {
     const text = assistantInput.trim();
     if (!text) return;
 
-    void chat.sendMessage({ text });
+    const pending = pendingAskUser(chat.messages);
+    if (pending) {
+      answerAskUser(pending.toolCallId, text);
+    } else {
+      void chat.sendMessage({ text });
+    }
     setAssistantInput("");
     setIsAssistantMaximized(true);
   };
@@ -213,7 +222,12 @@ function WorkspaceRouteComponent() {
     const text = assistantInput.trim();
     if (!text) return;
 
-    void chat.sendMessage({ text });
+    const pending = pendingAskUser(chat.messages);
+    if (pending) {
+      answerAskUser(pending.toolCallId, text);
+    } else {
+      void chat.sendMessage({ text });
+    }
     setAssistantInput("");
   };
 
@@ -337,6 +351,7 @@ function WorkspaceRouteComponent() {
           setInput={setAssistantInput}
           onClose={() => setIsAssistantMaximized(false)}
           isLoading={chat.status === "streaming" || chat.status === "submitted"}
+          onAnswerAskUser={answerAskUser}
         />
       ) : (
         <AssistantBar
@@ -353,4 +368,33 @@ function WorkspaceRouteComponent() {
       </div>
     </div>
   );
+}
+
+function pendingAskUser(messages: any[]) {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return null;
+
+  const parts = last.parts || [];
+  for (const part of parts) {
+    if (part.type === "tool-ask_user" && part.state === "input-available") {
+      return {
+        toolCallId: part.toolCallId,
+        input: part.input,
+      };
+    }
+  }
+
+  const toolInvocations = last.toolInvocations || [];
+  for (const invocation of toolInvocations) {
+    if (invocation.toolName === "ask_user" && invocation.state === "result") {
+      if (invocation.state === "call") {
+        return {
+          toolCallId: invocation.toolCallId,
+          input: invocation.args,
+        };
+      }
+    }
+  }
+
+  return null;
 }
