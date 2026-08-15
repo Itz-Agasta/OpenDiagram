@@ -20,6 +20,7 @@ import {
 import type { Project, ProjectFile } from "#/lib/types";
 import { HeroButton, CustomButton } from "#/components/ui/button";
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 
 export const ProjectMenuItem = ({ project, isFirst }: { project: Project; isFirst: boolean }) => {
   const queryClient = useQueryClient();
@@ -245,14 +246,20 @@ export const ProjectMenuItem = ({ project, isFirst }: { project: Project; isFirs
           <Sidebar.MenuSub>
             {files?.map((file) => (
               <div key={file.id} className="group relative flex items-center w-full mt-1">
-                <Sidebar.MenuSubButton className="text-[12px] text-gray-500 w-full pr-8 hover:!bg-transparent">
-                  {file.type === "diagram" ? (
-                    <ShapesIcon size={14} className="mr-2 text-gray-400 shrink-0" />
-                  ) : (
-                    <FileTextIcon size={14} className="mr-2 text-gray-400 shrink-0" />
-                  )}
-                  <span className="truncate">{file.name}</span>
-                </Sidebar.MenuSubButton>
+                <Link
+                  to="/project/$projectId/workspace/$workspaceId"
+                  params={{ projectId: project.id, workspaceId: file.id }}
+                  className="flex-1 min-w-0"
+                >
+                  <Sidebar.MenuSubButton className="text-[12px] text-gray-500 w-full pr-8 hover:!bg-transparent cursor-pointer">
+                    {file.type === "diagram" ? (
+                      <ShapesIcon size={14} className="mr-2 text-gray-400 shrink-0" />
+                    ) : (
+                      <FileTextIcon size={14} className="mr-2 text-gray-400 shrink-0" />
+                    )}
+                    <span className="truncate">{file.name}</span>
+                  </Sidebar.MenuSubButton>
+                </Link>
                 {/* File actions dropdown */}
                 <div className="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 z-10">
                   <DropdownMenu>

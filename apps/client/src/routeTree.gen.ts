@@ -17,6 +17,7 @@ import { Route as FeaturesRouteImport } from "./routes/features";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as ResetPasswordRouteImport } from "./routes/reset-password";
 import { Route as ProtectedUserRouteImport } from "./routes/_protected/User";
+import { Route as ProjectProjectIdWorkspaceWorkspaceIdRouteImport } from "./routes/project.$projectId.workspace.$workspaceId";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -57,6 +58,12 @@ const ProtectedUserRoute = ProtectedUserRouteImport.update({
   path: "/User",
   getParentRoute: () => ProtectedRoute,
 } as any);
+const ProjectProjectIdWorkspaceWorkspaceIdRoute =
+  ProjectProjectIdWorkspaceWorkspaceIdRouteImport.update({
+    id: "/project/$projectId/workspace/$workspaceId",
+    path: "/project/$projectId/workspace/$workspaceId",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
   "/login": typeof LoginRoute;
   "/reset-password": typeof ResetPasswordRoute;
   "/User": typeof ProtectedUserRoute;
+  "/project/$projectId/workspace/$workspaceId": typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
@@ -75,6 +83,7 @@ export interface FileRoutesByTo {
   "/login": typeof LoginRoute;
   "/reset-password": typeof ResetPasswordRoute;
   "/User": typeof ProtectedUserRoute;
+  "/project/$projectId/workspace/$workspaceId": typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -86,12 +95,29 @@ export interface FileRoutesById {
   "/login": typeof LoginRoute;
   "/reset-password": typeof ResetPasswordRoute;
   "/_protected/User": typeof ProtectedUserRoute;
+  "/project/$projectId/workspace/$workspaceId": typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/App" | "/about" | "/features" | "/login" | "/reset-password" | "/User";
+  fullPaths:
+    | "/"
+    | "/App"
+    | "/about"
+    | "/features"
+    | "/login"
+    | "/reset-password"
+    | "/User"
+    | "/project/$projectId/workspace/$workspaceId";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/App" | "/about" | "/features" | "/login" | "/reset-password" | "/User";
+  to:
+    | "/"
+    | "/App"
+    | "/about"
+    | "/features"
+    | "/login"
+    | "/reset-password"
+    | "/User"
+    | "/project/$projectId/workspace/$workspaceId";
   id:
     | "__root__"
     | "/"
@@ -101,7 +127,8 @@ export interface FileRouteTypes {
     | "/features"
     | "/login"
     | "/reset-password"
-    | "/_protected/User";
+    | "/_protected/User"
+    | "/project/$projectId/workspace/$workspaceId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -112,6 +139,7 @@ export interface RootRouteChildren {
   FeaturesRoute: typeof FeaturesRoute;
   LoginRoute: typeof LoginRoute;
   ResetPasswordRoute: typeof ResetPasswordRoute;
+  ProjectProjectIdWorkspaceWorkspaceIdRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -172,6 +200,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ProtectedUserRouteImport;
       parentRoute: typeof ProtectedRoute;
     };
+    "/project/$projectId/workspace/$workspaceId": {
+      id: "/project/$projectId/workspace/$workspaceId";
+      path: "/project/$projectId/workspace/$workspaceId";
+      fullPath: "/project/$projectId/workspace/$workspaceId";
+      preLoaderRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -193,6 +228,7 @@ const rootRouteChildren: RootRouteChildren = {
   FeaturesRoute: FeaturesRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ProjectProjectIdWorkspaceWorkspaceIdRoute: ProjectProjectIdWorkspaceWorkspaceIdRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
