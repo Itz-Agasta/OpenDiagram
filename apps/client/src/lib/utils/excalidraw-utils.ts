@@ -1,6 +1,7 @@
 import type { ExcalidrawElementSkeleton } from "@excalidraw/excalidraw/data/transform";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { RenderSkeleton } from "@OpenDiagram/harness";
+import { estimateTextWidth } from "@OpenDiagram/harness/measure";
 
 const NEW_DIAGRAM_GAP = 160;
 // TUNABLE: when the current row of diagrams is wider than this, the next
@@ -22,32 +23,123 @@ interface SceneTextElement {
   type?: string;
   text?: string;
   fontFamily?: number;
+  fontSize?: number;
+}
+
+// Excalidraw 0.18 only remesures text when BOTH flags are set. refreshDimensions
+// alone returns before the remesure loop (see restoreElements in the package).
+const RESTORE_TEXT = { refreshDimensions: true, repairBindings: true } as const;
+
+const FAMILY_NAME_TO_ID: Record<string, number> = Object.fromEntries(
+  Object.entries(FONT_FAMILY_NAMES).map(([id, name]) => [name, Number(id)]),
+);
+
+let harnessMetricsInstalled = false;
+
+/**
+ * Make Excalidraw measure with the same glyph table the harness used to size
+ * nodes. Canvas measureText on refresh runs before Excalifont is in
+ * document.fonts, so boxes freeze at fallback widths and stay clipped.
+ */
+export async function installHarnessTextMetrics() {
+  if (harnessMetricsInstalled) return;
+  harnessMetricsInstalled = true;
+  const { setCustomTextMetricsProvider } = await import("@excalidraw/excalidraw");
+  setCustomTextMetricsProvider({
+    getLineWidth(text, fontString) {
+      const match = /^([\d.]+)px\s+"?([^,"]+)/.exec(fontString);
+      const fontSize = match ? Number(match[1]) : 16;
+      const familyName = match?.[2]?.replace(/"/g, "").trim() ?? "Excalifont";
+      const fontFamily = FAMILY_NAME_TO_ID[familyName];
+      return estimateTextWidth(text, fontSize, fontFamily);
+    },
+  });
 }
 
 async function loadSceneFonts(elements: readonly SceneTextElement[]) {
-  const charactersByFont = new Map<number, Set<string>>();
+  const loads = new Map<string, string>();
   for (const element of elements) {
-    if (element.type !== "text" || !element.text || !element.fontFamily) continue;
-    const characters = charactersByFont.get(element.fontFamily) ?? new Set<string>();
-    for (const character of element.text) characters.add(character);
-    charactersByFont.set(element.fontFamily, characters);
+    const isText = element.type === "text" || (element as { kind?: string }).kind === "text";
+    if (!isText || !element.text || !element.fontFamily) continue;
+    const familyName = FONT_FAMILY_NAMES[element.fontFamily];
+    if (!familyName) continue;
+    const size = element.fontSize ?? 16;
+    const key = `${size}px "${familyName}"`;
+    loads.set(key, `${loads.get(key) ?? ""}${element.text}`);
   }
 
-  await Promise.allSettled(
-    [...charactersByFont].map(([fontFamily, characters]) => {
-      const familyName = FONT_FAMILY_NAMES[fontFamily];
-      if (!familyName) return Promise.resolve([]);
-      return document.fonts.load(`16px "${familyName}"`, [...characters].join(""));
-    }),
-  );
+  await Promise.allSettled([
+    ...[...loads].map(([font, sample]) => document.fonts.load(font, sample)),
+    ...Object.values(FONT_FAMILY_NAMES).map((name) => document.fonts.load(`20px "${name}"`)),
+  ]);
   await document.fonts.ready;
+}
+
+function unlockSavedTextBoxes(elements: readonly unknown[]) {
+  return elements.map((element) => {
+    if (!element || typeof element !== "object") return element;
+    const text = element as { type?: string; containerId?: string | null; autoResize?: boolean };
+    if (text.type !== "text" || text.containerId) return element;
+    if (text.autoResize !== false) return element;
+    return { ...element, autoResize: true };
+  });
+}
+
+/**
+ * Remesure every text box against harness metrics so labels are not clipped.
+ * Use on convert, on file load, and once after the Excalidraw API is ready.
+ */
+export async function repairSceneText(elements: readonly unknown[]) {
+  await installHarnessTextMetrics();
+  const { restoreElements } = await import("@excalidraw/excalidraw");
+  await loadSceneFonts(elements as SceneTextElement[]);
+  return restoreElements(unlockSavedTextBoxes(elements) as never[], null, RESTORE_TEXT);
 }
 
 /** Loads scene fonts and repairs text bounds that may have used fallback metrics. */
 export async function restoreSceneElements(elements: readonly unknown[]) {
-  const { restoreElements } = await import("@excalidraw/excalidraw");
-  await loadSceneFonts(elements as SceneTextElement[]);
-  return restoreElements(elements as never[], null, { refreshDimensions: true });
+  return repairSceneText(elements);
+}
+
+/** Second pass after mount: Excalidraw has registered its faces by then. */
+export async function repairCanvasText(api: ExcalidrawImperativeAPI) {
+  const repaired = await repairSceneText(api.getSceneElements());
+  api.updateScene({ elements: repaired });
+}
+
+/** collaborators is a Map and does not survive JSON. */
+export function sanitizeSceneAppState(appState: unknown) {
+  if (!appState || typeof appState !== "object") return appState;
+  const { collaborators: _collaborators, ...rest } = appState as Record<string, unknown>;
+  return rest;
+}
+
+export function sceneElementsVersion(elements: readonly unknown[]) {
+  return JSON.stringify(
+    elements.map((element, index) => {
+      if (!element || typeof element !== "object") return [index, "", 0];
+      const value = element as { id?: unknown; version?: unknown };
+      return [index, typeof value.id === "string" ? value.id : "", value.version ?? 0];
+    }),
+  );
+}
+
+export async function sceneToInitialData(scene: unknown) {
+  if (!scene || typeof scene !== "object") return null;
+  const value = scene as { elements?: unknown; appState?: unknown; files?: unknown };
+  if (!Array.isArray(value.elements) || value.elements.length === 0) {
+    return {
+      elements: Array.isArray(value.elements) ? value.elements : [],
+      appState: sanitizeSceneAppState(value.appState),
+      files: value.files,
+    };
+  }
+  const elements = await repairSceneText(value.elements);
+  return {
+    elements,
+    appState: sanitizeSceneAppState(value.appState),
+    files: value.files,
+  };
 }
 
 function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton {
@@ -109,6 +201,33 @@ function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton 
   throw new Error("Unhandled skeleton kind: " + (skeleton as any).kind);
 }
 
+const FRAME_PADDING = 10;
+
+function fitFrameToChildren(
+  elements: readonly { type: string; frameId?: string | null; id: string }[],
+) {
+  const frame = elements.find((el) => el.type === "frame") as
+    | { type: "frame"; x: number; y: number; width: number; height: number; id: string }
+    | undefined;
+  if (!frame) return;
+  const children = elements.filter(
+    (el) => "frameId" in el && el.frameId === frame.id,
+  ) as unknown as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }[];
+  if (children.length === 0) return;
+  const bounds = contentBounds(children);
+  Object.assign(frame, {
+    x: bounds.minX - FRAME_PADDING,
+    y: bounds.minY - FRAME_PADDING,
+    width: bounds.maxX - bounds.minX + FRAME_PADDING * 2,
+    height: bounds.maxY - bounds.minY + FRAME_PADDING * 2,
+  });
+}
+
 function contentBounds(
   elements: readonly { x: number; y: number; width: number; height: number }[],
 ) {
@@ -144,12 +263,20 @@ export async function applyDiagramToCanvas(
   opts?: { replaceFrameId?: string | null },
 ): Promise<ApplyDiagramResult> {
   const { convertToExcalidrawElements, restoreElements } = await import("@excalidraw/excalidraw");
+  // Measure AFTER the real face is in document.fonts. convertToExcalidrawElements
+  // freezes text width/height from canvas measureText; Fonts.onLoaded later
+  // redraws but does not grow the box, so a fallback measure clips the label.
+  await installHarnessTextMetrics();
+  await loadSceneFonts([
+    ...skeletons.filter((s): s is Extract<RenderSkeleton, { kind: "text" }> => s.kind === "text"),
+    ...(rawElements as SceneTextElement[]),
+  ]);
   const generated = convertToExcalidrawElements([
     ...skeletons.map(toElementSkeleton),
     ...(rawElements as ExcalidrawElementSkeleton[]),
   ]);
-  await loadSceneFonts(generated);
-  const converted = restoreElements(generated, null, { refreshDimensions: true });
+  const converted = restoreElements(generated, null, RESTORE_TEXT);
+  fitFrameToChildren(converted);
 
   for (const el of converted) {
     if (el.type !== "arrow" && el.type !== "line") continue;

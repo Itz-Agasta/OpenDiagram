@@ -1,4 +1,4 @@
-import { CheckCircle, CaretUp } from "@phosphor-icons/react";
+import { CaretUp } from "@phosphor-icons/react";
 import { type KeyboardEvent } from "react";
 
 interface AssistantBarProps {
@@ -6,9 +6,16 @@ interface AssistantBarProps {
   onChange: (val: string) => void;
   onMaximize: () => void;
   onSubmit: () => void;
+  placeholder?: string;
 }
 
-export function AssistantBar({ value, onChange, onMaximize, onSubmit }: AssistantBarProps) {
+export function AssistantBar({
+  value,
+  onChange,
+  onMaximize,
+  onSubmit,
+  placeholder,
+}: AssistantBarProps) {
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -17,9 +24,9 @@ export function AssistantBar({ value, onChange, onMaximize, onSubmit }: Assistan
   };
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[580px] h-12 flex flex-row items-center gap-3 px-4 bg-white/90 backdrop-blur-md border border-gray-200 rounded-xl select-none z-50 shadow-lg transition-all hover:bg-white focus-within:bg-white focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400">
-      {/* Status Indicator */}
-      <CheckCircle size={20} weight="fill" className="text-green-500 shrink-0" />
+    <div className="assistant-bar absolute bottom-6 left-1/2 -translate-x-1/2 w-[580px] h-12 flex flex-row items-center gap-3 px-4 bg-white/90 backdrop-blur-md border border-gray-200 rounded-xl select-none z-50 shadow-lg transition-all hover:bg-white focus-within:bg-white focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400">
+      {/* Mascot Status Indicator */}
+      <img src="/mascot.png" className="w-5 h-5 object-contain shrink-0" alt="Mascot" />
 
       {/* Input Field */}
       <input
@@ -27,7 +34,7 @@ export function AssistantBar({ value, onChange, onMaximize, onSubmit }: Assistan
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Type a message or describe a diagram..."
+        placeholder={placeholder || "Type a message or describe a diagram..."}
         className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800 placeholder-gray-400 h-full font-medium"
       />
 

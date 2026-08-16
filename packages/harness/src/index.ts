@@ -36,3 +36,5 @@ export type {
 
 export { classicTheme, sketchTheme, themes } from "./theme/index.js";
 export type { Theme, ThemeName } from "./theme/index.js";
+
+export { estimateTextWidth } from "./measure.js";

@@ -1,37 +1,45 @@
-import { CaretLeft, ArrowUp, ArrowUUpLeft, ArrowUUpRight } from "@phosphor-icons/react";
+import {
+  CaretLeft,
+  ArrowUp,
+  ArrowUUpLeft,
+  ArrowUUpRight,
+  CheckCircle,
+} from "@phosphor-icons/react";
 import { useRef, useEffect, type KeyboardEvent, type ChangeEvent } from "react";
+import type { UIMessage } from "ai";
+import { ThinkingState } from "#/components/ui/ThinkingState";
+import { StreamingText } from "#/components/ui/StreamingText";
+import {
+  isAskUserPart,
+  isDrawDiagramPart,
+  type AskUserInput,
+  type ChatToolPart,
+  type DrawDiagramOutput,
+} from "#/lib/utils/diagram-chat";
+
+const PILL = "max-w-[80%] px-3.5 py-2 rounded-xl text-sm leading-relaxed bg-gray-100 text-gray-800";
 
 const DEFAULT_MODEL = "Roxy";
 
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "data" | "system";
-  content?: string;
-}
-
 interface AssistantPanelProps {
-  messages: Message[];
+  messages: UIMessage[];
   input: string;
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e?: any) => void;
+  handleSubmit: (e?: unknown) => void;
   setInput: (value: string) => void;
   onClose: () => void;
   isLoading: boolean;
   onAnswerAskUser?: (toolCallId: string, answer: string) => void;
+  error?: string | null;
+  applyError?: string | null;
 }
 
-function getMessageText(message: any): string {
-  if (typeof message.content === "string" && message.content.length > 0) {
-    return message.content;
-  }
-  if (Array.isArray(message.parts)) {
-    return message.parts
-      .filter((part: any) => part.type === "text")
-      .map((part: any) => part.text)
-      .join("\n")
-      .trim();
-  }
-  return "";
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
 }
 
 export function AssistantPanel({
@@ -43,12 +51,25 @@ export function AssistantPanel({
   onClose,
   isLoading,
   onAnswerAskUser,
+  error,
+  applyError,
 }: AssistantPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isLoading]);
+
+  const last = messages.at(-1);
+  const waitingForResponse =
+    isLoading &&
+    (last?.role !== "assistant" ||
+      !last.parts.some(
+        (part) =>
+          (part.type === "text" && part.text) ||
+          (isAskUserPart(part) && part.state !== "input-streaming") ||
+          isDrawDiagramPart(part),
+      ));
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -69,11 +90,11 @@ export function AssistantPanel({
   ];
 
   return (
-    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-[580px] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 font-geist">
+    <div className="assistant-panel absolute bottom-20 left-1/2 -translate-x-1/2 w-[580px] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 font-geist">
       {/* Conversation View */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white min-h-0">
         {/* Active Chat Header */}
-        <div className="p-3 border-b border-gray-200/80 flex items-center justify-between select-none">
+        <div className="p-3 border-b border-gray-200/80 flex items-center justify-between select-none bg-white sticky top-0 z-10">
           <div className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-gray-800">
             <span>Chat Assistant</span>
             {isLoading && (
@@ -93,7 +114,7 @@ export function AssistantPanel({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60">
+              <div className={PILL}>
                 Hello! I can help you design software architectures, ER diagrams, or microservices
                 flows. What would you like to build today?
               </div>
@@ -104,114 +125,34 @@ export function AssistantPanel({
               const text = getMessageText(msg);
               return (
                 <div key={msg.id} className="flex justify-end">
-                  <div className="max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed bg-blue-600 text-white rounded-tr-none">
-                    {text}
-                  </div>
+                  <div className={PILL}>{text}</div>
                 </div>
               );
             }
 
-            const parts = (msg as any).parts || [];
-            const toolInvocations = (msg as any).toolInvocations || [];
-
             return (
               <div key={msg.id} className="space-y-3">
-                {parts.map((part: any, partIdx: number) => {
+                {msg.parts.map((part, partIdx) => {
+                  const key = `${msg.id}-${partIdx}`;
                   if (part.type === "text" && part.text) {
                     return (
-                      <div key={partIdx} className="flex justify-start">
-                        <div className="max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60">
-                          {part.text}
-                        </div>
+                      <div key={key} className="flex justify-start">
+                        <StreamingText
+                          text={part.text}
+                          className="!text-gray-800 [&>span]:!bg-gray-800"
+                        />
                       </div>
                     );
                   }
 
-                  if (part.type === "tool-ask_user") {
-                    if (part.state === "input-streaming") {
-                      return (
-                        <div key={partIdx} className="flex justify-start">
-                          <div className="text-xs text-gray-400 italic">
-                            Preparing a question...
-                          </div>
-                        </div>
-                      );
-                    }
-                    if (part.state === "output-error") {
-                      return (
-                        <div key={partIdx} className="flex justify-start">
-                          <div className="text-xs text-red-500 font-medium">{part.errorText}</div>
-                        </div>
-                      );
-                    }
-
-                    const input = part.input as any;
-                    if (!input?.question) return null;
-                    const answered =
-                      part.state === "output-available" ? (part.output as string) : null;
-
+                  if (isAskUserPart(part)) {
                     return (
-                      <div key={partIdx} className="flex justify-start">
-                        <div className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60 space-y-2.5">
-                          <p className="font-medium text-gray-900">{input.question}</p>
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {(input.options ?? []).map((option: string) => (
-                              <button
-                                key={option}
-                                disabled={answered !== null}
-                                onClick={() => onAnswerAskUser?.(part.toolCallId, option)}
-                                className={`px-2.5 py-1 text-xs rounded-full font-medium transition cursor-pointer border ${
-                                  answered === option
-                                    ? "bg-blue-600 border-blue-600 text-white"
-                                    : answered !== null
-                                      ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
-                                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                                }`}
-                              >
-                                {option}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                      <AskUserPartView key={key} part={part} onAnswerAskUser={onAnswerAskUser} />
                     );
                   }
 
-                  return null;
-                })}
-
-                {toolInvocations.map((invocation: any, invIdx: number) => {
-                  if (invocation.toolName === "ask_user") {
-                    const input = invocation.args as any;
-                    if (!input?.question) return null;
-                    const answered =
-                      invocation.state === "result" ? (invocation.result as string) : null;
-
-                    return (
-                      <div key={invIdx} className="flex justify-start">
-                        <div className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200/60 space-y-2.5">
-                          <p className="font-medium text-gray-900">{input.question}</p>
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {(input.options ?? []).map((option: string) => (
-                              <button
-                                key={option}
-                                disabled={answered !== null}
-                                onClick={() => onAnswerAskUser?.(invocation.toolCallId, option)}
-                                className={`px-2.5 py-1 text-xs rounded-full font-medium transition cursor-pointer border ${
-                                  answered === option
-                                    ? "bg-blue-600 border-blue-600 text-white"
-                                    : answered !== null
-                                      ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
-                                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                                }`}
-                              >
-                                {option}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
+                  if (isDrawDiagramPart(part)) {
+                    return <DrawDiagramPartView key={key} part={part} />;
                   }
 
                   return null;
@@ -219,6 +160,17 @@ export function AssistantPanel({
               </div>
             );
           })}
+          {waitingForResponse && (
+            <div className="flex justify-start">
+              <ThinkingState />
+            </div>
+          )}
+          {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+          {applyError && (
+            <p className="text-xs text-red-500 font-medium">
+              Couldn't draw on canvas — {applyError}
+            </p>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -275,6 +227,86 @@ export function AssistantPanel({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AskUserPartView({
+  part,
+  onAnswerAskUser,
+}: {
+  part: ChatToolPart;
+  onAnswerAskUser?: (toolCallId: string, answer: string) => void;
+}) {
+  if (part.state === "input-streaming") {
+    return (
+      <div className="flex justify-start">
+        <div className="text-xs text-gray-400 italic">Preparing a question...</div>
+      </div>
+    );
+  }
+  if (part.state === "output-error") {
+    return (
+      <div className="flex justify-start">
+        <div className="text-xs text-red-500 font-medium">{part.errorText}</div>
+      </div>
+    );
+  }
+
+  const input = part.input as AskUserInput | undefined;
+  if (!input?.question) return null;
+  const answered = part.state === "output-available" ? (part.output as string) : null;
+
+  return (
+    <div className="flex justify-start">
+      <div className={`${PILL} px-4 py-3 space-y-2.5`}>
+        <p className="font-medium text-gray-900">{input.question}</p>
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {(input.options ?? []).map((option) => (
+            <button
+              key={option}
+              disabled={answered !== null}
+              onClick={() => onAnswerAskUser?.(part.toolCallId, option)}
+              className={`px-2.5 py-1 text-xs rounded-full font-medium transition border ${
+                answered === option
+                  ? "bg-blue-600 border-blue-600 text-white"
+                  : answered !== null
+                    ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 cursor-pointer"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DrawDiagramPartView({ part }: { part: ChatToolPart }) {
+  const title = (part.input as { title?: string } | undefined)?.title;
+  if (part.state === "output-available") {
+    const summary = (part.output as DrawDiagramOutput | undefined)?.summary;
+    return (
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        <CheckCircle size={14} weight="fill" className="text-blue-600" />
+        <span>
+          {summary
+            ? `${summary.title} — ${summary.nodes} nodes, ${summary.edges} edges`
+            : title
+              ? `Drew “${title}”`
+              : "Diagram drawn"}
+        </span>
+      </div>
+    );
+  }
+  if (part.state === "output-error") {
+    return <p className="text-xs text-red-500 font-medium">Drawing failed: {part.errorText}</p>;
+  }
+  return (
+    <div className="text-xs text-gray-400 italic">
+      {title ? `Drawing “${title}”…` : "Drawing diagram…"}
     </div>
   );
 }
