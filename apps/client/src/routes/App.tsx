@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { SideBar } from "#/components/app/Sidebar";
 import { PromptInput } from "#/components/ui/PromptInput";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { sessionQueryOptions } from "#/lib/api";
+import { useKumoToastManager } from "@cloudflare/kumo";
+import { sessionQueryOptions, createProject, createProjectFile } from "#/lib/api";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
 
 const TAGLINE_POOL = [
@@ -29,6 +30,8 @@ export const Route = createFileRoute("/App")({
 });
 
 function RouteComponent() {
+  const navigate = useNavigate();
+  const toastManager = useKumoToastManager();
   const { data: session, isPending, error } = useQuery(sessionQueryOptions);
   const isAuthenticated = !isPending && !error && !!session?.user;
   const [tagline, setTagline] = useState("");
@@ -37,6 +40,38 @@ function RouteComponent() {
     const randomPhrase = TAGLINE_POOL[Math.floor(Math.random() * TAGLINE_POOL.length)];
     setTagline(randomPhrase);
   }, []);
+  const handleSubmitPrompt = async (prompt: string) => {
+    if (!prompt.trim()) return;
+
+    try {
+      localStorage.setItem("pending_agent_prompt", prompt);
+
+      const firstLine = prompt.trim().split("\n")[0];
+      const projectName = firstLine.slice(0, 50).trim() || "New Architecture";
+
+      const project = await createProject({ name: projectName });
+
+      const file = await createProjectFile(project.id, {
+        name: "Architecture Diagram",
+        type: "diagram",
+      });
+
+      void navigate({
+        to: "/project/$projectId/workspace/$workspaceId",
+        params: { projectId: project.id, workspaceId: file.id },
+        search: { init: true } as any,
+      });
+    } catch (err: any) {
+      console.error(err);
+      toastManager.add({
+        title: "Failed to create project",
+        description: err.message || "An unexpected error occurred.",
+        variant: "error",
+      });
+      localStorage.removeItem("pending_agent_prompt");
+      throw err;
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen w-full bg-kumo-base overflow-hidden">
@@ -78,7 +113,7 @@ function RouteComponent() {
               )}
             </div>
           </div>
-          <PromptInput />
+          <PromptInput onSubmit={handleSubmitPrompt} />
         </div>
       </Sidebar.Provider>
     </div>

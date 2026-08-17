@@ -49,11 +49,17 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
 const SCENE_AUTOSAVE_MS = 2000;
 
 export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId")({
+  validateSearch: (search: Record<string, unknown>): { init?: boolean } => {
+    return {
+      init: search.init === true || search.init === "true" || undefined,
+    };
+  },
   component: WorkspaceRouteComponent,
 });
 
 function WorkspaceRouteComponent() {
   const { projectId, workspaceId } = Route.useParams();
+  const { init } = Route.useSearch();
   const queryClient = useQueryClient();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAssistantMaximized, setIsAssistantMaximized] = useState(false);
@@ -61,6 +67,9 @@ function WorkspaceRouteComponent() {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [canvasSeed, setCanvasSeed] = useState<{ fileId: string; data: unknown } | null>(null);
+  const [isHistorySeeded, setIsHistorySeeded] = useState(false);
+  const lastMessagesCountRef = useRef(0);
+  const initTriggeredRef = useRef(false);
 
   const navigate = useNavigate();
   const toastManager = useKumoToastManager();
@@ -132,6 +141,8 @@ function WorkspaceRouteComponent() {
     setCanvasSeed(null);
     lastSavedSceneVersionRef.current = "";
     pendingSceneRef.current = null;
+    setIsHistorySeeded(false);
+    initTriggeredRef.current = false;
     if (sceneSaveTimerRef.current) {
       clearTimeout(sceneSaveTimerRef.current);
       sceneSaveTimerRef.current = null;
@@ -178,6 +189,43 @@ function WorkspaceRouteComponent() {
     transport: transport.current,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   });
+  // 1. Seed chat messages from activeFile history when activeFile finishes loading.
+  useEffect(() => {
+    if (!activeFile || isHistorySeeded) return;
+    setIsHistorySeeded(true);
+
+    if (activeFile.history && activeFile.history.length > 0) {
+      chat.setMessages(activeFile.history);
+      lastMessagesCountRef.current = activeFile.history.length;
+    } else {
+      chat.setMessages([]);
+      lastMessagesCountRef.current = 0;
+    }
+  }, [activeFile, isHistorySeeded, chat.setMessages]);
+
+  // 2. Persist chat messages to backend when chat is not loading and the number of messages changes.
+  useEffect(() => {
+    if (chat.messages.length === 0 || chat.isLoading) return;
+    if (chat.messages.length === lastMessagesCountRef.current) return;
+    lastMessagesCountRef.current = chat.messages.length;
+
+    void updateProjectFile(projectId, workspaceId, {
+      history: chat.messages,
+    }).catch(console.error);
+  }, [chat.messages, chat.isLoading, projectId, workspaceId]);
+
+  // 3. Trigger initial prompt if redirecting from App.tsx.
+  useEffect(() => {
+    if (!init || initTriggeredRef.current || !isHistorySeeded) return;
+
+    const pendingPrompt = localStorage.getItem("pending_agent_prompt");
+    if (pendingPrompt) {
+      initTriggeredRef.current = true;
+      localStorage.removeItem("pending_agent_prompt");
+      void navigate({ search: {}, replace: true });
+      void chat.sendMessage({ text: pendingPrompt });
+    }
+  }, [init, isHistorySeeded, chat.sendMessage, navigate]);
 
   const appliedToolCallsRef = useRef(new Set<string>());
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
