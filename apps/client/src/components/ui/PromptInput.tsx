@@ -4,10 +4,13 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ChangeEvent,
 } from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { sessionQueryOptions } from "#/lib/api";
+import { aiSettingsQueryOptions, providerModelOptions } from "#/lib/api/settings-client";
 import styles from "./PromptInput.module.css";
-
 const SKILLS = [
   { id: "deep-research", name: "Deep Research" },
   { id: "code-review", name: "Code Review" },
@@ -34,8 +37,28 @@ const escapeHtml = (str: string) =>
 export function PromptInput({
   onSubmit,
 }: {
-  onSubmit?: (prompt: string) => Promise<void> | void;
+  onSubmit?: (
+    prompt: string,
+    files?: { type: "file"; mediaType: string; filename: string; url: string }[],
+    modelId?: string,
+    providerId?: string,
+  ) => Promise<void> | void;
 } = {}) {
+  const { data: session } = useQuery(sessionQueryOptions);
+  const { data: settings } = useQuery(aiSettingsQueryOptions(!!session?.user));
+  const [selectedModel, setSelectedModel] = useState<string>("platform");
+
+  const modelOptions = settings ? providerModelOptions(settings) : [];
+  const activeOption = modelOptions.find((o) => o.id === selectedModel);
+
+  useEffect(() => {
+    if (modelOptions.length > 0 && selectedModel === "platform") {
+      const defaultOpt = modelOptions.find((o) => o.isDefault);
+      if (defaultOpt) {
+        setSelectedModel(defaultOpt.id);
+      }
+    }
+  }, [modelOptions, selectedModel]);
   const [submitting, setSubmitting] = useState(false);
   const [value, setValue] = useState("");
   const [placeholder] = useState(
@@ -46,6 +69,42 @@ export function PromptInput({
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashKeyboard, setSlashKeyboard] = useState(false);
+
+  const [attachments, setAttachments] = useState<
+    { id: string; name: string; url: string; file: File }[]
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const newFiles = Array.from(e.target.files).filter((file) => file.type.startsWith("image/"));
+    const newAttachments = newFiles.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      name: file.name,
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => {
+      const target = prev.find((x) => x.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.url);
+      }
+      return prev.filter((x) => x.id !== id);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      attachments.forEach((att) => {
+        URL.revokeObjectURL(att.url);
+      });
+    };
+  }, []);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -60,7 +119,7 @@ export function PromptInput({
   const slashKeyLock = useRef(false);
 
   const hasText = value.trim().length > 0;
-  const sendActive = hasText && !submitting;
+  const sendActive = (hasText || attachments.length > 0) && !submitting;
   const slashResults = SKILLS.filter((sk) =>
     sk.name.toLowerCase().includes(slashQuery.toLowerCase()),
   );
@@ -354,13 +413,33 @@ export function PromptInput({
     const prompt = value.trim();
     setSubmitting(true);
     try {
+      const files: { type: "file"; mediaType: string; filename: string; url: string }[] =
+        await Promise.all(
+          attachments.map(async (att) => {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (event) => resolve(event.target?.result as string);
+              reader.onerror = (error) => reject(error);
+              reader.readAsDataURL(att.file);
+            });
+            return {
+              type: "file" as const,
+              mediaType: att.file.type,
+              filename: att.name,
+              url: dataUrl,
+            };
+          }),
+        );
+
       const editor = editorRef.current;
       if (editor) editor.innerHTML = "";
       setValue("");
       closeSlash();
       if (onSubmit) {
-        await onSubmit(prompt);
+        await onSubmit(prompt, files, activeOption?.modelId, activeOption?.providerId);
       }
+      attachments.forEach((att) => URL.revokeObjectURL(att.url));
+      setAttachments([]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -372,6 +451,40 @@ export function PromptInput({
   return (
     <div className={styles.wrap}>
       <div ref={frameRef} className={styles.frame}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*"
+          multiple
+          className="hidden"
+        />
+
+        {attachments.length > 0 && (
+          <div className={styles.chips}>
+            {attachments.map((att) => (
+              <div key={att.id} className={styles.chip}>
+                <span className={styles.chipIcon}>
+                  <img
+                    src={att.url}
+                    className="w-3.5 h-3.5 rounded-sm object-cover"
+                    alt={att.name}
+                  />
+                </span>
+                <span className={styles.chipName}>{att.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(att.id)}
+                  className={styles.chipRemove}
+                  title="Remove image"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className={styles.editorWrap}>
           <div
             ref={editorRef}
@@ -430,11 +543,49 @@ export function PromptInput({
         </div>
 
         <div className={styles.row}>
-          <div className="flex items-center text-[11px] text-gray-400 font-semibold select-none font-geist">
-            Roxy
-          </div>
+          {modelOptions.length > 0 ? (
+            <div className="flex items-center text-[11px] text-gray-400 font-semibold font-geist relative bg-gray-50 border border-gray-200/50 rounded px-2 py-0.5 select-none hover:bg-gray-100 hover:text-gray-600 transition cursor-pointer">
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="bg-transparent border-none text-gray-400 font-semibold outline-none cursor-pointer hover:text-gray-600 transition pr-3.5"
+                style={{
+                  fontSize: "11px",
+                  WebkitAppearance: "none",
+                  MozAppearance: "none",
+                  appearance: "none",
+                }}
+              >
+                <option value="platform" className="text-gray-700 bg-white">
+                  Platform (Roxy)
+                </option>
+                {modelOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id} className="text-gray-700 bg-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                <span className="text-[7px]">▼</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center text-[10px] font-semibold text-gray-400 bg-gray-50 border border-gray-200/60 px-1.5 py-0.5 rounded select-none font-geist">
+              Platform (Roxy)
+            </div>
+          )}
 
           <div className={styles.right}>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={styles.iconBtn}
+              title="Attach images"
+              disabled={submitting}
+              style={{ color: "#a1a1a1" }}
+            >
+              <Paperclip size={14} />
+            </button>
             <button
               type="button"
               className={[styles.iconBtn, styles.send, sendActive && styles.sendActive]

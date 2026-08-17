@@ -40,11 +40,21 @@ function RouteComponent() {
     const randomPhrase = TAGLINE_POOL[Math.floor(Math.random() * TAGLINE_POOL.length)];
     setTagline(randomPhrase);
   }, []);
-  const handleSubmitPrompt = async (prompt: string) => {
-    if (!prompt.trim()) return;
+  const handleSubmitPrompt = async (
+    prompt: string,
+    files?: { type: "file"; mediaType: string; filename: string; url: string }[],
+    modelId?: string,
+    providerId?: string,
+  ) => {
+    if (!prompt.trim() && (!files || files.length === 0)) return;
 
     try {
       localStorage.setItem("pending_agent_prompt", prompt);
+      if (files && files.length > 0) {
+        localStorage.setItem("pending_agent_files", JSON.stringify(files));
+      } else {
+        localStorage.removeItem("pending_agent_files");
+      }
 
       const firstLine = prompt.trim().split("\n")[0];
       const projectName = firstLine.slice(0, 50).trim() || "New Architecture";
@@ -59,16 +69,22 @@ function RouteComponent() {
       void navigate({
         to: "/project/$projectId/workspace/$workspaceId",
         params: { projectId: project.id, workspaceId: file.id },
-        search: { init: true } as any,
+        search: { init: true, modelId, providerId } as unknown as {
+          init: boolean;
+          modelId?: string;
+          providerId?: string;
+        },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
       toastManager.add({
         title: "Failed to create project",
-        description: err.message || "An unexpected error occurred.",
+        description: message,
         variant: "error",
       });
       localStorage.removeItem("pending_agent_prompt");
+      localStorage.removeItem("pending_agent_files");
       throw err;
     }
   };

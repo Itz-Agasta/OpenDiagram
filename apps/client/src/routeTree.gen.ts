@@ -17,6 +17,7 @@ import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProtectedUserRouteImport } from './routes/_protected/User'
+import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as ProjectProjectIdWorkspaceWorkspaceIdRouteImport } from './routes/project.$projectId.workspace.$workspaceId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -58,6 +59,11 @@ const ProtectedUserRoute = ProtectedUserRouteImport.update({
   path: '/User',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProjectProjectIdWorkspaceWorkspaceIdRoute =
   ProjectProjectIdWorkspaceWorkspaceIdRouteImport.update({
     id: '/project/$projectId/workspace/$workspaceId',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
+  '/settings': typeof ProtectedSettingsRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
 }
 export interface FileRoutesByTo {
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
+  '/settings': typeof ProtectedSettingsRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
 }
 export interface FileRoutesById {
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_protected/User': typeof ProtectedUserRoute
+  '/_protected/settings': typeof ProtectedSettingsRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
 }
 export interface FileRouteTypes {
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/User'
+    | '/settings'
     | '/project/$projectId/workspace/$workspaceId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/User'
+    | '/settings'
     | '/project/$projectId/workspace/$workspaceId'
   id:
     | '__root__'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_protected/User'
+    | '/_protected/settings'
     | '/project/$projectId/workspace/$workspaceId'
   fileRoutesById: FileRoutesById
 }
@@ -200,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedUserRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/settings': {
+      id: '/_protected/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof ProtectedSettingsRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/project/$projectId/workspace/$workspaceId': {
       id: '/project/$projectId/workspace/$workspaceId'
       path: '/project/$projectId/workspace/$workspaceId'
@@ -212,10 +231,12 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedRouteChildren {
   ProtectedUserRoute: typeof ProtectedUserRoute
+  ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedUserRoute: ProtectedUserRoute,
+  ProtectedSettingsRoute: ProtectedSettingsRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(

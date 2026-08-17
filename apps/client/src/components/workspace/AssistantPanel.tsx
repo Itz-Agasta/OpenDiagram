@@ -4,9 +4,14 @@ import {
   ArrowUUpLeft,
   ArrowUUpRight,
   CheckCircle,
+  Paperclip,
+  X,
 } from "@phosphor-icons/react";
-import { useRef, useEffect, type KeyboardEvent, type ChangeEvent } from "react";
+import { useRef, useEffect, useState, type KeyboardEvent, type ChangeEvent } from "react";
 import type { UIMessage } from "ai";
+import { useQuery } from "@tanstack/react-query";
+import { sessionQueryOptions } from "#/lib/api";
+import { aiSettingsQueryOptions, providerModelOptions } from "#/lib/api/settings-client";
 import { ThinkingState } from "#/components/ui/ThinkingState";
 import { StreamingText } from "#/components/ui/StreamingText";
 import {
@@ -16,22 +21,24 @@ import {
   type ChatToolPart,
   type DrawDiagramOutput,
 } from "#/lib/utils/diagram-chat";
-
 const PILL = "max-w-[80%] px-3.5 py-2 rounded-xl text-sm leading-relaxed bg-gray-100 text-gray-800";
-
-const DEFAULT_MODEL = "Roxy";
 
 interface AssistantPanelProps {
   messages: UIMessage[];
   input: string;
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e?: unknown) => void;
+  handleSubmit: (
+    e?: unknown,
+    files?: { type: "file"; mediaType: string; filename: string; url: string }[],
+  ) => void;
   setInput: (value: string) => void;
   onClose: () => void;
   isLoading: boolean;
   onAnswerAskUser?: (toolCallId: string, answer: string) => void;
   error?: string | null;
   applyError?: string | null;
+  selectedModelId?: string;
+  onSelectModel?: (modelId: string | null, providerId: string | null) => void;
 }
 
 function getMessageText(message: UIMessage): string {
@@ -53,8 +60,76 @@ export function AssistantPanel({
   onAnswerAskUser,
   error,
   applyError,
+  selectedModelId,
+  onSelectModel,
 }: AssistantPanelProps) {
+  const { data: session } = useQuery(sessionQueryOptions);
+  const { data: settings } = useQuery(aiSettingsQueryOptions(!!session?.user));
+  const modelOptions = settings ? providerModelOptions(settings) : [];
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [attachments, setAttachments] = useState<
+    { id: string; name: string; url: string; file: File }[]
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const newFiles = Array.from(e.target.files).filter((file) => file.type.startsWith("image/"));
+    const newAttachments = newFiles.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      name: file.name,
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => {
+      const target = prev.find((x) => x.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.url);
+      }
+      return prev.filter((x) => x.id !== id);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      attachments.forEach((att) => {
+        URL.revokeObjectURL(att.url);
+      });
+    };
+  }, []);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text && attachments.length === 0) return;
+
+    const files: { type: "file"; mediaType: string; filename: string; url: string }[] =
+      await Promise.all(
+        attachments.map(async (att) => {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => resolve(event.target?.result as string);
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(att.file);
+          });
+          return {
+            type: "file" as const,
+            mediaType: att.file.type,
+            filename: att.name,
+            url: dataUrl,
+          };
+        }),
+      );
+
+    handleSubmit(null, files);
+    attachments.forEach((att) => URL.revokeObjectURL(att.url));
+    setAttachments([]);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,7 +149,7 @@ export function AssistantPanel({
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      void handleSend();
     }
   };
 
@@ -123,9 +198,67 @@ export function AssistantPanel({
           {messages.map((msg) => {
             if (msg.role === "user") {
               const text = getMessageText(msg);
+              const partsFiles = msg.parts?.filter((part) => part.type === "file") ?? [];
+              const legacyAttachments = (() => {
+                if (!msg || typeof msg !== "object") return [];
+                if (
+                  "experimental_attachments" in msg &&
+                  Array.isArray(msg.experimental_attachments)
+                ) {
+                  return msg.experimental_attachments;
+                }
+                if ("attachments" in msg && Array.isArray(msg.attachments)) {
+                  return msg.attachments;
+                }
+                return [];
+              })();
+
               return (
-                <div key={msg.id} className="flex justify-end">
-                  <div className={PILL}>{text}</div>
+                <div key={msg.id} className="flex flex-col items-end gap-2">
+                  {partsFiles.map((file, fileIdx) => {
+                    const fileUrl = "url" in file && typeof file.url === "string" ? file.url : null;
+                    const filename =
+                      "filename" in file && typeof file.filename === "string"
+                        ? file.filename
+                        : "Attached Image";
+                    return fileUrl ? (
+                      <div
+                        key={`part-${fileIdx}`}
+                        className="max-w-[200px] rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-white shrink-0"
+                      >
+                        <img
+                          src={fileUrl}
+                          className="w-full h-auto max-h-[150px] object-contain"
+                          alt={filename}
+                        />
+                      </div>
+                    ) : null;
+                  })}
+                  {legacyAttachments.map((att, attIdx) => {
+                    if (
+                      att &&
+                      typeof att === "object" &&
+                      "url" in att &&
+                      typeof att.url === "string"
+                    ) {
+                      const name =
+                        "name" in att && typeof att.name === "string" ? att.name : "Attached Image";
+                      return (
+                        <div
+                          key={`att-${attIdx}`}
+                          className="max-w-[200px] rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-white shrink-0"
+                        >
+                          <img
+                            src={att.url}
+                            className="w-full h-auto max-h-[150px] object-contain"
+                            alt={name}
+                          />
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                  {text && <div className={PILL}>{text}</div>}
                 </div>
               );
             }
@@ -190,6 +323,36 @@ export function AssistantPanel({
         {/* Rich Input Editor Container */}
         <div className="p-4 border-t border-gray-100">
           <div className="border border-gray-200 rounded-xl bg-gray-50/50 focus-within:bg-white focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all flex flex-col">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              multiple
+              className="hidden"
+            />
+
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50/30">
+                {attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="relative group w-12 h-12 rounded-lg border border-gray-200 overflow-hidden bg-white shrink-0"
+                  >
+                    <img src={att.url} className="w-full h-full object-cover" alt={att.name} />
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(att.id)}
+                      className="absolute top-0 right-0 p-0.5 bg-gray-900/80 hover:bg-gray-900 text-white rounded-bl-lg transition cursor-pointer"
+                      title="Remove image"
+                    >
+                      <X size={10} weight="bold" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <textarea
               value={input}
               onChange={handleInputChange}
@@ -201,14 +364,59 @@ export function AssistantPanel({
             <div className="flex flex-row items-center justify-between px-3 py-2 border-t border-gray-100 select-none">
               {/* Tool Indicators */}
               <div className="flex items-center gap-1.5 text-gray-400">
-                <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 border border-gray-200/60 px-1.5 py-0.5 rounded">
-                  {DEFAULT_MODEL}
-                </span>
+                {modelOptions.length > 0 ? (
+                  <div className="flex items-center text-[10px] font-semibold text-gray-400 bg-gray-100 border border-gray-200/60 rounded px-1.5 py-0.5 select-none hover:bg-gray-200 hover:text-gray-600 transition relative cursor-pointer font-geist">
+                    <select
+                      value={selectedModelId || "platform"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "platform") {
+                          onSelectModel?.(null, null);
+                        } else {
+                          const opt = modelOptions.find((o) => o.id === val);
+                          if (opt) {
+                            onSelectModel?.(opt.modelId, opt.providerId);
+                          }
+                        }
+                      }}
+                      className="bg-transparent border-none text-gray-400 font-semibold outline-none cursor-pointer hover:text-gray-600 transition pr-3.5"
+                      style={{
+                        fontSize: "10px",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        appearance: "none",
+                      }}
+                    >
+                      <option value="platform" className="text-gray-700 bg-white">
+                        Platform (Roxy)
+                      </option>
+                      {modelOptions.map((opt) => (
+                        <option key={opt.id} value={opt.id} className="text-gray-700 bg-white">
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                      <span className="text-[6px]">▼</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 border border-gray-200/60 px-1.5 py-0.5 rounded select-none font-geist">
+                    Platform (Roxy)
+                  </span>
+                )}
               </div>
-
               {/* Action Controls */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-gray-400 font-medium">⇧↵ New line</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 cursor-pointer"
+                  title="Attach images"
+                >
+                  <Paperclip size={14} weight="bold" />
+                </button>
                 <button className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 cursor-pointer">
                   <ArrowUUpLeft size={14} weight="bold" />
                 </button>
@@ -216,8 +424,8 @@ export function AssistantPanel({
                   <ArrowUUpRight size={14} weight="bold" />
                 </button>
                 <button
-                  onClick={handleSubmit}
-                  disabled={!input.trim()}
+                  onClick={handleSend}
+                  disabled={!input.trim() && attachments.length === 0}
                   className="p-1.5 bg-blue-600 disabled:bg-blue-300 text-white rounded-full transition cursor-pointer flex items-center justify-center"
                 >
                   <ArrowUp size={14} weight="bold" />

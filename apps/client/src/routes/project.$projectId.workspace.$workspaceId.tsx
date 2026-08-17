@@ -49,9 +49,13 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
 const SCENE_AUTOSAVE_MS = 2000;
 
 export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId")({
-  validateSearch: (search: Record<string, unknown>): { init?: boolean } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { init?: boolean; modelId?: string; providerId?: string } => {
     return {
       init: search.init === true || search.init === "true" || undefined,
+      modelId: typeof search.modelId === "string" ? search.modelId : undefined,
+      providerId: typeof search.providerId === "string" ? search.providerId : undefined,
     };
   },
   component: WorkspaceRouteComponent,
@@ -59,8 +63,21 @@ export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId
 
 function WorkspaceRouteComponent() {
   const { projectId, workspaceId } = Route.useParams();
-  const { init } = Route.useSearch();
+  const { init, modelId: searchModelId, providerId: searchProviderId } = Route.useSearch();
   const queryClient = useQueryClient();
+  const [selectedModel, setSelectedModel] = useState<string | null>(searchModelId || null);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(searchProviderId || null);
+
+  const selectedModelRef = useRef<string | null>(searchModelId || null);
+  const selectedProviderRef = useRef<string | null>(searchProviderId || null);
+
+  useEffect(() => {
+    selectedModelRef.current = selectedModel;
+  }, [selectedModel]);
+
+  useEffect(() => {
+    selectedProviderRef.current = selectedProvider;
+  }, [selectedProvider]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAssistantMaximized, setIsAssistantMaximized] = useState(false);
   const [assistantInput, setAssistantInput] = useState("");
@@ -177,6 +194,8 @@ function WorkspaceRouteComponent() {
       body: () => ({
         diagrams: toPromptDiagrams(diagramsRef.current),
         theme: "sketch",
+        modelId: selectedModelRef.current || undefined,
+        providerId: selectedProviderRef.current || undefined,
       }),
       prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
         body: { ...body, id, messages: stripDrawDiagramOutput(messages), trigger, messageId },
@@ -205,25 +224,43 @@ function WorkspaceRouteComponent() {
 
   // 2. Persist chat messages to backend when chat is not loading and the number of messages changes.
   useEffect(() => {
-    if (chat.messages.length === 0 || chat.isLoading) return;
+    const isChatLoading = chat.status === "streaming" || chat.status === "submitted";
+    if (chat.messages.length === 0 || isChatLoading) return;
     if (chat.messages.length === lastMessagesCountRef.current) return;
     lastMessagesCountRef.current = chat.messages.length;
 
     void updateProjectFile(projectId, workspaceId, {
       history: chat.messages,
     }).catch(console.error);
-  }, [chat.messages, chat.isLoading, projectId, workspaceId]);
+  }, [chat.messages, chat.status, projectId, workspaceId]);
 
   // 3. Trigger initial prompt if redirecting from App.tsx.
   useEffect(() => {
     if (!init || initTriggeredRef.current || !isHistorySeeded) return;
 
     const pendingPrompt = localStorage.getItem("pending_agent_prompt");
+    const pendingFilesRaw = localStorage.getItem("pending_agent_files");
     if (pendingPrompt) {
       initTriggeredRef.current = true;
       localStorage.removeItem("pending_agent_prompt");
+      localStorage.removeItem("pending_agent_files");
       void navigate({ search: {}, replace: true });
-      void chat.sendMessage({ text: pendingPrompt });
+
+      let files = undefined;
+      if (pendingFilesRaw) {
+        try {
+          files = JSON.parse(pendingFilesRaw) as {
+            type: "file";
+            mediaType: string;
+            filename: string;
+            url: string;
+          }[];
+        } catch (e) {
+          console.error("Failed to parse pending files from localStorage", e);
+        }
+      }
+
+      void chat.sendMessage({ text: pendingPrompt, files });
     }
   }, [init, isHistorySeeded, chat.sendMessage, navigate]);
 
@@ -400,16 +437,19 @@ function WorkspaceRouteComponent() {
     setIsAssistantMaximized(true);
   };
 
-  const handlePanelSubmit = () => {
+  const handlePanelSubmit = (
+    _e?: unknown,
+    files?: { type: "file"; mediaType: string; filename: string; url: string }[],
+  ) => {
     const text = assistantInput.trim();
-    if (!text) return;
+    if (!text && (!files || files.length === 0)) return;
     setApplyError(null);
 
     const pending = pendingAskUser(chat.messages);
     if (pending) {
       answerAskUser(pending.toolCallId, text);
     } else {
-      void chat.sendMessage({ text });
+      void chat.sendMessage({ text, files });
     }
     setAssistantInput("");
   };
@@ -542,11 +582,18 @@ function WorkspaceRouteComponent() {
           handleInputChange={(e) => setAssistantInput(e.target.value)}
           handleSubmit={handlePanelSubmit}
           setInput={setAssistantInput}
-          onClose={() => setIsAssistantMaximized(false)}
+          onClose={() => setIsSidebarCollapsed(true)}
           isLoading={chat.status === "streaming" || chat.status === "submitted"}
           onAnswerAskUser={answerAskUser}
           error={chat.error?.message ?? null}
           applyError={applyError}
+          selectedModelId={
+            selectedProvider && selectedModel ? `${selectedProvider}:${selectedModel}` : "platform"
+          }
+          onSelectModel={(mId, pId) => {
+            setSelectedModel(mId);
+            setSelectedProvider(pId);
+          }}
         />
       ) : (
         <AssistantBar
