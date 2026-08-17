@@ -44,3 +44,20 @@ body {
   font-family: Excalifont;
   src: url("/fonts/Excalifont-Regular.woff2");
 }
+
+/* Shift Excalidraw UI elements to the right when sidebar is open or closed */
+.excalidraw-container-sidebar-open .excalidraw .layer-ui__wrapper {
+  left: 280px !important;
+  width: calc(100% - 280px) !important;
+  transition:
+    left 0.2s ease-in-out,
+    width 0.2s ease-in-out;
+}
+
+.excalidraw-container-sidebar-closed .excalidraw .layer-ui__wrapper {
+  left: 60px !important;
+  width: calc(100% - 60px) !important;
+  transition:
+    left 0.2s ease-in-out,
+    width 0.2s ease-in-out;
+}
