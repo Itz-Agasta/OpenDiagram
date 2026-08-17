@@ -39,8 +39,6 @@ export function Whiteboard({ onAPIReady, onChange, initialData }: WhiteboardProp
 
     const observer = new ResizeObserver(() => {
       const canvases = container.querySelectorAll("canvas");
-      for (const element of canvases) observer.observe(element);
-
       const canvas = canvases[0];
       if (!canvas) return;
       const width = container.getBoundingClientRect().width;

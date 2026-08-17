@@ -64,9 +64,11 @@ export function PromptInput({
   const slashResults = SKILLS.filter((sk) =>
     sk.name.toLowerCase().includes(slashQuery.toLowerCase()),
   );
-  slashOpenRef.current = slashOpen;
-  slashIndexRef.current = slashIndex;
-  slashResultsRef.current = slashResults;
+  useEffect(() => {
+    slashOpenRef.current = slashOpen;
+    slashIndexRef.current = slashIndex;
+    slashResultsRef.current = slashResults;
+  }, [slashOpen, slashIndex, slashResults]);
 
   const syncFromEditor = () => {
     const editor = editorRef.current;
@@ -190,7 +192,9 @@ export function PromptInput({
     insertPillOverRange(range, id);
     closeSlash();
   };
-  applySlashRef.current = applySlash;
+  useEffect(() => {
+    applySlashRef.current = applySlash;
+  });
 
   // Open the palette when the caret sits right after a "/" token.
   const detectSlash = () => {
