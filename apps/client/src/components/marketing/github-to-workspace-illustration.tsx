@@ -25,7 +25,7 @@ function GithubInput({
 }) {
   return (
     <m.div
-      className="absolute left-[4%] top-1/2 z-10 w-[148px] -translate-y-1/2 sm:left-[6%] sm:w-[168px]"
+      className="absolute left-[4%] top-1/2 z-10 w-[105px] -translate-y-1/2 xs:w-[125px] sm:left-[6%] sm:w-[148px] md:w-[168px]"
       initial={reduceMotion ? false : { opacity: 0, x: -18 }}
       animate={
         reduceMotion
@@ -42,14 +42,16 @@ function GithubInput({
             : { duration: 0.55, ease: [0.2, 0, 0, 1] }
       }
     >
-      <div className="rounded-[14px] border border-black/[0.08] bg-white p-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.07)] sm:p-4">
+      <div className="rounded-[14px] border border-black/[0.08] bg-white p-2 shadow-[0_12px_36px_rgba(0,0,0,0.07)] xs:p-3 sm:p-3.5 md:p-4">
         <div className="mb-3 flex items-center gap-2.5">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-black text-white">
-            <GithubLogoIcon weight="fill" className="size-5" aria-hidden="true" />
+          <span className="flex size-8 items-center justify-center rounded-xl bg-black text-white sm:size-10">
+            <GithubLogoIcon weight="fill" className="size-4 sm:size-5" aria-hidden="true" />
           </span>
           <div>
-            <p className="font-excali text-[11px] text-black/45">Source</p>
-            <p className="font-excali text-[14px] font-normal text-black">GitHub repo</p>
+            <p className="font-excali text-[9px] text-black/45 sm:text-[11px]">Source</p>
+            <p className="font-excali text-[11px] font-normal text-black sm:text-[14px]">
+              GitHub repo
+            </p>
           </div>
         </div>
         <div className="space-y-1.5">
@@ -60,7 +62,7 @@ function GithubInput({
           ].map(({ Icon, label }, i) => (
             <m.div
               key={label}
-              className="flex items-center gap-2 rounded-lg bg-black/[0.04] px-2 py-1.5"
+              className="flex items-center gap-1.5 rounded-lg bg-black/[0.04] px-1.5 py-1 sm:gap-2 sm:px-2 sm:py-1.5"
               initial={reduceMotion ? false : { opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={
@@ -74,7 +76,9 @@ function GithubInput({
                 className="size-3.5 shrink-0 text-black/70"
                 aria-hidden="true"
               />
-              <span className="truncate font-excali text-[12px] text-black/55">{label}</span>
+              <span className="truncate font-excali text-[9px] text-black/55 sm:text-[12px]">
+                {label}
+              </span>
             </m.div>
           ))}
         </div>
@@ -93,7 +97,7 @@ function FlowArrow({
   return (
     <m.div
       className={`pointer-events-none absolute top-1/2 z-[6] hidden h-px -translate-y-1/2 bg-black/20 md:block ${
-        fromLeft ? "left-[32%] w-[9%]" : "left-[62%] w-[8%]"
+        fromLeft ? "left-[32%] w-[9%]" : "left-[58%] w-[18%]"
       }`}
       initial={reduceMotion ? false : { scaleX: 0, opacity: 0 }}
       animate={{ scaleX: 1, opacity: 1 }}
@@ -179,7 +183,7 @@ function MascotWorker({
 
       {/* Mascot as the worker */}
       <m.div
-        className="relative flex size-[120px] items-center justify-center rounded-[28px] border border-black/[0.08] bg-white shadow-[0_16px_48px_rgba(0,0,0,0.1)] sm:size-[136px]"
+        className="relative flex size-[90px] items-center justify-center rounded-[20px] border border-black/[0.08] bg-white shadow-[0_16px_48px_rgba(0,0,0,0.1)] xs:size-[110px] sm:size-[120px] sm:rounded-[28px] md:size-[136px]"
         animate={
           reduceMotion
             ? undefined
@@ -204,7 +208,7 @@ function MascotWorker({
         {/* Soft work-ring behind mascot */}
         <m.div
           aria-hidden="true"
-          className="absolute inset-3 rounded-[22px] border border-dashed border-black/10"
+          className="absolute inset-2 rounded-[16px] border border-dashed border-black/10 sm:inset-3 sm:rounded-[22px]"
           animate={
             reduceMotion ? undefined : ambient ? { rotate: [0, 6, 0, -6, 0] } : { rotate: 0 }
           }
@@ -221,13 +225,13 @@ function MascotWorker({
           alt=""
           width={120}
           height={120}
-          className="relative z-10 size-[88px] object-contain sm:size-[100px]"
+          className="relative z-10 size-[68px] object-contain xs:size-[80px] sm:size-[88px] sm:size-[100px]"
           loading="lazy"
         />
 
         {/* Tiny “tool” chips the mascot is using */}
         <m.span
-          className="absolute -left-2 top-4 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
+          className="absolute -left-1.5 top-3 flex size-5 items-center justify-center rounded-md border border-black/[0.08] bg-white text-black shadow-sm sm:-left-2 sm:top-4 sm:size-7"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={
@@ -236,10 +240,10 @@ function MascotWorker({
               : { duration: 0.35, delay: 1.05, ease: [0.05, 0.7, 0.1, 1] }
           }
         >
-          <GithubLogoIcon weight="fill" className="size-3.5" aria-hidden="true" />
+          <GithubLogoIcon weight="fill" className="size-2.5 sm:size-3.5" aria-hidden="true" />
         </m.span>
         <m.span
-          className="absolute -right-2 bottom-5 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-black text-white shadow-sm"
+          className="absolute -right-1.5 bottom-4 flex size-5 items-center justify-center rounded-md border border-black/[0.08] bg-black text-white shadow-sm sm:-right-2 sm:bottom-5 sm:size-7"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
           animate={
             reduceMotion
@@ -260,10 +264,10 @@ function MascotWorker({
         </m.span>
       </m.div>
 
-      <p className="mt-2.5 text-center font-excali text-[14px] font-normal text-black">
+      <p className="mt-2 text-center font-excali text-[11px] font-normal text-black sm:text-[14px]">
         Your mascot does the mapping
       </p>
-      <p className="mt-0.5 text-center font-excali text-[12px] text-black/45">
+      <p className="mt-0.5 text-center font-excali text-[9px] text-black/45 sm:text-[12px]">
         You review · they assemble
       </p>
     </m.div>
@@ -286,7 +290,7 @@ function ArchitectureOutput({
 }) {
   return (
     <m.div
-      className="absolute right-[4%] top-1/2 z-10 w-[148px] -translate-y-1/2 sm:right-[5%] sm:w-[170px]"
+      className="absolute right-[4%] top-1/2 z-10 w-[105px] -translate-y-1/2 xs:w-[125px] sm:right-[5%] sm:w-[148px] md:w-[170px]"
       initial={reduceMotion ? false : { opacity: 0, x: 18 }}
       animate={
         reduceMotion
@@ -303,18 +307,20 @@ function ArchitectureOutput({
             : { duration: 0.55, delay: 0.85, ease: [0.2, 0, 0, 1] }
       }
     >
-      <div className="rounded-[14px] border border-black/[0.08] bg-white p-3 shadow-[0_12px_36px_rgba(0,0,0,0.07)] sm:p-3.5">
+      <div className="rounded-[14px] border border-black/[0.08] bg-white p-2 shadow-[0_12px_36px_rgba(0,0,0,0.07)] xs:p-2.5 sm:p-3 sm:p-3.5">
         <div className="mb-2.5 flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-md bg-black text-white">
+          <span className="flex size-5 items-center justify-center rounded bg-black text-white sm:size-7 sm:rounded-md">
             <TreeStructureIcon weight="bold" className="size-3.5" aria-hidden="true" />
           </span>
           <div>
             <p className="font-excali text-[11px] text-black/45">Output</p>
-            <p className="font-excali text-[13px] font-normal text-black">Live diagram</p>
+            <p className="font-excali text-[10px] font-normal text-black sm:text-[13px]">
+              Live diagram
+            </p>
           </div>
         </div>
 
-        <div className="relative h-[100px] overflow-hidden rounded-[10px] bg-[#f4f4f2] ring-1 ring-black/[0.06]">
+        <div className="relative h-[75px] overflow-hidden rounded-[10px] bg-[#f4f4f2] ring-1 ring-black/[0.06] xs:h-[90px] sm:h-[100px]">
           <div
             aria-hidden="true"
             className="absolute inset-0 opacity-50 [background-image:linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:12px_12px]"
@@ -343,7 +349,7 @@ function ArchitectureOutput({
           {ARCHITECTURE_NODES.map((node, i) => (
             <m.div
               key={node.label}
-              className="absolute rounded-md border border-black/15 bg-white px-1.5 py-0.5 font-excali text-[10px] font-normal text-black shadow-sm"
+              className="absolute rounded border border-black/15 bg-white px-1 py-0 font-excali text-[8px] font-normal text-black shadow-sm sm:rounded-md sm:px-1.5 sm:py-0.5 sm:text-[10px]"
               style={{ left: node.x, top: node.y }}
               initial={reduceMotion ? false : { opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}

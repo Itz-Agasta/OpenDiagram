@@ -41,11 +41,11 @@ export const Route = createFileRoute("/blog/$year/$month/$day/$slug")({
         },
         { property: "og:title", content: post.title },
         { property: "og:description", content: post.description },
-        { property: "og:image", content: post.coverImage.src },
+        { property: "og:image", content: new URL(post.coverImage.src, SITE_URL).href },
         { property: "twitter:card", content: "summary_large_image" },
         { property: "twitter:title", content: post.title },
         { property: "twitter:description", content: post.description },
-        { property: "twitter:image", content: post.coverImage.src },
+        { property: "twitter:image", content: new URL(post.coverImage.src, SITE_URL).href },
       ],
     };
   },

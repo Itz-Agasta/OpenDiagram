@@ -7,9 +7,9 @@ import remarkRehype from "remark-rehype";
 
 const processor = remark().use(remarkGfm).use(remarkRehype);
 
-export async function BlogMarkdown({ text }: { text: string }) {
+export function BlogMarkdown({ text }: { text: string }) {
   const tree = processor.parse({ value: text });
-  const hast = await processor.run(tree);
+  const hast = processor.runSync(tree);
 
   return toJsxRuntime(hast, {
     development: false,

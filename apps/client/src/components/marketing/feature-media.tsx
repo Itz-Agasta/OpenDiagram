@@ -34,7 +34,7 @@ export function SystemPromptCard({
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-black/42">
           System prompt
         </p>
-        <span className="h-2 w-2 rounded-full bg-[#0cb300]" aria-label="Ready" />
+        <span className="h-2 w-2 rounded-full bg-[#0cb300]" role="img" aria-label="Ready" />
       </div>
       <p className="mt-5 text-lg font-semibold leading-[1.4] text-black/88">{prompt}</p>
       {requirements.length > 0 ? (

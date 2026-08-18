@@ -6,7 +6,8 @@ export const HOME_DESCRIPTION =
   "AI diagram generator from plain text. Turn ideas, processes, and systems into editable diagrams for work, planning, and software design.";
 
 const PUBLIC_ASSET_PREFIX = (
-  import.meta.env.VITE_PUBLIC_ASSET_URL || "https://media.opendiagram.ink"
+  import.meta.env.VITE_PUBLIC_ASSET_URL ||
+  (import.meta.env.PROD ? "https://media.opendiagram.ink" : "")
 ).replace(/\/$/, "");
 
 export function assetUrl(path: string): string {

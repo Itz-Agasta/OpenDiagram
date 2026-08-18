@@ -15,6 +15,7 @@ const TRUNCATE_TAG = "<!-- truncate -->";
 const BLOG_CONTENT_DIRECTORY = path.resolve(__dirname, "../../../apps/fumadocs/content/blog");
 const PUBLIC_BLOG_DIRECTORY = path.resolve(__dirname, "../public/blog");
 const OUTPUT_DATA_FILE = path.resolve(__dirname, "../src/lib/blog-data.json");
+const OUTPUT_SUMMARY_FILE = path.resolve(__dirname, "../src/lib/blog-summary-data.json");
 
 const COVER_DIMENSIONS: Record<string, { width: number; height: number }> = {
   "2026-07-27-diagramgpt-alternative": { width: 1751, height: 937 },
@@ -146,7 +147,8 @@ function plainText(content: string) {
   return content
     .replace(/!\[[^\]]*]\([^)]+\)/g, "")
     .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
-    .replace(/[`*_>#-]/g, "")
+    .replace(/(?:^|\n)\s*-\s+/g, " ")
+    .replace(/[`*_>#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -220,8 +222,8 @@ async function parsePost(
   try {
     await copyDir(postSrcDir, postDestDir);
   } catch (err) {
-    // Ignore if fails (e.g. no directory, but it's generated from readdir so should exist)
     console.error(`Failed to copy assets for ${directoryName}:`, err);
+    throw err;
   }
 
   return {
@@ -261,10 +263,21 @@ async function main() {
       tags: Object.values(tagMap),
     };
 
+    const summaryPosts = posts.map(
+      ({ content: _content, directoryName: _directoryName, ...summary }) => summary,
+    );
+    const blogSummaryData = {
+      posts: summaryPosts,
+      tags: Object.values(tagMap),
+    };
+
     await fs.mkdir(path.dirname(OUTPUT_DATA_FILE), { recursive: true });
     await fs.writeFile(OUTPUT_DATA_FILE, JSON.stringify(blogData, null, 2), "utf8");
+    await fs.writeFile(OUTPUT_SUMMARY_FILE, JSON.stringify(blogSummaryData, null, 2), "utf8");
 
-    console.log(`Successfully compiled ${posts.length} posts to ${OUTPUT_DATA_FILE}`);
+    console.log(
+      `Successfully compiled ${posts.length} posts to ${OUTPUT_DATA_FILE} and ${OUTPUT_SUMMARY_FILE}`,
+    );
   } catch (err) {
     console.error("Error compiling blog data:", err);
     process.exit(1);

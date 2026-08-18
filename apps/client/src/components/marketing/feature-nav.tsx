@@ -9,12 +9,23 @@ export function FeatureNav({ items }: { items: FeatureNavItem[] }) {
     const sections = items
       .map(({ id }) => document.getElementById(id))
       .filter((section): section is HTMLElement => Boolean(section));
+    const intersecting = new Map<string, IntersectionObserverEntry>();
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveId(visible[0].target.id);
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            intersecting.set(entry.target.id, entry);
+          } else {
+            intersecting.delete(entry.target.id);
+          }
+        });
+
+        const sorted = Array.from(intersecting.values()).sort(
+          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+        );
+        if (sorted[0]) {
+          setActiveId(sorted[0].target.id);
+        }
       },
       { rootMargin: "-20% 0px -55%", threshold: [0, 0.2, 0.5] },
     );

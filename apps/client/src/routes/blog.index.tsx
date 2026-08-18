@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BlogPage } from "#/components/blog/blog-page";
-import blogData from "#/lib/blog-data.json";
+import blogSummaryData from "#/lib/blog-summary-data.json";
 
 export const Route = createFileRoute("/blog/")({
   head: () => ({
@@ -17,5 +17,5 @@ export const Route = createFileRoute("/blog/")({
 });
 
 function BlogIndex() {
-  return <BlogPage posts={blogData.posts} tags={blogData.tags} />;
+  return <BlogPage posts={blogSummaryData.posts} tags={blogSummaryData.tags} />;
 }

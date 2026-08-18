@@ -94,7 +94,7 @@ function FragmentChip({
       }
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-black/[0.05] text-black">
-        <Icon weight="duotone" className="size-4" aria-hidden="true" />
+        <Icon weight="duotone" className="size-3.5 sm:size-4" aria-hidden="true" />
       </span>
       <span className="font-excali text-[13px] font-normal leading-tight text-black">{label}</span>
     </m.div>
@@ -196,7 +196,7 @@ function MascotWorker({
       </m.div>
 
       <m.div
-        className="relative flex size-[124px] items-center justify-center rounded-[28px] border border-black/[0.08] bg-white shadow-[0_16px_48px_rgba(0,0,0,0.1)] sm:size-[140px]"
+        className="relative flex size-[90px] items-center justify-center rounded-[20px] border border-black/[0.08] bg-white shadow-[0_16px_48px_rgba(0,0,0,0.1)] xs:size-[110px] sm:size-[120px] sm:rounded-[28px] md:size-[140px]"
         animate={
           reduceMotion
             ? undefined
@@ -223,13 +223,13 @@ function MascotWorker({
           alt=""
           width={120}
           height={120}
-          className="relative z-10 size-[90px] object-contain sm:size-[104px]"
+          className="relative z-10 size-[68px] object-contain xs:size-[80px] sm:size-[90px] sm:size-[104px]"
           loading="lazy"
         />
 
         {/* Tools in use — held by the mascot, kept inside the card bounds */}
         <m.span
-          className="absolute left-2 top-3 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
+          className="absolute left-1.5 top-2 flex size-5 items-center justify-center rounded-md border border-black/[0.08] bg-white text-black shadow-sm sm:left-2 sm:top-3 sm:size-7"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={
@@ -238,10 +238,10 @@ function MascotWorker({
               : { duration: 0.35, delay: 1.05, ease: [0.05, 0.7, 0.1, 1] }
           }
         >
-          <ImageIcon weight="duotone" className="size-3.5" aria-hidden="true" />
+          <ImageIcon weight="duotone" className="size-2.5 sm:size-3.5" aria-hidden="true" />
         </m.span>
         <m.span
-          className="absolute right-2 top-3 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
+          className="absolute right-1.5 top-2 flex size-5 items-center justify-center rounded-md border border-black/[0.08] bg-white text-black shadow-sm sm:right-2 sm:top-3 sm:size-7"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={
@@ -253,7 +253,7 @@ function MascotWorker({
           <GitBranchIcon weight="duotone" className="size-3.5" aria-hidden="true" />
         </m.span>
         <m.span
-          className="absolute bottom-3 left-2 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
+          className="absolute bottom-2 left-1.5 flex size-5 items-center justify-center rounded-md border border-black/[0.08] bg-white text-black shadow-sm sm:bottom-3 sm:left-2 sm:size-7"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={
@@ -265,7 +265,7 @@ function MascotWorker({
           <ArticleIcon weight="duotone" className="size-3.5" aria-hidden="true" />
         </m.span>
         <m.span
-          className="absolute bottom-3 right-2 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
+          className="absolute bottom-2 right-1.5 flex size-5 items-center justify-center rounded-md border border-black/[0.08] bg-white text-black shadow-sm sm:bottom-3 sm:right-2 sm:size-7"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={
@@ -278,10 +278,10 @@ function MascotWorker({
         </m.span>
       </m.div>
 
-      <p className="mt-3 text-center font-excali text-[14px] font-normal text-black">
+      <p className="mt-2 text-center font-excali text-[11px] font-normal text-black sm:mt-3 sm:text-[14px]">
         Mascot unifies the pieces
       </p>
-      <p className="mt-0.5 text-center font-excali text-[12px] text-black/45">
+      <p className="mt-0.5 text-center font-excali text-[9px] text-black/45 sm:text-[12px]">
         One canvas · one story
       </p>
     </m.div>

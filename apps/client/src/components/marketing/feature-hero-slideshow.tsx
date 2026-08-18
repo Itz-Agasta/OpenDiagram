@@ -47,17 +47,24 @@ const INTERVAL_MS = 3500;
 
 export function FeatureHeroSlideshow() {
   const [index, setIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const active = SLIDES[index];
 
   useEffect(() => {
-    if (shouldReduceMotion) return;
+    if (shouldReduceMotion || isPaused) return;
     const timer = setInterval(() => setIndex((i) => (i + 1) % SLIDES.length), INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [shouldReduceMotion]);
+  }, [shouldReduceMotion, isPaused]);
 
   return (
-    <div className="relative mx-auto max-w-[1260px] overflow-hidden rounded-[14px] border border-black/[0.08] bg-white p-2 shadow-[0_18px_50px_rgba(0,0,0,0.08)] md:p-3">
+    <div
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
+      className="relative mx-auto max-w-[1260px] overflow-hidden rounded-[14px] border border-black/[0.08] bg-white p-2 shadow-[0_18px_50px_rgba(0,0,0,0.08)] md:p-3"
+    >
       <div className="flex h-9 items-center gap-2 px-3">
         <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" aria-hidden="true" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" aria-hidden="true" />
@@ -71,27 +78,34 @@ export function FeatureHeroSlideshow() {
         className="relative w-full overflow-hidden rounded-[8px] bg-[#f4f4f2] transition-[aspect-ratio] duration-500 ease-in-out motion-reduce:transition-none"
         style={{ aspectRatio: `${active.width} / ${active.height}` }}
       >
-        {SLIDES.map((slide, imageIndex) => (
-          <div
-            key={slide.src}
-            className="absolute inset-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none"
-            style={{
-              opacity: imageIndex === index ? 1 : 0,
-              transitionDuration: shouldReduceMotion ? "0ms" : "700ms",
-            }}
-            aria-hidden={imageIndex !== index}
-          >
-            <img
-              src={slide.src}
-              alt={imageIndex === index ? slide.alt : ""}
-              width={slide.width}
-              height={slide.height}
-              sizes="(min-width: 1280px) 1236px, (min-width: 768px) 90vw, 100vw"
-              className="h-full w-full object-cover object-center"
-              loading="lazy"
-            />
-          </div>
-        ))}
+        {SLIDES.map((slide, imageIndex) => {
+          const isActive = imageIndex === index;
+          const isNext = imageIndex === (index + 1) % SLIDES.length;
+          if (!isActive && !isNext) return null;
+
+          return (
+            <div
+              key={slide.src}
+              className="absolute inset-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none"
+              style={{
+                opacity: isActive ? 1 : 0,
+                transitionDuration: shouldReduceMotion ? "0ms" : "700ms",
+              }}
+              aria-hidden={!isActive}
+            >
+              <img
+                src={slide.src}
+                alt={isActive ? slide.alt : ""}
+                width={slide.width}
+                height={slide.height}
+                sizes="(min-width: 1280px) 1236px, (min-width: 768px) 90vw, 100vw"
+                className="h-full w-full object-cover object-center"
+                loading={isActive && index === 0 ? "eager" : "lazy"}
+                {...(isActive && index === 0 ? { fetchPriority: "high" } : {})}
+              />
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-2 flex items-center justify-center gap-1.5 pb-0.5 pt-1">
