@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap");
 
 /* app.css or main.css */
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
@@ -9,7 +9,7 @@
 
 @theme {
   --font-geist: "Geist", sans-serif;
-  --font-excalifont: "Excalifont", sans-serif;
+  --font-excalifont: "OD Excalifont", cursive;
   --color-blue: #288dff;
   --color-white: #fff;
 }
@@ -40,8 +40,11 @@ body {
   line-height: 1;
 }
 
+/* UI-only face. Must not use the family name "Excalifont" — that name is
+   owned by @excalidraw/excalidraw. Sharing it made measureText and paint
+   pick different files, so labels clipped inside too-small boxes. */
 @font-face {
-  font-family: Excalifont;
+  font-family: "OD Excalifont";
   src: url("/fonts/Excalifont-Regular.woff2");
 }
 
@@ -60,4 +63,50 @@ body {
   transition:
     left 0.2s ease-in-out,
     width 0.2s ease-in-out;
+}
+
+/* Position assistant bar and panel on the right side of the screen */
+.assistant-bar,
+.assistant-panel {
+  left: auto !important;
+  right: 24px !important;
+  transform: none !important;
+  width: 580px !important;
+  transition: max-width 0.2s ease-in-out !important;
+}
+
+/* Adjust max-width dynamically based on sidebar state to prevent overlap with left controls on smaller screens */
+.excalidraw-container-sidebar-open .assistant-bar,
+.excalidraw-container-sidebar-open .assistant-panel {
+  max-width: calc(100vw - 530px) !important;
+}
+
+.excalidraw-container-sidebar-closed .assistant-bar,
+.excalidraw-container-sidebar-closed .assistant-panel {
+  max-width: calc(100vw - 310px) !important;
+}
+
+/* Align Excalidraw footer left controls horizontally with the assistant bar */
+.excalidraw .layer-ui__wrapper__footer-left {
+  margin-bottom: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+/* Hide Excalidraw logo to free up space and give a premium feel */
+.excalidraw .ExcalidrawLogo {
+  display: none !important;
+}
+
+/* Shift help and other bottom-right controls to the left of the assistant bar */
+.excalidraw .layer-ui__wrapper__footer-right {
+  position: absolute !important;
+  left: auto !important;
+  right: 620px !important;
+  bottom: 24px !important;
+  margin-bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: right 0.2s ease-in-out !important;
 }

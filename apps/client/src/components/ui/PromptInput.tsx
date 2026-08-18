@@ -1,39 +1,16 @@
 import {
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ChangeEvent,
 } from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { sessionQueryOptions } from "#/lib/api";
+import { aiSettingsQueryOptions, providerModelOptions } from "#/lib/api/settings-client";
 import styles from "./PromptInput.module.css";
-
-const ENHANCED =
-  "This is an example prompt — rewritten to be clear and specific: state the goal, add the relevant context and constraints, define the expected output format and tone, and note any assumptions. Ask a clarifying question first if key details are missing.";
-
-/**
- * Turn a raw prompt into an improved one. This is the integration seam:
- * replace the mock body with a real request to your model/API. The component
- * only depends on it resolving to the enhanced prompt string (and honouring
- * the AbortSignal so an in-flight call can be cancelled).
- */
-async function mockEnhance(_prompt: string, signal?: AbortSignal): Promise<string> {
-  // --- MOCK (demo only) — remove when wiring a real backend ----------
-  await new Promise((r) => setTimeout(r, 2500));
-  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  return ENHANCED;
-  // --- REAL API (example) --------------------------------------------
-  // const res = await fetch("/api/enhance", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify({ prompt }),
-  //   signal,
-  // });
-  // if (!res.ok) throw new Error("Enhance request failed");
-  // return (await res.json()).prompt as string;
-}
-
 const SKILLS = [
   { id: "deep-research", name: "Deep Research" },
   { id: "code-review", name: "Code Review" },
@@ -57,41 +34,81 @@ const skillName = (id: string) => SKILLS.find((sk) => sk.id === id)?.name ?? id;
 const escapeHtml = (str: string) =>
   str.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
 
-type Phase = "idle" | "enhancing" | "enhanced";
-
 export function PromptInput({
-  onEnhance = mockEnhance,
+  onSubmit,
 }: {
-  onEnhance?: (prompt: string, signal?: AbortSignal) => Promise<string>;
+  onSubmit?: (
+    prompt: string,
+    files?: { type: "file"; mediaType: string; filename: string; url: string }[],
+    modelId?: string,
+    providerId?: string,
+  ) => Promise<void> | void;
 } = {}) {
-  // `value` mirrors the editor's plain text (skill pills contribute their
-  // label), so it drives the empty/placeholder + enhance/send logic.
+  const { data: session } = useQuery(sessionQueryOptions);
+  const { data: settings } = useQuery(aiSettingsQueryOptions(!!session?.user));
+  const [selectedModel, setSelectedModel] = useState<string>("platform");
+
+  const modelOptions = settings ? providerModelOptions(settings) : [];
+  const activeOption = modelOptions.find((o) => o.id === selectedModel);
+
+  useEffect(() => {
+    if (modelOptions.length > 0 && selectedModel === "platform") {
+      const defaultOpt = modelOptions.find((o) => o.isDefault);
+      if (defaultOpt) {
+        setSelectedModel(defaultOpt.id);
+      }
+    }
+  }, [modelOptions, selectedModel]);
+  const [submitting, setSubmitting] = useState(false);
   const [value, setValue] = useState("");
-  const [phase, setPhase] = useState<Phase>("idle");
   const [placeholder] = useState(
     () => PROMPT_PLACEHOLDERS[Math.floor(Math.random() * PROMPT_PLACEHOLDERS.length)],
   );
-
-  // Keep the enhance pill mounted through a short exit so it leaves the same
-  // soft way it arrives (mirrors pi-pill-in / pi-pill-out).
-  const [pillMounted, setPillMounted] = useState(false);
-  const [pillExiting, setPillExiting] = useState(false);
-
   // Slash-command palette (typing "/" opens the same skill picker).
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashKeyboard, setSlashKeyboard] = useState(false);
 
+  const [attachments, setAttachments] = useState<
+    { id: string; name: string; url: string; file: File }[]
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const newFiles = Array.from(e.target.files).filter((file) => file.type.startsWith("image/"));
+    const newAttachments = newFiles.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      name: file.name,
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => {
+      const target = prev.find((x) => x.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.url);
+      }
+      return prev.filter((x) => x.id !== id);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      attachments.forEach((att) => {
+        URL.revokeObjectURL(att.url);
+      });
+    };
+  }, []);
+
   const editorRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
-  const preEnhanceHTML = useRef("");
-  const pendingHTML = useRef<string | null>(null);
-  // height of the frame captured right before an enhance/revert swap, so the
-  // new height can be animated from it (FLIP) instead of jumping.
-  const flipFrom = useRef<number | null>(null);
   const savedRange = useRef<Range | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const slashOpenRef = useRef(false);
   const slashIndexRef = useRef(0);
   const slashResultsRef = useRef<typeof SKILLS>([]);
@@ -102,29 +119,15 @@ export function PromptInput({
   const slashKeyLock = useRef(false);
 
   const hasText = value.trim().length > 0;
-  const enhancing = phase === "enhancing";
-  const sendActive = hasText && !enhancing;
-  const showPill = hasText && !enhancing;
+  const sendActive = (hasText || attachments.length > 0) && !submitting;
   const slashResults = SKILLS.filter((sk) =>
     sk.name.toLowerCase().includes(slashQuery.toLowerCase()),
   );
-  slashOpenRef.current = slashOpen;
-  slashIndexRef.current = slashIndex;
-  slashResultsRef.current = slashResults;
-
-  // Focus the editor and drop the caret at the very end of its content.
-  const focusEnd = () => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.focus();
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-    savedRange.current = range.cloneRange();
-  };
+  useEffect(() => {
+    slashOpenRef.current = slashOpen;
+    slashIndexRef.current = slashIndex;
+    slashResultsRef.current = slashResults;
+  }, [slashOpen, slashIndex, slashResults]);
 
   const syncFromEditor = () => {
     const editor = editorRef.current;
@@ -248,7 +251,9 @@ export function PromptInput({
     insertPillOverRange(range, id);
     closeSlash();
   };
-  applySlashRef.current = applySlash;
+  useEffect(() => {
+    applySlashRef.current = applySlash;
+  });
 
   // Open the palette when the caret sits right after a "/" token.
   const detectSlash = () => {
@@ -278,7 +283,6 @@ export function PromptInput({
 
   const onEditorInput = () => {
     syncFromEditor();
-    if (phase === "enhanced") setPhase("idle");
     detectSlash();
   };
 
@@ -403,134 +407,103 @@ export function PromptInput({
 
   // After an enhance/revert the editor is shown editable again — write the
   // pending HTML into it (enhanced text, or the restored original w/ pills).
-  useLayoutEffect(() => {
-    if (enhancing || pendingHTML.current === null) return;
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.innerHTML = pendingHTML.current;
-    pendingHTML.current = null;
-    syncFromEditor();
-    requestAnimationFrame(focusEnd);
 
-    // Animate the frame from its previous height to the new one so the input
-    // doesn't jump when the enhanced/original text changes its size.
-    const frame = frameRef.current;
-    const from = flipFrom.current;
-    flipFrom.current = null;
-    if (!frame || from === null) return;
-    const to = frame.offsetHeight;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || from === to) return;
-    frame.style.height = from + "px";
-    frame.style.overflow = "hidden";
-    void frame.offsetHeight; // force reflow so the start height is committed
-    frame.style.transition = "height 200ms cubic-bezier(0.22, 1, 0.36, 1)";
-    frame.style.height = to + "px";
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      frame.style.transition = "";
-      frame.style.height = "";
-      frame.style.overflow = "";
-      frame.removeEventListener("transitionend", finish);
-    };
-    frame.addEventListener("transitionend", finish);
-    setTimeout(finish, 260);
-  }, [phase, enhancing]);
-
-  // Drive the enhance pill's mount/exit. It enters when there's text; when it
-  // should leave it plays the exit animation first — except when handing over
-  // to the spinner (enhancing), where it swaps instantly.
-  useEffect(() => {
-    if (showPill) {
-      setPillMounted(true);
-      setPillExiting(false);
-      return;
-    }
-    if (!pillMounted) return;
-    if (enhancing) {
-      setPillMounted(false);
-      setPillExiting(false);
-      return;
-    }
-    setPillExiting(true);
-    const t = setTimeout(() => {
-      setPillMounted(false);
-      setPillExiting(false);
-    }, 200);
-    return () => clearTimeout(t);
-  }, [showPill, enhancing, pillMounted]);
-
-  // Cancel any in-flight enhance on unmount.
-  useEffect(() => () => abortRef.current?.abort(), []);
-
-  const runEnhance = async () => {
-    if (!hasText || enhancing) return;
-    preEnhanceHTML.current = editorRef.current?.innerHTML ?? "";
-    setPhase("enhancing");
-    const ac = new AbortController();
-    abortRef.current = ac;
+  const send = async () => {
+    if (!sendActive || submitting) return;
+    const prompt = value.trim();
+    setSubmitting(true);
     try {
-      const result = await onEnhance(value, ac.signal);
-      if (ac.signal.aborted) return;
-      pendingHTML.current = escapeHtml(result);
-      flipFrom.current = frameRef.current?.offsetHeight ?? null;
-      setPhase("enhanced");
-    } catch {
-      // Restore the untouched prompt if the call fails/aborts.
-      if (ac.signal.aborted) return;
-      pendingHTML.current = preEnhanceHTML.current;
-      setPhase("idle");
+      const files: { type: "file"; mediaType: string; filename: string; url: string }[] =
+        await Promise.all(
+          attachments.map(async (att) => {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (event) => resolve(event.target?.result as string);
+              reader.onerror = (error) => reject(error);
+              reader.readAsDataURL(att.file);
+            });
+            return {
+              type: "file" as const,
+              mediaType: att.file.type,
+              filename: att.name,
+              url: dataUrl,
+            };
+          }),
+        );
+
+      const editor = editorRef.current;
+      if (editor) editor.innerHTML = "";
+      setValue("");
+      closeSlash();
+      if (onSubmit) {
+        await onSubmit(prompt, files, activeOption?.modelId, activeOption?.providerId);
+      }
+      attachments.forEach((att) => URL.revokeObjectURL(att.url));
+      setAttachments([]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+      requestAnimationFrame(() => editorRef.current?.focus());
     }
-  };
-
-  const revert = () => {
-    abortRef.current?.abort();
-    pendingHTML.current = preEnhanceHTML.current;
-    flipFrom.current = frameRef.current?.offsetHeight ?? null;
-    setPhase("idle");
-  };
-
-  const send = () => {
-    if (!sendActive) return;
-    const editor = editorRef.current;
-    if (editor) editor.innerHTML = "";
-    setValue("");
-    setPhase("idle");
-    closeSlash();
-    requestAnimationFrame(() => editorRef.current?.focus());
   };
 
   return (
     <div className={styles.wrap}>
-      <div ref={frameRef} className={styles.frame} data-enhancing={enhancing || undefined}>
-        <div className={styles.editorWrap}>
-          {enhancing ? (
-            <div className={styles.enhancingText} aria-live="polite">
-              {value}
-            </div>
-          ) : (
-            <div
-              ref={editorRef}
-              className={styles.field}
-              contentEditable
-              suppressContentEditableWarning
-              role="textbox"
-              aria-multiline="true"
-              aria-label={placeholder}
-              data-empty={!hasText || undefined}
-              data-placeholder={placeholder}
-              onInput={onEditorInput}
-              onKeyDown={onEditorKeyDown}
-              onKeyUp={saveSelection}
-              onMouseUp={saveSelection}
-              onBlur={saveSelection}
-              onClick={onEditorClick}
-            />
-          )}
+      <div ref={frameRef} className={styles.frame}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*"
+          multiple
+          className="hidden"
+        />
 
-          {slashOpen && !enhancing && (
+        {attachments.length > 0 && (
+          <div className={styles.chips}>
+            {attachments.map((att) => (
+              <div key={att.id} className={styles.chip}>
+                <span className={styles.chipIcon}>
+                  <img
+                    src={att.url}
+                    className="w-3.5 h-3.5 rounded-sm object-cover"
+                    alt={att.name}
+                  />
+                </span>
+                <span className={styles.chipName}>{att.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(att.id)}
+                  className={styles.chipRemove}
+                  title="Remove image"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className={styles.editorWrap}>
+          <div
+            ref={editorRef}
+            className={styles.field}
+            contentEditable={!submitting}
+            suppressContentEditableWarning
+            role="textbox"
+            aria-label={placeholder}
+            data-empty={!hasText || undefined}
+            data-placeholder={placeholder}
+            onInput={onEditorInput}
+            onKeyDown={onEditorKeyDown}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
+            onBlur={saveSelection}
+            onClick={onEditorClick}
+          />
+
+          {slashOpen && (
             <div
               className={styles.slashMenu}
               role="listbox"
@@ -570,41 +543,59 @@ export function PromptInput({
         </div>
 
         <div className={styles.row}>
-          <div className="flex items-center text-[11px] text-gray-400 font-semibold select-none font-geist">
-            Picasso
-          </div>
+          {modelOptions.length > 0 ? (
+            <div className="flex items-center text-[11px] text-gray-400 font-semibold font-geist relative bg-gray-50 border border-gray-200/50 rounded px-2 py-0.5 select-none hover:bg-gray-100 hover:text-gray-600 transition cursor-pointer">
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="bg-transparent border-none text-gray-400 font-semibold outline-none cursor-pointer hover:text-gray-600 transition pr-3.5"
+                style={{
+                  fontSize: "11px",
+                  WebkitAppearance: "none",
+                  MozAppearance: "none",
+                  appearance: "none",
+                }}
+              >
+                <option value="platform" className="text-gray-700 bg-white">
+                  Platform (Roxy)
+                </option>
+                {modelOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id} className="text-gray-700 bg-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                <span className="text-[7px]">▼</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center text-[10px] font-semibold text-gray-400 bg-gray-50 border border-gray-200/60 px-1.5 py-0.5 rounded select-none font-geist">
+              Platform (Roxy)
+            </div>
+          )}
 
           <div className={styles.right}>
-            {enhancing ? (
-              <span
-                className={[styles.iconBtn, styles.spinnerBtn].join(" ")}
-                aria-label="Enhancing prompt"
-              >
-                <Loader2 size={14} className={styles.spinner} />
-              </span>
-            ) : (
-              pillMounted && (
-                <button
-                  type="button"
-                  className={[styles.pill, pillExiting && styles.pillExit]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={phase === "enhanced" ? revert : runEnhance}
-                >
-                  {phase === "enhanced" ? "Revert" : "Enhance Prompt"}
-                </button>
-              )
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={styles.iconBtn}
+              title="Attach images"
+              disabled={submitting}
+              style={{ color: "#a1a1a1" }}
+            >
+              <Paperclip size={14} />
+            </button>
             <button
               type="button"
               className={[styles.iconBtn, styles.send, sendActive && styles.sendActive]
                 .filter(Boolean)
                 .join(" ")}
               aria-label="Send"
-              disabled={!sendActive}
+              disabled={!sendActive || submitting}
               onClick={send}
             >
-              <ArrowUp size={14} />
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
             </button>
           </div>
         </div>

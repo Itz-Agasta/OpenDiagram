@@ -3,16 +3,16 @@ import { authClient } from "#/lib/api";
 
 export const Route = createFileRoute("/_protected")({
   beforeLoad: async ({ location }) => {
-    const session = await authClient.getSession();
+    const { data } = await authClient.getSession();
 
-    if (!session) {
+    if (!data) {
       throw redirect({
         to: "/login",
         search: { redirect: location.href },
       });
     }
 
-    return { user: session.data?.user };
+    return { user: data.user };
   },
   component: () => <Outlet />,
 });

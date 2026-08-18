@@ -1,0 +1,41 @@
+.prose {
+  font-size: 14px;
+  line-height: 19px;
+  color: #1a1a1a;
+}
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 1.05em;
+  margin-left: 2px;
+  background: #0b0d12;
+  vertical-align: text-bottom;
+  animation: caret-blink 1s step-end infinite;
+}
+/* solid while streaming, blink only once idle (matches the live component) */
+.caretSteady {
+  animation: none;
+  opacity: 1;
+}
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    animation: none;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .prose {
+    color: #f5f5f5;
+  }
+  .caret {
+    background: #f5f5f5;
+  }
+}
