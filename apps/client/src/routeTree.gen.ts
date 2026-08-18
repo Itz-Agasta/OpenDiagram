@@ -13,12 +13,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/App'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as BlogsRouteImport } from './routes/blogs'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProtectedUserRouteImport } from './routes/_protected/User'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as ProjectProjectIdWorkspaceWorkspaceIdRouteImport } from './routes/project.$projectId.workspace.$workspaceId'
+import { Route as BlogYearMonthDaySlugRouteImport } from './routes/blog.$year.$month.$day.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,6 +40,11 @@ const ProtectedRoute = ProtectedRouteImport.update({
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogsRoute = BlogsRouteImport.update({
+  id: '/blogs',
+  path: '/blogs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturesRoute = FeaturesRouteImport.update({
@@ -64,34 +72,50 @@ const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectProjectIdWorkspaceWorkspaceIdRoute =
   ProjectProjectIdWorkspaceWorkspaceIdRouteImport.update({
     id: '/project/$projectId/workspace/$workspaceId',
     path: '/project/$projectId/workspace/$workspaceId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const BlogYearMonthDaySlugRoute = BlogYearMonthDaySlugRouteImport.update({
+  id: '/blog/$year/$month/$day/$slug',
+  path: '/blog/$year/$month/$day/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/App': typeof AppRoute
   '/about': typeof AboutRoute
+  '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
   '/settings': typeof ProtectedSettingsRoute
+  '/blog/': typeof BlogIndexRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  '/blog/$year/$month/$day/$slug': typeof BlogYearMonthDaySlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/App': typeof AppRoute
   '/about': typeof AboutRoute
+  '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
   '/settings': typeof ProtectedSettingsRoute
+  '/blog': typeof BlogIndexRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  '/blog/$year/$month/$day/$slug': typeof BlogYearMonthDaySlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -99,12 +123,15 @@ export interface FileRoutesById {
   '/App': typeof AppRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
+  '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_protected/User': typeof ProtectedUserRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
+  '/blog/': typeof BlogIndexRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  '/blog/$year/$month/$day/$slug': typeof BlogYearMonthDaySlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -112,35 +139,44 @@ export interface FileRouteTypes {
     | '/'
     | '/App'
     | '/about'
+    | '/blogs'
     | '/features'
     | '/login'
     | '/reset-password'
     | '/User'
     | '/settings'
+    | '/blog/'
     | '/project/$projectId/workspace/$workspaceId'
+    | '/blog/$year/$month/$day/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/App'
     | '/about'
+    | '/blogs'
     | '/features'
     | '/login'
     | '/reset-password'
     | '/User'
     | '/settings'
+    | '/blog'
     | '/project/$projectId/workspace/$workspaceId'
+    | '/blog/$year/$month/$day/$slug'
   id:
     | '__root__'
     | '/'
     | '/App'
     | '/_protected'
     | '/about'
+    | '/blogs'
     | '/features'
     | '/login'
     | '/reset-password'
     | '/_protected/User'
     | '/_protected/settings'
+    | '/blog/'
     | '/project/$projectId/workspace/$workspaceId'
+    | '/blog/$year/$month/$day/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -148,10 +184,13 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AboutRoute: typeof AboutRoute
+  BlogsRoute: typeof BlogsRoute
   FeaturesRoute: typeof FeaturesRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   ProjectProjectIdWorkspaceWorkspaceIdRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  BlogYearMonthDaySlugRoute: typeof BlogYearMonthDaySlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blogs': {
+      id: '/blogs'
+      path: '/blogs'
+      fullPath: '/blogs'
+      preLoaderRoute: typeof BlogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/features': {
@@ -219,11 +265,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedSettingsRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/project/$projectId/workspace/$workspaceId': {
       id: '/project/$projectId/workspace/$workspaceId'
       path: '/project/$projectId/workspace/$workspaceId'
       fullPath: '/project/$projectId/workspace/$workspaceId'
       preLoaderRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$year/$month/$day/$slug': {
+      id: '/blog/$year/$month/$day/$slug'
+      path: '/blog/$year/$month/$day/$slug'
+      fullPath: '/blog/$year/$month/$day/$slug'
+      preLoaderRoute: typeof BlogYearMonthDaySlugRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -248,11 +308,14 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
+  BlogsRoute: BlogsRoute,
   FeaturesRoute: FeaturesRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  BlogIndexRoute: BlogIndexRoute,
   ProjectProjectIdWorkspaceWorkspaceIdRoute:
     ProjectProjectIdWorkspaceWorkspaceIdRoute,
+  BlogYearMonthDaySlugRoute: BlogYearMonthDaySlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
