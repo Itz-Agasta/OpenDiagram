@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m, LazyMotion, domAnimation } from "motion/react";
 import { ScrollReveal } from "#/components/landing/scroll-reveal";
 
 export type ProcessCardsFanItem = {
@@ -34,7 +34,7 @@ const connectorMotion = {
 function DefaultConnectors() {
   return (
     <>
-      <motion.svg
+      <m.svg
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
@@ -46,7 +46,7 @@ function DefaultConnectors() {
       >
         <circle cx="10" cy="78" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
         <circle cx="150" cy="14" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
-        <motion.path
+        <m.path
           d="M15 74C32 40 78 8 145 16"
           stroke="#ff4a2c"
           strokeWidth="2.5"
@@ -56,8 +56,8 @@ function DefaultConnectors() {
           viewport={{ once: true }}
           transition={connectorMotion.draw}
         />
-      </motion.svg>
-      <motion.svg
+      </m.svg>
+      <m.svg
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
@@ -69,7 +69,7 @@ function DefaultConnectors() {
       >
         <circle cx="10" cy="14" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
         <circle cx="128" cy="48" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
-        <motion.path
+        <m.path
           d="M12 20C10 52 42 56 62 48C82 40 68 28 48 48C28 68 52 88 82 78C104 70 118 58 124 52"
           stroke="#ff4a2c"
           strokeWidth="2.5"
@@ -79,7 +79,7 @@ function DefaultConnectors() {
           viewport={{ once: true }}
           transition={{ ...connectorMotion.draw, delay: 0.65, duration: 1.1 }}
         />
-      </motion.svg>
+      </m.svg>
     </>
   );
 }
@@ -91,7 +91,7 @@ function DefaultConnectors() {
 function MiddleDownConnectors() {
   return (
     <>
-      <motion.svg
+      <m.svg
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
@@ -103,7 +103,7 @@ function MiddleDownConnectors() {
       >
         <circle cx="12" cy="18" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
         <circle cx="138" cy="102" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
-        <motion.path
+        <m.path
           d="M16 22C42 28 88 48 134 98"
           stroke="#ff4a2c"
           strokeWidth="2.5"
@@ -113,8 +113,8 @@ function MiddleDownConnectors() {
           viewport={{ once: true }}
           transition={connectorMotion.draw}
         />
-      </motion.svg>
-      <motion.svg
+      </m.svg>
+      <m.svg
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
@@ -126,7 +126,7 @@ function MiddleDownConnectors() {
       >
         <circle cx="14" cy="108" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
         <circle cx="136" cy="22" r="5" stroke="#ff4a2c" strokeWidth="2.5" />
-        <motion.path
+        <m.path
           d="M18 104C36 88 48 42 72 36C98 28 112 52 124 44C132 38 134 28 136 24"
           stroke="#ff4a2c"
           strokeWidth="2.5"
@@ -136,7 +136,7 @@ function MiddleDownConnectors() {
           viewport={{ once: true }}
           transition={{ ...connectorMotion.draw, delay: 0.65, duration: 1 }}
         />
-      </motion.svg>
+      </m.svg>
     </>
   );
 }
@@ -156,39 +156,41 @@ export function ProcessCardsFan({
   const middleDown = variant === "middle-down";
 
   return (
-    <div className="relative flex w-full items-start justify-center max-lg:flex-col max-lg:items-center">
-      {middleDown ? <MiddleDownConnectors /> : <DefaultConnectors />}
+    <LazyMotion features={domAnimation}>
+      <div className="relative flex w-full items-start justify-center max-lg:flex-col max-lg:items-center">
+        {middleDown ? <MiddleDownConnectors /> : <DefaultConnectors />}
 
-      <ScrollReveal
-        delay={0.08}
-        className={
-          middleDown
-            ? "relative z-20 -mr-4 flex w-[36%] flex-col gap-2.5 max-lg:-mr-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px]"
-            : "relative z-10 -mr-4 flex w-[36%] flex-col gap-2.5 pt-[62px] max-lg:-mr-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
-        }
-      >
-        <ProcessCard {...first} />
-      </ScrollReveal>
-      <ScrollReveal
-        delay={0.16}
-        className={
-          middleDown
-            ? "relative z-10 -mx-4 flex w-[36%] flex-col gap-2.5 pt-[88px] max-lg:-mx-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
-            : "relative z-20 -mx-4 flex w-[36%] flex-col gap-2.5 max-lg:-mx-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
-        }
-      >
-        <ProcessCard {...second} />
-      </ScrollReveal>
-      <ScrollReveal
-        delay={0.24}
-        className={
-          middleDown
-            ? "relative z-20 -ml-4 flex w-[36%] flex-col gap-2.5 pt-3 max-lg:-ml-0 max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
-            : "relative z-10 -ml-4 flex w-[36%] flex-col gap-2.5 pt-16 max-lg:-ml-0 max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
-        }
-      >
-        <ProcessCard {...third} />
-      </ScrollReveal>
-    </div>
+        <ScrollReveal
+          delay={0.08}
+          className={
+            middleDown
+              ? "relative z-20 -mr-4 flex w-[36%] flex-col gap-2.5 max-lg:-mr-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px]"
+              : "relative z-10 -mr-4 flex w-[36%] flex-col gap-2.5 pt-[62px] max-lg:-mr-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+          }
+        >
+          <ProcessCard {...first} />
+        </ScrollReveal>
+        <ScrollReveal
+          delay={0.16}
+          className={
+            middleDown
+              ? "relative z-10 -mx-4 flex w-[36%] flex-col gap-2.5 pt-[88px] max-lg:-mx-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+              : "relative z-20 -mx-4 flex w-[36%] flex-col gap-2.5 max-lg:-mx-0 max-lg:mb-[-24px] max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+          }
+        >
+          <ProcessCard {...second} />
+        </ScrollReveal>
+        <ScrollReveal
+          delay={0.24}
+          className={
+            middleDown
+              ? "relative z-20 -ml-4 flex w-[36%] flex-col gap-2.5 pt-3 max-lg:-ml-0 max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+              : "relative z-10 -ml-4 flex w-[36%] flex-col gap-2.5 pt-16 max-lg:-ml-0 max-lg:w-full max-lg:max-w-[640px] max-lg:pt-0"
+          }
+        >
+          <ProcessCard {...third} />
+        </ScrollReveal>
+      </div>
+    </LazyMotion>
   );
 }

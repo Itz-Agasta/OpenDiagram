@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArticleIcon, ChatCircleIcon, GitBranchIcon, ImageIcon } from "@phosphor-icons/react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion, LazyMotion, domAnimation } from "motion/react";
 import { assetUrl } from "#/lib/utils/site";
 
 /**
@@ -72,7 +72,7 @@ function FragmentChip({
   const quietY = floatY * AMBIENT_FLOAT;
 
   return (
-    <motion.div
+    <m.div
       className={`absolute z-10 flex max-w-[130px] items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-2.5 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.06)] sm:max-w-none sm:px-3 sm:py-2.5 ${className}`}
       initial={reduceMotion ? false : { opacity: 0, scale: 0.88 }}
       animate={
@@ -97,19 +97,18 @@ function FragmentChip({
         <Icon weight="duotone" className="size-4" aria-hidden="true" />
       </span>
       <span className="font-excali text-[13px] font-normal leading-tight text-black">{label}</span>
-    </motion.div>
+    </m.div>
   );
 }
 
-function ConnectorLines({ reduceMotion }: { reduceMotion: boolean | null }) {
-  /** Lines from four corners into the mascot center — stay inside the frame */
-  const paths = [
-    "M 70 55 Q 160 90 250 155",
-    "M 450 60 Q 360 95 270 155",
-    "M 70 285 Q 160 230 250 185",
-    "M 450 280 Q 360 230 270 185",
-  ];
+const CONNECTOR_PATHS = [
+  "M 70 55 Q 160 90 250 155",
+  "M 450 60 Q 360 95 270 155",
+  "M 70 285 Q 160 230 250 185",
+  "M 450 280 Q 360 230 270 185",
+];
 
+function ConnectorLines({ reduceMotion }: { reduceMotion: boolean | null }) {
   return (
     <svg
       className="pointer-events-none absolute inset-0 z-[5] h-full w-full"
@@ -118,8 +117,8 @@ function ConnectorLines({ reduceMotion }: { reduceMotion: boolean | null }) {
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
     >
-      {paths.map((d, i) => (
-        <motion.path
+      {CONNECTOR_PATHS.map((d, i) => (
+        <m.path
           key={d}
           d={d}
           stroke="rgba(0,0,0,0.16)"
@@ -154,7 +153,7 @@ function MascotWorker({
   ambient: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       className="absolute left-1/2 top-1/2 z-20 flex w-[min(48%,220px)] -translate-x-1/2 -translate-y-1/2 flex-col items-center sm:w-[230px]"
       initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 12 }}
       animate={
@@ -172,14 +171,14 @@ function MascotWorker({
             : { duration: 0.6, delay: 0.5, ease: [0.05, 0.7, 0.1, 1] }
       }
     >
-      <motion.div
+      <m.div
         className="mb-2 rounded-full border border-black/[0.08] bg-white px-2.5 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.06)]"
         initial={reduceMotion ? false : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={reduceMotion ? { duration: 0 } : { duration: 0.35, delay: 0.9 }}
       >
         <div className="flex items-center gap-1.5">
-          <motion.span
+          <m.span
             className="size-1.5 rounded-full bg-black"
             animate={
               reduceMotion ? undefined : ambient ? { opacity: [0.4, 0.9, 0.4] } : { opacity: 1 }
@@ -194,9 +193,9 @@ function MascotWorker({
           />
           <span className="font-excali text-[11px] text-black/55">Connecting fragments…</span>
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         className="relative flex size-[124px] items-center justify-center rounded-[28px] border border-black/[0.08] bg-white shadow-[0_16px_48px_rgba(0,0,0,0.1)] sm:size-[140px]"
         animate={
           reduceMotion
@@ -229,7 +228,7 @@ function MascotWorker({
         />
 
         {/* Tools in use — held by the mascot, kept inside the card bounds */}
-        <motion.span
+        <m.span
           className="absolute left-2 top-3 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -240,8 +239,8 @@ function MascotWorker({
           }
         >
           <ImageIcon weight="duotone" className="size-3.5" aria-hidden="true" />
-        </motion.span>
-        <motion.span
+        </m.span>
+        <m.span
           className="absolute right-2 top-3 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -252,8 +251,8 @@ function MascotWorker({
           }
         >
           <GitBranchIcon weight="duotone" className="size-3.5" aria-hidden="true" />
-        </motion.span>
-        <motion.span
+        </m.span>
+        <m.span
           className="absolute bottom-3 left-2 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -264,8 +263,8 @@ function MascotWorker({
           }
         >
           <ArticleIcon weight="duotone" className="size-3.5" aria-hidden="true" />
-        </motion.span>
-        <motion.span
+        </m.span>
+        <m.span
           className="absolute bottom-3 right-2 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -276,8 +275,8 @@ function MascotWorker({
           }
         >
           <ChatCircleIcon weight="duotone" className="size-3.5" aria-hidden="true" />
-        </motion.span>
-      </motion.div>
+        </m.span>
+      </m.div>
 
       <p className="mt-3 text-center font-excali text-[14px] font-normal text-black">
         Mascot unifies the pieces
@@ -285,7 +284,7 @@ function MascotWorker({
       <p className="mt-0.5 text-center font-excali text-[12px] text-black/45">
         One canvas · one story
       </p>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -300,51 +299,53 @@ export function ScatteredKnowledgeIllustration() {
   }, [reduceMotion]);
 
   return (
-    <div
-      className="relative aspect-[16/10] w-full overflow-hidden rounded-[8px] bg-[#f7f7f5]"
-      role="img"
-      aria-label="OpenDiagram mascot connecting screenshots, repositories, documents, and chat into one architecture workspace"
-    >
+    <LazyMotion features={domAnimation}>
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:36px_36px]"
-      />
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[44%] w-[40%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/[0.035] blur-3xl"
-        animate={
-          reduceMotion
-            ? undefined
-            : ambient
-              ? { opacity: [0.28, 0.4, 0.28], scale: [0.98, 1.02, 0.98] }
-              : { opacity: 0.4, scale: 1 }
-        }
-        transition={
-          reduceMotion
-            ? undefined
-            : ambient
-              ? { duration: 6.5, repeat: Infinity, ease: "easeInOut" }
-              : { duration: 0.5, delay: 0.8 }
-        }
-      />
-
-      <ConnectorLines reduceMotion={reduceMotion} />
-
-      {FRAGMENTS.map((f) => (
-        <FragmentChip
-          key={f.id}
-          label={f.label}
-          Icon={f.Icon}
-          className={f.className}
-          delay={f.delay}
-          duration={f.duration}
-          floatY={f.floatY}
-          reduceMotion={reduceMotion}
-          ambient={ambient}
+        className="relative aspect-[16/10] w-full overflow-hidden rounded-[8px] bg-[#f7f7f5]"
+        role="img"
+        aria-label="OpenDiagram mascot connecting screenshots, repositories, documents, and chat into one architecture workspace"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:36px_36px]"
         />
-      ))}
+        <m.div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[44%] w-[40%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/[0.035] blur-3xl"
+          animate={
+            reduceMotion
+              ? undefined
+              : ambient
+                ? { opacity: [0.28, 0.4, 0.28], scale: [0.98, 1.02, 0.98] }
+                : { opacity: 0.4, scale: 1 }
+          }
+          transition={
+            reduceMotion
+              ? undefined
+              : ambient
+                ? { duration: 6.5, repeat: Infinity, ease: "easeInOut" }
+                : { duration: 0.5, delay: 0.8 }
+          }
+        />
 
-      <MascotWorker reduceMotion={reduceMotion} ambient={ambient} />
-    </div>
+        <ConnectorLines reduceMotion={reduceMotion} />
+
+        {FRAGMENTS.map((f) => (
+          <FragmentChip
+            key={f.id}
+            label={f.label}
+            Icon={f.Icon}
+            className={f.className}
+            delay={f.delay}
+            duration={f.duration}
+            floatY={f.floatY}
+            reduceMotion={reduceMotion}
+            ambient={ambient}
+          />
+        ))}
+
+        <MascotWorker reduceMotion={reduceMotion} ambient={ambient} />
+      </div>
+    </LazyMotion>
   );
 }

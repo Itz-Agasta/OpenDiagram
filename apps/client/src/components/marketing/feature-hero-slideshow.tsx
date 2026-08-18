@@ -102,7 +102,7 @@ export function FeatureHeroSlideshow() {
             aria-label={`Show example ${dotIndex + 1}`}
             aria-current={dotIndex === index ? "true" : undefined}
             onClick={() => setIndex(dotIndex)}
-            className="h-1.5 rounded-full transition-all cursor-pointer w-1.5 bg-black/20 hover:bg-black/35 aria-current:w-4 aria-current:bg-black/75"
+            className="h-1.5 rounded-full transition-[width,background-color] cursor-pointer w-1.5 bg-black/20 hover:bg-black/35 aria-current:w-4 aria-current:bg-black/75"
           />
         ))}
       </div>

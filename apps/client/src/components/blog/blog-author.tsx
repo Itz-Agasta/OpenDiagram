@@ -21,7 +21,7 @@ export function BlogAuthor({
     return (
       <img
         src={author.imageUrl || "/brand/mascot.png"}
-        alt={`${author.name} profile picture`}
+        alt={author.name}
         width={32}
         height={32}
         className="rounded-full border-2 border-white object-cover"
@@ -34,7 +34,7 @@ export function BlogAuthor({
     <div className="flex items-center gap-3">
       <img
         src={author.imageUrl || "/brand/mascot.png"}
-        alt={`${author.name} profile picture`}
+        alt={author.name}
         width={44}
         height={44}
         className="rounded-full object-cover"

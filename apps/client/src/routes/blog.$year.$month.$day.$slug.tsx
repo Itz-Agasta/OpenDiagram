@@ -7,6 +7,11 @@ import type { BlogPost, BlogAuthor as BlogAuthorType } from "#/lib/types/blog";
 import { SITE_NAME, SITE_URL } from "#/lib/utils/site";
 import blogData from "#/lib/blog-data.json";
 
+const BLOG_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "long",
+  timeZone: "UTC",
+});
+
 export const Route = createFileRoute("/blog/$year/$month/$day/$slug")({
   loader: ({ params }) => {
     const { year, month, day, slug } = params;
@@ -94,10 +99,7 @@ function BlogPostRoute() {
               dateTime={post.date}
               className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#ff4a2c]"
             >
-              {new Intl.DateTimeFormat("en-US", {
-                dateStyle: "long",
-                timeZone: "UTC",
-              }).format(new Date(`${post.date}T00:00:00Z`))}
+              {BLOG_DATE_FORMATTER.format(new Date(`${post.date}T00:00:00Z`))}
             </time>
             <h1 className="mt-5 text-balance text-[44px] font-medium leading-[0.98] tracking-[-0.04em] text-[#1a1a1a] md:text-[68px]">
               {post.title}

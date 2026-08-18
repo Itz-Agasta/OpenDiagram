@@ -5,7 +5,7 @@ import {
   GithubLogoIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion, LazyMotion, domAnimation } from "motion/react";
 import { assetUrl } from "#/lib/utils/site";
 
 /**
@@ -24,7 +24,7 @@ function GithubInput({
   ambient: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       className="absolute left-[4%] top-1/2 z-10 w-[148px] -translate-y-1/2 sm:left-[6%] sm:w-[168px]"
       initial={reduceMotion ? false : { opacity: 0, x: -18 }}
       animate={
@@ -58,7 +58,7 @@ function GithubInput({
             { Icon: CodeIcon, label: "package.json" },
             { Icon: FolderSimpleIcon, label: "infra / …" },
           ].map(({ Icon, label }, i) => (
-            <motion.div
+            <m.div
               key={label}
               className="flex items-center gap-2 rounded-lg bg-black/[0.04] px-2 py-1.5"
               initial={reduceMotion ? false : { opacity: 0, x: -8 }}
@@ -75,11 +75,11 @@ function GithubInput({
                 aria-hidden="true"
               />
               <span className="truncate font-excali text-[12px] text-black/55">{label}</span>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -91,7 +91,7 @@ function FlowArrow({
   fromLeft: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       className={`pointer-events-none absolute top-1/2 z-[6] hidden h-px -translate-y-1/2 bg-black/20 md:block ${
         fromLeft ? "left-[32%] w-[9%]" : "left-[62%] w-[8%]"
       }`}
@@ -108,7 +108,7 @@ function FlowArrow({
       }
       style={{ transformOrigin: "left center" }}
     >
-      <motion.span
+      <m.span
         className="absolute right-0 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-black/45"
         animate={reduceMotion ? undefined : { opacity: [0.35, 0.8, 0.35], scale: [1, 1.15, 1] }}
         transition={
@@ -122,7 +122,7 @@ function FlowArrow({
               }
         }
       />
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -134,7 +134,7 @@ function MascotWorker({
   ambient: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       className="absolute left-1/2 top-1/2 z-20 flex w-[min(42%,200px)] -translate-x-1/2 -translate-y-1/2 flex-col items-center sm:w-[210px]"
       initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 14 }}
       animate={
@@ -153,14 +153,14 @@ function MascotWorker({
       }
     >
       {/* Working badge */}
-      <motion.div
+      <m.div
         className="mb-2 rounded-full border border-black/[0.08] bg-white px-2.5 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.06)]"
         initial={reduceMotion ? false : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={reduceMotion ? { duration: 0 } : { duration: 0.35, delay: 0.95 }}
       >
         <div className="flex items-center gap-1.5">
-          <motion.span
+          <m.span
             className="size-1.5 rounded-full bg-black"
             animate={
               reduceMotion ? undefined : ambient ? { opacity: [0.4, 0.9, 0.4] } : { opacity: 1 }
@@ -175,10 +175,10 @@ function MascotWorker({
           />
           <span className="font-excali text-[11px] text-black/55">Mapping system…</span>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Mascot as the worker */}
-      <motion.div
+      <m.div
         className="relative flex size-[120px] items-center justify-center rounded-[28px] border border-black/[0.08] bg-white shadow-[0_16px_48px_rgba(0,0,0,0.1)] sm:size-[136px]"
         animate={
           reduceMotion
@@ -202,7 +202,7 @@ function MascotWorker({
         }
       >
         {/* Soft work-ring behind mascot */}
-        <motion.div
+        <m.div
           aria-hidden="true"
           className="absolute inset-3 rounded-[22px] border border-dashed border-black/10"
           animate={
@@ -226,7 +226,7 @@ function MascotWorker({
         />
 
         {/* Tiny “tool” chips the mascot is using */}
-        <motion.span
+        <m.span
           className="absolute -left-2 top-4 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-black shadow-sm"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -237,8 +237,8 @@ function MascotWorker({
           }
         >
           <GithubLogoIcon weight="fill" className="size-3.5" aria-hidden="true" />
-        </motion.span>
-        <motion.span
+        </m.span>
+        <m.span
           className="absolute -right-2 bottom-5 flex size-7 items-center justify-center rounded-lg border border-black/[0.08] bg-black text-white shadow-sm"
           initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
           animate={
@@ -257,8 +257,8 @@ function MascotWorker({
           }
         >
           <TreeStructureIcon weight="bold" className="size-3.5" aria-hidden="true" />
-        </motion.span>
-      </motion.div>
+        </m.span>
+      </m.div>
 
       <p className="mt-2.5 text-center font-excali text-[14px] font-normal text-black">
         Your mascot does the mapping
@@ -266,9 +266,16 @@ function MascotWorker({
       <p className="mt-0.5 text-center font-excali text-[12px] text-black/45">
         You review · they assemble
       </p>
-    </motion.div>
+    </m.div>
   );
 }
+
+const ARCHITECTURE_NODES = [
+  { label: "API", x: "12%", y: "22%" },
+  { label: "Auth", x: "58%", y: "18%" },
+  { label: "DB", x: "36%", y: "58%" },
+  { label: "Queue", x: "68%", y: "62%" },
+];
 
 function ArchitectureOutput({
   reduceMotion,
@@ -277,15 +284,8 @@ function ArchitectureOutput({
   reduceMotion: boolean | null;
   ambient: boolean;
 }) {
-  const nodes = [
-    { label: "API", x: "12%", y: "22%" },
-    { label: "Auth", x: "58%", y: "18%" },
-    { label: "DB", x: "36%", y: "58%" },
-    { label: "Queue", x: "68%", y: "62%" },
-  ];
-
   return (
-    <motion.div
+    <m.div
       className="absolute right-[4%] top-1/2 z-10 w-[148px] -translate-y-1/2 sm:right-[5%] sm:w-[170px]"
       initial={reduceMotion ? false : { opacity: 0, x: 18 }}
       animate={
@@ -325,7 +325,7 @@ function ArchitectureOutput({
             fill="none"
             aria-hidden="true"
           >
-            <motion.path
+            <m.path
               d="M30 30 L55 28 L45 65 L70 68"
               stroke="rgba(0,0,0,0.18)"
               strokeWidth="1.25"
@@ -340,8 +340,8 @@ function ArchitectureOutput({
               }
             />
           </svg>
-          {nodes.map((node, i) => (
-            <motion.div
+          {ARCHITECTURE_NODES.map((node, i) => (
+            <m.div
               key={node.label}
               className="absolute rounded-md border border-black/15 bg-white px-1.5 py-0.5 font-excali text-[10px] font-normal text-black shadow-sm"
               style={{ left: node.x, top: node.y }}
@@ -358,11 +358,11 @@ function ArchitectureOutput({
               }
             >
               {node.label}
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -377,39 +377,41 @@ export function GithubToWorkspaceIllustration() {
   }, [reduceMotion]);
 
   return (
-    <div
-      className="relative aspect-[16/10] w-full overflow-hidden rounded-[8px] bg-[#f7f7f5]"
-      role="img"
-      aria-label="OpenDiagram mascot mapping a GitHub repository into an editable architecture diagram"
-    >
+    <LazyMotion features={domAnimation}>
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:36px_36px]"
-      />
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[42%] w-[36%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/[0.035] blur-3xl"
-        animate={
-          reduceMotion
-            ? undefined
-            : ambient
-              ? { opacity: [0.3, 0.42, 0.3], scale: [0.98, 1.02, 0.98] }
-              : { opacity: 0.4, scale: 1 }
-        }
-        transition={
-          reduceMotion
-            ? undefined
-            : ambient
-              ? { duration: 6.5, repeat: Infinity, ease: "easeInOut" }
-              : { duration: 0.5, delay: 0.8 }
-        }
-      />
+        className="relative aspect-[16/10] w-full overflow-hidden rounded-[8px] bg-[#f7f7f5]"
+        role="img"
+        aria-label="OpenDiagram mascot mapping a GitHub repository into an editable architecture diagram"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(to_right,rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.05)_1px,transparent_1px)] [background-size:36px_36px]"
+        />
+        <m.div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[42%] w-[36%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/[0.035] blur-3xl"
+          animate={
+            reduceMotion
+              ? undefined
+              : ambient
+                ? { opacity: [0.3, 0.42, 0.3], scale: [0.98, 1.02, 0.98] }
+                : { opacity: 0.4, scale: 1 }
+          }
+          transition={
+            reduceMotion
+              ? undefined
+              : ambient
+                ? { duration: 6.5, repeat: Infinity, ease: "easeInOut" }
+                : { duration: 0.5, delay: 0.8 }
+          }
+        />
 
-      <GithubInput reduceMotion={reduceMotion} ambient={ambient} />
-      <FlowArrow reduceMotion={reduceMotion} fromLeft />
-      <MascotWorker reduceMotion={reduceMotion} ambient={ambient} />
-      <FlowArrow reduceMotion={reduceMotion} fromLeft={false} />
-      <ArchitectureOutput reduceMotion={reduceMotion} ambient={ambient} />
-    </div>
+        <GithubInput reduceMotion={reduceMotion} ambient={ambient} />
+        <FlowArrow reduceMotion={reduceMotion} fromLeft />
+        <MascotWorker reduceMotion={reduceMotion} ambient={ambient} />
+        <FlowArrow reduceMotion={reduceMotion} fromLeft={false} />
+        <ArchitectureOutput reduceMotion={reduceMotion} ambient={ambient} />
+      </div>
+    </LazyMotion>
   );
 }
