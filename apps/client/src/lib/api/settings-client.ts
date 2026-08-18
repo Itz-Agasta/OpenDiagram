@@ -1,46 +1,12 @@
 import { queryOptions } from "@tanstack/react-query";
 import { getDevFetch } from "../dev-telemetry";
-
-export type CatalogModel = { id: string; label: string };
+import type { AiSettings, ProviderModelOption } from "../types";
 
 /** Frontend-only: badge Gemini + DeepSeek models in pickers. */
 export function isRecommendedModel(modelId: string, label?: string): boolean {
   const haystack = `${modelId} ${label ?? ""}`.toLowerCase();
   return haystack.includes("gemini") || haystack.includes("deepseek");
 }
-
-export type CatalogProvider = {
-  id: string;
-  label: string;
-  docsUrl: string;
-  keyPlaceholder: string;
-  models: CatalogModel[];
-};
-
-export type ConnectedProvider = {
-  id: string;
-  provider: string;
-  modelId: string;
-  keyLast4: string;
-  isDefault: boolean;
-  createdAt: string;
-};
-
-export type AiSettings = {
-  encryptionReady: boolean;
-  catalog: CatalogProvider[];
-  providers: ConnectedProvider[];
-};
-
-export type ProviderModelOption = {
-  id: string;
-  label: string;
-  providerId: string;
-  providerLabel: string;
-  modelId: string;
-  modelLabel: string;
-  isDefault: boolean;
-};
 
 const BASE_URL = import.meta.env.VITE_SERVER_URL || "";
 const BASE = `${BASE_URL.replace(/\/$/, "")}/api/settings/ai`;

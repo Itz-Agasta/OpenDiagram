@@ -120,11 +120,16 @@ export async function updateProjectFile(
   projectId: string,
   fileId: string,
   input: UpdateProjectFileInput,
+  fields: "full" | "meta" = "full",
 ): Promise<ProjectFile> {
-  const data = await apiFetch<{ file: ProjectFile }>(`/api/projects/${projectId}/files/${fileId}`, {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  });
+  const query = fields === "meta" ? "?fields=meta" : "";
+  const data = await apiFetch<{ file: ProjectFile }>(
+    `/api/projects/${projectId}/files/${fileId}${query}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
   return data.file;
 }
 

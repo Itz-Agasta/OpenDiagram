@@ -38,6 +38,10 @@ export function upsertCanvasDiagram(
   return [...without, next];
 }
 
+export function serializeCanvasDiagrams(diagrams: CanvasDiagram[]) {
+  return { diagrams };
+}
+
 export function toPromptDiagrams(diagrams: CanvasDiagram[]) {
   return diagrams
     .filter((diagram) => diagram.id.length > 0)

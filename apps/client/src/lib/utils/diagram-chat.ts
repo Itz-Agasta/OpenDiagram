@@ -65,6 +65,35 @@ export function pendingAskUser(messages: UIMessage[]) {
 }
 
 /**
+ * Continue the turn only after the user answers `ask_user`.
+ *
+ * `lastAssistantMessageIsCompleteWithToolCalls` also matches server-executed
+ * `draw_diagram` (no `providerExecuted` flag), which auto-sent a second
+ * request after every draw.
+ */
+export function lastAssistantMessageIsCompleteWithAskUser({
+  messages,
+}: {
+  messages: UIMessage[];
+}): boolean {
+  const last = messages.at(-1);
+  if (!last || last.role !== "assistant") return false;
+
+  const lastStepStartIndex = last.parts.reduce(
+    (lastIndex, part, index) => (part.type === "step-start" ? index : lastIndex),
+    -1,
+  );
+  const asks: ChatToolPart[] = [];
+  for (const part of last.parts.slice(lastStepStartIndex + 1)) {
+    if (isAskUserPart(part)) asks.push(part);
+  }
+  return (
+    asks.length > 0 &&
+    asks.every((part) => part.state === "output-available" || part.state === "output-error")
+  );
+}
+
+/**
  * Drop Excalidraw element JSON from past `draw_diagram` outputs before upload.
  * The browser needs skeletons/rawElements to paint; the server only needs summary.
  */

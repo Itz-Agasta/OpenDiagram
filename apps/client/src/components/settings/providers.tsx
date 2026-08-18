@@ -13,10 +13,8 @@ import {
   getAiSettings,
   updateProvider,
   isRecommendedModel,
-  type AiSettings,
-  type CatalogProvider,
-  type ConnectedProvider,
 } from "#/lib/api/settings-client";
+import type { AiSettings, CatalogProvider, ConnectedProvider } from "#/lib/types";
 import { CustomButton, HeroButton } from "#/components/ui/button";
 
 const PROVIDER_ICONS: Record<string, string> = {
@@ -245,7 +243,13 @@ function ProviderCard({
           </button>
         </div>
       ) : (
-        <CustomButton text="Connect" disabled={disabled} onClick={onConnect} className="h-8" />
+        <HeroButton
+          text="Connect"
+          color="blue"
+          disabled={disabled}
+          onClick={onConnect}
+          className="h-8 py-0 text-xs shadow-none"
+        />
       )}
     </div>
   );

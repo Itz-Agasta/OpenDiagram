@@ -13,8 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/App'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as AiArchitectureDiagramGeneratorRouteImport } from './routes/ai-architecture-diagram-generator'
+import { Route as AiDiagramGeneratorRouteImport } from './routes/ai-diagram-generator'
 import { Route as BlogsRouteImport } from './routes/blogs'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as GithubToArchitectureDiagramRouteImport } from './routes/github-to-architecture-diagram'
+import { Route as GithubToArchitectureDiagramGeneratorRouteImport } from './routes/github-to-architecture-diagram-generator'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProtectedUserRouteImport } from './routes/_protected/User'
@@ -42,6 +46,17 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiArchitectureDiagramGeneratorRoute =
+  AiArchitectureDiagramGeneratorRouteImport.update({
+    id: '/ai-architecture-diagram-generator',
+    path: '/ai-architecture-diagram-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AiDiagramGeneratorRoute = AiDiagramGeneratorRouteImport.update({
+  id: '/ai-diagram-generator',
+  path: '/ai-diagram-generator',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogsRoute = BlogsRouteImport.update({
   id: '/blogs',
   path: '/blogs',
@@ -52,6 +67,18 @@ const FeaturesRoute = FeaturesRouteImport.update({
   path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GithubToArchitectureDiagramRoute =
+  GithubToArchitectureDiagramRouteImport.update({
+    id: '/github-to-architecture-diagram',
+    path: '/github-to-architecture-diagram',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const GithubToArchitectureDiagramGeneratorRoute =
+  GithubToArchitectureDiagramGeneratorRouteImport.update({
+    id: '/github-to-architecture-diagram-generator',
+    path: '/github-to-architecture-diagram-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -93,8 +120,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/App': typeof AppRoute
   '/about': typeof AboutRoute
+  '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
+  '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
   '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
+  '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
+  '/github-to-architecture-diagram-generator': typeof GithubToArchitectureDiagramGeneratorRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
@@ -107,8 +138,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/App': typeof AppRoute
   '/about': typeof AboutRoute
+  '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
+  '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
   '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
+  '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
+  '/github-to-architecture-diagram-generator': typeof GithubToArchitectureDiagramGeneratorRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
@@ -123,8 +158,12 @@ export interface FileRoutesById {
   '/App': typeof AppRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
+  '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
+  '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
   '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
+  '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
+  '/github-to-architecture-diagram-generator': typeof GithubToArchitectureDiagramGeneratorRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_protected/User': typeof ProtectedUserRoute
@@ -139,8 +178,12 @@ export interface FileRouteTypes {
     | '/'
     | '/App'
     | '/about'
+    | '/ai-architecture-diagram-generator'
+    | '/ai-diagram-generator'
     | '/blogs'
     | '/features'
+    | '/github-to-architecture-diagram'
+    | '/github-to-architecture-diagram-generator'
     | '/login'
     | '/reset-password'
     | '/User'
@@ -153,8 +196,12 @@ export interface FileRouteTypes {
     | '/'
     | '/App'
     | '/about'
+    | '/ai-architecture-diagram-generator'
+    | '/ai-diagram-generator'
     | '/blogs'
     | '/features'
+    | '/github-to-architecture-diagram'
+    | '/github-to-architecture-diagram-generator'
     | '/login'
     | '/reset-password'
     | '/User'
@@ -168,8 +215,12 @@ export interface FileRouteTypes {
     | '/App'
     | '/_protected'
     | '/about'
+    | '/ai-architecture-diagram-generator'
+    | '/ai-diagram-generator'
     | '/blogs'
     | '/features'
+    | '/github-to-architecture-diagram'
+    | '/github-to-architecture-diagram-generator'
     | '/login'
     | '/reset-password'
     | '/_protected/User'
@@ -184,8 +235,12 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AiArchitectureDiagramGeneratorRoute: typeof AiArchitectureDiagramGeneratorRoute
+  AiDiagramGeneratorRoute: typeof AiDiagramGeneratorRoute
   BlogsRoute: typeof BlogsRoute
   FeaturesRoute: typeof FeaturesRoute
+  GithubToArchitectureDiagramRoute: typeof GithubToArchitectureDiagramRoute
+  GithubToArchitectureDiagramGeneratorRoute: typeof GithubToArchitectureDiagramGeneratorRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -223,6 +278,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-architecture-diagram-generator': {
+      id: '/ai-architecture-diagram-generator'
+      path: '/ai-architecture-diagram-generator'
+      fullPath: '/ai-architecture-diagram-generator'
+      preLoaderRoute: typeof AiArchitectureDiagramGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-diagram-generator': {
+      id: '/ai-diagram-generator'
+      path: '/ai-diagram-generator'
+      fullPath: '/ai-diagram-generator'
+      preLoaderRoute: typeof AiDiagramGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blogs': {
       id: '/blogs'
       path: '/blogs'
@@ -235,6 +304,20 @@ declare module '@tanstack/react-router' {
       path: '/features'
       fullPath: '/features'
       preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/github-to-architecture-diagram': {
+      id: '/github-to-architecture-diagram'
+      path: '/github-to-architecture-diagram'
+      fullPath: '/github-to-architecture-diagram'
+      preLoaderRoute: typeof GithubToArchitectureDiagramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/github-to-architecture-diagram-generator': {
+      id: '/github-to-architecture-diagram-generator'
+      path: '/github-to-architecture-diagram-generator'
+      fullPath: '/github-to-architecture-diagram-generator'
+      preLoaderRoute: typeof GithubToArchitectureDiagramGeneratorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -308,8 +391,13 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
+  AiArchitectureDiagramGeneratorRoute: AiArchitectureDiagramGeneratorRoute,
+  AiDiagramGeneratorRoute: AiDiagramGeneratorRoute,
   BlogsRoute: BlogsRoute,
   FeaturesRoute: FeaturesRoute,
+  GithubToArchitectureDiagramRoute: GithubToArchitectureDiagramRoute,
+  GithubToArchitectureDiagramGeneratorRoute:
+    GithubToArchitectureDiagramGeneratorRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   BlogIndexRoute: BlogIndexRoute,
