@@ -10,8 +10,12 @@
 @theme {
   --font-geist: "Geist", sans-serif;
   --font-excalifont: "OD Excalifont", cursive;
+  --font-excali: "OD Excalifont", cursive;
   --color-blue: #288dff;
   --color-white: #fff;
+  --color-od-ink: #1a1a1a;
+  --color-od-ink-faint: rgba(0, 0, 0, 0.5);
+  --color-od-border-soft: rgba(0, 0, 0, 0.1);
 }
 
 html,
@@ -109,4 +113,100 @@ body {
   display: flex !important;
   align-items: center !important;
   transition: right 0.2s ease-in-out !important;
+}
+
+/* Blog Markdown Styles */
+.blog-markdown h2 {
+  margin-top: 3.5rem;
+  color: var(--color-od-ink);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.blog-markdown h3 {
+  margin-top: 2.5rem;
+  color: var(--color-od-ink);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.blog-markdown h4 {
+  margin-top: 2rem;
+  color: var(--color-od-ink);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.blog-markdown p,
+.blog-markdown ul,
+.blog-markdown ol,
+.blog-markdown pre,
+.blog-markdown blockquote,
+.blog-markdown table {
+  margin-top: 1.5rem;
+}
+
+.blog-markdown ul,
+.blog-markdown ol {
+  padding-left: 1.5rem;
+}
+
+.blog-markdown ul {
+  list-style: disc;
+}
+
+.blog-markdown ol {
+  list-style: decimal;
+}
+
+.blog-markdown li {
+  margin-top: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.blog-markdown a {
+  color: #e03d21;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.blog-markdown blockquote {
+  border-left: 3px solid #ff4a2c;
+  padding-left: 1.25rem;
+  color: var(--color-od-ink-faint);
+  font-style: italic;
+}
+
+.blog-markdown :not(pre) > code {
+  border-radius: 0.375rem;
+  background: var(--color-od-border-soft);
+  padding: 0.15rem 0.35rem;
+  color: var(--color-od-ink);
+  font-size: 0.9em;
+}
+
+.blog-markdown img {
+  margin-top: 2rem;
+  height: auto;
+  width: 100%;
+  border-radius: 1rem;
+}
+
+.blog-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.blog-markdown th,
+.blog-markdown td {
+  border-bottom: 1px solid rgb(0 0 0 / 10%);
+  padding: 0.75rem;
+  text-align: left;
 }
