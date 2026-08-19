@@ -8,400 +8,404 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as ProtectedRouteImport } from "./routes/_protected";
-import { Route as AboutRouteImport } from "./routes/about";
-import { Route as AiArchitectureDiagramGeneratorRouteImport } from "./routes/ai-architecture-diagram-generator";
-import { Route as AiDiagramGeneratorRouteImport } from "./routes/ai-diagram-generator";
-import { Route as AppRouteImport } from "./routes/app";
-import { Route as BlogsRouteImport } from "./routes/blogs";
-import { Route as FeaturesRouteImport } from "./routes/features";
-import { Route as GithubToArchitectureDiagramRouteImport } from "./routes/github-to-architecture-diagram";
-import { Route as GithubToArchitectureDiagramGeneratorRouteImport } from "./routes/github-to-architecture-diagram-generator";
-import { Route as LoginRouteImport } from "./routes/login";
-import { Route as ResetPasswordRouteImport } from "./routes/reset-password";
-import { Route as ProtectedUserRouteImport } from "./routes/_protected/User";
-import { Route as ProtectedPricingRouteImport } from "./routes/_protected/pricing";
-import { Route as ProtectedSettingsRouteImport } from "./routes/_protected/settings";
-import { Route as BlogIndexRouteImport } from "./routes/blog.index";
-import { Route as ProjectProjectIdWorkspaceWorkspaceIdRouteImport } from "./routes/project.$projectId.workspace.$workspaceId";
-import { Route as BlogYearMonthDaySlugRouteImport } from "./routes/blog.$year.$month.$day.$slug";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProtectedRouteImport } from './routes/_protected'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as AiArchitectureDiagramGeneratorRouteImport } from './routes/ai-architecture-diagram-generator'
+import { Route as AiDiagramGeneratorRouteImport } from './routes/ai-diagram-generator'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as BlogsRouteImport } from './routes/blogs'
+import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as GithubToArchitectureDiagramRouteImport } from './routes/github-to-architecture-diagram'
+import { Route as GithubToArchitectureDiagramGeneratorRouteImport } from './routes/github-to-architecture-diagram-generator'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ProtectedUserRouteImport } from './routes/_protected/User'
+import { Route as ProtectedPricingRouteImport } from './routes/_protected/pricing'
+import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as ProjectProjectIdWorkspaceWorkspaceIdRouteImport } from './routes/project.$projectId.workspace.$workspaceId'
+import { Route as BlogYearMonthDaySlugRouteImport } from './routes/blog.$year.$month.$day.$slug'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProtectedRoute = ProtectedRouteImport.update({
-  id: "/_protected",
+  id: '/_protected',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AboutRoute = AboutRouteImport.update({
-  id: "/about",
-  path: "/about",
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
-} as any);
-const AiArchitectureDiagramGeneratorRoute = AiArchitectureDiagramGeneratorRouteImport.update({
-  id: "/ai-architecture-diagram-generator",
-  path: "/ai-architecture-diagram-generator",
-  getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const AiArchitectureDiagramGeneratorRoute =
+  AiArchitectureDiagramGeneratorRouteImport.update({
+    id: '/ai-architecture-diagram-generator',
+    path: '/ai-architecture-diagram-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AiDiagramGeneratorRoute = AiDiagramGeneratorRouteImport.update({
-  id: "/ai-diagram-generator",
-  path: "/ai-diagram-generator",
+  id: '/ai-diagram-generator',
+  path: '/ai-diagram-generator',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AppRoute = AppRouteImport.update({
-  id: "/app",
-  path: "/app",
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const BlogsRoute = BlogsRouteImport.update({
-  id: "/blogs",
-  path: "/blogs",
+  id: '/blogs',
+  path: '/blogs',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const FeaturesRoute = FeaturesRouteImport.update({
-  id: "/features",
-  path: "/features",
+  id: '/features',
+  path: '/features',
   getParentRoute: () => rootRouteImport,
-} as any);
-const GithubToArchitectureDiagramRoute = GithubToArchitectureDiagramRouteImport.update({
-  id: "/github-to-architecture-diagram",
-  path: "/github-to-architecture-diagram",
-  getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const GithubToArchitectureDiagramRoute =
+  GithubToArchitectureDiagramRouteImport.update({
+    id: '/github-to-architecture-diagram',
+    path: '/github-to-architecture-diagram',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const GithubToArchitectureDiagramGeneratorRoute =
   GithubToArchitectureDiagramGeneratorRouteImport.update({
-    id: "/github-to-architecture-diagram-generator",
-    path: "/github-to-architecture-diagram-generator",
+    id: '/github-to-architecture-diagram-generator',
+    path: '/github-to-architecture-diagram-generator',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const LoginRoute = LoginRouteImport.update({
-  id: "/login",
-  path: "/login",
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: "/reset-password",
-  path: "/reset-password",
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProtectedUserRoute = ProtectedUserRouteImport.update({
-  id: "/User",
-  path: "/User",
+  id: '/User',
+  path: '/User',
   getParentRoute: () => ProtectedRoute,
-} as any);
+} as any)
 const ProtectedPricingRoute = ProtectedPricingRouteImport.update({
-  id: "/pricing",
-  path: "/pricing",
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => ProtectedRoute,
-} as any);
+} as any)
 const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => ProtectedRoute,
-} as any);
+} as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
-  id: "/blog/",
-  path: "/blog/",
+  id: '/blog/',
+  path: '/blog/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProjectProjectIdWorkspaceWorkspaceIdRoute =
   ProjectProjectIdWorkspaceWorkspaceIdRouteImport.update({
-    id: "/project/$projectId/workspace/$workspaceId",
-    path: "/project/$projectId/workspace/$workspaceId",
+    id: '/project/$projectId/workspace/$workspaceId',
+    path: '/project/$projectId/workspace/$workspaceId',
     getParentRoute: () => rootRouteImport,
-  } as any);
+  } as any)
 const BlogYearMonthDaySlugRoute = BlogYearMonthDaySlugRouteImport.update({
-  id: "/blog/$year/$month/$day/$slug",
-  path: "/blog/$year/$month/$day/$slug",
+  id: '/blog/$year/$month/$day/$slug',
+  path: '/blog/$year/$month/$day/$slug',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/about": typeof AboutRoute;
-  "/ai-architecture-diagram-generator": typeof AiArchitectureDiagramGeneratorRoute;
-  "/ai-diagram-generator": typeof AiDiagramGeneratorRoute;
-  "/app": typeof AppRoute;
-  "/blogs": typeof BlogsRoute;
-  "/features": typeof FeaturesRoute;
-  "/github-to-architecture-diagram": typeof GithubToArchitectureDiagramRoute;
-  "/github-to-architecture-diagram-generator": typeof GithubToArchitectureDiagramGeneratorRoute;
-  "/login": typeof LoginRoute;
-  "/reset-password": typeof ResetPasswordRoute;
-  "/User": typeof ProtectedUserRoute;
-  "/pricing": typeof ProtectedPricingRoute;
-  "/settings": typeof ProtectedSettingsRoute;
-  "/blog/": typeof BlogIndexRoute;
-  "/project/$projectId/workspace/$workspaceId": typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
-  "/blog/$year/$month/$day/$slug": typeof BlogYearMonthDaySlugRoute;
+  '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
+  '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
+  '/app': typeof AppRoute
+  '/blogs': typeof BlogsRoute
+  '/features': typeof FeaturesRoute
+  '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
+  '/github-to-architecture-diagram-generator': typeof GithubToArchitectureDiagramGeneratorRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/User': typeof ProtectedUserRoute
+  '/pricing': typeof ProtectedPricingRoute
+  '/settings': typeof ProtectedSettingsRoute
+  '/blog/': typeof BlogIndexRoute
+  '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  '/blog/$year/$month/$day/$slug': typeof BlogYearMonthDaySlugRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/about": typeof AboutRoute;
-  "/ai-architecture-diagram-generator": typeof AiArchitectureDiagramGeneratorRoute;
-  "/ai-diagram-generator": typeof AiDiagramGeneratorRoute;
-  "/app": typeof AppRoute;
-  "/blogs": typeof BlogsRoute;
-  "/features": typeof FeaturesRoute;
-  "/github-to-architecture-diagram": typeof GithubToArchitectureDiagramRoute;
-  "/github-to-architecture-diagram-generator": typeof GithubToArchitectureDiagramGeneratorRoute;
-  "/login": typeof LoginRoute;
-  "/reset-password": typeof ResetPasswordRoute;
-  "/User": typeof ProtectedUserRoute;
-  "/pricing": typeof ProtectedPricingRoute;
-  "/settings": typeof ProtectedSettingsRoute;
-  "/blog": typeof BlogIndexRoute;
-  "/project/$projectId/workspace/$workspaceId": typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
-  "/blog/$year/$month/$day/$slug": typeof BlogYearMonthDaySlugRoute;
+  '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
+  '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
+  '/app': typeof AppRoute
+  '/blogs': typeof BlogsRoute
+  '/features': typeof FeaturesRoute
+  '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
+  '/github-to-architecture-diagram-generator': typeof GithubToArchitectureDiagramGeneratorRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/User': typeof ProtectedUserRoute
+  '/pricing': typeof ProtectedPricingRoute
+  '/settings': typeof ProtectedSettingsRoute
+  '/blog': typeof BlogIndexRoute
+  '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  '/blog/$year/$month/$day/$slug': typeof BlogYearMonthDaySlugRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/_protected": typeof ProtectedRouteWithChildren;
-  "/about": typeof AboutRoute;
-  "/ai-architecture-diagram-generator": typeof AiArchitectureDiagramGeneratorRoute;
-  "/ai-diagram-generator": typeof AiDiagramGeneratorRoute;
-  "/app": typeof AppRoute;
-  "/blogs": typeof BlogsRoute;
-  "/features": typeof FeaturesRoute;
-  "/github-to-architecture-diagram": typeof GithubToArchitectureDiagramRoute;
-  "/github-to-architecture-diagram-generator": typeof GithubToArchitectureDiagramGeneratorRoute;
-  "/login": typeof LoginRoute;
-  "/reset-password": typeof ResetPasswordRoute;
-  "/_protected/User": typeof ProtectedUserRoute;
-  "/_protected/pricing": typeof ProtectedPricingRoute;
-  "/_protected/settings": typeof ProtectedSettingsRoute;
-  "/blog/": typeof BlogIndexRoute;
-  "/project/$projectId/workspace/$workspaceId": typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
-  "/blog/$year/$month/$day/$slug": typeof BlogYearMonthDaySlugRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_protected': typeof ProtectedRouteWithChildren
+  '/about': typeof AboutRoute
+  '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
+  '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
+  '/app': typeof AppRoute
+  '/blogs': typeof BlogsRoute
+  '/features': typeof FeaturesRoute
+  '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
+  '/github-to-architecture-diagram-generator': typeof GithubToArchitectureDiagramGeneratorRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/_protected/User': typeof ProtectedUserRoute
+  '/_protected/pricing': typeof ProtectedPricingRoute
+  '/_protected/settings': typeof ProtectedSettingsRoute
+  '/blog/': typeof BlogIndexRoute
+  '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  '/blog/$year/$month/$day/$slug': typeof BlogYearMonthDaySlugRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/about"
-    | "/ai-architecture-diagram-generator"
-    | "/ai-diagram-generator"
-    | "/app"
-    | "/blogs"
-    | "/features"
-    | "/github-to-architecture-diagram"
-    | "/github-to-architecture-diagram-generator"
-    | "/login"
-    | "/reset-password"
-    | "/User"
-    | "/pricing"
-    | "/settings"
-    | "/blog/"
-    | "/project/$projectId/workspace/$workspaceId"
-    | "/blog/$year/$month/$day/$slug";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/about'
+    | '/ai-architecture-diagram-generator'
+    | '/ai-diagram-generator'
+    | '/app'
+    | '/blogs'
+    | '/features'
+    | '/github-to-architecture-diagram'
+    | '/github-to-architecture-diagram-generator'
+    | '/login'
+    | '/reset-password'
+    | '/User'
+    | '/pricing'
+    | '/settings'
+    | '/blog/'
+    | '/project/$projectId/workspace/$workspaceId'
+    | '/blog/$year/$month/$day/$slug'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/about"
-    | "/ai-architecture-diagram-generator"
-    | "/ai-diagram-generator"
-    | "/app"
-    | "/blogs"
-    | "/features"
-    | "/github-to-architecture-diagram"
-    | "/github-to-architecture-diagram-generator"
-    | "/login"
-    | "/reset-password"
-    | "/User"
-    | "/pricing"
-    | "/settings"
-    | "/blog"
-    | "/project/$projectId/workspace/$workspaceId"
-    | "/blog/$year/$month/$day/$slug";
+    | '/'
+    | '/about'
+    | '/ai-architecture-diagram-generator'
+    | '/ai-diagram-generator'
+    | '/app'
+    | '/blogs'
+    | '/features'
+    | '/github-to-architecture-diagram'
+    | '/github-to-architecture-diagram-generator'
+    | '/login'
+    | '/reset-password'
+    | '/User'
+    | '/pricing'
+    | '/settings'
+    | '/blog'
+    | '/project/$projectId/workspace/$workspaceId'
+    | '/blog/$year/$month/$day/$slug'
   id:
-    | "__root__"
-    | "/"
-    | "/_protected"
-    | "/about"
-    | "/ai-architecture-diagram-generator"
-    | "/ai-diagram-generator"
-    | "/app"
-    | "/blogs"
-    | "/features"
-    | "/github-to-architecture-diagram"
-    | "/github-to-architecture-diagram-generator"
-    | "/login"
-    | "/reset-password"
-    | "/_protected/User"
-    | "/_protected/pricing"
-    | "/_protected/settings"
-    | "/blog/"
-    | "/project/$projectId/workspace/$workspaceId"
-    | "/blog/$year/$month/$day/$slug";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/_protected'
+    | '/about'
+    | '/ai-architecture-diagram-generator'
+    | '/ai-diagram-generator'
+    | '/app'
+    | '/blogs'
+    | '/features'
+    | '/github-to-architecture-diagram'
+    | '/github-to-architecture-diagram-generator'
+    | '/login'
+    | '/reset-password'
+    | '/_protected/User'
+    | '/_protected/pricing'
+    | '/_protected/settings'
+    | '/blog/'
+    | '/project/$projectId/workspace/$workspaceId'
+    | '/blog/$year/$month/$day/$slug'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  ProtectedRoute: typeof ProtectedRouteWithChildren;
-  AboutRoute: typeof AboutRoute;
-  AiArchitectureDiagramGeneratorRoute: typeof AiArchitectureDiagramGeneratorRoute;
-  AiDiagramGeneratorRoute: typeof AiDiagramGeneratorRoute;
-  AppRoute: typeof AppRoute;
-  BlogsRoute: typeof BlogsRoute;
-  FeaturesRoute: typeof FeaturesRoute;
-  GithubToArchitectureDiagramRoute: typeof GithubToArchitectureDiagramRoute;
-  GithubToArchitectureDiagramGeneratorRoute: typeof GithubToArchitectureDiagramGeneratorRoute;
-  LoginRoute: typeof LoginRoute;
-  ResetPasswordRoute: typeof ResetPasswordRoute;
-  BlogIndexRoute: typeof BlogIndexRoute;
-  ProjectProjectIdWorkspaceWorkspaceIdRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRoute;
-  BlogYearMonthDaySlugRoute: typeof BlogYearMonthDaySlugRoute;
+  IndexRoute: typeof IndexRoute
+  ProtectedRoute: typeof ProtectedRouteWithChildren
+  AboutRoute: typeof AboutRoute
+  AiArchitectureDiagramGeneratorRoute: typeof AiArchitectureDiagramGeneratorRoute
+  AiDiagramGeneratorRoute: typeof AiDiagramGeneratorRoute
+  AppRoute: typeof AppRoute
+  BlogsRoute: typeof BlogsRoute
+  FeaturesRoute: typeof FeaturesRoute
+  GithubToArchitectureDiagramRoute: typeof GithubToArchitectureDiagramRoute
+  GithubToArchitectureDiagramGeneratorRoute: typeof GithubToArchitectureDiagramGeneratorRoute
+  LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+  ProjectProjectIdWorkspaceWorkspaceIdRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
+  BlogYearMonthDaySlugRoute: typeof BlogYearMonthDaySlugRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_protected": {
-      id: "/_protected";
-      path: "";
-      fullPath: "/";
-      preLoaderRoute: typeof ProtectedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/about": {
-      id: "/about";
-      path: "/about";
-      fullPath: "/about";
-      preLoaderRoute: typeof AboutRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/ai-architecture-diagram-generator": {
-      id: "/ai-architecture-diagram-generator";
-      path: "/ai-architecture-diagram-generator";
-      fullPath: "/ai-architecture-diagram-generator";
-      preLoaderRoute: typeof AiArchitectureDiagramGeneratorRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/ai-diagram-generator": {
-      id: "/ai-diagram-generator";
-      path: "/ai-diagram-generator";
-      fullPath: "/ai-diagram-generator";
-      preLoaderRoute: typeof AiDiagramGeneratorRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/app": {
-      id: "/app";
-      path: "/app";
-      fullPath: "/app";
-      preLoaderRoute: typeof AppRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/blogs": {
-      id: "/blogs";
-      path: "/blogs";
-      fullPath: "/blogs";
-      preLoaderRoute: typeof BlogsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/features": {
-      id: "/features";
-      path: "/features";
-      fullPath: "/features";
-      preLoaderRoute: typeof FeaturesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/github-to-architecture-diagram": {
-      id: "/github-to-architecture-diagram";
-      path: "/github-to-architecture-diagram";
-      fullPath: "/github-to-architecture-diagram";
-      preLoaderRoute: typeof GithubToArchitectureDiagramRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/github-to-architecture-diagram-generator": {
-      id: "/github-to-architecture-diagram-generator";
-      path: "/github-to-architecture-diagram-generator";
-      fullPath: "/github-to-architecture-diagram-generator";
-      preLoaderRoute: typeof GithubToArchitectureDiagramGeneratorRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/login": {
-      id: "/login";
-      path: "/login";
-      fullPath: "/login";
-      preLoaderRoute: typeof LoginRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/reset-password": {
-      id: "/reset-password";
-      path: "/reset-password";
-      fullPath: "/reset-password";
-      preLoaderRoute: typeof ResetPasswordRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/_protected/User": {
-      id: "/_protected/User";
-      path: "/User";
-      fullPath: "/User";
-      preLoaderRoute: typeof ProtectedUserRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
-    "/_protected/pricing": {
-      id: "/_protected/pricing";
-      path: "/pricing";
-      fullPath: "/pricing";
-      preLoaderRoute: typeof ProtectedPricingRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
-    "/_protected/settings": {
-      id: "/_protected/settings";
-      path: "/settings";
-      fullPath: "/settings";
-      preLoaderRoute: typeof ProtectedSettingsRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
-    "/blog/": {
-      id: "/blog/";
-      path: "/blog";
-      fullPath: "/blog/";
-      preLoaderRoute: typeof BlogIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/project/$projectId/workspace/$workspaceId": {
-      id: "/project/$projectId/workspace/$workspaceId";
-      path: "/project/$projectId/workspace/$workspaceId";
-      fullPath: "/project/$projectId/workspace/$workspaceId";
-      preLoaderRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/blog/$year/$month/$day/$slug": {
-      id: "/blog/$year/$month/$day/$slug";
-      path: "/blog/$year/$month/$day/$slug";
-      fullPath: "/blog/$year/$month/$day/$slug";
-      preLoaderRoute: typeof BlogYearMonthDaySlugRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected': {
+      id: '/_protected'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-architecture-diagram-generator': {
+      id: '/ai-architecture-diagram-generator'
+      path: '/ai-architecture-diagram-generator'
+      fullPath: '/ai-architecture-diagram-generator'
+      preLoaderRoute: typeof AiArchitectureDiagramGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-diagram-generator': {
+      id: '/ai-diagram-generator'
+      path: '/ai-diagram-generator'
+      fullPath: '/ai-diagram-generator'
+      preLoaderRoute: typeof AiDiagramGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blogs': {
+      id: '/blogs'
+      path: '/blogs'
+      fullPath: '/blogs'
+      preLoaderRoute: typeof BlogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/github-to-architecture-diagram': {
+      id: '/github-to-architecture-diagram'
+      path: '/github-to-architecture-diagram'
+      fullPath: '/github-to-architecture-diagram'
+      preLoaderRoute: typeof GithubToArchitectureDiagramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/github-to-architecture-diagram-generator': {
+      id: '/github-to-architecture-diagram-generator'
+      path: '/github-to-architecture-diagram-generator'
+      fullPath: '/github-to-architecture-diagram-generator'
+      preLoaderRoute: typeof GithubToArchitectureDiagramGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected/User': {
+      id: '/_protected/User'
+      path: '/User'
+      fullPath: '/User'
+      preLoaderRoute: typeof ProtectedUserRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/pricing': {
+      id: '/_protected/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof ProtectedPricingRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/settings': {
+      id: '/_protected/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof ProtectedSettingsRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/project/$projectId/workspace/$workspaceId': {
+      id: '/project/$projectId/workspace/$workspaceId'
+      path: '/project/$projectId/workspace/$workspaceId'
+      fullPath: '/project/$projectId/workspace/$workspaceId'
+      preLoaderRoute: typeof ProjectProjectIdWorkspaceWorkspaceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$year/$month/$day/$slug': {
+      id: '/blog/$year/$month/$day/$slug'
+      path: '/blog/$year/$month/$day/$slug'
+      fullPath: '/blog/$year/$month/$day/$slug'
+      preLoaderRoute: typeof BlogYearMonthDaySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface ProtectedRouteChildren {
-  ProtectedUserRoute: typeof ProtectedUserRoute;
-  ProtectedPricingRoute: typeof ProtectedPricingRoute;
-  ProtectedSettingsRoute: typeof ProtectedSettingsRoute;
+  ProtectedUserRoute: typeof ProtectedUserRoute
+  ProtectedPricingRoute: typeof ProtectedPricingRoute
+  ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedUserRoute: ProtectedUserRoute,
   ProtectedPricingRoute: ProtectedPricingRoute,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
-};
+}
 
-const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(ProtectedRouteChildren);
+const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
+  ProtectedRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -413,13 +417,24 @@ const rootRouteChildren: RootRouteChildren = {
   BlogsRoute: BlogsRoute,
   FeaturesRoute: FeaturesRoute,
   GithubToArchitectureDiagramRoute: GithubToArchitectureDiagramRoute,
-  GithubToArchitectureDiagramGeneratorRoute: GithubToArchitectureDiagramGeneratorRoute,
+  GithubToArchitectureDiagramGeneratorRoute:
+    GithubToArchitectureDiagramGeneratorRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   BlogIndexRoute: BlogIndexRoute,
-  ProjectProjectIdWorkspaceWorkspaceIdRoute: ProjectProjectIdWorkspaceWorkspaceIdRoute,
+  ProjectProjectIdWorkspaceWorkspaceIdRoute:
+    ProjectProjectIdWorkspaceWorkspaceIdRoute,
   BlogYearMonthDaySlugRoute: BlogYearMonthDaySlugRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

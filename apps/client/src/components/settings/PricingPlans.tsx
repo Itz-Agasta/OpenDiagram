@@ -49,10 +49,15 @@ function PlanCard({
 }) {
   return (
     <section
-      className={`rounded-xl bg-white p-6 transition-all ${
+      className={`relative rounded-xl bg-white p-6 transition-all ${
         highlighted ? "border-2 border-gray-900 shadow-sm" : "border border-gray-200/80"
       } font-geist`}
     >
+      {highlighted && (
+        <span className="absolute -top-2.5 right-4 rounded-full bg-blue-600 px-3 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider shadow-sm">
+          Best Value
+        </span>
+      )}
       <h2 className={`text-sm font-semibold ${highlighted ? "text-gray-900" : "text-gray-500"}`}>
         {name}
       </h2>
@@ -181,7 +186,7 @@ export function PricingPlans() {
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:border-gray-400 transition font-geist text-gray-900"
               />
               <HeroButton
-                text="Upgrade to Pro"
+                text="Unlock Pro Access"
                 color="blue"
                 onClick={() => void go("checkout")}
                 disabled={pending !== null}

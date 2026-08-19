@@ -12,13 +12,60 @@ function PricingPageRoute() {
       <main className="mx-auto w-full max-w-3xl px-4 py-10">
         <SettingsHeader />
 
-        <h1 className="text-2xl font-semibold mb-2 heading-font text-gray-900">Plans</h1>
+        <h1 className="text-2xl font-semibold mb-2 heading-font text-gray-900">
+          Get unlimited diagrams and codebase imports
+        </h1>
         <p className="mt-1 mb-6 text-sm text-gray-500 body-font">
-          Pro pays for the parts that run on our infrastructure. Inference on your own key is free,
-          forever.
+          Pro covers the infrastructure for complex generations. Bring your own key anytime for
+          free, unlimited diagrams.
         </p>
 
         <PricingPlans />
+
+        <div className="mt-16 border-t border-gray-200/80 pt-10">
+          <h2 className="text-lg font-semibold text-gray-900 heading-font mb-6">
+            Frequently Asked Questions
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 font-geist">
+                How do credits work?
+              </h3>
+              <p className="text-xs leading-relaxed text-gray-500 font-geist">
+                Your allowance resets at the start of each billing cycle. If you hit your limit, you
+                can instantly plug in your own OpenAI/Gemini API key in Settings to continue
+                designing for free.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 font-geist">
+                Can I cancel my subscription?
+              </h3>
+              <p className="text-xs leading-relaxed text-gray-500 font-geist">
+                Yes, you can cancel your plan in one click at any time from your settings page. You
+                will retain all Pro features until the end of your current billing period.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 font-geist">
+                Who handles payments?
+              </h3>
+              <p className="text-xs leading-relaxed text-gray-500 font-geist">
+                All payments are processed securely by Dodo Payments (our Merchant of Record). We
+                never see, store, or process your raw credit card details.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 font-geist">
+                Do I need a paid plan to use my own key?
+              </h3>
+              <p className="text-xs leading-relaxed text-gray-500 font-geist">
+                No, bringing your own AI key is completely free. You can use it to generate
+                unlimited diagrams without ever subscribing to the Pro tier.
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
