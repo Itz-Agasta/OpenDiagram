@@ -95,7 +95,7 @@ function FeaturesPage() {
                 Correct services, reconnect flows, add context, and test how a system should evolve
                 on one visual canvas.
               </p>
-              <Link to="/App">
+              <Link to="/app">
                 <MarketingButton text="Start a diagram" color="black" />
               </Link>
             </div>

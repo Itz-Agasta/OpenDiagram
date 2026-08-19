@@ -370,7 +370,7 @@ function WorkspaceRouteComponent() {
           <div className="p-4 flex flex-col gap-3 border-b border-gray-200/80">
             <div className="flex items-center justify-between">
               <Link
-                to="/App"
+                to="/app"
                 className="p-1 hover:bg-gray-200/60 rounded-md transition text-gray-500 hover:text-gray-900 cursor-pointer shrink-0"
                 title="Back to Dashboard"
               >

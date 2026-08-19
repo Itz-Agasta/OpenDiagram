@@ -26,7 +26,7 @@ const TAGLINE_POOL = [
   "Where natural language meets architecture design.",
 ];
 
-export const Route = createFileRoute("/App")({
+export const Route = createFileRoute("/app")({
   component: RouteComponent,
 });
 
@@ -51,7 +51,7 @@ function RouteComponent() {
     if (!isAuthenticated) {
       void navigate({
         to: "/login",
-        search: { redirect: "/App" },
+        search: { redirect: "/app" },
       });
       return;
     }

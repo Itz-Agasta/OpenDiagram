@@ -56,6 +56,12 @@ export function planIdForProduct(productId: string): "pro" | null {
 }
 
 /** Web app origin, used for checkout and portal return URLs. */
-export function appOrigin(): string {
+export function appOrigin(requestOrigin?: string | null): string {
+  if (requestOrigin) {
+    const allowed = env.CORS_ORIGIN.split(",").map((o) => o.trim());
+    if (allowed.includes(requestOrigin)) {
+      return requestOrigin;
+    }
+  }
   return env.CORS_ORIGIN.split(",")[0]?.trim() ?? env.BETTER_AUTH_URL;
 }
