@@ -44,6 +44,31 @@ body {
   line-height: 1;
 }
 
+/* Pricing-specific font classes for higher visual hierarchy */
+.pricing-hero-heading {
+  font-family: "Geist", sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.pricing-hero-tagline {
+  font-family: "Geist", sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
+.pricing-section-title {
+  font-family: "Geist", sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
 /* UI-only face. Must not use the family name "Excalifont" — that name is
    owned by @excalidraw/excalidraw. Sharing it made measureText and paint
    pick different files, so labels clipped inside too-small boxes. */

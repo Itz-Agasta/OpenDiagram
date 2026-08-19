@@ -12,10 +12,10 @@ function PricingPageRoute() {
       <main className="mx-auto w-full max-w-3xl px-4 py-10">
         <SettingsHeader />
 
-        <h1 className="text-2xl font-semibold mb-2 heading-font text-gray-900">
+        <h1 className="pricing-hero-heading mb-3 text-gray-900">
           Get unlimited diagrams and codebase imports
         </h1>
-        <p className="mt-1 mb-6 text-sm text-gray-500 body-font">
+        <p className="pricing-hero-tagline mb-8 text-gray-500">
           Pro covers the infrastructure for complex generations. Bring your own key anytime for
           free, unlimited diagrams.
         </p>
@@ -23,9 +23,7 @@ function PricingPageRoute() {
         <PricingPlans />
 
         <div className="mt-16 border-t border-gray-200/80 pt-10">
-          <h2 className="text-lg font-semibold text-gray-900 heading-font mb-6">
-            Frequently Asked Questions
-          </h2>
+          <h2 className="pricing-section-title text-gray-900 mb-6">Frequently Asked Questions</h2>
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-2 font-geist">
