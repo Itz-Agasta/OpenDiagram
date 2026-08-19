@@ -45,7 +45,7 @@ export function PromptInput({
   ) => Promise<void> | void;
 } = {}) {
   const { data: session } = useQuery(sessionQueryOptions);
-  const { data: settings } = useQuery(aiSettingsQueryOptions(!!session?.user));
+  const { data: settings } = useQuery(aiSettingsQueryOptions(session?.user?.id, !!session?.user));
   const [selectedModel, setSelectedModel] = useState<string>("platform");
 
   const modelOptions = settings ? providerModelOptions(settings) : [];
@@ -61,9 +61,11 @@ export function PromptInput({
   }, [modelOptions, selectedModel]);
   const [submitting, setSubmitting] = useState(false);
   const [value, setValue] = useState("");
-  const [placeholder] = useState(
-    () => PROMPT_PLACEHOLDERS[Math.floor(Math.random() * PROMPT_PLACEHOLDERS.length)],
-  );
+  const [placeholder, setPlaceholder] = useState(PROMPT_PLACEHOLDERS[0]);
+
+  useEffect(() => {
+    setPlaceholder(PROMPT_PLACEHOLDERS[Math.floor(Math.random() * PROMPT_PLACEHOLDERS.length)]);
+  }, []);
   // Slash-command palette (typing "/" opens the same skill picker).
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
@@ -132,7 +134,7 @@ export function PromptInput({
   const syncFromEditor = () => {
     const editor = editorRef.current;
     if (!editor) return;
-    setValue(editor.textContent ?? "");
+    setValue(editor.innerText ?? "");
     // Mark pills that sit at the very start (nothing but whitespace before them)
     // so CSS can drop their left margin — :first-child can't see text nodes.
     editor.querySelectorAll<HTMLElement>("." + styles.skillPill).forEach((pill) => {
@@ -431,13 +433,14 @@ export function PromptInput({
           }),
         );
 
+      if (onSubmit) {
+        await onSubmit(prompt, files, activeOption?.modelId, activeOption?.providerId);
+      }
+
       const editor = editorRef.current;
       if (editor) editor.innerHTML = "";
       setValue("");
       closeSlash();
-      if (onSubmit) {
-        await onSubmit(prompt, files, activeOption?.modelId, activeOption?.providerId);
-      }
       attachments.forEach((att) => URL.revokeObjectURL(att.url));
       setAttachments([]);
     } catch (err) {

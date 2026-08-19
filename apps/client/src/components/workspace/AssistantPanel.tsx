@@ -1,5 +1,5 @@
 import {
-  CaretLeft,
+  CaretDown,
   ArrowUp,
   ArrowUUpLeft,
   ArrowUUpRight,
@@ -21,6 +21,7 @@ import {
   type ChatToolPart,
   type DrawDiagramOutput,
 } from "#/lib/utils/diagram-chat";
+import { AskUserChips } from "./AskUserChips";
 const PILL = "max-w-[80%] px-3.5 py-2 rounded-xl text-sm leading-relaxed bg-gray-100 text-gray-800";
 
 interface AssistantPanelProps {
@@ -64,7 +65,7 @@ export function AssistantPanel({
   onSelectModel,
 }: AssistantPanelProps) {
   const { data: session } = useQuery(sessionQueryOptions);
-  const { data: settings } = useQuery(aiSettingsQueryOptions(!!session?.user));
+  const { data: settings } = useQuery(aiSettingsQueryOptions(session?.user?.id, !!session?.user));
   const modelOptions = settings ? providerModelOptions(settings) : [];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -165,11 +166,11 @@ export function AssistantPanel({
   ];
 
   return (
-    <div className="assistant-panel absolute bottom-20 left-1/2 -translate-x-1/2 w-[580px] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 font-geist">
+    <div className="assistant-panel absolute bottom-20 left-1/2 -translate-x-1/2 w-[580px] h-[520px] border border-white/50 rounded-2xl shadow-2xl flex flex-col z-50 font-geist">
       {/* Conversation View */}
-      <div className="flex-1 flex flex-col bg-white min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl">
         {/* Active Chat Header */}
-        <div className="p-3 border-b border-gray-200/80 flex items-center justify-between select-none bg-white sticky top-0 z-10">
+        <div className="p-3 border-b border-white/40 flex items-center justify-between select-none shrink-0">
           <div className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-gray-800">
             <span>Chat Assistant</span>
             {isLoading && (
@@ -181,7 +182,7 @@ export function AssistantPanel({
             className="p-1 hover:bg-gray-100 rounded-md transition text-gray-500 hover:text-gray-900 cursor-pointer"
             title="Close Panel"
           >
-            <CaretLeft size={16} weight="bold" />
+            <CaretDown size={16} weight="bold" />
           </button>
         </div>
 
@@ -189,13 +190,13 @@ export function AssistantPanel({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <div className="flex justify-start">
-              <div className={PILL}>
+              <p className="text-sm leading-relaxed text-gray-800">
                 Hello! I can help you design software architectures, ER diagrams, or microservices
                 flows. What would you like to build today?
-              </div>
+              </p>
             </div>
           )}
-          {messages.map((msg) => {
+          {messages.map((msg, index) => {
             if (msg.role === "user") {
               const text = getMessageText(msg);
               const partsFiles = msg.parts?.filter((part) => part.type === "file") ?? [];
@@ -268,11 +269,15 @@ export function AssistantPanel({
                 {msg.parts.map((part, partIdx) => {
                   const key = `${msg.id}-${partIdx}`;
                   if (part.type === "text" && part.text) {
+                    const isLastMessage = index === messages.length - 1;
                     return (
                       <div key={key} className="flex justify-start">
                         <StreamingText
                           text={part.text}
                           className="!text-gray-800 [&>span]:!bg-gray-800"
+                          showCursor={
+                            isLastMessage && isLoading && partIdx === msg.parts.length - 1
+                          }
                         />
                       </div>
                     );
@@ -280,7 +285,12 @@ export function AssistantPanel({
 
                   if (isAskUserPart(part)) {
                     return (
-                      <AskUserPartView key={key} part={part} onAnswerAskUser={onAnswerAskUser} />
+                      <AskUserPartView
+                        key={key}
+                        part={part}
+                        onAnswerAskUser={onAnswerAskUser}
+                        interactive={index === messages.length - 1}
+                      />
                     );
                   }
 
@@ -321,8 +331,8 @@ export function AssistantPanel({
         </div>
 
         {/* Rich Input Editor Container */}
-        <div className="p-4 border-t border-gray-100">
-          <div className="border border-gray-200 rounded-xl bg-gray-50/50 focus-within:bg-white focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all flex flex-col">
+        <div className="p-4 border-t border-white/40">
+          <div className="border border-gray-200 rounded-xl bg-white/40 focus-within:bg-white/60 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all flex flex-col">
             <input
               type="file"
               ref={fileInputRef}
@@ -442,9 +452,11 @@ export function AssistantPanel({
 function AskUserPartView({
   part,
   onAnswerAskUser,
+  interactive,
 }: {
   part: ChatToolPart;
   onAnswerAskUser?: (toolCallId: string, answer: string) => void;
+  interactive: boolean;
 }) {
   if (part.state === "input-streaming") {
     return (
@@ -464,29 +476,18 @@ function AskUserPartView({
   const input = part.input as AskUserInput | undefined;
   if (!input?.question) return null;
   const answered = part.state === "output-available" ? (part.output as string) : null;
+  const canAnswer = interactive && part.state === "input-available";
 
   return (
     <div className="flex justify-start">
       <div className={`${PILL} px-4 py-3 space-y-2.5`}>
-        <p className="font-medium text-gray-900">{input.question}</p>
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {(input.options ?? []).map((option) => (
-            <button
-              key={option}
-              disabled={answered !== null}
-              onClick={() => onAnswerAskUser?.(part.toolCallId, option)}
-              className={`px-2.5 py-1 text-xs rounded-full font-medium transition border ${
-                answered === option
-                  ? "bg-blue-600 border-blue-600 text-white"
-                  : answered !== null
-                    ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 cursor-pointer"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
+        <AskUserChips
+          question={input.question}
+          options={input.options ?? []}
+          answered={answered}
+          disabled={!canAnswer}
+          onAnswer={canAnswer ? (answer) => onAnswerAskUser?.(part.toolCallId, answer) : undefined}
+        />
       </div>
     </div>
   );

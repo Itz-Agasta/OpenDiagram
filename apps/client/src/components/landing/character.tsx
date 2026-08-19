@@ -8,7 +8,7 @@ interface ParagraphProps {
   highlightWords?: string[];
 }
 
-export default function Paragraph({ value, style }: ParagraphProps) {
+export default function Paragraph({ value, style, highlightWords = [] }: ParagraphProps) {
   const element = useRef<HTMLParagraphElement>(null);
   const { scrollYProgress } = useScroll({
     target: element,
@@ -16,15 +16,26 @@ export default function Paragraph({ value, style }: ParagraphProps) {
   });
 
   const tokens = value.split(/(\s+|:[a-zA-Z0-9_]+:)/g).filter(Boolean);
+  const normalizedHighlights = highlightWords.map((w) => w.toLowerCase());
 
   return (
     <p className={`${style} flex flex-wrap justify-center relative`} ref={element}>
       {tokens.map((token, i) => {
         const start = i / tokens.length;
         const end = start + 1 / tokens.length;
+        const cleanToken = token
+          .trim()
+          .replace(/^[^\w]+|[^\w]+$/g, "")
+          .toLowerCase();
+        const isHighlighted = normalizedHighlights.includes(cleanToken);
 
         return (
-          <Word key={i} range={[start, end]} progress={scrollYProgress}>
+          <Word
+            key={i}
+            range={[start, end]}
+            progress={scrollYProgress}
+            isHighlighted={isHighlighted}
+          >
             {token}
           </Word>
         );
@@ -69,11 +80,13 @@ interface CharacterProps {
 
 const Character = ({ children, range, progress, isHighlighted }: CharacterProps) => {
   const opacity = useTransform(progress, range, [0, 1]);
-  const colorClass = isHighlighted ? "text-blue-600" : "text-black";
+  const colorClass = isHighlighted ? "text-blue-600" : "";
 
   return (
     <span className="relative">
-      <span className={`absolute opacity-10 ${colorClass}`}>{children}</span>
+      <span className={`absolute opacity-10 ${colorClass}`} aria-hidden="true">
+        {children}
+      </span>
       <motion.span className={`relative ${colorClass}`} style={{ opacity }}>
         {children}
       </motion.span>

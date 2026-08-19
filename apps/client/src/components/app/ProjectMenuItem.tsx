@@ -16,6 +16,7 @@ import {
   createProjectFile,
   updateProjectFile,
   deleteProjectFile,
+  cancelProjectFilePatch,
 } from "#/lib/api";
 import type { Project, ProjectFile } from "#/lib/types";
 import { HeroButton, CustomButton } from "#/components/ui/button";
@@ -149,6 +150,7 @@ export const ProjectMenuItem = ({ project, isFirst }: { project: Project; isFirs
 
   const handleDeleteFile = () => {
     if (!selectedFile) return;
+    cancelProjectFilePatch(selectedFile.id);
     toastManager.promise(deleteProjectFile(project.id, selectedFile.id), {
       loading: {
         title: "Deleting file...",

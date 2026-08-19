@@ -79,6 +79,15 @@ body {
   transition: max-width 0.2s ease-in-out !important;
 }
 
+/* Glass on these classes, not Tailwind — overflow:hidden + bg-white/70 on the
+   same node (and painting the panel before the canvas) made the frost a solid card. */
+.assistant-panel,
+.assistant-bar {
+  background: rgba(255, 255, 255, 0.7) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+}
+
 /* Adjust max-width dynamically based on sidebar state to prevent overlap with left controls on smaller screens */
 .excalidraw-container-sidebar-open .assistant-bar,
 .excalidraw-container-sidebar-open .assistant-panel {

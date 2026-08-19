@@ -1,15 +1,16 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import {
   projectQueryOptions,
   projectFileQueryOptions,
   projectFilesQueryOptions,
-  updateProjectFile,
   createProjectFile,
 } from "#/lib/api";
+import { useApplyDrawDiagram } from "#/hooks/useApplyDrawDiagram";
+import { useChatThread } from "#/hooks/useChatThread";
+import { useDiagramChat } from "#/hooks/useDiagramChat";
+import { useSceneAutosave } from "#/hooks/useSceneAutosave";
 import {
   ArrowLeftIcon,
   ShapesIcon,
@@ -24,29 +25,15 @@ import { HeroButton, CustomButton } from "#/components/ui/button";
 import { Whiteboard } from "#/components/whiteboard/Whiteboard";
 import { AssistantBar } from "#/components/workspace/AssistantBar";
 import { AssistantPanel } from "#/components/workspace/AssistantPanel";
+import { sceneToInitialData } from "#/lib/utils/excalidraw-utils";
+import { parseCanvasDiagrams, type CanvasDiagram } from "#/lib/utils/canvas-diagrams";
+import { pendingAskUser } from "#/lib/utils/diagram-chat";
 import {
-  applyDiagramToCanvas,
-  sanitizeSceneAppState,
-  sceneElementsVersion,
-  sceneToInitialData,
-} from "#/lib/utils/excalidraw-utils";
-import {
-  parseCanvasDiagrams,
-  upsertCanvasDiagram,
-  toPromptDiagrams,
-  type CanvasDiagram,
-} from "#/lib/utils/canvas-diagrams";
-import {
-  fetchDiagramChat,
-  isDrawDiagramPart,
-  pendingAskUser,
-  stripDrawDiagramOutput,
-  type DrawDiagramInput,
-  type DrawDiagramOutput,
-} from "#/lib/utils/diagram-chat";
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
-const SCENE_AUTOSAVE_MS = 2000;
+  normalizeStoredChatHistory,
+  storedChatMessageToUIMessage,
+  type StoredChatMessage,
+} from "#/lib/utils/chat-history";
+import { getPendingFiles, clearPendingFiles, type OfflinePendingFile } from "#/lib/utils";
 
 export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId")({
   validateSearch: (
@@ -67,28 +54,17 @@ function WorkspaceRouteComponent() {
   const queryClient = useQueryClient();
   const [selectedModel, setSelectedModel] = useState<string | null>(searchModelId || null);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(searchProviderId || null);
-
-  const selectedModelRef = useRef<string | null>(searchModelId || null);
-  const selectedProviderRef = useRef<string | null>(searchProviderId || null);
-
-  useEffect(() => {
-    selectedModelRef.current = selectedModel;
-  }, [selectedModel]);
-
-  useEffect(() => {
-    selectedProviderRef.current = selectedProvider;
-  }, [selectedProvider]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAssistantMaximized, setIsAssistantMaximized] = useState(false);
   const [assistantInput, setAssistantInput] = useState("");
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
-  const [applyError, setApplyError] = useState<string | null>(null);
   const [canvasSeed, setCanvasSeed] = useState<{ fileId: string; data: unknown } | null>(null);
   const [isHistorySeeded, setIsHistorySeeded] = useState(false);
-  const lastMessagesCountRef = useRef(0);
+  const [threadMessages, setThreadMessages] = useState<StoredChatMessage[] | null>(null);
   const initTriggeredRef = useRef(false);
+  const openedForAskRef = useRef<string | null>(null);
 
-  const navigate = useNavigate();
+  const navigate = useNavigate({ from: Route.fullPath });
   const toastManager = useKumoToastManager();
 
   // Create File State
@@ -135,37 +111,47 @@ function WorkspaceRouteComponent() {
   );
   const { data: files, isLoading: isFilesLoading } = useQuery(projectFilesQueryOptions(projectId));
 
-  // Canvas diagrams ref
+  const handleThreadMessages = useCallback((messages: StoredChatMessage[] | null) => {
+    setThreadMessages(messages);
+  }, []);
+
+  const { persistTurn, threadLoaded } = useChatThread({
+    projectId,
+    fileId: workspaceId,
+    onMessagesLoaded: handleThreadMessages,
+  });
+
   const diagramsRef = useRef<CanvasDiagram[]>([]);
+  const skippedMessageIdsRef = useRef(new Set<string>());
+  const { handleSceneChange, markSeeded, commitAppliedScene } = useSceneAutosave(
+    projectId,
+    workspaceId,
+  );
 
-  // Update diagrams ref when activeFile query loads new data
+  // File switch: wipe per-file UI state. Chat/apply/autosave reset themselves
+  // from `fileId`. Canvas remounts via `Whiteboard key={workspaceId}`.
   useEffect(() => {
-    if (activeFile?.spec && typeof activeFile.spec === "object") {
-      diagramsRef.current = parseCanvasDiagrams(activeFile.spec);
-    } else {
-      diagramsRef.current = [];
-    }
-  }, [activeFile]);
-
-  const lastSavedSceneVersionRef = useRef("");
-  const pendingSceneRef = useRef<unknown>(null);
-  const sceneSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sceneSaveInFlightRef = useRef(false);
-
-  // Seed the canvas once per file. Do not depend on activeFile identity —
-  // a refetch after autosave must not remount Excalidraw and wipe the scene.
-  useEffect(() => {
+    diagramsRef.current = [];
+    skippedMessageIdsRef.current.clear();
     setCanvasSeed(null);
-    lastSavedSceneVersionRef.current = "";
-    pendingSceneRef.current = null;
     setIsHistorySeeded(false);
+    setThreadMessages(null);
     initTriggeredRef.current = false;
-    if (sceneSaveTimerRef.current) {
-      clearTimeout(sceneSaveTimerRef.current);
-      sceneSaveTimerRef.current = null;
-    }
+    openedForAskRef.current = null;
   }, [workspaceId]);
 
+  // Seed the in-memory diagram list from the file spec, only while empty, so
+  // a refetch after autosave cannot wipe a draw that is not written back yet.
+  useEffect(() => {
+    if (isActiveFileLoading) return;
+    if (diagramsRef.current.length > 0) return;
+    const seeded = parseCanvasDiagrams(activeFile?.spec);
+    if (seeded.length === 0) return;
+    diagramsRef.current = seeded;
+  }, [activeFile?.spec, isActiveFileLoading]);
+
+  // Mount Excalidraw once the file fetch settles. Do not depend on `scene`:
+  // a later PATCH refetch would remount the canvas and drop in-progress edits.
   useEffect(() => {
     if (isActiveFileLoading) return;
     let cancelled = false;
@@ -176,104 +162,113 @@ function WorkspaceRouteComponent() {
       const elements = Array.isArray((data as { elements?: unknown })?.elements)
         ? ((data as { elements: unknown[] }).elements as unknown[])
         : [];
-      lastSavedSceneVersionRef.current = sceneElementsVersion(elements);
+      markSeeded(elements);
       setCanvasSeed({ fileId, data });
     });
     return () => {
       cancelled = true;
     };
-    // Seed once the file fetch settles. Do not list `scene` — a later PATCH
-    // refetch would remount the canvas and drop in-progress edits.
-  }, [workspaceId, isActiveFileLoading]);
+  }, [workspaceId, isActiveFileLoading, markSeeded]);
 
-  // Vercel AI SDK useChat Hook with custom transport
-  const transport = useRef<DefaultChatTransport<any> | null>(null);
-  if (!transport.current) {
-    transport.current = new DefaultChatTransport<any>({
-      api: `${SERVER_URL.replace(/\/$/, "")}/api/diagram/chat`,
-      body: () => ({
-        diagrams: toPromptDiagrams(diagramsRef.current),
-        theme: "sketch",
-        modelId: selectedModelRef.current || undefined,
-        providerId: selectedProviderRef.current || undefined,
-      }),
-      prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
-        body: { ...body, id, messages: stripDrawDiagramOutput(messages), trigger, messageId },
-      }),
-      fetch: fetchDiagramChat as typeof fetch,
-    });
-  }
-
-  const chat = useChat({
-    transport: transport.current,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  const chat = useDiagramChat({
+    fileId: workspaceId,
+    diagramsRef,
+    modelId: selectedModel,
+    providerId: selectedProvider,
+    persistTurn,
   });
-  // 1. Seed chat messages from activeFile history when activeFile finishes loading.
+
+  const { applyError, setApplyError } = useApplyDrawDiagram({
+    messages: chat.messages,
+    excalidrawAPI,
+    isHistorySeeded,
+    skippedMessageIdsRef,
+    diagramsRef,
+    projectId,
+    fileId: workspaceId,
+    onApplied: commitAppliedScene,
+  });
+
+  // Load chat once: thread if present, else the legacy `file.history` column
+  // (and migrate that onto a thread). Those message ids are skipped by apply
+  // so reloaded drawings are not painted a second time.
   useEffect(() => {
-    if (!activeFile || isHistorySeeded) return;
+    if (!threadLoaded || isActiveFileLoading || isHistorySeeded) return;
+
+    const stored =
+      threadMessages !== null ? threadMessages : normalizeStoredChatHistory(activeFile?.history);
+
+    const next = stored.map(storedChatMessageToUIMessage);
+    chat.setMessages(next);
+    skippedMessageIdsRef.current = new Set(next.map((message) => message.id));
     setIsHistorySeeded(true);
 
-    if (activeFile.history && activeFile.history.length > 0) {
-      chat.setMessages(activeFile.history);
-      lastMessagesCountRef.current = activeFile.history.length;
-    } else {
-      chat.setMessages([]);
-      lastMessagesCountRef.current = 0;
+    if (threadMessages === null && next.length > 0) {
+      void persistTurn(next);
     }
-  }, [activeFile, isHistorySeeded, chat.setMessages]);
+  }, [
+    threadLoaded,
+    threadMessages,
+    isActiveFileLoading,
+    isHistorySeeded,
+    activeFile?.history,
+    chat.setMessages,
+    persistTurn,
+  ]);
 
-  // 2. Persist chat messages to backend when chat is not loading and the number of messages changes.
-  useEffect(() => {
-    const isChatLoading = chat.status === "streaming" || chat.status === "submitted";
-    if (chat.messages.length === 0 || isChatLoading) return;
-    if (chat.messages.length === lastMessagesCountRef.current) return;
-    lastMessagesCountRef.current = chat.messages.length;
-
-    void updateProjectFile(projectId, workspaceId, {
-      history: chat.messages,
-    }).catch(console.error);
-  }, [chat.messages, chat.status, projectId, workspaceId]);
-
-  // 3. Trigger initial prompt if redirecting from App.tsx.
+  // Landing-page handoff: `?init=true` plus a prompt stashed in localStorage.
+  // Wait for history seed so `setMessages` cannot wipe this first send.
   useEffect(() => {
     if (!init || initTriggeredRef.current || !isHistorySeeded) return;
 
     const pendingPrompt = localStorage.getItem("pending_agent_prompt");
-    const pendingFilesRaw = localStorage.getItem("pending_agent_files");
-    if (pendingPrompt) {
-      initTriggeredRef.current = true;
-      localStorage.removeItem("pending_agent_prompt");
-      localStorage.removeItem("pending_agent_files");
-      void navigate({ search: {}, replace: true });
+    const checkHandoff = async () => {
+      let files: OfflinePendingFile[] | undefined = undefined;
+      let hasFiles = false;
 
-      let files = undefined;
-      if (pendingFilesRaw) {
+      try {
+        const idbFiles = await getPendingFiles();
+        if (idbFiles && idbFiles.length > 0) {
+          files = idbFiles;
+          hasFiles = true;
+        }
+      } catch (e) {
+        console.error("Failed to read IndexedDB pending files", e);
+      }
+
+      const pendingFilesRaw = localStorage.getItem("pending_agent_files");
+      if (!hasFiles && pendingFilesRaw) {
         try {
-          files = JSON.parse(pendingFilesRaw) as {
-            type: "file";
-            mediaType: string;
-            filename: string;
-            url: string;
-          }[];
+          files = JSON.parse(pendingFilesRaw) as OfflinePendingFile[];
+          hasFiles = true;
         } catch (e) {
           console.error("Failed to parse pending files from localStorage", e);
         }
       }
 
-      void chat.sendMessage({ text: pendingPrompt, files });
-    }
+      if (pendingPrompt !== null || hasFiles) {
+        initTriggeredRef.current = true;
+        localStorage.removeItem("pending_agent_prompt");
+        localStorage.removeItem("pending_agent_files");
+        void clearPendingFiles().catch(console.error);
+
+        setIsAssistantMaximized(true);
+        void navigate({
+          search: (prev: any) => {
+            const { init: _, ...rest } = prev;
+            return rest;
+          },
+          replace: true,
+        });
+
+        void chat.sendMessage({ text: pendingPrompt || "", files });
+      }
+    };
+
+    void checkHandoff();
   }, [init, isHistorySeeded, chat.sendMessage, navigate]);
 
-  const appliedToolCallsRef = useRef(new Set<string>());
-  const applyChainRef = useRef<Promise<void>>(Promise.resolve());
-
-  useEffect(() => {
-    appliedToolCallsRef.current.clear();
-    applyChainRef.current = Promise.resolve();
-    setApplyError(null);
-  }, [workspaceId]);
-
-  // Hook errors from diagram chat and notify the user via toasts
+  // Quota / credit / rate-limit are typed errors from `fetchDiagramChat`.
   useEffect(() => {
     if (!chat.error) return;
 
@@ -301,126 +296,23 @@ function WorkspaceRouteComponent() {
     }
   }, [chat.error, toastManager]);
 
-  // Apply completed draw_diagram tool outputs onto the canvas, in order.
-  useEffect(() => {
-    if (!excalidrawAPI) return;
-
-    for (const message of chat.messages) {
-      if (message.role !== "assistant") continue;
-
-      for (const part of message.parts) {
-        if (!isDrawDiagramPart(part) || part.state !== "output-available") continue;
-        if (appliedToolCallsRef.current.has(part.toolCallId)) continue;
-
-        const output = part.output as DrawDiagramOutput | undefined;
-        const skeletons = output?.skeletons;
-        if (!skeletons) continue;
-
-        appliedToolCallsRef.current.add(part.toolCallId);
-        const { targetId, ...spec } = (part.input ?? {}) as DrawDiagramInput;
-
-        const replaceFrameId =
-          targetId && diagramsRef.current.some((d) => d.id === targetId) ? targetId : null;
-
-        applyChainRef.current = applyChainRef.current.then(async () => {
-          try {
-            const { frameId } = await applyDiagramToCanvas(
-              excalidrawAPI,
-              skeletons,
-              output.rawElements || [],
-              { replaceFrameId },
-            );
-
-            if (!frameId) return;
-
-            const base = replaceFrameId
-              ? diagramsRef.current.filter((d) => d.id !== replaceFrameId)
-              : diagramsRef.current;
-
-            const updated = upsertCanvasDiagram(base, {
-              id: frameId,
-              title: spec.title || "Untitled",
-              spec,
-            });
-
-            diagramsRef.current = updated;
-            setApplyError(null);
-
-            const scene = {
-              elements: excalidrawAPI.getSceneElements(),
-              appState: sanitizeSceneAppState(excalidrawAPI.getAppState()),
-              files: excalidrawAPI.getFiles?.() ?? {},
-            };
-            lastSavedSceneVersionRef.current = sceneElementsVersion(scene.elements);
-            pendingSceneRef.current = null;
-            if (sceneSaveTimerRef.current) {
-              clearTimeout(sceneSaveTimerRef.current);
-              sceneSaveTimerRef.current = null;
-            }
-
-            await updateProjectFile(projectId, workspaceId, {
-              spec: { diagrams: updated } as never,
-              scene: scene as never,
-            });
-            queryClient.invalidateQueries({
-              queryKey: ["projects", projectId, "files", workspaceId],
-            });
-          } catch (err) {
-            appliedToolCallsRef.current.delete(part.toolCallId);
-            setApplyError(err instanceof Error ? err.message : "Failed to draw on canvas");
-          }
-        });
-      }
-    }
-  }, [chat.messages, excalidrawAPI, projectId, workspaceId, queryClient]);
-
-  const flushSceneSave = () => {
-    const scene = pendingSceneRef.current;
-    if (!scene || sceneSaveInFlightRef.current) return;
-    sceneSaveInFlightRef.current = true;
-    pendingSceneRef.current = null;
-    void updateProjectFile(projectId, workspaceId, { scene: scene as never })
-      .catch(() => {
-        pendingSceneRef.current = scene;
-      })
-      .finally(() => {
-        sceneSaveInFlightRef.current = false;
-        if (pendingSceneRef.current) flushSceneSave();
-      });
-  };
-
-  const handleSceneChange = (elements: readonly unknown[], appState: unknown, files: unknown) => {
-    const version = sceneElementsVersion(elements);
-    if (version === lastSavedSceneVersionRef.current) return;
-    lastSavedSceneVersionRef.current = version;
-    pendingSceneRef.current = {
-      elements,
-      appState: sanitizeSceneAppState(appState),
-      files,
-    };
-    if (sceneSaveTimerRef.current) return;
-    sceneSaveTimerRef.current = setTimeout(() => {
-      sceneSaveTimerRef.current = null;
-      flushSceneSave();
-    }, SCENE_AUTOSAVE_MS);
-  };
-
-  useEffect(() => {
-    const onHide = () => {
-      if (document.visibilityState !== "hidden") return;
-      if (sceneSaveTimerRef.current) {
-        clearTimeout(sceneSaveTimerRef.current);
-        sceneSaveTimerRef.current = null;
-      }
-      flushSceneSave();
-    };
-    document.addEventListener("visibilitychange", onHide);
-    return () => document.removeEventListener("visibilitychange", onHide);
-  }, [projectId, workspaceId]);
-
   const answerAskUser = (toolCallId: string, answer: string) => {
     chat.addToolOutput({ tool: "ask_user", toolCallId, output: answer });
   };
+
+  const pendingAsk = pendingAskUser(chat.messages);
+
+  // `ask_user` is a client tool: open the panel once per question so chips
+  // are visible. The turn continues when the user answers via `addToolOutput`.
+  useEffect(() => {
+    if (!pendingAsk) {
+      openedForAskRef.current = null;
+      return;
+    }
+    if (openedForAskRef.current === pendingAsk.toolCallId) return;
+    openedForAskRef.current = pendingAsk.toolCallId;
+    setIsAssistantMaximized(true);
+  }, [pendingAsk?.toolCallId]);
 
   const handleAssistantSubmit = () => {
     const text = assistantInput.trim();
@@ -574,7 +466,24 @@ function WorkspaceRouteComponent() {
         </button>
       )}
 
-      {/* AI Assistant Overlay/Bar */}
+      {/* Canvas first so the glass assistant composites over the diagram. */}
+      <div className="w-full h-full relative z-0 overflow-hidden bg-white">
+        {canvasSeed && canvasSeed.fileId === workspaceId ? (
+          <Whiteboard
+            key={workspaceId}
+            onAPIReady={setExcalidrawAPI}
+            onChange={handleSceneChange}
+            initialData={canvasSeed.data}
+          />
+        ) : (
+          <div className="h-full w-full bg-gray-50 flex items-center justify-center">
+            <span className="text-gray-400 text-sm font-medium animate-pulse">
+              Loading canvas...
+            </span>
+          </div>
+        )}
+      </div>
+
       {isAssistantMaximized ? (
         <AssistantPanel
           messages={chat.messages}
@@ -582,7 +491,7 @@ function WorkspaceRouteComponent() {
           handleInputChange={(e) => setAssistantInput(e.target.value)}
           handleSubmit={handlePanelSubmit}
           setInput={setAssistantInput}
-          onClose={() => setIsSidebarCollapsed(true)}
+          onClose={() => setIsAssistantMaximized(false)}
           isLoading={chat.status === "streaming" || chat.status === "submitted"}
           onAnswerAskUser={answerAskUser}
           error={chat.error?.message ?? null}
@@ -602,26 +511,19 @@ function WorkspaceRouteComponent() {
           onMaximize={() => setIsAssistantMaximized(true)}
           onSubmit={handleAssistantSubmit}
           placeholder={lastUserMessage}
+          pendingAsk={
+            pendingAsk?.input?.question
+              ? {
+                  toolCallId: pendingAsk.toolCallId,
+                  question: pendingAsk.input.question,
+                  options: pendingAsk.input.options ?? [],
+                }
+              : null
+          }
+          onAnswerAskUser={answerAskUser}
         />
       )}
 
-      {/* Main Canvas Area */}
-      <div className="w-full h-full relative overflow-hidden bg-white">
-        {canvasSeed?.fileId === workspaceId ? (
-          <Whiteboard
-            key={workspaceId}
-            onAPIReady={setExcalidrawAPI}
-            onChange={handleSceneChange}
-            initialData={canvasSeed.data}
-          />
-        ) : (
-          <div className="h-full w-full bg-gray-50 flex items-center justify-center">
-            <span className="text-gray-400 text-sm font-medium animate-pulse">
-              Loading canvas...
-            </span>
-          </div>
-        )}
-      </div>
       {/* Create File Dialog */}
       <Dialog.Root open={isCreateFileOpen} onOpenChange={setIsCreateFileOpen}>
         <Dialog size="base">
