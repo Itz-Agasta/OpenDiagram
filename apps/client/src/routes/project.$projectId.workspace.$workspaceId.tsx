@@ -33,6 +33,7 @@ import {
   storedChatMessageToUIMessage,
   type StoredChatMessage,
 } from "#/lib/utils/chat-history";
+import { getPendingFiles, clearPendingFiles, type OfflinePendingFile } from "#/lib/utils";
 
 export const Route = createFileRoute("/project/$projectId/workspace/$workspaceId")({
   validateSearch: (
@@ -221,36 +222,50 @@ function WorkspaceRouteComponent() {
     if (!init || initTriggeredRef.current || !isHistorySeeded) return;
 
     const pendingPrompt = localStorage.getItem("pending_agent_prompt");
-    const pendingFilesRaw = localStorage.getItem("pending_agent_files");
-    if (pendingPrompt) {
-      initTriggeredRef.current = true;
-      localStorage.removeItem("pending_agent_prompt");
-      localStorage.removeItem("pending_agent_files");
-      setIsAssistantMaximized(true);
-      void navigate({
-        search: (prev: any) => {
-          const { init: _, ...rest } = prev;
-          return rest;
-        },
-        replace: true,
-      });
+    const checkHandoff = async () => {
+      let files: OfflinePendingFile[] | undefined = undefined;
+      let hasFiles = false;
 
-      let files = undefined;
-      if (pendingFilesRaw) {
+      try {
+        const idbFiles = await getPendingFiles();
+        if (idbFiles && idbFiles.length > 0) {
+          files = idbFiles;
+          hasFiles = true;
+        }
+      } catch (e) {
+        console.error("Failed to read IndexedDB pending files", e);
+      }
+
+      const pendingFilesRaw = localStorage.getItem("pending_agent_files");
+      if (!hasFiles && pendingFilesRaw) {
         try {
-          files = JSON.parse(pendingFilesRaw) as {
-            type: "file";
-            mediaType: string;
-            filename: string;
-            url: string;
-          }[];
+          files = JSON.parse(pendingFilesRaw) as OfflinePendingFile[];
+          hasFiles = true;
         } catch (e) {
           console.error("Failed to parse pending files from localStorage", e);
         }
       }
 
-      void chat.sendMessage({ text: pendingPrompt, files });
-    }
+      if (pendingPrompt !== null || hasFiles) {
+        initTriggeredRef.current = true;
+        localStorage.removeItem("pending_agent_prompt");
+        localStorage.removeItem("pending_agent_files");
+        void clearPendingFiles().catch(console.error);
+
+        setIsAssistantMaximized(true);
+        void navigate({
+          search: (prev: any) => {
+            const { init: _, ...rest } = prev;
+            return rest;
+          },
+          replace: true,
+        });
+
+        void chat.sendMessage({ text: pendingPrompt || "", files });
+      }
+    };
+
+    void checkHandoff();
   }, [init, isHistorySeeded, chat.sendMessage, navigate]);
 
   // Quota / credit / rate-limit are typed errors from `fetchDiagramChat`.

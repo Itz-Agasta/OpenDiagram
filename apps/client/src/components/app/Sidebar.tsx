@@ -12,6 +12,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectsQueryOptions, createProject, authClient } from "#/lib/api";
+import { clearAiSettingsCache } from "#/lib/api/settings-client";
 import { getInitials } from "#/lib/utils";
 import { HeroButton, CustomButton } from "#/components/ui/button";
 import { useState } from "react";
@@ -73,8 +74,10 @@ export const SideBar = ({
         onSuccess: () => {
           // Clear session in place so App stays on the same SideBar instance
           // (avoids remount that would drop this dialog's open state).
+          clearAiSettingsCache();
           queryClient.setQueryData(["auth", "session"], null);
           queryClient.removeQueries({ queryKey: ["projects"] });
+          queryClient.removeQueries({ queryKey: ["settings"] });
           setIsLoggedOutOpen(true);
         },
       },

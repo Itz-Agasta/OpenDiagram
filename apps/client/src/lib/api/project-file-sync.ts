@@ -40,6 +40,14 @@ export function queueProjectFilePatch(
   return entry.promise;
 }
 
+export function cancelProjectFilePatch(fileId: string): void {
+  const entry = pending.get(fileId);
+  if (entry) {
+    pending.delete(fileId);
+    entry.reject(new Error("Cancelled"));
+  }
+}
+
 async function drain(fileId: string): Promise<void> {
   if (inFlight.has(fileId)) return;
   inFlight.add(fileId);

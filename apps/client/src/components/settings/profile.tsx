@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient, sessionQueryOptions } from "#/lib/api";
+import { clearAiSettingsCache } from "#/lib/api/settings-client";
 import { getInitials } from "#/lib/utils";
 import { CustomButton } from "#/components/ui/button";
 import { useKumoToastManager } from "@cloudflare/kumo";
@@ -43,7 +44,11 @@ export function SettingsProfileCard() {
   async function signOut() {
     setSignOutPending(true);
     try {
-      await authClient.signOut();
+      const { error } = await authClient.signOut();
+      if (error) {
+        throw new Error(error.message ?? "Could not sign out.");
+      }
+      clearAiSettingsCache();
       queryClient.clear();
       toastManager.add({
         title: "Signed out",

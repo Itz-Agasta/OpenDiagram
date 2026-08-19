@@ -111,9 +111,9 @@ export async function disconnectProvider(id: string): Promise<void> {
   clearAiSettingsCache();
 }
 
-export const aiSettingsQueryOptions = (enabled: boolean) =>
+export const aiSettingsQueryOptions = (userId: string | undefined, enabled: boolean) =>
   queryOptions({
-    queryKey: ["settings", "ai"],
+    queryKey: ["settings", "ai", userId ?? ""],
     queryFn: getAiSettings,
-    enabled,
+    enabled: enabled && !!userId,
   });

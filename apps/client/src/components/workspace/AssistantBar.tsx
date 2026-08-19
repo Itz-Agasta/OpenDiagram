@@ -35,7 +35,10 @@ export function AssistantBar({
           <AskUserChips
             question={pendingAsk.question}
             options={pendingAsk.options}
-            onAnswer={(answer) => onAnswerAskUser?.(pendingAsk.toolCallId, answer)}
+            onAnswer={(answer) => {
+              onChange("");
+              onAnswerAskUser?.(pendingAsk.toolCallId, answer);
+            }}
           />
         </div>
       )}

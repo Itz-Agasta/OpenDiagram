@@ -20,23 +20,9 @@ export function useSceneAutosave(projectId: string, fileId: string) {
   const sceneSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sceneSaveInFlightRef = useRef(false);
 
-  const flushSceneSave = useCallback(() => {
-    const scene = pendingSceneRef.current;
-    if (!scene || sceneSaveInFlightRef.current) return;
-    sceneSaveInFlightRef.current = true;
-    pendingSceneRef.current = null;
-    void queueProjectFilePatch(projectId, fileId, { scene: scene as never }, "meta")
-      .catch(() => {
-        pendingSceneRef.current = scene;
-      })
-      .finally(() => {
-        sceneSaveInFlightRef.current = false;
-        if (pendingSceneRef.current) flushSceneSave();
-      });
-  }, [fileId, projectId]);
-
-  // Drop a pending write when the open file changes so it cannot land on the next one.
+  const fileIdRef = useRef(fileId);
   useEffect(() => {
+    fileIdRef.current = fileId;
     lastSavedSceneVersionRef.current = "";
     pendingSceneRef.current = null;
     sceneSaveInFlightRef.current = false;
@@ -45,6 +31,30 @@ export function useSceneAutosave(projectId: string, fileId: string) {
       sceneSaveTimerRef.current = null;
     }
   }, [fileId]);
+
+  const flushSceneSave = useCallback(() => {
+    const scene = pendingSceneRef.current;
+    if (!scene || sceneSaveInFlightRef.current) return;
+    sceneSaveInFlightRef.current = true;
+    pendingSceneRef.current = null;
+    const activeFileId = fileId;
+
+    void queueProjectFilePatch(projectId, activeFileId, { scene: scene as never }, "meta")
+      .catch(() => {
+        if (fileIdRef.current === activeFileId) {
+          pendingSceneRef.current ??= scene;
+        }
+      })
+      .finally(() => {
+        if (fileIdRef.current === activeFileId) {
+          sceneSaveInFlightRef.current = false;
+          if (pendingSceneRef.current) {
+            if (sceneSaveTimerRef.current) clearTimeout(sceneSaveTimerRef.current);
+            sceneSaveTimerRef.current = setTimeout(flushSceneSave, SCENE_AUTOSAVE_MS);
+          }
+        }
+      });
+  }, [fileId, projectId]);
 
   // Last chance to persist unsaved edits when the tab is backgrounded.
   useEffect(() => {

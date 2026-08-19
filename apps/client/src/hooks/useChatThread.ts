@@ -13,7 +13,12 @@ export function useChatThread(options: {
   const { projectId, fileId, onMessagesLoaded } = options;
   const [threadLoaded, setThreadLoaded] = useState(false);
 
-  const savedIdsRef = useRef(new Set<string>());
+  const fileIdRef = useRef(fileId);
+  useEffect(() => {
+    fileIdRef.current = fileId;
+  }, [fileId]);
+
+  const savedMessagesRef = useRef(new Map<string, string>());
   const threadIdRef = useRef<string | null>(null);
   const persistChainRef = useRef<Promise<void>>(Promise.resolve());
   const switchRef = useRef(0);
@@ -30,7 +35,9 @@ export function useChatThread(options: {
         messages: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[];
       } | null,
     ) => {
-      savedIdsRef.current = new Set(thread?.messages.map((message) => message.clientId) ?? []);
+      savedMessagesRef.current = new Map(
+        thread?.messages.map((message) => [message.clientId, JSON.stringify(message.parts)]) ?? [],
+      );
       threadIdRef.current = thread?.id ?? null;
       setThreadLoaded(true);
 
@@ -55,7 +62,7 @@ export function useChatThread(options: {
     const generation = ++switchRef.current;
     setThreadLoaded(false);
     threadIdRef.current = null;
-    savedIdsRef.current = new Set();
+    savedMessagesRef.current = new Map();
 
     void getActiveThread(projectId, fileId)
       .then((thread) => {
@@ -70,11 +77,14 @@ export function useChatThread(options: {
     async (messages: UIMessage[]) => {
       if (!projectId || !fileId) return;
 
+      const activeFileId = fileId;
       const unsaved: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[] = [];
       for (const message of messages) {
         const entry = uiMessageToStoredChatMessage(message);
         if (!entry) continue;
-        if (!savedIdsRef.current.has(message.id) && entry.parts?.length) {
+        const serialized = JSON.stringify(entry.parts);
+        const previous = savedMessagesRef.current.get(message.id);
+        if (previous !== serialized && entry.parts?.length) {
           unsaved.push({
             clientId: entry.id,
             role: entry.role,
@@ -86,21 +96,29 @@ export function useChatThread(options: {
       if (unsaved.length === 0) return;
 
       const run = persistChainRef.current.then(async () => {
+        if (activeFileId !== fileIdRef.current) return;
         try {
           let id = threadIdRef.current;
           if (!id) {
-            const created = await createThread(projectId, fileId);
+            const created = await createThread(projectId, activeFileId);
             id = created.id;
-            threadIdRef.current = id;
+            if (activeFileId === fileIdRef.current) {
+              threadIdRef.current = id;
+            }
           }
 
           for (let start = 0; start < unsaved.length; start += APPEND_BATCH_LIMIT) {
+            if (activeFileId !== fileIdRef.current) return;
             const batch = unsaved.slice(start, start + APPEND_BATCH_LIMIT);
             await appendThreadMessages(projectId, id, batch);
-            for (const message of batch) savedIdsRef.current.add(message.clientId);
+            if (activeFileId === fileIdRef.current) {
+              for (const message of batch) {
+                savedMessagesRef.current.set(message.clientId, JSON.stringify(message.parts));
+              }
+            }
           }
         } catch {
-          // Left unsaved. Next persistTurn retries anything missing a watermark.
+          // Left unsaved. Next persistTurn retries anything missing/outdated.
         }
       });
 

@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useKumoToastManager } from "@cloudflare/kumo";
 import { sessionQueryOptions, createProject, createProjectFile } from "#/lib/api";
+import { savePendingFiles, clearPendingFiles } from "#/lib/utils";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
 
 const TAGLINE_POOL = [
@@ -47,13 +48,20 @@ function RouteComponent() {
     providerId?: string,
   ) => {
     if (!prompt.trim() && (!files || files.length === 0)) return;
+    if (!isAuthenticated) {
+      void navigate({
+        to: "/login",
+        search: { redirect: "/App" },
+      });
+      return;
+    }
 
     try {
       localStorage.setItem("pending_agent_prompt", prompt);
       if (files && files.length > 0) {
-        localStorage.setItem("pending_agent_files", JSON.stringify(files));
+        await savePendingFiles(files);
       } else {
-        localStorage.removeItem("pending_agent_files");
+        await clearPendingFiles();
       }
 
       const firstLine = prompt.trim().split("\n")[0];
@@ -84,7 +92,7 @@ function RouteComponent() {
         variant: "error",
       });
       localStorage.removeItem("pending_agent_prompt");
-      localStorage.removeItem("pending_agent_files");
+      void clearPendingFiles();
       throw err;
     }
   };

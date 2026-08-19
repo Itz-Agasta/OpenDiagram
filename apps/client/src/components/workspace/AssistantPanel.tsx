@@ -65,7 +65,7 @@ export function AssistantPanel({
   onSelectModel,
 }: AssistantPanelProps) {
   const { data: session } = useQuery(sessionQueryOptions);
-  const { data: settings } = useQuery(aiSettingsQueryOptions(!!session?.user));
+  const { data: settings } = useQuery(aiSettingsQueryOptions(session?.user?.id, !!session?.user));
   const modelOptions = settings ? providerModelOptions(settings) : [];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -270,13 +270,14 @@ export function AssistantPanel({
                   const key = `${msg.id}-${partIdx}`;
                   if (part.type === "text" && part.text) {
                     const isLastMessage = index === messages.length - 1;
-                    const lastPart = msg.parts.at(-1);
                     return (
                       <div key={key} className="flex justify-start">
                         <StreamingText
                           text={part.text}
                           className="!text-gray-800 [&>span]:!bg-gray-800"
-                          showCursor={isLastMessage && isLoading && lastPart?.type === "text"}
+                          showCursor={
+                            isLastMessage && isLoading && partIdx === msg.parts.length - 1
+                          }
                         />
                       </div>
                     );

@@ -90,9 +90,9 @@ function GitHubToArchitectureDiagramGeneratorPage() {
               identify its main parts, and review the result as a connected system diagram you can
               edit inside an architecture workspace.
             </p>
-            <a href="/import/github">
+            <Link to="/App">
               <MarketingButton text="Import a repository" color="black" />
-            </a>
+            </Link>
           </div>
         </div>
 

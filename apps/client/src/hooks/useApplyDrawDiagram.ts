@@ -58,6 +58,7 @@ export function useApplyDrawDiagram(options: {
   const applyChainRef = useRef(Promise.resolve());
   const generationRef = useRef(0);
   const onAppliedRef = useRef(onApplied);
+  const lastSeededFileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     onAppliedRef.current = onApplied;
@@ -69,12 +70,21 @@ export function useApplyDrawDiagram(options: {
     appliedToolCallsRef.current.clear();
     applyChainRef.current = Promise.resolve();
     setApplyError(null);
+    lastSeededFileIdRef.current = null;
   }, [fileId]);
+
+  useEffect(() => {
+    if (isHistorySeeded) {
+      lastSeededFileIdRef.current = fileId;
+    } else {
+      lastSeededFileIdRef.current = null;
+    }
+  }, [isHistorySeeded, fileId]);
 
   // Side-effect consumer of UIMessage parts. Cannot run during render:
   // Excalidraw mutate + file PATCH are async.
   useEffect(() => {
-    if (!excalidrawAPI || !isHistorySeeded) return;
+    if (!excalidrawAPI || !isHistorySeeded || lastSeededFileIdRef.current !== fileId) return;
 
     const generation = generationRef.current;
     const skipped = skippedMessageIdsRef.current;
@@ -131,22 +141,26 @@ export function useApplyDrawDiagram(options: {
               appState: sanitizeSceneAppState(excalidrawAPI.getAppState()),
               files: excalidrawAPI.getFiles?.() ?? {},
             };
-            onAppliedRef.current(scene);
+
+            try {
+              await queueProjectFilePatch(
+                projectId,
+                fileId,
+                {
+                  spec: serializeCanvasDiagrams(updated) as never,
+                  scene: scene as never,
+                },
+                "meta",
+              );
+            } catch (err) {
+              if (generation !== generationRef.current) return;
+              appliedToolCallsRef.current.delete(part.toolCallId);
+              setApplyError(err instanceof Error ? err.message : "Failed to save diagram");
+              return;
+            }
 
             if (generation !== generationRef.current) return;
-
-            void queueProjectFilePatch(
-              projectId,
-              fileId,
-              {
-                spec: serializeCanvasDiagrams(updated) as never,
-                scene: scene as never,
-              },
-              "meta",
-            ).catch((err) => {
-              if (generation !== generationRef.current) return;
-              setApplyError(err instanceof Error ? err.message : "Failed to save diagram");
-            });
+            onAppliedRef.current(scene);
           } catch (err) {
             if (generation !== generationRef.current) return;
             appliedToolCallsRef.current.delete(part.toolCallId);
