@@ -165,6 +165,18 @@ billingRoute.post("/checkout", async (c) => {
   }
 
   try {
+    const originHeader = c.req.header("origin") || c.req.header("referer");
+    let requestOrigin: string | null = null;
+    if (originHeader) {
+      try {
+        requestOrigin = new URL(originHeader).origin;
+      } catch {}
+    }
+    const resolvedOrigin = appOrigin(requestOrigin);
+    const isClientApp =
+      env.CORS_ORIGIN.split(",")[1]?.trim() === resolvedOrigin || resolvedOrigin.includes("3002");
+    const returnPath = isClientApp ? "/app" : "/dashboard";
+
     const checkout = await client.checkoutSessions.create({
       product_cart: [{ product_id: env.DODO_PRO_PRODUCT_ID, quantity: 1 }],
       customer: { email: account.email, name: account.name },
@@ -189,7 +201,7 @@ billingRoute.post("/checkout", async (c) => {
         : { feature_flags: { allow_discount_code: false } }),
       // Derived from CORS_ORIGIN rather than its own env var: one more billing
       // variable to forget at deploy time, for a value we already know.
-      return_url: `${appOrigin()}/dashboard?checkout=success`,
+      return_url: `${resolvedOrigin}${returnPath}?checkout=success`,
     });
 
     if (!checkout.checkout_url) {
@@ -245,8 +257,20 @@ billingRoute.post("/portal", async (c) => {
   if (!row) return c.json({ error: "No subscription to manage.", code: "no_subscription" }, 404);
 
   try {
+    const originHeader = c.req.header("origin") || c.req.header("referer");
+    let requestOrigin: string | null = null;
+    if (originHeader) {
+      try {
+        requestOrigin = new URL(originHeader).origin;
+      } catch {}
+    }
+    const resolvedOrigin = appOrigin(requestOrigin);
+    const isClientApp =
+      env.CORS_ORIGIN.split(",")[1]?.trim() === resolvedOrigin || resolvedOrigin.includes("3002");
+    const returnPath = isClientApp ? "/settings" : "/dashboard/settings";
+
     const portal = await client.customers.customerPortal.create(row.dodoCustomerId, {
-      return_url: `${appOrigin()}/dashboard/settings`,
+      return_url: `${resolvedOrigin}${returnPath}`,
     });
     return c.json({ portalUrl: portal.link });
   } catch (error) {

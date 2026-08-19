@@ -10,11 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppRouteImport } from './routes/App'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AiArchitectureDiagramGeneratorRouteImport } from './routes/ai-architecture-diagram-generator'
 import { Route as AiDiagramGeneratorRouteImport } from './routes/ai-diagram-generator'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as BlogsRouteImport } from './routes/blogs'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as GithubToArchitectureDiagramRouteImport } from './routes/github-to-architecture-diagram'
@@ -22,6 +22,7 @@ import { Route as GithubToArchitectureDiagramGeneratorRouteImport } from './rout
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProtectedUserRouteImport } from './routes/_protected/User'
+import { Route as ProtectedPricingRouteImport } from './routes/_protected/pricing'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as ProjectProjectIdWorkspaceWorkspaceIdRouteImport } from './routes/project.$projectId.workspace.$workspaceId'
@@ -30,11 +31,6 @@ import { Route as BlogYearMonthDaySlugRouteImport } from './routes/blog.$year.$m
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/App',
-  path: '/App',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedRoute = ProtectedRouteImport.update({
@@ -55,6 +51,11 @@ const AiArchitectureDiagramGeneratorRoute =
 const AiDiagramGeneratorRoute = AiDiagramGeneratorRouteImport.update({
   id: '/ai-diagram-generator',
   path: '/ai-diagram-generator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogsRoute = BlogsRouteImport.update({
@@ -94,6 +95,11 @@ const ProtectedUserRoute = ProtectedUserRouteImport.update({
   path: '/User',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedPricingRoute = ProtectedPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -118,10 +124,10 @@ const BlogYearMonthDaySlugRoute = BlogYearMonthDaySlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/App': typeof AppRoute
   '/about': typeof AboutRoute
   '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
   '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
+  '/app': typeof AppRoute
   '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
   '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
+  '/pricing': typeof ProtectedPricingRoute
   '/settings': typeof ProtectedSettingsRoute
   '/blog/': typeof BlogIndexRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
@@ -136,10 +143,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/App': typeof AppRoute
   '/about': typeof AboutRoute
   '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
   '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
+  '/app': typeof AppRoute
   '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
   '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/User': typeof ProtectedUserRoute
+  '/pricing': typeof ProtectedPricingRoute
   '/settings': typeof ProtectedSettingsRoute
   '/blog': typeof BlogIndexRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
@@ -155,11 +163,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/App': typeof AppRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
   '/ai-architecture-diagram-generator': typeof AiArchitectureDiagramGeneratorRoute
   '/ai-diagram-generator': typeof AiDiagramGeneratorRoute
+  '/app': typeof AppRoute
   '/blogs': typeof BlogsRoute
   '/features': typeof FeaturesRoute
   '/github-to-architecture-diagram': typeof GithubToArchitectureDiagramRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_protected/User': typeof ProtectedUserRoute
+  '/_protected/pricing': typeof ProtectedPricingRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/blog/': typeof BlogIndexRoute
   '/project/$projectId/workspace/$workspaceId': typeof ProjectProjectIdWorkspaceWorkspaceIdRoute
@@ -176,10 +185,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/App'
     | '/about'
     | '/ai-architecture-diagram-generator'
     | '/ai-diagram-generator'
+    | '/app'
     | '/blogs'
     | '/features'
     | '/github-to-architecture-diagram'
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/User'
+    | '/pricing'
     | '/settings'
     | '/blog/'
     | '/project/$projectId/workspace/$workspaceId'
@@ -194,10 +204,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/App'
     | '/about'
     | '/ai-architecture-diagram-generator'
     | '/ai-diagram-generator'
+    | '/app'
     | '/blogs'
     | '/features'
     | '/github-to-architecture-diagram'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/User'
+    | '/pricing'
     | '/settings'
     | '/blog'
     | '/project/$projectId/workspace/$workspaceId'
@@ -212,11 +223,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/App'
     | '/_protected'
     | '/about'
     | '/ai-architecture-diagram-generator'
     | '/ai-diagram-generator'
+    | '/app'
     | '/blogs'
     | '/features'
     | '/github-to-architecture-diagram'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_protected/User'
+    | '/_protected/pricing'
     | '/_protected/settings'
     | '/blog/'
     | '/project/$projectId/workspace/$workspaceId'
@@ -232,11 +244,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppRoute: typeof AppRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AboutRoute: typeof AboutRoute
   AiArchitectureDiagramGeneratorRoute: typeof AiArchitectureDiagramGeneratorRoute
   AiDiagramGeneratorRoute: typeof AiDiagramGeneratorRoute
+  AppRoute: typeof AppRoute
   BlogsRoute: typeof BlogsRoute
   FeaturesRoute: typeof FeaturesRoute
   GithubToArchitectureDiagramRoute: typeof GithubToArchitectureDiagramRoute
@@ -255,13 +267,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/App': {
-      id: '/App'
-      path: '/App'
-      fullPath: '/App'
-      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected': {
@@ -290,6 +295,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-diagram-generator'
       fullPath: '/ai-diagram-generator'
       preLoaderRoute: typeof AiDiagramGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blogs': {
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedUserRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/pricing': {
+      id: '/_protected/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof ProtectedPricingRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/settings': {
       id: '/_protected/settings'
       path: '/settings'
@@ -374,11 +393,13 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedRouteChildren {
   ProtectedUserRoute: typeof ProtectedUserRoute
+  ProtectedPricingRoute: typeof ProtectedPricingRoute
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedUserRoute: ProtectedUserRoute,
+  ProtectedPricingRoute: ProtectedPricingRoute,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
 }
 
@@ -388,11 +409,11 @@ const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRoute: AppRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
   AiArchitectureDiagramGeneratorRoute: AiArchitectureDiagramGeneratorRoute,
   AiDiagramGeneratorRoute: AiDiagramGeneratorRoute,
+  AppRoute: AppRoute,
   BlogsRoute: BlogsRoute,
   FeaturesRoute: FeaturesRoute,
   GithubToArchitectureDiagramRoute: GithubToArchitectureDiagramRoute,

@@ -9,7 +9,7 @@ export const authClient = createAuthClient({
   },
 });
 
-const DEFAULT_FRONTEND_PATH = "/App";
+const DEFAULT_FRONTEND_PATH = "/app";
 const FRONTEND_PATH_BASE = "https://frontend.opendiagram.invalid";
 
 function hasControlCharacter(value: string): boolean {

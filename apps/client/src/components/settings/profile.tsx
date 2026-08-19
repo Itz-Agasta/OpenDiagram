@@ -12,7 +12,7 @@ export function SettingsHeader() {
   return (
     <header className="mb-8 flex items-center justify-between gap-4 font-geist">
       <Link
-        to="/App"
+        to="/app"
         className="inline-flex min-w-0 items-center gap-2.5 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-gray-900/20"
         aria-label="OpenDiagram home"
       >
@@ -23,7 +23,7 @@ export function SettingsHeader() {
       </Link>
 
       <Link
-        to="/App"
+        to="/app"
         className="inline-flex shrink-0 items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 body-font font-medium"
       >
         Back to dashboard

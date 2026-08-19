@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LockKeyhole } from "lucide-react";
 import { SettingsHeader, SettingsProfileCard } from "#/components/settings/profile";
 import { Providers } from "#/components/settings/providers";
+import { PricingPlans } from "#/components/settings/PricingPlans";
 
 export const Route = createFileRoute("/_protected/settings")({
   component: SettingsPageRoute,
@@ -14,6 +15,14 @@ function SettingsPageRoute() {
         <SettingsHeader />
         <SettingsProfileCard />
 
+        <h1 className="text-2xl font-semibold mb-2 heading-font text-gray-900 mt-10">Plan</h1>
+        <p className="mt-1 mb-6 text-sm text-gray-500 body-font">
+          Your current allowance, and where to upgrade or cancel.
+        </p>
+
+        <div className="mb-10">
+          <PricingPlans />
+        </div>
         <h1 className="text-2xl font-semibold mb-2 heading-font text-gray-900 mt-10">
           AI providers
         </h1>

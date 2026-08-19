@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 export const Hero = () => {
   const navigate = useNavigate();
   const handleHeroButton = () => {
-    navigate({ to: "/App" });
+    navigate({ to: "/app" });
   };
   return (
     <>

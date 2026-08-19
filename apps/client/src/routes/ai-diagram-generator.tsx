@@ -94,7 +94,7 @@ function AIArchitectureDiagramGeneratorPage() {
                 visual draft you can inspect, rearrange, and refine with AI.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link to="/App">
+                <Link to="/app">
                   <MarketingButton text="Create a diagram" color="black" />
                 </Link>
                 <Link to="/features">

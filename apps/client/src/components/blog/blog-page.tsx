@@ -377,7 +377,7 @@ function SuggestedNextActions() {
         <div className="grid gap-6 md:grid-cols-3">
           {/* Action 1 */}
           <Link
-            to="/App"
+            to="/app"
             className="group flex flex-col justify-between rounded-2xl border border-black/[0.08] bg-white p-6 shadow-[0_12px_24px_rgba(0,0,0,0.02)] transition-[border-color,box-shadow] duration-300 hover:border-black/20 hover:shadow-[0_18px_36px_rgba(0,0,0,0.04)]"
             style={{ cursor: "pointer" }}
           >
