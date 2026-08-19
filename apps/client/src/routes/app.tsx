@@ -7,6 +7,7 @@ import { useKumoToastManager } from "@cloudflare/kumo";
 import { sessionQueryOptions, createProject, createProjectFile } from "#/lib/api";
 import { savePendingFiles, clearPendingFiles } from "#/lib/utils";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
+import { CheckoutReturn } from "#/components/billing/CheckoutReturn";
 
 const TAGLINE_POOL = [
   "Describe a vibe, get an architecture.",
@@ -27,6 +28,15 @@ const TAGLINE_POOL = [
 ];
 
 export const Route = createFileRoute("/app")({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { checkout?: string; subscription_id?: string; status?: string } => {
+    return {
+      checkout: (search.checkout as string) || undefined,
+      subscription_id: (search.subscription_id as string) || undefined,
+      status: (search.status as string) || undefined,
+    };
+  },
   component: RouteComponent,
 });
 
@@ -99,6 +109,7 @@ function RouteComponent() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-kumo-base overflow-hidden">
+      <CheckoutReturn />
       {/* Main Body */}
       <Sidebar.Provider
         defaultOpen
