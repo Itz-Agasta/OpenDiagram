@@ -1,15 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ExternalLink, Loader2 } from "lucide-react";
+import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { billingQueryOptions, openBillingPortal, startCheckout } from "#/lib/api/billing-client";
 import { HeroButton } from "#/components/ui/button";
-
-const FREE_FEATURES = [
-  "AI diagrams to start, then a monthly refresh",
-  "Unlimited diagrams with your own AI key",
-  "3 projects",
-  "7-day version history",
-] as const;
 
 function proFeatures(monthlyCredits: number): readonly string[] {
   return [
@@ -43,7 +36,7 @@ function PlanCard({
   price: string;
   priceSuffix?: string;
   tagline: string;
-  features: readonly string[];
+  features: readonly (string | { text: string; locked?: boolean })[];
   highlighted?: boolean;
   children?: React.ReactNode;
 }) {
@@ -68,12 +61,22 @@ function PlanCard({
       <p className="mt-1.5 text-xs text-gray-500 leading-normal">{tagline}</p>
 
       <ul className="mt-6 space-y-2.5 text-sm">
-        {features.map((feature) => (
-          <li key={feature} className="flex gap-2.5">
-            <Check className="mt-0.5 size-4 shrink-0 text-gray-900" aria-hidden="true" />
-            <span className="text-gray-500">{feature}</span>
-          </li>
-        ))}
+        {features.map((feature) => {
+          const isObject = typeof feature !== "string";
+          const text = isObject ? feature.text : feature;
+          const locked = isObject ? feature.locked : false;
+
+          return (
+            <li key={text} className="flex gap-2.5 items-start">
+              {locked ? (
+                <X className="mt-0.5 size-4 shrink-0 text-red-500" aria-hidden="true" />
+              ) : (
+                <Check className="mt-0.5 size-4 shrink-0 text-gray-900" aria-hidden="true" />
+              )}
+              <span className={locked ? "text-gray-400 font-normal" : "text-gray-500"}>{text}</span>
+            </li>
+          );
+        })}
       </ul>
 
       {children && <div className="mt-6">{children}</div>}
@@ -135,7 +138,16 @@ export function PricingPlans() {
           name="Free"
           price="$0"
           tagline="Everything you need to try it properly."
-          features={FREE_FEATURES}
+          features={[
+            { text: "AI diagrams to start, then a monthly refresh" },
+            { text: "Unlimited diagrams with your own AI key" },
+            { text: "3 projects" },
+            { text: "7-day version history" },
+            { text: "GitHub import and codebase understanding", locked: true },
+            { text: "Unlimited projects", locked: true },
+            { text: "90-day version history", locked: true },
+            { text: "Email support", locked: true },
+          ]}
         >
           {!isPro && <p className="text-xs font-semibold text-gray-900">{allowance}</p>}
         </PlanCard>
@@ -145,7 +157,7 @@ export function PricingPlans() {
           price="$8"
           priceSuffix="/ month"
           tagline={`${state.proCredits} AI diagrams. Eraser gives you 40 for $20.`}
-          features={proFeatures(state.proCredits)}
+          features={proFeatures(state.proCredits).map((feature) => ({ text: feature }))}
           highlighted
         >
           {isPro ? (
