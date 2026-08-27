@@ -121,6 +121,14 @@ app.use(
 // request costs one session resolution rather than the two or three it used to.
 app.use("*", resolveSession);
 
+// Hono's default handler answers 500 and discards the error, leaving the wide
+// event a bare status with nothing to debug. Logging through the request's own
+// logger attaches it to that event, which the drain above forwards to Sentry.
+app.onError((error, c) => {
+  c.get("log")?.error(error);
+  return c.json({ error: "Internal server error" }, 500);
+});
+
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api/diagram", diagramRoute);
 app.route("/api/github", githubRoute);
