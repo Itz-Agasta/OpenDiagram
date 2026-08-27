@@ -7,7 +7,7 @@ Bun 1.3 monorepo. `apps/web` Next.js 16 (:3001), `apps/server` Hono (:3000), `ap
 ## Commands
 
 ```bash
-bun run dev:web        # start the two servers SEPARATELY and backgrounded;
+bun run dev:web        # one process each, both backgrounded, started separately:
 bun run dev:server     # the turbo TUI (`bun run dev`) segfaults on this machine
 just check             # oxlint + oxfmt --write
 just types             # tsgo across the workspace
@@ -29,7 +29,7 @@ Run `just check` and `just types` before calling a coding session done.
 - Typed env: import from `@OpenDiagram/env/web` or `@OpenDiagram/env/server`.
 - `packages/db`: never acquire nested DB connections.
 - Interactive controls must look interactive: `cursor: pointer` from the global stylesheet. Only override for disabled/loading (`cursor-wait`, `cursor-not-allowed`).
-- No em dashes, -- or ` `. Prose, comments, commit messages.
+- No em dashes and no `--`. Prose, comments, commit messages.
 - Never guess an API. context7 MCP for known libraries, Exa for obscure packages / platform APIs / specific URLs, ask the user if neither settles it.
 
 ## Harness (packages/harness) - read before touching diagram code
@@ -69,7 +69,7 @@ Bar: a comment carries what the code cannot, at a different level of detail. Sam
 - Write: why this and not the obvious alternative (name it); "we deliberately do NOT X, because Y"; landmines (required call order, cache windows, upstream bugs being worked around); preconditions and side effects on exported API; measured numbers ("2 statements -> 1", never "faster").
 - Don't write: restatements, stack tutorials, banners inside a function, changelogs/dates/author tags, commented-out code, "Note that" / "Basically" / "Obviously". A long comment propping up confusing code means fix the code.
 - **A review finding is not a comment prompt.** Fixed it? The fix is the answer, say nothing. Declined it? That is a reply in chat, not a block above the line. Only the durable half earns ink: the landmine that made it a real risk, or the cheaper approach that is wrong and will be proposed again. Left unchecked this compounds - each review round adds a paragraph, and one call ends up under three blocks restating each other. Tell: the same fact written twice inside one function.
-- **Route handlers:** every route gets an interface comment; a bare `.get(...)` leaves its contract undefined. Write what a caller needs that the route string and the Zod schema beside it don't already carry: who calls this and what for, in the caller's own words (`/** The history dropdown. Metadata only -- no message bodies, no 'spec'. */`), then any contract they could get wrong - a status code that isn't self-evident, an ordering or idempotency guarantee, "the only writer of table X". Never restate method, path, params, or response shape; those already have copies that stay honest, and prose would be one more that nothing checks. Per line, ask whether someone could have written it from the code beside it, and cut it if so. `routes/projects/threads.ts` is the pattern. The 6-line header cap still applies: past it, it is a README section.
+- **Route handlers:** every route gets an interface comment; a bare `.get(...)` leaves its contract undefined. Write what a caller needs that the route string and the Zod schema beside it don't already carry: who calls this and what for, in the caller's own words (`/** The history dropdown. Metadata only, no message bodies, no 'spec'. */`), then any contract they could get wrong - a status code that isn't self-evident, an ordering or idempotency guarantee, "the only writer of table X". Never restate method, path, params, or response shape; those already have copies that stay honest, and prose would be one more that nothing checks. Per line, ask whether someone could have written it from the code beside it, and cut it if so. `routes/projects/threads.ts` is the pattern. The 6-line header cap still applies: past it, it is a README section.
 - Cite sources; our Exa/context7 research is gone next session. Bare URL, own line, last, pinned to an anchor/tag/SHA (`main` links rot). One link, not three. Link upstream gotchas, the spec behind a literal, platform limits (Cloud Run throttling, Supavisor ceilings). Don't link routine React/Hono/Tailwind/shadcn usage.
 
 ```ts

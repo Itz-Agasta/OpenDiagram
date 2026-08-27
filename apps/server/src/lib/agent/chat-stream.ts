@@ -88,11 +88,11 @@ export type DiagramChatOptions = {
 /**
  * The agent loop for `POST /api/diagram/chat`, as a UI message stream.
  *
- * Runs at most twice: a second attempt is started only for the malformed-call
- * case above, where the first produced literally nothing, so the client never
- * sees two answers to one question. Usage is summed across attempts and the
- * quota grant is settled ONCE - `settle` writes an absolute cost, so a second
- * call would overwrite the first attempt's spend rather than add to it.
+ * Runs at most twice, and only for the malformed-call case above. The first
+ * attempt is already on the wire by the time that is detected, so whatever text
+ * it streamed stays on screen above the retry's. Usage is summed across attempts
+ * and the quota grant is settled ONCE - `settle` writes an absolute cost, so a
+ * second call would overwrite the first attempt's spend rather than add to it.
  */
 export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<UIMessageChunk> {
   const { log, model, messages, tools, grant, meta, instructions } = options;
@@ -164,8 +164,8 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
             stream: result.stream,
             tools,
             // A failing tool passes through THIS handler, never streamText's
-            // `onError`, and the default here is `() => "An error occurred."` --
-            // which is all the chat panel and the logs ever saw.
+            // `onError`. The default here is `() => "An error occurred."`, which
+            // is all the chat panel and the logs ever saw.
             onError: (error) => {
               const message = error instanceof Error ? error.message : String(error);
               // Error first, not as a field: evlog unpacks name/message/stack
