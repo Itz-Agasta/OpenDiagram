@@ -1,23 +1,14 @@
 import { diagramSpecSchema, themes } from "@OpenDiagram/harness";
-import {
-  convertToModelMessages,
-  createUIMessageStreamResponse,
-  isStepCount,
-  NoSuchToolError,
-  streamText,
-  toUIMessageStream,
-  type UIMessage,
-} from "ai";
+import { convertToModelMessages, createUIMessageStreamResponse, type UIMessage } from "ai";
 import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
+import { streamDiagramChat } from "../lib/agent/chat-stream";
 import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
-import { askUserTool, createDrawDiagramTool, drawDiagramInputSchema } from "../lib/agent/tools";
+import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
 import { ModelSelectionError, resolveModel } from "../lib/ai-provider/resolve";
-import { LLM_MAX_RETRIES } from "../lib/repo-ai";
-import { aiTelemetry } from "../lib/telemetry";
 
 /** Capped to match `MAX_PROMPT_DIAGRAMS` on the client. */
 const MAX_PROMPT_DIAGRAMS = 8;
@@ -38,41 +29,6 @@ const chatRequestSchema = z.object({
   providerId: z.string().min(1).max(64).optional(),
   modelId: z.string().min(1).max(120).optional(),
 });
-
-// gemini-2.5-flash reliably mangles edge keys in draw_diagram calls (emits
-// "from1" instead of "from" on the first attempt of nearly every session).
-// Deterministic repair: rename the known-bad keys and revalidate — saves a
-// full model retry round-trip. Returns null (= normal tool-error flow) when
-// the input still doesn't parse.
-const EDGE_KEY_FIXUPS: [string, string][] = [
-  ["from1", "from"],
-  ["to1", "to"],
-  ["source", "from"],
-  ["target", "to"],
-];
-
-function repairDrawDiagramInput(rawInput: unknown): string | null {
-  try {
-    const input: unknown = typeof rawInput === "string" ? JSON.parse(rawInput) : rawInput;
-    const edges = (input as { edges?: unknown })?.edges;
-    if (!Array.isArray(edges)) return null;
-    for (const edge of edges as Record<string, unknown>[]) {
-      if (!edge || typeof edge !== "object") continue;
-      for (const [bad, good] of EDGE_KEY_FIXUPS) {
-        if (edge[bad] !== undefined && edge[good] === undefined) {
-          edge[good] = edge[bad];
-          delete edge[bad];
-        }
-      }
-    }
-    // The TOOL's schema, not the bare spec schema: the SDK re-validates whatever
-    // this returns against it, so checking `diagramSpecSchema` here waved through
-    // a bad `targetId` and burned a step on a repair that failed anyway.
-    return drawDiagramInputSchema.safeParse(input).success ? JSON.stringify(input) : null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Identifies the conversation turn a request belongs to, so one user message costs
@@ -110,7 +66,7 @@ diagramRoute.post("/chat", async (c) => {
 
   const tools = {
     ask_user: askUserTool,
-    draw_diagram: createDrawDiagramTool(log, themes[themeName]),
+    draw_diagram: createDrawDiagramTool(log, themes[themeName], diagrams),
   };
 
   // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
@@ -164,88 +120,25 @@ diagramRoute.post("/chat", async (c) => {
     throw error;
   }
 
-  // Accumulated per step because `onError` reports no usage. A stream that dies on
-  // step four already spent the tokens of the first three, and releasing the whole
-  // reservation to zero made that real spend invisible to the cost ceiling.
-  const spent = { inputTokens: 0, outputTokens: 0 };
-
-  const result = streamText({
-    model: resolved.model,
-    instructions: buildSystemPrompt(),
-    // First, not last: the model reads the canvas before the request referring to
-    // it, the order it had while this lived in the system prompt. Why it moved out
-    // of the prompt at all is on `buildSystemPrompt`.
-    messages: [{ role: "user" as const, content: buildCanvasContext(diagrams) }, ...modelMessages],
-    tools,
-    telemetry: aiTelemetry("diagram-chat"),
-    stopWhen: isStepCount(6),
-    experimental_repairToolCall: async ({ toolCall, error }) => {
-      if (NoSuchToolError.isInstance(error) || toolCall.toolName !== "draw_diagram") return null;
-      const repaired = repairDrawDiagramInput(toolCall.input);
-      if (!repaired) return null;
-      log.warn("repaired malformed draw_diagram tool call (edge key fixups)", {
-        diagram: { repairedToolCall: true },
-      });
-      return { ...toolCall, input: repaired };
-    },
-    // Retry Gemini on rate-limit/transient errors (exponential backoff).
-    maxRetries: LLM_MAX_RETRIES,
-    // Bounds runaway/repetition-loop generations so a bad completion fails
-    // fast instead of hanging (observed with gemini-2.5-flash during testing).
-    maxOutputTokens: 16384,
-    onStepEnd: ({ usage }) => {
-      spent.inputTokens += usage.inputTokens ?? 0;
-      spent.outputTokens += usage.outputTokens ?? 0;
-    },
-    onFinish: async ({ steps, totalUsage }) => {
-      log.set({
-        chat: {
-          messageCount: messages.length,
-          // How many diagrams the canvas held going in, and which one the model
-          // chose to replace. A `targetId` that matches nothing in `diagrams` is
-          // the signature of the model garbling the id -- see the FIXME in
-          // `agent/tools.ts` -- and shows up here as a duplicate frame.
-          canvasDiagrams: diagrams.length,
-          targetedIds: steps.flatMap((s) =>
-            s.toolCalls
-              .filter((t) => t.toolName === "draw_diagram")
-              .map((t) => (t.input as { targetId?: unknown })?.targetId ?? "<new>"),
-          ),
-          theme: themeName,
-          steps: steps.length,
-          toolCalls: steps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
-          totalTokens: totalUsage.totalTokens,
-          // The system prompt is ~8k tokens, three quarters of it the static icon
-          // catalog, and it is re-sent once per step. Whether that is billed at
-          // full price or at the cached rate is the single biggest lever on the
-          // AI bill, so it gets measured rather than assumed. `cachedInputTokens`
-          // near zero means the prefix is being broken -- check that nothing was
-          // appended after the spec in buildSystemPrompt.
-          inputTokens: totalUsage.inputTokens,
-          cacheReadTokens: totalUsage.inputTokenDetails.cacheReadTokens ?? 0,
-          noCacheTokens: totalUsage.inputTokenDetails.noCacheTokens ?? 0,
-        },
-      });
-      // Reconciles the pessimistic reservation down to what this run actually
-      // cost. Must happen before the response is done on Cloud Run, which
-      // throttles CPU once the response completes.
-      await grant.settle({
-        inputTokens: totalUsage.inputTokens ?? 0,
-        outputTokens: totalUsage.outputTokens ?? 0,
-      });
-    },
-    onError: async ({ error }) => {
-      log.error("diagram chat stream failed", { error });
-      // The user got no diagram, so the credit goes back -- but whatever steps did
-      // complete cost us real tokens and stay on the ledger. A model outage before
-      // the first step reports nothing and releases to zero as before.
-      await grant.release(spent);
-    },
-  });
-
   return createUIMessageStreamResponse({
-    // `tools` makes tool parts stream as static `tool-<name>` parts (the chat
-    // panel matches on those) instead of generic `dynamic-tool` parts.
-    stream: toUIMessageStream({ stream: result.stream, tools }),
+    stream: streamDiagramChat({
+      log,
+      model: resolved.model,
+      instructions: buildSystemPrompt(),
+      // Canvas first, not last: the model reads the canvas before the request
+      // referring to it, the order it had while this lived in the system prompt.
+      // Why it moved out of the prompt at all is on `buildSystemPrompt`.
+      messages: [
+        { role: "user" as const, content: buildCanvasContext(diagrams) },
+        ...modelMessages,
+      ],
+      tools,
+      grant,
+      meta: {
+        canvasDiagrams: diagrams.length,
+        theme: themeName,
+        messageCount: messages.length,
+      },
+    }),
   });
 });
