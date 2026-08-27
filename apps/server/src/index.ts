@@ -126,7 +126,9 @@ app.use("*", resolveSession);
 // logger attaches it to that event, which the drain above forwards to Sentry.
 app.onError((error, c) => {
   c.get("log")?.error(error);
-  return c.json({ error: "Internal server error" }, 500);
+  // Exactly Hono's own default body: the dashboard matches that string to swap
+  // in a readable toast, and anything else reaches the user raw.
+  return c.json({ error: "Internal Server Error" }, 500);
 });
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
