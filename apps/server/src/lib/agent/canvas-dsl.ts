@@ -23,21 +23,22 @@ import type { DiagramSpec } from "@OpenDiagram/harness";
  * actually uses, then one row per element. Per-array and per-diagram, because a
  * fixed global header pays for empty cells and our nodes are sparse by nature.
  *
- * Nested leftovers (`columns` on ERD nodes, `sections` on sequence fragments)
- * stay as compact JSON inside their cell. Tabular for uniform rows, JSON for
- * nested, and both survived a redraw intact in the sweep.
+ * Nested leftovers (`columns` on ERD nodes, `sections` on sequence fragments,
+ * `contains` on groups and zones) stay as compact JSON inside their cell.
+ * Tabular for uniform rows, JSON for nested, and both survived a redraw intact
+ * in the sweep.
  */
 
 type Row = Record<string, unknown>;
 
-// Model-authored labels, so `|` cannot be assumed absent even though the corpus
-// had zero. Swapped rather than escaped: a diagram label is prose, and no reader
-// (model or human) needs to recover the original character.
+// Labels are model-authored, so neither the `|` separator nor the `"""` fence
+// that closes CANVAS can be assumed absent. Swapped, not escaped: a label is
+// prose and nothing needs the original character back. After JSON.stringify too,
+// or a `|` inside an ERD column name shifts every later column of that row.
 function cell(value: unknown): string {
   if (value === undefined || value === null) return "";
-  if (typeof value === "string") return value.replaceAll("|", "/").replaceAll("\n", " ");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return text.replaceAll("|", "/").replaceAll('"""', "'''").replaceAll("\n", " ");
 }
 
 function table(tag: string, rows: Row[] | undefined, columns: string[]): string[] {
@@ -84,13 +85,11 @@ const ZONE_COLUMNS = ["id", "label", "style", "contains"];
 
 /** One diagram, as the model sees it. `id` is the frame it occupies. */
 export function specToDsl(id: string, spec: DiagramSpec): string {
-  const withContains = <T extends { contains?: string[] }>(items: T[] | undefined) =>
-    items?.map((item) => ({ ...item, contains: item.contains?.join(",") }));
   return [
     `#${id} ${spec.type} ${spec.meta?.direction ?? "LR"} ${cell(spec.title)}`,
     ...table("N", spec.nodes as unknown as Row[], NODE_COLUMNS),
     ...table("E", spec.edges as unknown as Row[], EDGE_COLUMNS),
-    ...table("G", withContains(spec.groups) as Row[] | undefined, GROUP_COLUMNS),
-    ...table("Z", withContains(spec.zones) as Row[] | undefined, ZONE_COLUMNS),
+    ...table("G", spec.groups as Row[] | undefined, GROUP_COLUMNS),
+    ...table("Z", spec.zones as Row[] | undefined, ZONE_COLUMNS),
   ].join("\n");
 }
