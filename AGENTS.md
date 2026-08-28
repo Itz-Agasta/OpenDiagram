@@ -7,6 +7,8 @@ Bun 1.3 monorepo. `apps/web` Next.js 16 (:3001), `apps/server` Hono (:3000), `ap
 ## Commands
 
 ```bash
+just web               # For injecting infisical dev secrets
+just server            # If you wnat fast + .env based secret rotate use below bun run cmds:
 bun run dev:web        # one process each, both backgrounded, started separately:
 bun run dev:server     # the turbo TUI (`bun run dev`) segfaults on this machine
 just check             # oxlint + oxfmt --write

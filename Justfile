@@ -63,11 +63,11 @@ test:
 
 # Start web dev server
 web:
-    bun run dev:web
+    infisical run --path="web" -- bun run dev:web
 
 # Start API server
 server:
-    bun run dev:server
+    infisical run --path="server" -- bun run dev:server
 
 # Generate a migration from schema changes: just db-generate add_foo
 db-generate name="":
@@ -89,5 +89,5 @@ db-seed *args:
     cd packages/db && bun run db:seed -- {{ args }}
 
 # Bring a database up to date: migrate, then seed. Order matters.
-db-setup: db-migrate db-seed
-
+db-setup:
+    infisical run --path="server" -- just db-migrate db-seed
