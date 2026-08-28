@@ -126,8 +126,7 @@ app.use("*", resolveSession);
 // logger attaches it to that event, which the drain above forwards to Sentry.
 app.onError((error, c) => {
   c.get("log")?.error(error);
-  // Exactly Hono's own default body: the dashboard matches that string to swap
-  // in a readable toast, and anything else reaches the user raw.
+  // `use-dashboard-data.ts` string-matches this exact `error` value for its toast.
   return c.json({ error: "Internal Server Error" }, 500);
 });
 
