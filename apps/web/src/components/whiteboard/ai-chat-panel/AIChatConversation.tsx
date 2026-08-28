@@ -76,9 +76,7 @@ export function AIChatConversation(props: AIChatConversationProps) {
                 }
               >
                 <MessageContent>
-                  {message.parts.map((part, partIndex) =>
-                    renderMessagePart(message, part, partIndex, answerAskUser),
-                  )}
+                  {renderMessageParts(message, answerAskUser, isCurrentAgentOutput)}
                 </MessageContent>
               </Message>
             );
@@ -158,6 +156,23 @@ function taskDotColor(status: RepoGenerationJob["tasks"][number]["status"]) {
   if (status === "active") return "bg-od-ink";
   if (status === "failed") return "bg-red-500";
   return "bg-od-border-soft";
+}
+
+/**
+ * The `submitted` loader above disappears on the stream's opening chunk, which
+ * arrives before the model has produced a word, and reasoning parts render as
+ * nothing. Without a loader here the assistant bubble sits visibly empty.
+ */
+function renderMessageParts(
+  message: UIMessage,
+  answerAskUser: (toolCallId: string, answer: string) => void,
+  isStreaming: boolean,
+) {
+  const parts = message.parts
+    .map((part, partIndex) => renderMessagePart(message, part, partIndex, answerAskUser))
+    .filter(Boolean);
+  if (parts.length > 0) return parts;
+  return isStreaming ? <ToolActivity label="Thinking…" /> : null;
 }
 
 function renderMessagePart(

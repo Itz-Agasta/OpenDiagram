@@ -51,10 +51,18 @@ type GeminiBody = {
   cachedContent?: string;
 };
 
-/** Covers every field the cache stores, so a body differing in any of them gets its own. */
-function headKey(body: GeminiBody): string {
+/**
+ * One key per (model, head), covering every field the cache stores. `model`
+ * belongs in it because a Gemini cache is bound to the model that created it:
+ * a second model reading the first's cache fails every call with "Model used by
+ * GenerateContent request does not match", and there is no uncached fallback.
+ * https://ai.google.dev/gemini-api/docs/caching#considerations
+ */
+function headKey(model: string, body: GeminiBody): string {
   return createHash("sha256")
-    .update(JSON.stringify({ s: body.systemInstruction, t: body.tools, c: body.toolConfig }))
+    .update(
+      JSON.stringify({ m: model, s: body.systemInstruction, t: body.tools, c: body.toolConfig }),
+    )
     .digest("hex");
 }
 
@@ -109,7 +117,7 @@ async function cacheFor(
   model: string,
   body: GeminiBody,
 ): Promise<CacheEntry | null> {
-  const key = headKey(body);
+  const key = headKey(model, body);
   const held = entries.get(key);
   if (held && held.expiresAt - REFRESH_MARGIN_MS > Date.now()) return held;
 

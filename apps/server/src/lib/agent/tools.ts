@@ -47,34 +47,7 @@ export interface DrawDiagramOutput {
     nodes: number;
     edges: number;
     warnings: string[];
-    /** Layout grade, advisory. Absent for sequence diagrams. */
-    quality?: { score: number; issues: string[] };
   };
-}
-
-// Defect codes the model can actually act on by changing the SPEC. It has no
-// pixels to move, so reporting EDGE_THROUGH_NODE or LABEL_COLLISION would only
-// invite a redraw that cannot help; those are ours to fix in layout.
-const MODEL_ACTIONABLE = new Set([
-  "EXTREME_ASPECT",
-  "EDGE_CROSSING",
-  "BACK_EDGE",
-  "BEND_HEAVY",
-  "DUPLICATE_LABEL",
-]);
-
-/**
- * Compact, advisory quality note for the model. Deliberately not a retry
- * trigger: the agent decides whether a restructure is worth it, and a hard gate
- * here would loop on diagrams whose density is inherent to the request.
- */
-function qualityNote(report: DiagramReport): { score: number; issues: string[] } {
-  const actionable = report.diagnostics.filter((d) => MODEL_ACTIONABLE.has(d.code));
-  // Crossings report once per edge pair; collapse so one tangle is not 9 lines.
-  const crossings = actionable.filter((d) => d.code === "EDGE_CROSSING").length;
-  const issues = actionable.filter((d) => d.code !== "EDGE_CROSSING").map((d) => d.message);
-  if (crossings > 0) issues.push(`${crossings} pairs of edges cross`);
-  return { score: report.score, issues };
 }
 
 /**
@@ -100,18 +73,40 @@ export const drawDiagramInputSchema = diagramSpecSchema.extend({
     ),
 });
 
+/**
+ * Puts back the icons CANVAS no longer ships (see the note on NODE_COLUMNS in canvas-dsl.ts).
+ * Keyed by node id, so a node the model renames arrives iconless and picks a new
+ * one - the same thing a genuinely new node does, and the model still sees the
+ * label it is choosing for.
+ */
+function restoreIcons(spec: DiagramSpec, previous: DiagramSpec | undefined): DiagramSpec {
+  if (!previous) return spec;
+  const icons = new Map(previous.nodes.map((node) => [node.id, node.icon]));
+  return {
+    ...spec,
+    nodes: spec.nodes.map((node) => {
+      const icon = node.icon ?? icons.get(node.id);
+      return icon ? { ...node, icon } : node;
+    }),
+  };
+}
+
 /** Server-side tool: validate spec -> layout (ELK) -> render -> canvas payload. */
 export function createDrawDiagramTool(
   log: RequestLogger,
   theme: Theme = classicTheme,
+  canvas: { id: string; spec: DiagramSpec }[] = [],
 ): Tool<z.infer<typeof drawDiagramInputSchema>, DrawDiagramOutput> {
   return tool({
     description:
       "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat. Set targetId to update a diagram already on the canvas; omit it to add a new one.",
     inputSchema: drawDiagramInputSchema,
-    execute: async ({ targetId: _targetId, ...rawSpec }): Promise<DrawDiagramOutput> => {
-      const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(rawSpec);
-      const warnings = unknownIcons.map((key) => `unknown icon "${key}" — drawn as a box`);
+    execute: async ({ targetId, ...rawSpec }): Promise<DrawDiagramOutput> => {
+      const previous = canvas.find((diagram) => diagram.id === targetId)?.spec;
+      const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(
+        restoreIcons(rawSpec as DiagramSpec, previous),
+      );
+      const warnings = unknownIcons.map((key) => `unknown icon "${key}" - drawn as a box`);
 
       // Sequence diagrams use their own lifeline grid, not ELK.
       let skeletons: RenderSkeleton[];
@@ -169,11 +164,10 @@ export function createDrawDiagramTool(
           nodes: spec.nodes.length,
           edges: edgeCount,
           warnings,
-          ...(report && { quality: qualityNote(report) }),
         },
       };
     },
-    // The model only ever sees the compact summary — element JSON is for the
+    // The model only ever sees the compact summary - element JSON is for the
     // client and would waste thousands of tokens per step.
     toModelOutput: ({ output }) => ({
       type: "content",
