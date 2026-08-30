@@ -143,6 +143,13 @@ projectRoute.patch("/:id", async (c) => {
   return c.json({ project: row });
 });
 
+/**
+ * The dashboard tree's delete action. Files and their content rows go with the
+ * project via the cascade on project_id, so this is the whole cleanup.
+ *
+ * 404 covers "not yours" as well as "gone", deliberately: a distinct 403 would
+ * confirm that some other account owns that id.
+ */
 projectRoute.delete("/:id", async (c) => {
   const userId = c.get("userId");
   const [row] = await db
