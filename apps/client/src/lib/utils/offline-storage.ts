@@ -62,6 +62,12 @@ export function clearPendingFiles(): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   try {
     const request = indexedDB.open("OpenDiagramOffline", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("pending")) {
+        db.createObjectStore("pending");
+      }
+    };
     request.onsuccess = () => {
       const db = request.result;
       const tx = db.transaction("pending", "readwrite");
