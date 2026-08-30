@@ -1,6 +1,7 @@
-import type { ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import Link from "next/link";
 import { ArrowLeft, FileText, PanelLeftClose, PenTool, Plus, Trash2 } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,8 @@ export function WorkspaceSidebar({
   onBackToDashboard,
   onSignOut,
 }: WorkspaceSidebarProps) {
+  const [pendingDelete, setPendingDelete] = useState<WorkspaceSidebarFile | null>(null);
+
   return (
     <aside
       className="group/sidebar relative hidden h-full shrink-0 flex-col border-r border-od-border-soft bg-od-surface lg:flex"
@@ -141,7 +144,7 @@ export function WorkspaceSidebar({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDeleteFile(file.id)}
+                      onClick={() => setPendingDelete(file)}
                       aria-label={`Delete ${file.name}`}
                       className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] text-od-ink-faint opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover/file:opacity-100 focus:opacity-100"
                     >
@@ -159,6 +162,17 @@ export function WorkspaceSidebar({
         accountImage={accountImage}
         accountName={accountName}
         onSignOut={onSignOut}
+      />
+
+      <ConfirmDeleteDialog
+        open={Boolean(pendingDelete)}
+        title="Delete file"
+        description={`"${pendingDelete?.name}" will be permanently deleted. This cannot be undone.`}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) onDeleteFile(pendingDelete.id);
+          setPendingDelete(null);
+        }}
       />
     </aside>
   );
