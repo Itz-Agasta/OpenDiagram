@@ -3,7 +3,8 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
-import { deleteLocalChat, writeLocalChat } from "@/lib/local-chat";
+import { writeLocalChat } from "@/lib/local-chat";
+import { forgetLocalFiles } from "@/lib/local-file-cleanup";
 import { cancelQueuedProjectFilePatch, queueProjectFilePatch } from "@/lib/project-file-sync";
 import {
   createProjectFile,
@@ -166,7 +167,6 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
 
   async function deleteWorkspaceFile(fileId: string) {
     if (!isSignedIn) return setSaveError("Log in to save your project before deleting files.");
-    if (!window.confirm("Delete this file? This cannot be undone.")) return;
     setSaveError(null);
     setSaveStatus("saving");
     const deletingActiveFile = persistence.activeFileRef.current?.id === fileId;
@@ -181,7 +181,7 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     try {
       await deleteProjectFile(projectId, fileId);
       removeStoredFile(fileId);
-      void deleteLocalChat(fileId);
+      forgetLocalFiles([fileId]);
       const nextFile = sidebarFiles.find((file) => file.id !== fileId);
       if (persistence.activeFileRef.current?.id === fileId) {
         setActiveFile(null);

@@ -78,3 +78,12 @@ export async function updateProject(
   if (!response.ok) throw new Error(data?.error ?? "Could not rename project.");
   return data.project;
 }
+
+export async function deleteProject(id: string): Promise<void> {
+  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  const data = await readProjectResponse(response);
+  if (!response.ok) throw new Error(data?.error ?? "Could not delete project.");
+}

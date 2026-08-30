@@ -6,12 +6,15 @@ import { authClient } from "@/lib/auth-client";
 import { clearAiSettingsCache } from "@/lib/settings-client";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import { CheckoutReturn } from "@/components/billing/checkout-return";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { DashboardDialogs } from "@/components/dashboard/dashboard-page/DashboardDialogs";
 import { DashboardMain } from "@/components/dashboard/dashboard-page/DashboardMain";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-page/DashboardSidebar";
 import { useDashboardCreation } from "@/components/dashboard/dashboard-page/use-dashboard-creation";
 import { useDashboardData } from "@/components/dashboard/dashboard-page/use-dashboard-data";
+import { useDashboardDeletion } from "@/components/dashboard/dashboard-page/use-dashboard-deletion";
 import { useDashboardRenaming } from "@/components/dashboard/dashboard-page/use-dashboard-renaming";
+import type { DeleteTarget } from "@/components/dashboard/dashboard-page/use-dashboard-deletion";
 import type { Project, ProjectFile } from "@/components/dashboard/dashboard-page/types";
 
 export default function DashboardPage() {
@@ -21,6 +24,7 @@ export default function DashboardPage() {
   const data = useDashboardData(user, session.isPending);
   const creation = useDashboardCreation(data, data.isSignedIn);
   const renaming = useDashboardRenaming(data);
+  const deletion = useDashboardDeletion(data);
   const [signOutPending, setSignOutPending] = useState(false);
   const [signedOutDialogOpen, setSignedOutDialogOpen] = useState(false);
   const accountName = user?.name || user?.email || "Guest";
@@ -71,6 +75,8 @@ export default function DashboardPage() {
           onCommitProject={(project) => void renaming.commitProject(project)}
           onCreateFile={creation.openFileModal}
           onCreateProject={creation.openProjectModal}
+          onDeleteFile={deletion.requestDeleteFile}
+          onDeleteProject={deletion.requestDeleteProject}
           onOpenFile={openFile}
           onOpenProject={openProject}
           onSignOut={() => void signOut()}
@@ -107,7 +113,29 @@ export default function DashboardPage() {
         setProjectName={creation.setProjectName}
         signedOutDialogOpen={signedOutDialogOpen}
       />
+      <ConfirmDeleteDialog
+        open={Boolean(deletion.deleteTarget)}
+        title={deletion.deleteTarget?.kind === "file" ? "Delete file" : "Delete project"}
+        description={describeDeleteTarget(deletion.deleteTarget)}
+        pending={deletion.deletePending}
+        onCancel={deletion.cancelDelete}
+        onConfirm={() => void deletion.confirmDelete()}
+      />
       <GuestWelcomeDialog />
     </main>
   );
+}
+
+/** Names the thing being thrown away, since the dialog is the last chance to read it. */
+function describeDeleteTarget(target: DeleteTarget | null) {
+  if (!target) return "";
+  if (target.kind === "file") {
+    return `"${target.file.name}" will be permanently deleted. This cannot be undone.`;
+  }
+
+  // Files carrying no fileId are the placeholder row an empty project shows, not
+  // stored files, so counting them would promise a deletion that isn't happening.
+  const fileCount = target.project.files.filter((file) => file.fileId).length;
+  const files = fileCount === 1 ? "1 file" : `${fileCount} files`;
+  return `"${target.project.name}" and its ${files} will be permanently deleted. This cannot be undone.`;
 }

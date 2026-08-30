@@ -276,6 +276,11 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
   return c.json({ file: metaOnly ? row : withContentDefaults({ ...row, ...result.content }) });
 });
 
+/**
+ * Delete from the workspace explorer or the dashboard tree. Ownership rides in
+ * the statement rather than a preceding SELECT, so a file cannot be removed
+ * between the check and the delete. 404 also answers another user's file.
+ */
 filesRoute.delete("/:projectId/files/:fileId", async (c) => {
   const userId = c.get("userId");
   const projectId = c.req.param("projectId");

@@ -1,4 +1,4 @@
-import { ChevronDown, Pencil, Plus } from "lucide-react";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Project, ProjectFile } from "./types";
 import { getFileIcon } from "./utils";
@@ -17,6 +17,8 @@ export interface ProjectTreeProps {
   onCommitProject: (project: Project) => void;
   onCreateFile: (projectId: string) => void;
   onCreateProject: () => void;
+  onDeleteFile: (file: ProjectFile) => void;
+  onDeleteProject: (project: Project) => void;
   onOpenFile: (file: ProjectFile) => void;
   onOpenProject: (project: Project) => void;
   onToggleProject: (projectId: string) => void;
@@ -104,6 +106,14 @@ function ProjectRow({ project, ...props }: ProjectTreeProps & { project: Project
             </button>
             <button
               type="button"
+              onClick={() => props.onDeleteProject(project)}
+              aria-label={`Delete project ${project.name}`}
+              className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-[5px] text-od-ink-faint opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover/prow:opacity-100 focus-visible:opacity-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
               onClick={() => props.onToggleProject(project.id)}
               aria-label={expanded ? "Collapse" : "Expand"}
               aria-expanded={expanded}
@@ -119,7 +129,7 @@ function ProjectRow({ project, ...props }: ProjectTreeProps & { project: Project
       {expanded && (
         <div className="mt-1 grid gap-0.5 pl-5">
           {project.files.map((file) => (
-            <FileRow key={file.key} file={file} {...props} />
+            <FileRow key={file.key} file={file} project={project} {...props} />
           ))}
           <button
             type="button"
@@ -135,7 +145,15 @@ function ProjectRow({ project, ...props }: ProjectTreeProps & { project: Project
   );
 }
 
-function FileRow({ file, ...props }: ProjectTreeProps & { file: ProjectFile }) {
+function FileRow({
+  file,
+  project,
+  ...props
+}: ProjectTreeProps & { file: ProjectFile; project: Project }) {
+  // A guest draft holds exactly one file and cannot be given a second (see
+  // use-dashboard-creation), so deleting it is deleting the project. Only the
+  // project row offers that, or the two rows would mean the same thing.
+  const deletable = Boolean(file.fileId) && project.source === "saved";
   const Icon = getFileIcon(file.kind);
   return (
     <div className="group/file flex h-7 items-center gap-2 rounded-[7px] px-2 text-[12px] text-od-ink-muted transition hover:bg-od-canvas/45 hover:text-od-ink">
@@ -164,6 +182,16 @@ function FileRow({ file, ...props }: ProjectTreeProps & { file: ProjectFile }) {
               className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-[5px] text-od-ink-faint opacity-0 transition hover:bg-od-canvas/60 hover:text-od-ink group-hover/file:opacity-100"
             >
               <Pencil className="h-3 w-3" />
+            </button>
+          )}
+          {deletable && (
+            <button
+              type="button"
+              onClick={() => props.onDeleteFile(file)}
+              aria-label={`Delete file ${file.name}`}
+              className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-[5px] text-od-ink-faint opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover/file:opacity-100 focus-visible:opacity-100"
+            >
+              <Trash2 className="h-3 w-3" />
             </button>
           )}
         </>
