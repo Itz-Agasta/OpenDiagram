@@ -6,7 +6,6 @@ export type BillingState = {
   billingEnabled: boolean;
   planId: "guest" | "free" | "pro";
   credits: { limit: number; resetAt: string | null };
-  /** Pro's monthly allowance, read from the `plan` table so copy can't go stale. */
   proCredits: number;
   subscription: {
     status: "pending" | "active" | "on_hold" | "cancelled" | "failed" | "expired";

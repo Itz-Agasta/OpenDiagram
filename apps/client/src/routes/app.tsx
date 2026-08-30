@@ -4,10 +4,11 @@ import { PromptInput } from "#/components/ui/PromptInput";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useKumoToastManager } from "@cloudflare/kumo";
-import { sessionQueryOptions, createProject, createProjectFile } from "#/lib/api";
+import { sessionQueryOptions, createProject, createProjectFile, authClient } from "#/lib/api";
 import { savePendingFiles, clearPendingFiles } from "#/lib/utils";
 import { Sidebar } from "@cloudflare/kumo/components/sidebar";
 import { CheckoutReturn } from "#/components/billing/CheckoutReturn";
+import { CustomButton } from "#/components/ui/button";
 
 const TAGLINE_POOL = [
   "Describe a vibe, get an architecture.",
@@ -30,22 +31,60 @@ const TAGLINE_POOL = [
 export const Route = createFileRoute("/app")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { checkout?: string; subscription_id?: string; status?: string } => {
+  ): { checkout?: string; subscription_id?: string; status?: string; verified?: string } => {
     return {
       checkout: (search.checkout as string) || undefined,
       subscription_id: (search.subscription_id as string) || undefined,
       status: (search.status as string) || undefined,
+      verified: (search.verified as string) || undefined,
     };
   },
   component: RouteComponent,
 });
-
 function RouteComponent() {
   const navigate = useNavigate();
   const toastManager = useKumoToastManager();
   const { data: session, isPending, error } = useQuery(sessionQueryOptions);
   const isAuthenticated = !isPending && !error && !!session?.user;
   const [tagline, setTagline] = useState("");
+  const { verified } = Route.useSearch();
+  const [resendLoading, setResendLoading] = useState(false);
+
+  async function resendVerification() {
+    if (!session?.user?.email) return;
+    setResendLoading(true);
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: session.user.email,
+        callbackURL: window.location.origin + "/app",
+      });
+      if (error) throw new Error(error.message ?? "Failed to send email.");
+      toastManager.add({
+        title: "Verification email sent",
+        description: "Please check your inbox (and spam folder) for the verification link.",
+        variant: "success",
+      });
+    } catch (err: unknown) {
+      toastManager.add({
+        title: "Failed to send email",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "error",
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (verified === "1") {
+      toastManager.add({
+        title: "Email verified",
+        description: "Your email has been verified successfully. Welcome to OpenDiagram!",
+        variant: "success",
+      });
+      void navigate({ to: "/app", search: (prev) => ({ ...prev, verified: undefined }) });
+    }
+  }, [verified, toastManager, navigate]);
 
   useEffect(() => {
     const randomPhrase = TAGLINE_POOL[Math.floor(Math.random() * TAGLINE_POOL.length)];
@@ -139,6 +178,24 @@ function RouteComponent() {
 
         {/* Content Workspace */}
         <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/30 overflow-y-auto">
+          {!isPending && session?.user && !session.user.emailVerified && (
+            <div className="w-full max-w-[680px] mb-6 rounded-xl border border-yellow-200 bg-yellow-50/50 p-4 text-sm text-yellow-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 font-geist">
+              <div>
+                <p className="font-semibold text-yellow-900">Verify your email address</p>
+                <p className="text-xs text-yellow-700 mt-0.5 leading-relaxed">
+                  Verify your email to unlock your full Free Plan allowance of 25 lifetime credits
+                  instead of the guest limit of 3.
+                </p>
+              </div>
+              <CustomButton
+                type="button"
+                disabled={resendLoading}
+                onClick={() => void resendVerification()}
+                text={resendLoading ? "Sending..." : "Resend Link"}
+                className="shrink-0 text-yellow-800 border-yellow-300 hover:bg-yellow-100 hover:text-yellow-900 font-geist"
+              />
+            </div>
+          )}
           <div className="w-full max-w-[680px] flex flex-col items-center gap-4 mb-4">
             <div className="flex flex-col gap-3.5 w-full text-center">
               {tagline && (

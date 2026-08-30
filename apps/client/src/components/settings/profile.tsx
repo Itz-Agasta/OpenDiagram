@@ -40,6 +40,32 @@ export function SettingsProfileCard() {
   const { data: session, isPending } = useQuery(sessionQueryOptions);
   const user = session?.user;
   const [signOutPending, setSignOutPending] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+
+  async function resendVerification() {
+    if (!user?.email) return;
+    setResendLoading(true);
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: user.email,
+        callbackURL: window.location.origin + "/app",
+      });
+      if (error) throw new Error(error.message ?? "Failed to send email.");
+      toastManager.add({
+        title: "Verification email sent",
+        description: "Please check your inbox (and spam folder) for the verification link.",
+        variant: "success",
+      });
+    } catch (err: unknown) {
+      toastManager.add({
+        title: "Failed to send email",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "error",
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  }
 
   async function signOut() {
     setSignOutPending(true);
@@ -101,34 +127,57 @@ export function SettingsProfileCard() {
   const email = user.email?.trim() || null;
 
   return (
-    <div className="mb-6 flex items-center gap-3 rounded-lg border border-gray-200/80 bg-white p-4 font-geist">
-      {user.image ? (
-        <img
-          src={user.image}
-          alt=""
-          width={48}
-          height={48}
-          className="size-12 shrink-0 rounded-full border border-gray-200/50 object-cover"
+    <div className="flex flex-col gap-4 mb-6">
+      <div className="flex items-center gap-3 rounded-lg border border-gray-200/80 bg-white p-4 font-geist">
+        {user.image ? (
+          <img
+            src={user.image}
+            alt=""
+            width={48}
+            height={48}
+            className="size-12 shrink-0 rounded-full border border-gray-200/50 object-cover"
+          />
+        ) : (
+          <div className="grid size-12 shrink-0 place-items-center rounded-full bg-gray-900 text-sm font-semibold text-white uppercase">
+            {getInitials(displayName)}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-gray-900 body-font">
+            {displayName}
+          </p>
+          {email && email !== displayName ? (
+            <p className="truncate text-sm text-gray-500 mt-0.5">{email}</p>
+          ) : null}
+          <p className="mt-1 text-xs text-gray-400">Signed in · Default workspace</p>
+        </div>
+        <CustomButton
+          type="button"
+          disabled={signOutPending}
+          onClick={() => void signOut()}
+          text={signOutPending ? "Signing out…" : "Log out"}
+          className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-geist"
         />
-      ) : (
-        <div className="grid size-12 shrink-0 place-items-center rounded-full bg-gray-900 text-sm font-semibold text-white uppercase">
-          {getInitials(displayName)}
+      </div>
+
+      {!user.emailVerified && (
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50/50 p-4 text-sm text-yellow-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 font-geist">
+          <div>
+            <p className="font-semibold text-yellow-900">Verify your email address</p>
+            <p className="text-xs text-yellow-700 mt-0.5 leading-relaxed">
+              Verify your email to unlock your full Free Plan allowance of 25 lifetime credits
+              instead of the guest limit of 3.
+            </p>
+          </div>
+          <CustomButton
+            type="button"
+            disabled={resendLoading}
+            onClick={() => void resendVerification()}
+            text={resendLoading ? "Sending..." : "Resend Link"}
+            className="shrink-0 text-yellow-800 border-yellow-300 hover:bg-yellow-100 hover:text-yellow-900 font-geist"
+          />
         </div>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold text-gray-900 body-font">{displayName}</p>
-        {email && email !== displayName ? (
-          <p className="truncate text-sm text-gray-500 mt-0.5">{email}</p>
-        ) : null}
-        <p className="mt-1 text-xs text-gray-400">Signed in · Default workspace</p>
-      </div>
-      <CustomButton
-        type="button"
-        disabled={signOutPending}
-        onClick={() => void signOut()}
-        text={signOutPending ? "Signing out…" : "Log out"}
-        className="shrink-0 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-geist"
-      />
     </div>
   );
 }

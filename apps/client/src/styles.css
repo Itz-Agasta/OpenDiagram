@@ -12,6 +12,8 @@
   --font-excalifont: "OD Excalifont", cursive;
   --font-excali: "OD Excalifont", cursive;
   --color-blue: #288dff;
+  --color-orange: #ff4a2c;
+  --color-od-orange: #ff4a2c;
   --color-white: #fff;
   --color-od-ink: #1a1a1a;
   --color-od-ink-faint: rgba(0, 0, 0, 0.5);
@@ -47,7 +49,7 @@ body {
 /* Pricing-specific font classes for higher visual hierarchy */
 .pricing-hero-heading {
   font-family: "Geist", sans-serif;
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -55,7 +57,7 @@ body {
 
 .pricing-hero-tagline {
   font-family: "Geist", sans-serif;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.5;
@@ -63,7 +65,7 @@ body {
 
 .pricing-section-title {
   font-family: "Geist", sans-serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
