@@ -3,6 +3,7 @@ import { LockKeyhole } from "lucide-react";
 import { SettingsHeader, SettingsProfileCard } from "#/components/settings/profile";
 import { Providers } from "#/components/settings/providers";
 import { PricingPlans } from "#/components/settings/PricingPlans";
+import { SubscriptionStatus } from "#/components/settings/SubscriptionStatus";
 
 export const Route = createFileRoute("/_protected/settings")({
   component: SettingsPageRoute,
@@ -14,7 +15,7 @@ function SettingsPageRoute() {
       <main className="mx-auto w-full max-w-3xl px-4 py-10">
         <SettingsHeader />
         <SettingsProfileCard />
-
+        <SubscriptionStatus />
         <h1 className="text-2xl font-semibold mb-2 heading-font text-gray-900 mt-10">Plan</h1>
         <p className="mt-1 mb-6 text-sm text-gray-500 body-font">
           Your current allowance, and where to upgrade or cancel.

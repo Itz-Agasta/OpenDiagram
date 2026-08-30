@@ -137,11 +137,21 @@ billingRoute.post("/checkout", async (c) => {
   }
 
   const [account] = await db
-    .select({ email: user.email, name: user.name })
+    .select({ email: user.email, name: user.name, emailVerified: user.emailVerified })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
   if (!account) return c.json({ error: "Unauthorized" }, 401);
+
+  if (!account.emailVerified) {
+    return c.json(
+      {
+        error: "Please verify your email address before upgrading to Pro.",
+        code: "email_unverified",
+      },
+      403,
+    );
+  }
 
   // Applied only for a user who has never completed a sale. Dodo does not enforce
   // this itself (see `mayRedeemDiscount`), so this call is the enforcement.

@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ExternalLink, Loader2, X, Lock } from "lucide-react";
+import {
+  CheckIcon,
+  XIcon,
+  LockIcon,
+  ArrowSquareOutIcon,
+  CircleNotchIcon,
+} from "@phosphor-icons/react";
 import { billingQueryOptions, openBillingPortal, startCheckout } from "#/lib/api/billing-client";
+import { creationQuotaQueryOptions } from "#/lib/api/usage-client";
+import { sessionQueryOptions } from "#/lib/api/session";
 import { HeroButton } from "#/components/ui/button";
 
 function proFeatures(monthlyCredits: number): readonly string[] {
@@ -26,7 +34,9 @@ function Notice({ children }: { children: React.ReactNode }) {
 function PlanCard({
   name,
   price,
+  originalPrice,
   priceSuffix,
+  priceBadge,
   tagline,
   creditsInfo,
   featureGroupTitle,
@@ -36,7 +46,9 @@ function PlanCard({
 }: {
   name: string;
   price: string;
+  originalPrice?: string;
   priceSuffix?: string;
+  priceBadge?: string;
   tagline: string;
   creditsInfo: { amount: string; detail: string; helperText?: string };
   featureGroupTitle: string;
@@ -51,27 +63,27 @@ function PlanCard({
       } font-geist w-full`}
     >
       {highlighted && (
-        <span className="absolute -top-2.5 right-4 rounded-full bg-blue-600 px-3 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider shadow-sm">
+        <span className="absolute -top-2.5 right-4 rounded-full bg-orange px-3 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider shadow-sm">
           Best Value
         </span>
       )}
 
       {/* Header */}
-      <h2 className={`text-base font-bold ${highlighted ? "text-gray-900" : "text-gray-500"}`}>
+      <h2 className={`text-lg font-bold ${highlighted ? "text-gray-900" : "text-gray-500"}`}>
         {name}
       </h2>
-      <p className="mt-1 text-xs text-gray-500 leading-normal mb-4">{tagline}</p>
+      <p className="mt-1 text-sm text-gray-500 leading-normal mb-4">{tagline}</p>
 
       {/* Dynamic Credit Nested Box */}
       <div className="w-full rounded-xl bg-gray-50 border border-gray-200/60 p-4 flex flex-col gap-1 mb-5">
-        <div className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
-          <span className="text-blue-600 font-medium">✦</span>
+        <div className="flex items-center gap-1.5 text-base font-bold text-gray-900">
+          <span className="text-orange font-medium">✦</span>
           <span>{creditsInfo.amount}</span>
         </div>
-        <p className="text-xs text-gray-500 font-medium leading-normal">{creditsInfo.detail}</p>
+        <p className="text-sm text-gray-500 font-medium leading-normal">{creditsInfo.detail}</p>
         {creditsInfo.helperText && (
-          <div className="mt-2 border-t border-gray-200/40 pt-2 text-[10px] text-gray-400 font-semibold flex items-center gap-1">
-            <span className="text-blue-600 font-medium">✓</span>
+          <div className="mt-2 border-t border-gray-200/40 pt-2 text-xs text-gray-400 font-semibold flex items-center gap-1">
+            <CheckIcon className="size-3 text-orange shrink-0" weight="bold" />
             <span>{creditsInfo.helperText}</span>
           </div>
         )}
@@ -79,12 +91,26 @@ function PlanCard({
 
       {/* Pricing */}
       <div className="flex flex-col mb-4">
-        <div className="flex items-baseline text-gray-900">
-          <span className="text-3xl font-extrabold tracking-tight">{price}</span>
-          {priceSuffix && (
-            <span className="ml-1 text-xs font-semibold text-gray-500">{priceSuffix}</span>
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          {originalPrice && (
+            <span className="text-xl font-medium text-gray-400 line-through select-none leading-none">
+              {originalPrice}
+            </span>
           )}
+          <div className="flex items-baseline text-gray-900">
+            <span className="text-4xl font-extrabold tracking-tight">{price}</span>
+            {priceSuffix && (
+              <span className="ml-1 text-sm font-semibold text-gray-500">{priceSuffix}</span>
+            )}
+          </div>
         </div>
+        {priceBadge && (
+          <div className="mt-1.5 flex">
+            <span className="inline-flex items-center rounded-md bg-orange/10 px-2 py-0.5 text-xs font-semibold text-orange ring-1 ring-inset ring-orange/20">
+              {priceBadge}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Children Actions (Upgrade button / code input / Current plan) */}
@@ -95,11 +121,11 @@ function PlanCard({
 
       {/* Feature Groups */}
       <div className="w-full mt-2">
-        <h3 className="text-[10px] font-bold tracking-wider text-gray-400 uppercase flex items-center gap-1.5 mb-3 select-none">
-          <Lock className="size-3 text-gray-400" />
+        <h3 className="text-xs font-bold tracking-wider text-blue-600 uppercase flex items-center gap-1.5 mb-3 select-none">
+          <LockIcon className="size-3 text-blue-600" />
           <span>{featureGroupTitle}</span>
         </h3>
-        <ul className="space-y-2.5 text-sm">
+        <ul className="space-y-2.5 text-[15px]">
           {features.map((feature) => {
             const text = feature.text;
             const locked = feature.locked || false;
@@ -107,9 +133,9 @@ function PlanCard({
             return (
               <li key={text} className="flex gap-2.5 items-start">
                 {locked ? (
-                  <X className="mt-0.5 size-4 shrink-0 text-red-500" aria-hidden="true" />
+                  <XIcon className="mt-0.5 size-4 shrink-0 text-red-500" aria-hidden="true" />
                 ) : (
-                  <Check className="mt-0.5 size-4 shrink-0 text-gray-900" aria-hidden="true" />
+                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-gray-900" aria-hidden="true" />
                 )}
                 <span className={locked ? "text-gray-400 font-normal" : "text-gray-500"}>
                   {text}
@@ -125,12 +151,17 @@ function PlanCard({
 
 export function PricingPlans() {
   const { data: state, error: loadError, isPending } = useQuery(billingQueryOptions);
+  const { data: quota, isPending: isQuotaPending } = useQuery(creationQuotaQueryOptions);
+  const { data: session } = useQuery(sessionQueryOptions);
   const [discountCode, setDiscountCode] = useState("");
   const [pending, setPending] = useState<"checkout" | "portal" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
   async function go(kind: "checkout" | "portal") {
     setActionError(null);
+    if (kind === "checkout" && session?.user && !session.user.emailVerified) {
+      setActionError("Please verify your email address before upgrading to Pro.");
+      return;
+    }
     setPending(kind);
     try {
       window.location.href =
@@ -148,7 +179,7 @@ export function PricingPlans() {
       <Notice>{loadError instanceof Error ? loadError.message : "Failed to load billing."}</Notice>
     );
 
-  if (isPending || !state) {
+  if (isPending || isQuotaPending || !state || !quota) {
     return (
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="h-96 rounded-2xl bg-gray-100 animate-pulse border border-gray-200/50" />
@@ -183,6 +214,9 @@ export function PricingPlans() {
 
   const proCardFeatures = proFeatures(state.proCredits).map((feature) => ({ text: feature }));
 
+  const isFreeActive = state.planId === "free";
+  const freeCreditsLimit = isFreeActive ? quota.limit : (quota.signupCredits ?? 0);
+
   return (
     <div className="font-geist">
       <div className="grid gap-5 sm:grid-cols-2">
@@ -191,19 +225,19 @@ export function PricingPlans() {
           name="Free"
           tagline="Everything you need to try it properly."
           creditsInfo={{
-            amount: `${state.credits.limit} credits / period`,
-            detail: `= ${state.credits.limit} AI diagram generations`,
-            helperText: `Fixed allowance of ${state.credits.limit} credits`,
+            amount: `${freeCreditsLimit} credits lifetime`,
+            detail: `= ${freeCreditsLimit} AI diagram generations`,
+            helperText: `Fixed allowance of ${freeCreditsLimit} credits`,
           }}
           price="$0"
-          priceSuffix="per month, free forever"
+          priceSuffix="free forever"
           featureGroupTitle="Core Capabilities"
           features={freeCardFeatures}
         >
           {isPro ? (
             <button
               disabled
-              className="w-full flex items-center justify-center h-9 rounded-xl border border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 select-none cursor-default"
+              className="w-full flex items-center justify-center h-9 rounded-xl border border-gray-100 bg-gray-50 text-sm font-semibold text-gray-400 select-none cursor-default"
             >
               Downgrade Locked
             </button>
@@ -211,11 +245,11 @@ export function PricingPlans() {
             <div className="flex flex-col gap-2">
               <button
                 disabled
-                className="w-full flex items-center justify-center h-9 rounded-xl border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500 select-none cursor-default"
+                className="w-full flex items-center justify-center h-9 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-500 select-none cursor-default"
               >
                 Current Plan
               </button>
-              <p className="text-[10px] text-gray-400 font-semibold mt-1 text-center truncate">
+              <p className="text-xs text-gray-400 font-semibold mt-1 text-center truncate">
                 {allowance}
               </p>
             </div>
@@ -232,7 +266,9 @@ export function PricingPlans() {
             helperText: "Renewing monthly allowance",
           }}
           price="$8"
+          originalPrice="$10"
           priceSuffix="/ month, cancel anytime"
+          priceBadge="Early Launch Discount"
           featureGroupTitle="Advanced Capabilities"
           features={proCardFeatures}
           highlighted
@@ -242,21 +278,21 @@ export function PricingPlans() {
               <button
                 onClick={() => void go("portal")}
                 disabled={pending !== null}
-                className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-gray-200 hover:bg-gray-50 text-sm font-semibold text-gray-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {pending === "portal" ? (
-                  <Loader2 className="size-4 animate-spin text-gray-900" aria-hidden="true" />
+                  <CircleNotchIcon className="size-4 animate-spin text-gray-900" />
                 ) : (
                   <>
-                    <ExternalLink className="size-3.5 text-gray-900" aria-hidden="true" />
+                    <ArrowSquareOutIcon className="size-3.5 text-gray-900" />
                     Manage billing
                   </>
                 )}
               </button>
               <div className="flex flex-col gap-0.5 mt-1 text-center">
-                <p className="text-[10px] text-gray-400 font-semibold truncate">{allowance}</p>
+                <p className="text-xs text-gray-400 font-semibold truncate">{allowance}</p>
                 {sub && (
-                  <p className="text-[9px] text-gray-400 font-medium">
+                  <p className="text-xs text-gray-400 font-medium">
                     {sub.cancelAtPeriodEnd ? "Access ends" : "Renews"} on{" "}
                     {new Date(sub.currentPeriodEnd).toLocaleDateString()}
                   </p>
@@ -265,6 +301,11 @@ export function PricingPlans() {
             </div>
           ) : (
             <div className="space-y-3">
+              {session?.user && !session.user.emailVerified && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-xl p-3 leading-relaxed font-semibold">
+                  Please verify your email address first to upgrade to Pro.
+                </p>
+              )}
               <input
                 type="text"
                 value={discountCode}
@@ -274,18 +315,18 @@ export function PricingPlans() {
                 autoComplete="off"
                 spellCheck={false}
                 disabled={pending !== null}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:border-gray-400 transition font-geist text-gray-900"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-gray-400 transition font-geist text-gray-900"
               />
               <HeroButton
                 text="Unlock Pro Access"
-                color="blue"
+                color="orange"
                 onClick={() => void go("checkout")}
-                disabled={pending !== null}
-                className="w-full justify-center h-9 text-xs font-semibold rounded-xl cursor-pointer"
+                disabled={pending !== null || (session?.user && !session.user.emailVerified)}
+                className="w-full justify-center h-9 text-sm font-semibold rounded-xl cursor-pointer"
               />
               {pending === "checkout" && (
                 <div className="flex justify-center pt-1">
-                  <Loader2 className="size-4 animate-spin text-blue-600" />
+                  <CircleNotchIcon className="size-4 animate-spin text-orange" />
                 </div>
               )}
             </div>

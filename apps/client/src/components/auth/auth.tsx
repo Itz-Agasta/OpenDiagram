@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Input,
@@ -70,15 +71,22 @@ export default function SignUpPage({ initialTab = "signup", redirect, urlError }
   const [suEmail, setSuEmail] = useState("");
   const [suPwd, setSuPwd] = useState("");
   const [suTerms, setSuTerms] = useState(false);
+  // Verification States
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [checkLoading, setCheckLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: session, isPending } = authClient.useSession();
 
   // Redirect if session is active
   useEffect(() => {
     if (!isPending && session?.user) {
+      if (isVerifyingEmail) return;
       navigate({ to: redirectTo as any, replace: true });
     }
-  }, [isPending, redirectTo, navigate, session]);
+  }, [isPending, redirectTo, navigate, session, isVerifyingEmail]);
 
   // Display OAuth error if present
   useEffect(() => {
@@ -151,6 +159,7 @@ export default function SignUpPage({ initialTab = "signup", redirect, urlError }
           email: suEmail,
           password: suPwd,
           name: `${suFirst} ${suLast}`.trim(),
+          callbackURL: window.location.origin + "/app",
         });
         if (error) {
           setLoading(false);
@@ -160,7 +169,9 @@ export default function SignUpPage({ initialTab = "signup", redirect, urlError }
             variant: "error",
           });
         } else {
-          finishAuthentication();
+          setRegisteredEmail(suEmail);
+          setLoading(false);
+          setIsVerifyingEmail(true);
         }
       }
     } catch {
@@ -171,6 +182,68 @@ export default function SignUpPage({ initialTab = "signup", redirect, urlError }
         variant: "error",
       });
     }
+  }
+  async function checkVerificationStatus() {
+    setCheckLoading(true);
+    try {
+      const { data, error } = await authClient.getSession();
+      if (error) throw new Error(error.message ?? "Failed to fetch session.");
+
+      if (data?.user?.emailVerified) {
+        toastManager.add({
+          title: "Email verified",
+          description: "Your email has been verified successfully. Welcome to OpenDiagram!",
+          variant: "success",
+        });
+        await queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
+        navigate({ to: redirectTo as any });
+      } else {
+        toastManager.add({
+          title: "Not verified yet",
+          description:
+            "We couldn't verify your email yet. Please check your inbox and click the verification link.",
+          variant: "warning",
+        });
+      }
+    } catch (err: unknown) {
+      toastManager.add({
+        title: "Error checking status",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "error",
+      });
+    } finally {
+      setCheckLoading(false);
+    }
+  }
+
+  async function resendVerification() {
+    if (!registeredEmail) return;
+    setResendLoading(true);
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: registeredEmail,
+        callbackURL: window.location.origin + "/app",
+      });
+      if (error) throw new Error(error.message ?? "Failed to send email.");
+      toastManager.add({
+        title: "Verification email sent",
+        description: "Please check your inbox (and spam folder) for the verification link.",
+        variant: "success",
+      });
+    } catch (err: unknown) {
+      toastManager.add({
+        title: "Failed to send email",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "error",
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
+  async function skipVerification() {
+    await queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
+    navigate({ to: redirectTo as any });
   }
 
   function switchTab(nextTab: "signin" | "signup") {
@@ -200,7 +273,61 @@ export default function SignUpPage({ initialTab = "signup", redirect, urlError }
             <Text bold>OpenDiagram</Text>
           </div>
 
-          {success ? (
+          {isVerifyingEmail ? (
+            <div className="flex flex-col gap-6 font-geist">
+              <div>
+                <Text variant="heading2" as="h1" DANGEROUS_className="mb-2">
+                  Verify your email
+                </Text>
+                <Text variant="secondary" DANGEROUS_className="leading-relaxed">
+                  We sent a verification link to{" "}
+                  <span className="font-semibold text-gray-900">{registeredEmail}</span>. Please
+                  click the link in your email to verify your account and unlock your full 25
+                  credits.
+                </Text>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  variant="primary"
+                  type="button"
+                  className="w-full justify-center cursor-pointer h-10 text-sm font-semibold rounded-xl"
+                  onClick={checkVerificationStatus}
+                  disabled={checkLoading}
+                >
+                  {checkLoading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <span>Checking...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2">
+                      <span>Check Verification Status</span>
+                      <ArrowRightIcon size={16} />
+                    </div>
+                  )}
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  type="button"
+                  className="w-full justify-center cursor-pointer h-10 text-sm font-semibold rounded-xl"
+                  onClick={resendVerification}
+                  disabled={resendLoading}
+                >
+                  {resendLoading ? "Resending..." : "Resend Verification Link"}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={skipVerification}
+                  className="mt-3 text-center text-xs font-semibold text-gray-500 hover:text-gray-900 underline underline-offset-4 cursor-pointer"
+                >
+                  Skip to Dashboard (Unverified)
+                </button>
+              </div>
+            </div>
+          ) : success ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-kumo-success-base/10 text-kumo-success-base">
                 <span className="text-2xl font-bold">✓</span>

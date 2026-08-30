@@ -31,11 +31,14 @@ export function CheckoutReturn() {
 
   const { checkout, subscription_id: subscriptionId, status: urlStatus } = Route.useSearch();
   const isCheckoutReturn = checkout === "success" || Boolean(subscriptionId);
-  const handled = useRef(false);
+  const processedId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isCheckoutReturn || handled.current) return;
-    handled.current = true;
+    if (!isCheckoutReturn) return;
+    if (subscriptionId && processedId.current === subscriptionId) return;
+    if (subscriptionId) {
+      processedId.current = subscriptionId;
+    }
 
     let live = true;
 
@@ -99,7 +102,6 @@ export function CheckoutReturn() {
 
     return () => {
       live = false;
-      handled.current = false;
     };
   }, [isCheckoutReturn, subscriptionId, urlStatus, navigate, queryClient, toastManager]);
 

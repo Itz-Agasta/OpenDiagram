@@ -11,9 +11,22 @@ function webOrigin(): string {
   return env.CORS_ORIGIN.split(",")[0]?.trim() ?? env.BETTER_AUTH_URL;
 }
 
-function withCallback(url: string, callbackURL: string): string {
+function withCallback(url: string, defaultCallbackURL: string): string {
   const link = new URL(url);
-  link.searchParams.set("callbackURL", callbackURL);
+  const originalCallback = link.searchParams.get("callbackURL");
+  if (originalCallback) {
+    try {
+      const parsed = new URL(originalCallback);
+      const allowed = env.CORS_ORIGIN.split(",").map((o) => o.trim());
+      if (allowed.includes(parsed.origin)) {
+        const callbackWithVerified = new URL(originalCallback);
+        callbackWithVerified.searchParams.set("verified", "1");
+        link.searchParams.set("callbackURL", callbackWithVerified.toString());
+        return link.toString();
+      }
+    } catch {}
+  }
+  link.searchParams.set("callbackURL", defaultCallbackURL);
   return link.toString();
 }
 
@@ -89,7 +102,7 @@ export function createAuth() {
           name: user.name,
           // Better Auth builds the link against the API origin and defaults its
           // callbackURL to "/", which lands the user on the bare API host.
-          url: withCallback(url, `${webOrigin()}/dashboard?verified=1`),
+          url: withCallback(url, `${webOrigin()}/app?verified=1`),
         });
       },
       // Welcome lands after verification, not at signup: two mails racing in the
@@ -98,7 +111,7 @@ export function createAuth() {
         await sendWelcomeMail({
           to: user.email,
           name: user.name,
-          dashboardUrl: `${webOrigin()}/dashboard`,
+          dashboardUrl: `${webOrigin()}/app`,
           credits: await signupCredits(),
         });
       },

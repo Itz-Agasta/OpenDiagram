@@ -4,3 +4,4 @@ export * from "./project-file-sync";
 export * from "./session";
 export * from "./threads";
 export * from "./billing-client";
+export * from "./usage-client";

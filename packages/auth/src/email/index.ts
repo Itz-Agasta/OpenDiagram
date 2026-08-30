@@ -14,8 +14,20 @@ function client(): Resend | null {
 
 async function send(to: string, body: EmailBody, idempotencyKey?: string): Promise<void> {
   const mailer = client();
-  if (!mailer) return;
+  const isDev = env.NODE_ENV === "development";
 
+  if (isDev || !mailer) {
+    const url = body.text.match(/https?:\/\/[^\s]+/)?.[0] ?? null;
+    console.log("\n==================================================");
+    console.log(`[EMAIL ${!mailer ? "MOCK" : "DEV"} DELIVERY] to: ${to}`);
+    console.log(`Subject: ${body.subject}`);
+    if (url) {
+      console.log(`Link:    ${url}`);
+    }
+    console.log("==================================================\n");
+  }
+
+  if (!mailer) return;
   // Resend returns errors in-band rather than throwing.
   const { error } = await mailer.emails.send(
     {

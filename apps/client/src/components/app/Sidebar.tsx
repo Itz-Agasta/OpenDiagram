@@ -8,10 +8,17 @@ import {
   DialogTitle,
   DialogDescription,
   useKumoToastManager,
+  Meter,
 } from "@cloudflare/kumo";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsQueryOptions, createProject, authClient } from "#/lib/api";
+import {
+  projectsQueryOptions,
+  createProject,
+  authClient,
+  billingQueryOptions,
+  creationQuotaQueryOptions,
+} from "#/lib/api";
 import { clearAiSettingsCache } from "#/lib/api/settings-client";
 import { getInitials } from "#/lib/utils";
 import { HeroButton, CustomButton } from "#/components/ui/button";
@@ -38,6 +45,8 @@ export const SideBar = ({
   const [newProjectName, setNewProjectName] = useState("");
   const [isLoggedOutOpen, setIsLoggedOutOpen] = useState(false);
 
+  const { data: billing } = useQuery(billingQueryOptions);
+  const { data: quota } = useQuery(creationQuotaQueryOptions);
   const { data: projects, isLoading: isProjectsLoading } = useQuery({
     ...projectsQueryOptions,
     enabled: isAuthenticated,
@@ -186,10 +195,73 @@ export const SideBar = ({
                 <DropdownMenu.Portal>
                   <DropdownMenu.Content
                     side="top"
-                    align="end"
-                    sideOffset={10}
-                    className="p-1 bg-white border border-gray-200/80 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.02)] flex flex-col gap-0.5 min-w-[130px] z-[9999] font-sans"
+                    align="start"
+                    alignOffset={-180}
+                    sideOffset={18}
+                    className="p-2.5 bg-white border border-gray-200/80 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.02)] flex flex-col gap-0.5 min-w-[230px] z-[9999] font-geist"
                   >
+                    {billing &&
+                      quota &&
+                      billing.billingEnabled &&
+                      (() => {
+                        const limit = quota.limit ?? 0;
+                        const remaining = quota.remaining ?? 0;
+                        const percentage =
+                          limit > 0 ? Math.min(100, Math.max(0, (remaining / limit) * 100)) : 0;
+                        const periodText = quota.resetAt ? "this month" : "lifetime";
+
+                        let indicatorColor = "bg-red-500";
+                        if (percentage >= 80) {
+                          indicatorColor = "bg-green-500";
+                        } else if (percentage >= 20) {
+                          indicatorColor = "bg-yellow-500";
+                        }
+
+                        const isFree = billing.planId === "free" || billing.planId === "guest";
+
+                        return (
+                          <>
+                            <div className="px-3 py-2.5 select-none flex flex-col gap-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                                    Plan
+                                  </p>
+                                  <p className="text-xs font-bold text-gray-900 mt-0.5">
+                                    {billing.planId === "pro" ? "Pro Plan" : "Free Plan"}
+                                  </p>
+                                </div>
+                                {!isFree && (
+                                  <span className="rounded-full bg-orange px-2 py-0.5 text-[8px] font-bold text-white uppercase tracking-wider shadow-sm">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <div className="w-full">
+                                <Meter
+                                  value={percentage}
+                                  label="Credits"
+                                  customValue={`${remaining} of ${limit} left`}
+                                  trackClassName="bg-gray-100"
+                                  indicatorClassName={indicatorColor}
+                                />
+                                <p className="text-[9px] text-gray-400 font-semibold mt-1.5 capitalize">
+                                  Resets: {periodText}
+                                </p>
+                              </div>
+                              {isFree && (
+                                <HeroButton
+                                  text="Upgrade to Pro"
+                                  color="blue"
+                                  onClick={() => navigate({ to: "/settings" as any })}
+                                  className="w-full justify-center h-8 py-0 text-xs font-semibold rounded-xl shadow-none mt-3"
+                                />
+                              )}
+                            </div>
+                            <DropdownMenu.Separator className="h-[1px] bg-gray-100 my-1" />
+                          </>
+                        );
+                      })()}
                     <DropdownMenu.Item
                       onClick={() => navigate({ to: "/settings" as any })}
                       className="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-2 text-gray-700 hover:bg-gray-50 hover:text-gray-950 transition cursor-pointer"
