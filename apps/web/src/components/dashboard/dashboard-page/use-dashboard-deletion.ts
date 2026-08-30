@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { deleteGuestProjectDraft } from "@/lib/guest-drafts";
 import { forgetLocalFiles } from "@/lib/local-file-cleanup";
+import { cancelQueuedProjectFilePatch } from "@/lib/project-file-sync";
 import { deleteProject, deleteProjectFile } from "@/lib/projects-client";
 import type { DashboardData } from "./use-dashboard-data";
 import type { Project, ProjectFile } from "./types";
@@ -33,6 +34,12 @@ export function useDashboardDeletion(data: DashboardData) {
       deleteGuestProjectDraft(project.id);
       data.setGuestDrafts((current) => current.filter((draft) => draft.id !== project.id));
     } else {
+      // Queued autosave from a still-open workspace tab shares this SPA and its
+      // module-scoped write queue; drop it before the DELETE or it lands after
+      // and repopulates the file's local IndexedDB copy.
+      for (const file of project.files) {
+        if (file.fileId) cancelQueuedProjectFilePatch(file.fileId);
+      }
       await deleteProject(project.id);
       data.setSavedProjects((current) => current.filter((item) => item.id !== project.id));
       data.setFilesByProject((current) => {
@@ -60,6 +67,7 @@ export function useDashboardDeletion(data: DashboardData) {
       } else {
         const { file } = target;
         if (!file.fileId) return;
+        cancelQueuedProjectFilePatch(file.fileId);
         await deleteProjectFile(file.projectId, file.fileId);
         forgetLocalFiles([file.fileId]);
         data.setFilesByProject((current) => ({

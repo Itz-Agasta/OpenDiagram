@@ -36,7 +36,10 @@ export function ConfirmDeleteDialog({
 }: ConfirmDeleteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !pending && onCancel()}>
-      <DialogContent className="max-w-[440px] rounded-[16px] border-od-border-soft bg-od-surface p-5">
+      <DialogContent
+        showCloseButton={!pending}
+        className="max-w-[440px] rounded-[16px] border-od-border-soft bg-od-surface p-5"
+      >
         <DialogHeader className="mb-1 text-left">
           <DialogTitle className="text-[18px]">{title}</DialogTitle>
           <DialogDescription className="text-[14px] leading-6 text-od-ink-muted">
@@ -54,7 +57,6 @@ export function ConfirmDeleteDialog({
           </button>
           <button
             type="button"
-            autoFocus
             onClick={onConfirm}
             disabled={pending}
             className="h-10 rounded-[8px] bg-red-600 px-4 text-[14px] font-medium text-white transition hover:bg-red-700 disabled:cursor-wait disabled:opacity-70"
