@@ -30,25 +30,65 @@ export type ChatToolPart = {
   errorText?: string;
 };
 
-export function isAskUserPart(
-  part: { type?: string; toolName?: string } | undefined,
-): part is ChatToolPart {
-  return (
-    part?.type === "tool-ask_user" ||
-    (part?.type === "dynamic-tool" && part.toolName === "ask_user")
-  );
+export function normalizeToolPart(part: any): ChatToolPart | null {
+  if (!part) return null;
+
+  if (part.type === "tool-invocation") {
+    const inv = part.toolInvocation;
+    if (!inv) return null;
+
+    let state: ChatToolPart["state"] = "input-available";
+    if (inv.state === "calling") {
+      state = "input-streaming";
+    } else if (inv.state === "result") {
+      state = "output-available";
+    }
+
+    return {
+      type: `tool-${inv.toolName}`,
+      toolCallId: inv.toolCallId,
+      state,
+      input: inv.args,
+      output: inv.result,
+      errorText: inv.errorText,
+    };
+  }
+
+  if (
+    part.type === "tool-ask_user" ||
+    part.type === "tool-draw_diagram" ||
+    part.type === "dynamic-tool"
+  ) {
+    const toolName = part.type === "dynamic-tool" ? part.toolName : part.type.replace("tool-", "");
+    return {
+      type: `tool-${toolName}`,
+      toolCallId: part.toolCallId,
+      state: part.state,
+      input: part.input,
+      output: part.output,
+      errorText: part.errorText,
+    };
+  }
+
+  return null;
 }
 
-export function isDrawDiagramPart(
-  part: { type?: string; toolName?: string } | undefined,
-): part is ChatToolPart {
-  return (
-    part?.type === "tool-draw_diagram" ||
-    (part?.type === "dynamic-tool" && part.toolName === "draw_diagram")
-  );
+export function isAskUserPart(part: any): part is ChatToolPart {
+  const norm = normalizeToolPart(part);
+  return norm?.type === "tool-ask_user";
 }
 
-export function pendingAskUser(messages: UIMessage[]) {
+export function isDrawDiagramPart(part: any): part is ChatToolPart {
+  const norm = normalizeToolPart(part);
+  return norm?.type === "tool-draw_diagram";
+}
+
+export type PendingAsk = {
+  toolCallId: string;
+  input: AskUserInput;
+};
+
+export function pendingAskUser(messages: UIMessage[]): PendingAsk | null {
   const last = messages.at(-1);
   if (last?.role !== "assistant") return null;
 
@@ -97,21 +137,31 @@ export function lastAssistantMessageIsCompleteWithAskUser({
  * Drop Excalidraw element JSON from past `draw_diagram` outputs before upload.
  * The browser needs skeletons/rawElements to paint; the server only needs summary.
  */
-export function stripDrawDiagramOutput(messages: UIMessage[]): UIMessage[] {
+export function stripDrawDiagramOutput<T extends UIMessage>(messages: T[]): T[] {
   let touchedAny = false;
 
   const next = messages.map((message) => {
     let touched = false;
 
-    const parts = message.parts.map((part) => {
-      if (!isDrawDiagramPart(part) || part.state !== "output-available") return part;
+    const parts = message.parts.map((rawPart: any) => {
+      const part = (normalizeToolPart(rawPart) || rawPart) as any;
+      if (!isDrawDiagramPart(rawPart) || part.state !== "output-available") return rawPart;
 
       const output = part.output as DrawDiagramOutput | undefined;
-      if (!output || typeof output !== "object") return part;
-      if (!("skeletons" in output || "rawElements" in output)) return part;
+      if (!output || typeof output !== "object") return rawPart;
+      if (!("skeletons" in output || "rawElements" in output)) return rawPart;
 
       touched = true;
-      return { ...part, output: { summary: output.summary } };
+      if ((rawPart as any).type === "tool-invocation") {
+        return {
+          ...rawPart,
+          toolInvocation: {
+            ...(rawPart as any).toolInvocation,
+            result: { summary: output.summary },
+          },
+        } as any;
+      }
+      return { ...rawPart, output: { summary: output.summary } } as any;
     });
 
     if (!touched) return message;

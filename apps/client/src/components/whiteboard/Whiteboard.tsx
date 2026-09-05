@@ -16,9 +16,20 @@ export function Whiteboard({ onAPIReady, onChange, initialData }: WhiteboardProp
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
   const repairedRef = useRef(false);
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
   const handleAPI = useCallback(
     (api: any) => {
+      if (!aliveRef.current) return;
       setIsMounted(true);
+      // Hand the API over immediately. Waiting on repair meant apply/fit ran
+      // against an instance whose setState was still a no-op, so the scene
+      // stored elements but the visible canvas never panned or painted.
       onAPIReady?.(api);
       if (repairedRef.current) return;
       repairedRef.current = true;

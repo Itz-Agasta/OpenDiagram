@@ -8,7 +8,7 @@ export interface OfflinePendingFile {
 export function savePendingFiles(files: OfflinePendingFile[]): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   try {
-    const request = indexedDB.open("OpenDiagramOffline", 1);
+    const request = indexedDB.open("OpenDiagramOffline", 2);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("pending")) {
@@ -33,7 +33,7 @@ export function savePendingFiles(files: OfflinePendingFile[]): Promise<void> {
 export function getPendingFiles(): Promise<OfflinePendingFile[] | null> {
   const { promise, resolve, reject } = Promise.withResolvers<OfflinePendingFile[] | null>();
   try {
-    const request = indexedDB.open("OpenDiagramOffline", 1);
+    const request = indexedDB.open("OpenDiagramOffline", 2);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("pending")) {
@@ -61,7 +61,7 @@ export function getPendingFiles(): Promise<OfflinePendingFile[] | null> {
 export function clearPendingFiles(): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   try {
-    const request = indexedDB.open("OpenDiagramOffline", 1);
+    const request = indexedDB.open("OpenDiagramOffline", 2);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("pending")) {

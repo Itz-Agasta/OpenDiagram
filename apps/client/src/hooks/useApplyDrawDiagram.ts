@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import type { UIMessage } from "ai";
+import type { ChatMessage } from "#/lib/types";
 import { queueProjectFilePatch } from "#/lib/api";
+import { log } from "#/lib/utils/logger";
 import {
   serializeCanvasDiagrams,
   upsertCanvasDiagram,
@@ -8,16 +9,28 @@ import {
 } from "#/lib/utils/canvas-diagrams";
 import {
   isDrawDiagramPart,
+  normalizeToolPart,
   type DrawDiagramInput,
   type DrawDiagramOutput,
 } from "#/lib/utils/diagram-chat";
 import { applyDiagramToCanvas, sanitizeSceneAppState } from "#/lib/utils/excalidraw-utils";
-
 /** Scene snapshot after a draw. Forwarded to autosave; not a typed Excalidraw schema. */
 export type AppliedScene = {
   elements: unknown;
   appState: unknown;
   files: unknown;
+};
+
+type UseApplyDrawDiagramOptions = {
+  messages: ChatMessage[];
+  // Excalidraw's imperative API is typed in the whiteboard, not here.
+  excalidrawAPI: any | null;
+  isHistorySeeded: boolean;
+  skippedMessageIdsRef: RefObject<Set<string>>;
+  diagramsRef: RefObject<CanvasDiagram[]>;
+  projectId: string;
+  fileId: string;
+  onApplied: (scene: AppliedScene) => void;
 };
 
 /**
@@ -31,17 +44,7 @@ export type AppliedScene = {
  * save must not delay the next paint. Switching files bumps `generation` so an
  * in-flight apply cannot paint or PATCH the next file.
  */
-export function useApplyDrawDiagram(options: {
-  messages: UIMessage[];
-  // Excalidraw's imperative API is typed in the whiteboard, not here.
-  excalidrawAPI: any | null;
-  isHistorySeeded: boolean;
-  skippedMessageIdsRef: RefObject<Set<string>>;
-  diagramsRef: RefObject<CanvasDiagram[]>;
-  projectId: string;
-  fileId: string;
-  onApplied: (scene: AppliedScene) => void;
-}) {
+export function useApplyDrawDiagram(options: UseApplyDrawDiagramOptions) {
   const {
     messages,
     excalidrawAPI,
@@ -74,11 +77,7 @@ export function useApplyDrawDiagram(options: {
   }, [fileId]);
 
   useEffect(() => {
-    if (isHistorySeeded) {
-      lastSeededFileIdRef.current = fileId;
-    } else {
-      lastSeededFileIdRef.current = null;
-    }
+    lastSeededFileIdRef.current = isHistorySeeded ? fileId : null;
   }, [isHistorySeeded, fileId]);
 
   // Side-effect consumer of UIMessage parts. Cannot run during render:
@@ -90,20 +89,42 @@ export function useApplyDrawDiagram(options: {
     const skipped = skippedMessageIdsRef.current;
 
     for (const message of messages) {
-      if (skipped?.has(message.id)) continue;
-      if (message.role !== "assistant") continue;
+      if (skipped?.has(message.id) || message.role !== "assistant") continue;
 
-      for (const part of message.parts) {
-        if (!isDrawDiagramPart(part) || part.state !== "output-available") continue;
+      for (const rawPart of message.parts) {
+        log.info({
+          event: "useApplyDrawDiagram:processPart",
+          messageId: message.id,
+          partType: rawPart?.type,
+          rawPart,
+        });
+
+        if (!isDrawDiagramPart(rawPart)) continue;
+        const part = normalizeToolPart(rawPart) || rawPart;
+
+        log.info({
+          event: "useApplyDrawDiagram:drawDiagramPartMatched",
+          toolCallId: part.toolCallId,
+          state: part.state,
+          input: part.input,
+          output: part.output,
+        });
+
+        if (part.state !== "output-available") continue;
         if (appliedToolCallsRef.current.has(part.toolCallId)) continue;
 
         const output = part.output as DrawDiagramOutput | undefined;
         const skeletons = output?.skeletons;
-        if (!skeletons) continue;
-
+        if (!skeletons) {
+          log.warn({
+            event: "useApplyDrawDiagram:noSkeletons",
+            toolCallId: part.toolCallId,
+            output,
+          });
+          continue;
+        }
         appliedToolCallsRef.current.add(part.toolCallId);
         const { targetId, ...spec } = (part.input ?? {}) as DrawDiagramInput;
-
         const replaceFrameId =
           targetId && (diagramsRef.current ?? []).some((diagram) => diagram.id === targetId)
             ? targetId
@@ -111,6 +132,7 @@ export function useApplyDrawDiagram(options: {
 
         applyChainRef.current = applyChainRef.current.then(async () => {
           if (generation !== generationRef.current) return;
+
           try {
             const { frameId } = await applyDiagramToCanvas(
               excalidrawAPI,
@@ -119,14 +141,24 @@ export function useApplyDrawDiagram(options: {
               { replaceFrameId },
             );
 
-            if (generation !== generationRef.current) return;
-            if (!frameId) return;
+            // Camera is fitted inside applyDiagramToCanvas (after paint). Snapshot now.
+            log.info({
+              event: "useApplyDrawDiagram:afterApply",
+              frameId,
+              zoom: excalidrawAPI?.getAppState?.()?.zoom?.value,
+              scrollX: excalidrawAPI?.getAppState?.()?.scrollX,
+              scrollY: excalidrawAPI?.getAppState?.()?.scrollY,
+              elementsCount: excalidrawAPI?.getSceneElements?.()?.length,
+              frameElement: excalidrawAPI
+                ?.getSceneElements?.()
+                ?.find((el: any) => el.type === "frame"),
+            });
 
+            if (generation !== generationRef.current || !frameId) return;
             const current = diagramsRef.current ?? [];
             const base = replaceFrameId
               ? current.filter((diagram) => diagram.id !== replaceFrameId)
               : current;
-
             const updated = upsertCanvasDiagram(base, {
               id: frameId,
               title: spec.title || "Untitled",

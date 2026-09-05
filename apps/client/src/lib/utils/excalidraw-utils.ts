@@ -103,14 +103,121 @@ export async function restoreSceneElements(elements: readonly unknown[]) {
 
 /** Second pass after mount: Excalidraw has registered its faces by then. */
 export async function repairCanvasText(api: ExcalidrawImperativeAPI) {
-  const repaired = await repairSceneText(api.getSceneElements());
+  const elements = api.getSceneElements();
+  if (elements.length === 0) return;
+  const repaired = await repairSceneText(elements);
   api.updateScene({ elements: repaired });
+}
+
+function afterPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+const VIEWPORT_ZOOM_FACTOR = 0.85;
+const MIN_FIT_ZOOM = 0.1;
+const MAX_FIT_ZOOM = 30;
+/** Keep the floating assistant bar / zoom footer off the fitted diagram. */
+const ASSISTANT_BAR_BOTTOM = 88;
+
+type CanvasOffsets = { left?: number; right?: number; top?: number; bottom?: number };
+
+type FitApi = Pick<ExcalidrawImperativeAPI, "updateScene" | "getAppState"> & {
+  getEditorUIOffsets?: () => CanvasOffsets;
+  refresh?: () => void;
+};
+
+function fitOffsets(api: FitApi): CanvasOffsets {
+  const ui = api.getEditorUIOffsets?.() ?? {};
+  return {
+    top: ui.top ?? 0,
+    left: ui.left ?? 0,
+    right: ui.right ?? 0,
+    bottom: Math.max(ui.bottom ?? 0, ASSISTANT_BAR_BOTTOM),
+  };
+}
+
+/**
+ * Fit-to-viewport camera (may zoom in past 100%). Same scroll math as
+ * Excalidraw `centerScrollOn`. Applied via `updateScene` so it lands even when
+ * `scrollToContent` → `setState` is a no-op.
+ */
+function cameraToFit(
+  elements: readonly { x: number; y: number; width: number; height: number }[],
+  viewport: { width: number; height: number },
+  offsets?: CanvasOffsets,
+) {
+  const bounds = contentBounds(elements);
+  const contentW = Math.max(1, bounds.maxX - bounds.minX);
+  const contentH = Math.max(1, bounds.maxY - bounds.minY);
+  const left = offsets?.left ?? 0;
+  const right = offsets?.right ?? 0;
+  const top = offsets?.top ?? 0;
+  const bottom = offsets?.bottom ?? 0;
+  const effectiveW = Math.max(1, viewport.width - left - right);
+  const effectiveH = Math.max(1, viewport.height - top - bottom);
+  const zoom = Math.min(
+    MAX_FIT_ZOOM,
+    Math.max(
+      MIN_FIT_ZOOM,
+      Math.min(effectiveW / contentW, effectiveH / contentH) * VIEWPORT_ZOOM_FACTOR,
+    ),
+  );
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  return {
+    zoom: { value: zoom },
+    scrollX: (viewport.width - right) / 2 / zoom - centerX + left / 2 / zoom,
+    scrollY: (viewport.height - bottom) / 2 / zoom - centerY + top / 2 / zoom,
+  };
+}
+
+function viewportSize(api: Pick<ExcalidrawImperativeAPI, "getAppState">) {
+  const appState = api.getAppState();
+  return {
+    width: appState.width || (typeof window !== "undefined" ? window.innerWidth : 1440),
+    height: appState.height || (typeof window !== "undefined" ? window.innerHeight : 900),
+  };
+}
+
+function sizedElements(elements: readonly unknown[]) {
+  return elements.filter((el): el is { x: number; y: number; width: number; height: number } => {
+    if (!el || typeof el !== "object") return false;
+    const value = el as { x?: unknown; y?: unknown; width?: unknown; height?: unknown };
+    return (
+      typeof value.x === "number" &&
+      typeof value.y === "number" &&
+      typeof value.width === "number" &&
+      typeof value.height === "number"
+    );
+  });
+}
+
+/** Center the diagram and zoom so it fills the editor viewport. */
+export function fitSceneToViewport(api: FitApi, elements: readonly unknown[]) {
+  const sized = sizedElements(elements);
+  if (sized.length === 0) return;
+  api.updateScene({
+    appState: {
+      ...cameraToFit(sized, viewportSize(api), fitOffsets(api)),
+      isLoading: false,
+    },
+    captureUpdate: "NEVER",
+  });
+  api.refresh?.();
 }
 
 /** collaborators is a Map and does not survive JSON. */
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
-  const { collaborators: _collaborators, ...rest } = appState as Record<string, unknown>;
+  const {
+    collaborators: _collaborators,
+    isLoading: _isLoading,
+    ...rest
+  } = appState as Record<string, unknown>;
   return rest;
 }
 
@@ -139,6 +246,8 @@ export async function sceneToInitialData(scene: unknown) {
     elements,
     appState: sanitizeSceneAppState(value.appState),
     files: value.files,
+    // Origin cameras from a draw that fitted before the scene committed.
+    scrollToContent: true,
   };
 }
 
@@ -262,7 +371,8 @@ export async function applyDiagramToCanvas(
   rawElements: unknown[],
   opts?: { replaceFrameId?: string | null },
 ): Promise<ApplyDiagramResult> {
-  const { convertToExcalidrawElements, restoreElements } = await import("@excalidraw/excalidraw");
+  const { convertToExcalidrawElements, restoreElements, CaptureUpdateAction } =
+    await import("@excalidraw/excalidraw");
   // Measure AFTER the real face is in document.fonts. convertToExcalidrawElements
   // freezes text width/height from canvas measureText; Fonts.onLoaded later
   // redraws but does not grow the box, so a fallback measure clips the label.
@@ -332,9 +442,22 @@ export async function applyDiagramToCanvas(
     }
   }
 
-  api.updateScene({ elements: [...kept, ...converted] });
-
+  const nextElements = [...kept, ...converted];
   const frame = converted.find((el) => el.type === "frame");
-  api.scrollToContent(frame ?? converted, { fitToContent: true, animate: true, duration: 400 });
+  const fitTarget = sizedElements(frame ? [frame] : converted);
+  api.updateScene({
+    elements: nextElements,
+    appState: {
+      ...cameraToFit(
+        fitTarget.length > 0 ? fitTarget : sizedElements(converted),
+        viewportSize(api),
+        fitOffsets(api),
+      ),
+      isLoading: false,
+    },
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+  api.refresh();
+  await afterPaint();
   return { frameId: frame?.id ?? null };
 }

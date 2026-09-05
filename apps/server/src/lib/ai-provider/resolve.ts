@@ -130,6 +130,10 @@ export async function resolveModel(
   userId?: string | null,
   selection: ModelSelection = {},
 ): Promise<ResolvedModel | null> {
+  if (selection.providerId === "roxy" || selection.modelId === "roxy") {
+    return resolvePlatformModel();
+  }
+
   if (userId) {
     const byok = await resolveUserModel(userId, selection);
     if (byok) return byok;

@@ -46,15 +46,17 @@ export function PromptInput({
 } = {}) {
   const { data: session } = useQuery(sessionQueryOptions);
   const { data: settings } = useQuery(aiSettingsQueryOptions(session?.user?.id, !!session?.user));
-  const [selectedModel, setSelectedModel] = useState<string>("platform");
+  const [selectedModel, setSelectedModel] = useState<string>("roxy");
+  const hasLoadedDefaultRef = useRef(false);
 
   const modelOptions = settings ? providerModelOptions(settings) : [];
   const activeOption = modelOptions.find((o) => o.id === selectedModel);
 
   useEffect(() => {
-    if (modelOptions.length > 0 && selectedModel === "platform") {
+    if (modelOptions.length > 0 && selectedModel === "roxy" && !hasLoadedDefaultRef.current) {
       const defaultOpt = modelOptions.find((o) => o.isDefault);
       if (defaultOpt) {
+        hasLoadedDefaultRef.current = true;
         setSelectedModel(defaultOpt.id);
       }
     }
@@ -340,6 +342,29 @@ export function PromptInput({
 
   const onEditorKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (handleSlashKey(e)) return;
+
+    // Auto-fill active placeholder suggestion on Tab keypress if input is empty
+    if (e.key === "Tab" && value.trim().length === 0) {
+      e.preventDefault();
+      const editor = editorRef.current;
+      if (editor) {
+        editor.innerText = placeholder;
+        setValue(placeholder);
+
+        // Place text cursor at the end of the autofilled text
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        saveSelection();
+      }
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -434,7 +459,13 @@ export function PromptInput({
         );
 
       if (onSubmit) {
-        await onSubmit(prompt, files, activeOption?.modelId, activeOption?.providerId);
+        const isRoxy = selectedModel === "roxy";
+        await onSubmit(
+          prompt,
+          files,
+          isRoxy ? "roxy" : activeOption?.modelId,
+          isRoxy ? "roxy" : activeOption?.providerId,
+        );
       }
 
       const editor = editorRef.current;
@@ -559,7 +590,7 @@ export function PromptInput({
                   appearance: "none",
                 }}
               >
-                <option value="platform" className="text-gray-700 bg-white">
+                <option value="roxy" className="text-gray-700 bg-white">
                   Platform (Roxy)
                 </option>
                 {modelOptions.map((opt) => (
