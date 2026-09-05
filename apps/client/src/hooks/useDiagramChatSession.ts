@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
+import type { ChatMessage } from "#/lib/types";
 import type { CanvasDiagram } from "#/lib/utils/canvas-diagrams";
 import { toPromptDiagrams } from "#/lib/utils/canvas-diagrams";
 import {
@@ -12,45 +13,44 @@ import {
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
 
-/**
- * Diagram agent chat for one file.
- *
- * Owns the AI SDK transport + `useChat`. The canvas list and model pick are
- * read through refs so a draw that lands mid-turn is on the next request
- * without rebuilding the transport. `ask_user` is a client tool: after the
- * user answers, `sendAutomaticallyWhen` continues the turn. Completed turns
- * are appended to the thread in `onFinish`.
- */
-export function useDiagramChat(options: {
+/** Outbound transcript window. The panel still holds the full thread. */
+const LAST_MESSAGES = 10;
+
+type UseDiagramChatSessionOptions = {
   fileId: string;
   diagramsRef: RefObject<CanvasDiagram[]>;
   modelId: string | null;
   providerId: string | null;
   persistTurn: (messages: UIMessage[]) => Promise<void>;
-}) {
-  const { fileId, diagramsRef, modelId, providerId, persistTurn } = options;
+  onError?: (error: Error) => void;
+};
+
+/**
+ * AI SDK session for one file.
+ *
+ * Canvas list and model pick are read through refs so a draw that lands
+ * mid-turn is on the next request. `ask_user` is a client tool: after the
+ * user answers, `sendAutomaticallyWhen` continues the turn. Completed turns
+ * are appended to the thread in `onFinish`.
+ */
+export function useDiagramChatSession(options: UseDiagramChatSessionOptions) {
+  const { fileId, diagramsRef, modelId, providerId, persistTurn, onError } = options;
 
   const modelIdRef = useRef(modelId);
   const providerIdRef = useRef(providerId);
   const persistTurnRef = useRef(persistTurn);
+  const onErrorRef = useRef(onError);
 
   useEffect(() => {
     modelIdRef.current = modelId;
-  }, [modelId]);
-
-  useEffect(() => {
     providerIdRef.current = providerId;
-  }, [providerId]);
-
-  useEffect(() => {
     persistTurnRef.current = persistTurn;
-  }, [persistTurn]);
+    onErrorRef.current = onError;
+  }, [modelId, providerId, persistTurn, onError]);
 
-  // Created once. `body()` is a callback, so later draws/model changes are
-  // visible without replacing the transport (which would reset the chat).
-  const transport = useRef<DefaultChatTransport<UIMessage> | null>(null);
-  if (!transport.current) {
-    transport.current = new DefaultChatTransport<UIMessage>({
+  return useChat<ChatMessage>({
+    id: fileId,
+    transport: new DefaultChatTransport<ChatMessage>({
       api: `${SERVER_URL.replace(/\/$/, "")}/api/diagram/chat`,
       body: () => ({
         diagrams: toPromptDiagrams(diagramsRef.current ?? []),
@@ -60,19 +60,24 @@ export function useDiagramChat(options: {
       }),
       // Returning a body replaces the default, so id/trigger/messageId must
       // be forwarded. Skeletons stay in the UI; the server only needs summaries.
+      // The model only needs recent turns; the canvas specs carry current state.
       prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
-        body: { ...body, id, messages: stripDrawDiagramOutput(messages), trigger, messageId },
+        body: {
+          ...body,
+          id,
+          messages: stripDrawDiagramOutput(messages).slice(-LAST_MESSAGES),
+          trigger,
+          messageId,
+        },
       }),
       fetch: fetchDiagramChat as typeof fetch,
-    });
-  }
-
-  return useChat({
-    id: fileId,
-    transport: transport.current,
+    }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithAskUser,
     onFinish: ({ messages }) => {
       void persistTurnRef.current(messages);
+    },
+    onError: (error) => {
+      onErrorRef.current?.(error);
     },
   });
 }

@@ -79,25 +79,8 @@ body {
   src: url("/fonts/Excalifont-Regular.woff2");
 }
 
-/* Shift Excalidraw UI elements to the right when sidebar is open or closed */
-.excalidraw-container-sidebar-open .excalidraw .layer-ui__wrapper {
-  left: 280px !important;
-  width: calc(100% - 280px) !important;
-  transition:
-    left 0.2s ease-in-out,
-    width 0.2s ease-in-out;
-}
-
-.excalidraw-container-sidebar-closed .excalidraw .layer-ui__wrapper {
-  left: 60px !important;
-  width: calc(100% - 60px) !important;
-  transition:
-    left 0.2s ease-in-out,
-    width 0.2s ease-in-out;
-}
-
 /* Position assistant bar and panel on the right side of the screen */
-.assistant-bar,
+.assistant-bar-wrapper,
 .assistant-panel {
   left: auto !important;
   right: 24px !important;
@@ -108,24 +91,38 @@ body {
 
 /* Glass on these classes, not Tailwind — overflow:hidden + bg-white/70 on the
    same node (and painting the panel before the canvas) made the frost a solid card. */
-.assistant-panel,
-.assistant-bar {
+.assistant-panel {
   background: rgba(255, 255, 255, 0.7) !important;
   -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
   backdrop-filter: blur(24px) saturate(1.4) !important;
 }
 
-/* Adjust max-width dynamically based on sidebar state to prevent overlap with left controls on smaller screens */
-.excalidraw-container-sidebar-open .assistant-bar,
-.excalidraw-container-sidebar-open .assistant-panel {
-  max-width: calc(100vw - 530px) !important;
+.assistant-bar-inner {
+  background: #eef2ff !important;
 }
 
-.excalidraw-container-sidebar-closed .assistant-bar,
-.excalidraw-container-sidebar-closed .assistant-panel {
-  max-width: calc(100vw - 310px) !important;
+/* Prevent overlap with left controls on smaller screens */
+.assistant-bar-wrapper,
+.assistant-panel {
+  max-width: calc(100vw - 150px) !important;
 }
 
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.assistant-bar-wrapper {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
 /* Align Excalidraw footer left controls horizontally with the assistant bar */
 .excalidraw .layer-ui__wrapper__footer-left {
   margin-bottom: 8px !important;

@@ -17,6 +17,7 @@ import { StreamingText } from "#/components/ui/StreamingText";
 import {
   isAskUserPart,
   isDrawDiagramPart,
+  normalizeToolPart,
   type AskUserInput,
   type ChatToolPart,
   type DrawDiagramOutput,
@@ -140,12 +141,18 @@ export function AssistantPanel({
   const waitingForResponse =
     isLoading &&
     (last?.role !== "assistant" ||
-      !last.parts.some(
-        (part) =>
+      !last.parts.some((rawPart) => {
+        const part = (
+          isAskUserPart(rawPart) || isDrawDiagramPart(rawPart)
+            ? normalizeToolPart(rawPart) || rawPart
+            : rawPart
+        ) as any;
+        return (
           (part.type === "text" && part.text) ||
-          (isAskUserPart(part) && part.state !== "input-streaming") ||
-          isDrawDiagramPart(part),
-      ));
+          (isAskUserPart(rawPart) && part.state !== "input-streaming") ||
+          isDrawDiagramPart(rawPart)
+        );
+      }));
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -266,8 +273,13 @@ export function AssistantPanel({
 
             return (
               <div key={msg.id} className="space-y-3">
-                {msg.parts.map((part, partIdx) => {
+                {msg.parts.map((rawPart, partIdx) => {
                   const key = `${msg.id}-${partIdx}`;
+                  const part = (
+                    isAskUserPart(rawPart) || isDrawDiagramPart(rawPart)
+                      ? normalizeToolPart(rawPart) || rawPart
+                      : rawPart
+                  ) as any;
                   if (part.type === "text" && part.text) {
                     const isLastMessage = index === messages.length - 1;
                     return (
@@ -377,11 +389,11 @@ export function AssistantPanel({
                 {modelOptions.length > 0 ? (
                   <div className="flex items-center text-[10px] font-semibold text-gray-400 bg-gray-100 border border-gray-200/60 rounded px-1.5 py-0.5 select-none hover:bg-gray-200 hover:text-gray-600 transition relative cursor-pointer font-geist">
                     <select
-                      value={selectedModelId || "platform"}
+                      value={selectedModelId || "roxy"}
                       onChange={(e) => {
                         const val = e.target.value;
-                        if (val === "platform") {
-                          onSelectModel?.(null, null);
+                        if (val === "roxy") {
+                          onSelectModel?.("roxy", "roxy");
                         } else {
                           const opt = modelOptions.find((o) => o.id === val);
                           if (opt) {
@@ -397,7 +409,7 @@ export function AssistantPanel({
                         appearance: "none",
                       }}
                     >
-                      <option value="platform" className="text-gray-700 bg-white">
+                      <option value="roxy" className="text-gray-700 bg-white">
                         Platform (Roxy)
                       </option>
                       {modelOptions.map((opt) => (
