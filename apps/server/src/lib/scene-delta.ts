@@ -151,11 +151,33 @@ export function pruneTombstones(scene: unknown): unknown {
   const elements = (scene as StoredScene).elements;
   if (!Array.isArray(elements)) return scene;
 
+  const reference = referenceTime(elements);
+  if (reference === null) return scene;
+
   const kept = elements.filter((element) => {
     const { isDeleted, updated } = (element ?? {}) as { isDeleted?: unknown; updated?: unknown };
     if (isDeleted !== true || typeof updated !== "number") return true;
-    return Date.now() - updated < TOMBSTONE_TTL_MS;
+    return reference - updated < TOMBSTONE_TTL_MS;
   });
 
   return kept.length === elements.length ? scene : { ...scene, elements: kept };
+}
+
+/**
+ * The instant to measure tombstone age against, or null when the scene carries
+ * no usable stamp.
+ *
+ * `updated` is `Date.now()` on whichever machine drew the element, so ages have
+ * to be measured against the newest stamp in the same scene rather than against
+ * server time: a client whose clock is a day behind would otherwise have the
+ * tombstone for a shape it just deleted read as expired and dropped on arrival.
+ * Server time still caps it, so one absurd future stamp cannot expire the rest.
+ */
+function referenceTime(elements: readonly unknown[]): number | null {
+  let newest: number | null = null;
+  for (const element of elements) {
+    const { updated } = (element ?? {}) as { updated?: unknown };
+    if (typeof updated === "number" && (newest === null || updated > newest)) newest = updated;
+  }
+  return newest === null ? null : Math.min(Date.now(), newest);
 }

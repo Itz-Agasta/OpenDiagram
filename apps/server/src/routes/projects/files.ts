@@ -130,7 +130,9 @@ filesRoute.post("/:projectId/files", async (c) => {
     if (!file) throw new Error("Could not create file");
 
     const contentRow = await writeProjectFileContent(tx, file.id, {
-      scene,
+      // Guest draft promotion posts a scene drawn before the account existed,
+      // so this path receives tombstones as old as the draft in localStorage.
+      scene: pruneTombstones(scene),
       spec,
       content,
       history,
