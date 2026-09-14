@@ -6,6 +6,7 @@ import { createFsDrain } from "evlog/fs";
 import { evlog } from "evlog/hono";
 import { createSentryDrain } from "evlog/sentry";
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import { cors } from "hono/cors";
 import { resolveSession, type SessionVariables } from "./lib/session";
 // Registers the AI SDK's OpenTelemetry integration; must load before any AI call.
@@ -95,6 +96,14 @@ app.use(
     },
   }),
 );
+
+// A whole-file read measured 1,579,056 B -> 257,315 gzipped. Two landmines: SSE
+// survives only because the middleware skips `text/event-stream` and
+// `Transfer-Encoding`, so a route streaming without either would be buffered; and
+// `threshold` is inert, because it reads a Content-Length that `c.json()` never
+// sets on Bun, so small responses are compressed too.
+// https://github.com/honojs/hono/blob/v4.12.32/src/middleware/compress/index.ts
+app.use(compress());
 
 app.get("/", (c) => c.text("OK"));
 app.get("/health", (c) => c.json({ status: "ok" }));

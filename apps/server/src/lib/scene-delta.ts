@@ -41,8 +41,13 @@ export type SceneDelta = z.infer<typeof sceneDeltaSchema>;
 type SceneElement = { id?: unknown; index?: unknown };
 type StoredScene = { elements?: unknown; appState?: unknown; files?: unknown };
 
+// Upstream's DELETED_ELEMENT_TIMEOUT. A second device holding a stale local copy
+// reconciles against the tombstone to learn the element is gone, so dropping one
+// inside this window resurrects the shape on that device.
+const TOMBSTONE_TTL_MS = 24 * 60 * 60 * 1000;
+
 /**
-/** Whether a PATCH body's scene is a delta rather than a whole scene.
+ * Whether a PATCH body's scene is a delta rather than a whole scene.
  *
  * Checked before parsing because scene is z.unknown() on the route. The two
  * shapes are structurally disjoint (stored scene has elements, delta has base +
@@ -94,9 +99,8 @@ function orderElements(elements: unknown[]): unknown[] {
  *
  * Deletions need no channel of their own: Excalidraw marks a removed element
  * isDeleted: true and bumps its version rather than dropping it from the array,
- * so a deletion arrives as an ordinary changed element. Tombstones are never
- * collected; upstream expires them at DELETED_ELEMENT_TIMEOUT (24h) and we have
- * no equivalent yet.
+ * so a deletion arrives as an ordinary changed element. pruneTombstones expires
+ * them.
  *
  * appState is ~1 kB of viewport and theme, replaced wholesale. files is merged
  * rather than replaced, because a delta only carries blobs the client knows the
@@ -131,4 +135,49 @@ export function mergeSceneDelta(current: unknown, delta: SceneDelta): unknown {
     appState: delta.appState ?? stored.appState,
     files,
   };
+}
+
+/**
+ * Drop tombstones older than the reconcile window, returning the next scene.
+ *
+ * Excalidraw never removes a deleted element from the array, so without this it
+ * only grows: the worst scene in production carried 1040 tombstones against 742
+ * live elements, 976 KB of a 1665 KB payload. An element with no `updated` stamp
+ * is kept, since a tombstone that overstays costs bytes while one dropped early
+ * resurrects a shape the user deleted.
+ */
+export function pruneTombstones(scene: unknown): unknown {
+  if (!scene || typeof scene !== "object") return scene;
+  const elements = (scene as StoredScene).elements;
+  if (!Array.isArray(elements)) return scene;
+
+  const reference = referenceTime(elements);
+  if (reference === null) return scene;
+
+  const kept = elements.filter((element) => {
+    const { isDeleted, updated } = (element ?? {}) as { isDeleted?: unknown; updated?: unknown };
+    if (isDeleted !== true || typeof updated !== "number") return true;
+    return reference - updated < TOMBSTONE_TTL_MS;
+  });
+
+  return kept.length === elements.length ? scene : { ...scene, elements: kept };
+}
+
+/**
+ * The instant to measure tombstone age against, or null when the scene carries
+ * no usable stamp.
+ *
+ * `updated` is `Date.now()` on whichever machine drew the element, so ages have
+ * to be measured against the newest stamp in the same scene rather than against
+ * server time: a client whose clock is a day behind would otherwise have the
+ * tombstone for a shape it just deleted read as expired and dropped on arrival.
+ * Server time still caps it, so one absurd future stamp cannot expire the rest.
+ */
+function referenceTime(elements: readonly unknown[]): number | null {
+  let newest: number | null = null;
+  for (const element of elements) {
+    const { updated } = (element ?? {}) as { updated?: unknown };
+    if (typeof updated === "number" && (newest === null || updated > newest)) newest = updated;
+  }
+  return newest === null ? null : Math.min(Date.now(), newest);
 }

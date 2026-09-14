@@ -10,7 +10,12 @@ import {
 } from "../../lib/project-file-content";
 import { writeProjectFile } from "../../lib/project-file-write";
 import type { AuthVariables } from "../../lib/require-auth";
-import { isSceneDelta, mergeSceneDelta, sceneDeltaSchema } from "../../lib/scene-delta";
+import {
+  isSceneDelta,
+  mergeSceneDelta,
+  pruneTombstones,
+  sceneDeltaSchema,
+} from "../../lib/scene-delta";
 
 const fileTypeSchema = z.enum(["diagram", "doc"]);
 
@@ -125,7 +130,9 @@ filesRoute.post("/:projectId/files", async (c) => {
     if (!file) throw new Error("Could not create file");
 
     const contentRow = await writeProjectFileContent(tx, file.id, {
-      scene,
+      // Guest draft promotion posts a scene drawn before the account existed,
+      // so this path receives tombstones as old as the draft in localStorage.
+      scene: pruneTombstones(scene),
       spec,
       content,
       history,
@@ -256,7 +263,7 @@ filesRoute.patch("/:projectId/files/:fileId", async (c) => {
     fileId,
     userId,
     metadata,
-    content: { scene: nextScene, spec: nextSpec, content, history },
+    content: { scene: pruneTombstones(nextScene), spec: nextSpec, content, history },
     expectedSceneRev,
     returnContent: !metaOnly,
   });
