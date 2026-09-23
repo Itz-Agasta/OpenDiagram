@@ -1,0 +1,23 @@
+packages/harness/src/report/index.ts
+  s_1eafd56c0436e4::t_c4517c91f8dc15 15-16,62-70,163-171,191
+packages/harness/src/report/metrics.ts
+  s_1eafd56c0436e4::t_81259b85aaa26d 86-91
+  s_1eafd56c0436e4::t_0f1d4281460bf7 74-80,92-93,136-139
+  s_1eafd56c0436e4::t_c4517c91f8dc15 22-23,230,236,249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "95d1b76eedd687343467877a61f9d23036d325bd",
+  "prompts": {},
+  "sessions": {
+    "s_1eafd56c0436e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bd8c064-1b49-4fd9-903e-3cb2c9eb6a2e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
