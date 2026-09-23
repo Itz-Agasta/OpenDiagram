@@ -1,0 +1,22 @@
+packages/harness/src/router/quality.ts
+  s_1eafd56c0436e4::t_9f9f5e2d1421d9 4-5,21
+packages/harness/src/router/repair.ts
+  s_1eafd56c0436e4::t_83ad89001f1ed6 52-53
+  s_1eafd56c0436e4::t_d61a219f112c76 47-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "38f794f3baad1a86ead3d423a9f84dd6bffd2f86",
+  "prompts": {},
+  "sessions": {
+    "s_1eafd56c0436e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bd8c064-1b49-4fd9-903e-3cb2c9eb6a2e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
