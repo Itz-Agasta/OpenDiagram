@@ -1,0 +1,53 @@
+packages/harness/src/layout/reorder.ts
+  s_1eafd56c0436e4::t_f1d1d028ea9083 58-62,66-70
+  s_1eafd56c0436e4::t_81259b85aaa26d 17-22,25-26,28-29,51-56,63-65
+  s_1eafd56c0436e4::t_715af2abb40b18 1-16,23-24,27,30-50,57,71-73
+packages/harness/test/layout.test.ts
+  s_1eafd56c0436e4::t_736a4891d6c0a6 197-283
+packages/harness/src/layout/lanes.ts
+  s_1eafd56c0436e4::t_d3b69a611bc3fa 1-25,33-47,51-80,83-87,92-93,96-102
+  s_1eafd56c0436e4::t_81259b85aaa26d 26-32,48-50,81-82,89-91,94-95
+  s_1eafd56c0436e4::t_0296bdcea78c84 88
+packages/harness/src/layout.ts
+  s_1eafd56c0436e4::t_f1d1d028ea9083 9,146-148
+  s_1eafd56c0436e4::t_81259b85aaa26d 18-19,127-129,137-138
+  s_1eafd56c0436e4::t_e78315eeb66981 2,6-7,10-11,20,99,103-105,107-108,117-120,135,145,157-158,163-175
+  s_1eafd56c0436e4::t_0296bdcea78c84 4,136,139-140,143,154-155,159-162
+  s_1eafd56c0436e4::t_114c5640e80e98 121-126,130-133
+packages/harness/README.md
+  s_1eafd56c0436e4::t_ab453a6781d1ea 91
+  s_1eafd56c0436e4::t_4dd7f0c9c9825a 13-19,47-48,52-58,68,85-90,92-95
+packages/harness/src/layout/align.ts
+  s_1eafd56c0436e4::t_40621d61dafb8a 1-2,12-13,15
+packages/harness/src/layout/straighten.ts
+  s_1eafd56c0436e4::t_070e2ce07fe8ec 1-18,25-29,32,36-43,46-53,58-59,67-71,75-105
+  s_1eafd56c0436e4::t_81259b85aaa26d 19-24,30-31,33-35,44-45,54-57,60-66,72-74
+packages/harness/src/layout/elk-common.ts
+  s_1eafd56c0436e4::t_40621d61dafb8a 63,69-78,83-84
+  s_1eafd56c0436e4::t_54aa211cd8da08 13-23,25-28,39
+  s_1eafd56c0436e4::t_81259b85aaa26d 29-32,64-67
+packages/harness/src/layout/route.ts
+  s_1eafd56c0436e4::t_fb97ca7481627b 1-45,50-56,66,74,81-85,89-90
+  s_1eafd56c0436e4::t_81259b85aaa26d 46-49,69-71,75-80,86-88
+  s_1eafd56c0436e4::t_454430413aa205 57-65,67-68,72-73
+AGENTS.md
+  s_1eafd56c0436e4::t_4dd7f0c9c9825a 43-44
+packages/harness/src/layout/macro.ts
+  s_1eafd56c0436e4::t_d7afa3aed62dbf 2-3,18,21-23,43-44,54-58,78,81,114-121,129,132,166,193,229-248,253,264,294-296,298-300,329,333-335,368-374,415-416,435-437
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3599b478b86e84b143411ac7f2a953f1e3f13ac0",
+  "prompts": {},
+  "sessions": {
+    "s_1eafd56c0436e4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bd8c064-1b49-4fd9-903e-3cb2c9eb6a2e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
