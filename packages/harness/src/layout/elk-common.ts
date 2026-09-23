@@ -10,22 +10,33 @@ import {
 import type { DiagramEdge } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 
-// TUNABLE: room inside group/zone boxes; top holds the Medium-20 label row.
-export const CONTAINER_OPTIONS = { "elk.padding": "[top=56,left=24,bottom=24,right=24]" };
-
-// Shared layered-algorithm options (direction is decided per run).
-export const BASE_OPTIONS: Record<string, string> = {
-  "elk.algorithm": "layered",
-  "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-  "elk.edgeRouting": "ORTHOGONAL",
-  // TUNABLE spacing (px): between columns/rows of nodes and around edges.
-  // Bigger = airier diagram, smaller = denser.
+// TUNABLE spacing (px): between columns/rows of nodes and around edges.
+// Bigger = airier diagram, smaller = denser.
+const SPACING: Record<string, string> = {
   "elk.layered.spacing.nodeNodeBetweenLayers": "110", // gap between flow layers (arrow length + label corridors live here)
   "elk.layered.spacing.edgeNodeBetweenLayers": "32",
   "elk.spacing.nodeNode": "48", // gap between siblings in the same layer
   "elk.spacing.edgeNode": "32", // how close an edge may run past a node
   "elk.spacing.edgeEdge": "30", // gap between parallel edges (label chips need air)
   "elk.spacing.edgeLabel": "8",
+};
+
+// TUNABLE: room inside group/zone boxes; top holds the Medium-20 label row.
+// Spacing is repeated here on purpose: ELK reads a compound's interior spacing
+// from the compound node itself, not the root, even with INCLUDE_CHILDREN.
+// Without it every group fell back to the 20px default (measured: layers
+// 120px apart instead of 210 on a 100px-wide node).
+export const CONTAINER_OPTIONS = {
+  "elk.padding": "[top=56,left=24,bottom=24,right=24]",
+  ...SPACING,
+};
+
+// Shared layered-algorithm options (direction is decided per run).
+export const BASE_OPTIONS: Record<string, string> = {
+  "elk.algorithm": "layered",
+  "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+  "elk.edgeRouting": "ORTHOGONAL",
+  ...SPACING,
   // Keep bend points only where an edge actually turns. `true` does the
   // opposite of what the name suggests: it ADDS a bend per long-edge dummy
   // and at every hierarchy crossing. (Measured negative result:
@@ -49,22 +60,28 @@ export const elk = new ELK({
   workerUrl: createRequire(import.meta.url).resolve("elkjs/lib/elk-worker.min.js"),
 });
 
-/** ELK edge with a measured label box so layout reserves space for it. */
-export function elkEdge(edge: DiagramEdge & { id: string }, theme: Theme): ElkExtendedEdge {
+/** The label chip the renderer draws: text plus a 4px/2px pad. Shared by ELK and the router. */
+export function edgeLabelSize(
+  edge: DiagramEdge,
+  theme: Theme,
+): { width: number; height: number } | undefined {
   const text = edgeLabelText(edge);
+  if (!text) return undefined;
+  return {
+    width: estimateTextWidth(text, theme.text.edgeLabel.size, theme.fontFamily) + 8,
+    height: estimateTextHeight(theme.text.edgeLabel.size, countTextLines(text)) + 4,
+  };
+}
+
+/** ELK edge with a measured label box so placement reserves space for it. */
+export function elkEdge(edge: DiagramEdge & { id: string }, theme: Theme): ElkExtendedEdge {
+  const size = edgeLabelSize(edge, theme);
   return {
     id: edge.id,
     sources: [edge.from],
     targets: [edge.to],
-    labels: text
-      ? [
-          {
-            text,
-            width: estimateTextWidth(text, theme.text.edgeLabel.size, theme.fontFamily) + 8,
-            height: estimateTextHeight(theme.text.edgeLabel.size, countTextLines(text)) + 4,
-            layoutOptions: { "elk.edgeLabels.inline": "true" },
-          },
-        ]
+    labels: size
+      ? [{ text: edgeLabelText(edge), ...size, layoutOptions: { "elk.edgeLabels.inline": "true" } }]
       : undefined,
   };
 }

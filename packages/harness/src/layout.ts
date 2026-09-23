@@ -1,14 +1,22 @@
 import type { ElkNode } from "elkjs/lib/elk-api.js";
-import type { Box, EdgeRoute, PositionedSpec } from "./geometry.js";
+import type { Box, PositionedSpec } from "./geometry.js";
 import { alignColumns } from "./layout/align.js";
+import { laneLayout } from "./layout/lanes.js";
 import { BASE_OPTIONS, CONTAINER_OPTIONS, elk, elkEdge } from "./layout/elk-common.js";
-import { type LayoutGeometry, scoreLayout, twoPhaseLayout } from "./layout/macro.js";
+import { type LayoutGeometry, twoPhaseLayout } from "./layout/macro.js";
+import { routeGeometry } from "./layout/route.js";
 import { sanitize, type Sanitized } from "./layout/sanitize.js";
+import { reorderStacks } from "./layout/reorder.js";
+import { straightenRows } from "./layout/straighten.js";
+import { buildReport } from "./report/index.js";
 import { nodeSize } from "./measure.js";
 import type { DiagramSpec } from "./schema.js";
 import { classicTheme, type Theme } from "./theme/index.js";
 
 export type { Box, EdgeRoute, PositionedSpec } from "./geometry.js";
+
+const flowDirection = (spec: DiagramSpec) =>
+  spec.meta?.direction ?? (spec.type === "erd" ? "TB" : "LR");
 
 const DIRECTION: Record<string, string> = { LR: "RIGHT", TB: "DOWN", BT: "UP", RL: "LEFT" };
 
@@ -88,35 +96,16 @@ async function singleRunLayout(
   };
   walk(laidOut, laidOut.x ?? 0, laidOut.y ?? 0);
 
-  const edgeRoutes: Record<string, EdgeRoute> = {};
-  for (const edge of laidOut.edges ?? []) {
-    const points = (edge.sections ?? []).flatMap((section) => [
-      section.startPoint,
-      ...(section.bendPoints ?? []),
-      section.endPoint,
-    ]);
-    if (points.length < 2) continue;
-    const label = edge.labels?.[0];
-    edgeRoutes[edge.id] = {
-      points,
-      label:
-        label?.x !== undefined && label?.y !== undefined
-          ? { x: label.x, y: label.y, width: label.width ?? 0, height: label.height ?? 0 }
-          : undefined,
-    };
-  }
-
-  alignColumns(spec, s.edges, positions, edgeRoutes);
-  return { positions, groupBoxes, zoneBoxes, edgeRoutes };
+  return { positions, groupBoxes, zoneBoxes };
 }
 
 /**
- * Lays out a DiagramSpec with ELK (layered, orthogonal routing). Zones and
- * groups are true nested compounds; edge labels get measured dimensions so ELK
- * reserves space for them and returns exact label boxes.
+ * Lays out a DiagramSpec: ELK places nodes (layered, nested compounds), polish
+ * passes square up columns and rows, then the router draws every edge and
+ * places its label against the final boxes.
  *
- * Specs with several top-level containers additionally get the two-phase fold
- * layout (see layout/macro.ts); the better-scoring result wins.
+ * Specs with several top-level containers also get the two-phase fold layout
+ * (see layout/macro.ts); both are routed and the better report score wins.
  */
 export async function layoutDiagram(
   spec: DiagramSpec,
@@ -125,26 +114,63 @@ export async function layoutDiagram(
 ): Promise<PositionedSpec> {
   const s = sanitize(spec);
   const strategy = opts?.strategy ?? "auto";
-  let geo = await singleRunLayout(spec, s, theme);
+  // Replication runs between mirrored stacks (primary/replica region) and says
+  // nothing about flow order. Placed by it, the replica ranks after the primary
+  // and the diagram becomes a ribbon; unplaced, the two stack and the router
+  // drops the sync edges straight across. Measured: azure HA/DR 72 -> 94.
+  // Same for pushes back to a client ("push notification" into the mobile
+  // app): a client that also sends requests is a source, and ranking it by
+  // the push drops it at the far end, so its own request loops the diagram.
+  const category = new Map(spec.nodes.map((n) => [n.id, n.category]));
+  const initiators = new Set(s.edges.map((e) => e.from));
+  const intoClient = (e: { from: string; to: string }) =>
+    e.from !== e.to &&
+    initiators.has(e.to) &&
+    ["client", "user"].includes(category.get(e.to) ?? "");
+  const placing: Sanitized = {
+    ...s,
+    edges: s.edges.filter((e) => e.kind !== "replication" && !intoClient(e)),
+  };
 
+  const candidates: LayoutGeometry[] = [];
+  const swimlanes =
+    spec.type === "bpmn" ||
+    (s.groups.length > 1 && (spec.groups ?? []).every((g) => g.style === "swimlane"));
+  const lanes = swimlanes ? await laneLayout(spec, placing, theme) : null;
+  if (lanes) candidates.push(lanes);
   const topContainers =
     s.zones.length + s.groups.filter((g) => !s.zones.some((z) => z.contains.includes(g.id))).length;
-  if (strategy !== "single" && spec.type !== "sequence" && topContainers >= 2) {
+  if (!lanes && strategy !== "single" && spec.type !== "sequence" && topContainers >= 2) {
     try {
-      const folded = await twoPhaseLayout(spec, s, theme);
-      if (folded && (strategy === "two-phase" || scoreLayout(folded) < scoreLayout(geo))) {
-        geo = folded;
+      const folded = await twoPhaseLayout(spec, placing, theme);
+      if (folded) {
+        reorderStacks(folded, s, placing.edges, ["LR", "RL"].includes(flowDirection(spec)));
+        candidates.push(folded);
       }
     } catch (error) {
       s.warnings.push(`two-phase layout failed, using single-run: ${String(error)}`);
     }
   }
+  if (!lanes && (strategy !== "two-phase" || candidates.length === 0))
+    candidates.push(await singleRunLayout(spec, placing, theme));
 
-  return {
-    ...spec,
-    edges: s.edges,
-    ...geo,
-    containedNodeIds: [...s.nodeParent.keys()],
-    warnings: s.warnings,
-  };
+  let best: { positioned: PositionedSpec; score: number } | undefined;
+  for (const geo of candidates) {
+    if (geo !== lanes) {
+      alignColumns(spec, geo.positions);
+      straightenRows(geo, s, placing.edges, ["LR", "RL"].includes(flowDirection(spec)));
+    }
+    const { routes, warnings } = routeGeometry(spec, s, geo, theme);
+    const positioned: PositionedSpec = {
+      ...spec,
+      edges: s.edges,
+      ...geo,
+      edgeRoutes: routes,
+      containedNodeIds: [...s.nodeParent.keys()],
+      warnings: [...s.warnings, ...warnings],
+    };
+    const score = buildReport(positioned).score;
+    if (!best || score > best.score) best = { positioned, score };
+  }
+  return best!.positioned;
 }

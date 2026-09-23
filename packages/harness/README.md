@@ -10,8 +10,13 @@ that way.
 DiagramSpec (semantics only)
    │  nodes, edges, groups/zones, categories, kinds - no coordinates
    ▼
-layout      ELK layered graph layout (or a custom grid for sequence diagrams)
-   │  exact boxes, orthogonal edge routes, measured label positions
+place       ELK ranks and places nodes (fold / swimlane / single-run candidates;
+   │         sequence diagrams use their own grid)
+   ▼
+polish      column + row alignment, cross-block reordering; moves nodes freely
+   ▼
+route       router/: orthogonal routes, ports, bundles, label chips, drawn
+   │         against the FINAL boxes; the best-scoring candidate wins
    ▼
 renderer    theme tokens -> RenderSkeleton[] + raw icon elements
    │  framework-agnostic: NO @excalidraw/excalidraw import (server-safe)
@@ -39,14 +44,18 @@ src/
                       from real fonts in Chrome. Regenerate with the snippet in
                       the file header if the fonts change.
 
-  layout.ts           ELK pipeline: buildGraph + layoutDiagram (plus re-exported
-                      geometry types)
+  layout.ts           Pipeline: sanitize, place candidates, polish, route, pick
+                      the best report score (plus re-exported geometry types)
   layout/
     sanitize.ts       Cleanup of LLM output: unknown ids, double-claimed nodes,
                       reciprocal-edge merging. Emits warnings[].
-    align.ts          Post-layout polish. Snaps same-layer node centers so
-                      columns line up, then shifts edge endpoints to stay
-                      orthogonal.
+    macro.ts          Fold placement for several top-level containers: blocks
+                      packed into a grid in reading order, wide tiers stood on end
+    lanes.ts          Swimlanes (bpmn): full-width bands, flat ELK picks columns
+    align.ts          Snaps same-layer node centers so columns line up
+    straighten.ts     Snaps chained nodes in a container onto one row
+    reorder.ts        Barycenter reorder of unconnected stacks across fold blocks
+    route.ts          Adapts placed geometry (title bands, icon anchors) to router/
     sequence.ts       Sequence diagrams. Self-computed grid, not ELK. Actors are
                       columns, messages are rows. Handles alt/loop fragments,
                       auto-numbering, red error and green success replies.
@@ -56,7 +65,7 @@ src/
   renderer/
     containers.ts     Group/zone boxes with labels
     nodes.ts          Node shapes: solo icon, mermaid box, card, ERD entity
-    edges.ts          Arrows along ELK routes, crow-foot cardinality, labels
+    edges.ts          Arrows along router routes, crow-foot cardinality, labels
     icons.ts          Clones raw Excalidraw icon elements from the registry into
                       a node's icon band (id remapping, binding strip)
 
@@ -73,10 +82,17 @@ src/
 footprint and the renderer draws inside that exact box. Change one branch (say,
 how entity tables render) and you have to change its sizing branch too.
 
-**Edge routes are drawn verbatim.** ELK reserves space for measured edge labels
-along the exact polyline it returns, so rerouting an edge after layout detaches
-its label. This is also why Excalidraw `elbowed` arrows are unusable here:
-programmatic insert draws them as straight diagonals.
+**Route last, draw verbatim.** Placement may move nodes as much as it likes;
+`router/` runs after the last move and owns every polyline and label chip, so
+the renderer draws its routes exactly. ELK edge routes are not used. Excalidraw
+`elbowed` arrows stay unusable: programmatic insert draws them as straight
+diagonals.
+
+**router/** is an orthogonal visibility-grid A\* (bend, crossing, overlap and
+wall-hugging costs), with face slots ordered by where each edge heads, shared
+trunks for crowded faces, a few rip-up rounds, a port-swap repair, nudging of
+shared tracks, and label placement on (or beside) straight runs. Every file
+header says what its pass owns.
 
 **No `@excalidraw/excalidraw` imports in this package.** It only evaluates in a
 browser. The final skeleton-to-element conversion lives in

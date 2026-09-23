@@ -194,3 +194,90 @@ test("sketch theme: icon-less node renders label INSIDE its box", async () => {
   expect(label.y).toBeGreaterThan(box.y);
   expect(label.y).toBeLessThan(box.y + box.height);
 });
+
+describe("place, polish, route", () => {
+  const center = (b: { x: number; y: number; width: number; height: number }) => ({
+    x: b.x + b.width / 2,
+    y: b.y + b.height / 2,
+  });
+
+  test("swimlanes: full-width bands in spec order, flow runs along them", async () => {
+    const spec: DiagramSpec = {
+      type: "bpmn",
+      title: "Lanes",
+      nodes: ["a", "b", "c", "d"].map((id) => ({ id, label: `Step ${id}` })),
+      edges: [
+        { from: "a", to: "b" },
+        { from: "b", to: "c" },
+        { from: "c", to: "d" },
+        { from: "c", to: "a", label: "retry" },
+      ],
+      groups: [
+        { id: "emp", label: "Employee", contains: ["a", "b", "d"], style: "swimlane" },
+        { id: "mgr", label: "Manager", contains: ["c"], style: "swimlane" },
+      ],
+    };
+    const p = await layoutDiagram(spec, classicTheme);
+    const [emp, mgr] = [p.groupBoxes.emp!, p.groupBoxes.mgr!];
+    expect(emp.width).toBe(mgr.width);
+    expect(mgr.y).toBeGreaterThanOrEqual(emp.y + emp.height);
+    // Authored order is run order: the retry is the back edge, not the flow.
+    const xs = ["a", "b", "c", "d"].map((id) => center(p.positions[id]!).x);
+    expect([...xs].sort((u, v) => u - v)).toEqual(xs);
+  });
+
+  test("replication does not rank the replica after the primary", async () => {
+    const spec: DiagramSpec = {
+      type: "cloud-architecture",
+      title: "Mirror",
+      nodes: ["api1", "db1", "api2", "db2"].map((id) => ({ id, label: id })),
+      edges: [
+        { from: "api1", to: "db1" },
+        { from: "api2", to: "db2" },
+        { from: "db1", to: "db2", kind: "replication" },
+      ],
+      groups: [
+        { id: "primary", label: "Primary", contains: ["api1", "db1"], style: "region" },
+        { id: "replica", label: "Replica", contains: ["api2", "db2"], style: "region" },
+      ],
+    };
+    const p = await layoutDiagram(spec, classicTheme);
+    expect(Math.abs(center(p.positions.db1!).x - center(p.positions.db2!).x)).toBeLessThan(40);
+  });
+
+  test("a push back to a client keeps the client at the start of the flow", async () => {
+    const spec: DiagramSpec = {
+      type: "system-design",
+      title: "Push",
+      nodes: [
+        { id: "app", label: "Mobile App", category: "client" },
+        { id: "gw", label: "Gateway", category: "gateway" },
+        { id: "svc", label: "Orders", category: "service" },
+        { id: "push", label: "Notifier", category: "service" },
+      ],
+      edges: [
+        { from: "app", to: "gw" },
+        { from: "gw", to: "svc" },
+        { from: "svc", to: "push" },
+        { from: "push", to: "app", label: "push" },
+      ],
+    };
+    const p = await layoutDiagram(spec, classicTheme);
+    const x = (id: string) => center(p.positions[id]!).x;
+    expect(x("app")).toBeLessThan(x("gw"));
+    expect(x("gw")).toBeLessThan(x("svc"));
+  });
+
+  test("layers inside a group keep the root layer spacing", async () => {
+    const spec: DiagramSpec = {
+      type: "system-design",
+      title: "Spacing",
+      nodes: ["a", "b"].map((id) => ({ id, label: id })),
+      edges: [{ from: "a", to: "b" }],
+      groups: [{ id: "g", label: "G", contains: ["a", "b"] }],
+    };
+    const p = await layoutDiagram(spec, classicTheme);
+    const [a, b] = [p.positions.a!, p.positions.b!];
+    expect(b.x - (a.x + a.width)).toBeGreaterThanOrEqual(100);
+  });
+});
