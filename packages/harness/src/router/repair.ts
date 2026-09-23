@@ -44,6 +44,10 @@ export function swapRepair(
         const rq = rp && reroute(q.edge, swapped.get(q.edge)!, trial);
         if (!rp || !rq) continue;
         trial.set(q.edge, rq);
+        // p was routed against q's OLD path; once more against the new one, or
+        // a swap that only works jointly (both routes change) is never seen.
+        const again = reroute(p.edge, swapped.get(p.edge)!, trial);
+        if (again) trial.set(p.edge, again);
         const c = routingCost(trial);
         if (c < cost) {
           cost = c;

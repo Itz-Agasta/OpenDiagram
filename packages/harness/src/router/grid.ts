@@ -86,7 +86,10 @@ function merged(values: number[]): number[] {
  * coordinates the caller pins.
  */
 export function buildGrid(input: RouterInput, extra: { xs: number[]; ys: number[] }): Grid {
-  const boxes: Box[] = [...input.nodes, ...input.containers];
+  // Title bands count as boxes: a long title can overhang its container, and
+  // without tracks past its end A* finds no way around it.
+  const titles = input.containers.flatMap((c) => (c.title ? [c.title] : []));
+  const boxes: Box[] = [...input.nodes, ...input.containers, ...titles];
   const xs: number[] = [...extra.xs];
   const ys: number[] = [...extra.ys];
   for (const n of input.nodes) {
@@ -98,7 +101,10 @@ export function buildGrid(input: RouterInput, extra: { xs: number[]; ys: number[
   for (const c of input.containers) {
     xs.push(c.x - CLEARANCE, c.x + c.width + CLEARANCE, c.x + CLEARANCE, c.x + c.width - CLEARANCE);
     ys.push(c.y - CLEARANCE, c.y + c.height + CLEARANCE, c.y + c.height - CLEARANCE);
-    if (c.title) ys.push(c.title.y + c.title.height + CLEARANCE / 2);
+    if (c.title) {
+      ys.push(c.title.y + c.title.height + CLEARANCE / 2);
+      xs.push(c.title.x + c.title.width + CLEARANCE);
+    }
   }
   // Only boxes that face each other (overlap on the other axis) make a
   // channel worth a midline; every-pair midlines tripled the grid for nothing.

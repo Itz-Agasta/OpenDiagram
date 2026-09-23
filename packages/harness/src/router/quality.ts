@@ -1,23 +1,30 @@
 import type { Point } from "./types.js";
 
-/** Proper crossings between two orthogonal polylines (shared endpoints and overlaps excluded). */
+const same = (a: Point, b: Point) => Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+
+/**
+ * Crossings between two orthogonal polylines, counted the way the report
+ * counts them (report/metrics.ts): a T-touch counts, since it reads as a
+ * connection that is not there, unless the two routes share their first or
+ * last point (a real trunk splitting). Segments meeting end to end do not.
+ */
 export function crossings(p: Point[], q: Point[]): number {
+  const trunk = same(p[0]!, q[0]!) || same(p[p.length - 1]!, q[q.length - 1]!);
   let n = 0;
   for (let i = 0; i < p.length - 1; i++) {
     for (let j = 0; j < q.length - 1; j++) {
       const [a, b, c, d] = [p[i]!, p[i + 1]!, q[j]!, q[j + 1]!];
       const ph = a.y === b.y;
       if (ph === (c.y === d.y)) continue;
+      if ([a, b].some((u) => same(u, c) || same(u, d))) continue;
       const [h0, h1, v0, v1] = ph ? [a, b, c, d] : [c, d, a, b];
       const x = v0.x;
       const y = h0.y;
-      if (
-        x > Math.min(h0.x, h1.x) &&
-        x < Math.max(h0.x, h1.x) &&
-        y > Math.min(v0.y, v1.y) &&
-        y < Math.max(v0.y, v1.y)
-      )
-        n++;
+      const [x0, x1] = [Math.min(h0.x, h1.x), Math.max(h0.x, h1.x)];
+      const [y0, y1] = [Math.min(v0.y, v1.y), Math.max(v0.y, v1.y)];
+      const strict = x > x0 && x < x1 && y > y0 && y < y1;
+      const touch = x >= x0 && x <= x1 && y >= y0 && y <= y1;
+      if (trunk ? strict : touch) n++;
     }
   }
   return n;
