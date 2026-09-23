@@ -1,6 +1,8 @@
 import type { Point } from "./types.js";
 
 const same = (a: Point, b: Point) => Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+// Segments whose ends are this close meet rather than cross; the report's own tolerance.
+const meets = (a: Point, b: Point) => Math.abs(a.x - b.x) < 2 && Math.abs(a.y - b.y) < 2;
 
 /**
  * Crossings between two orthogonal polylines, counted the way the report
@@ -16,7 +18,7 @@ export function crossings(p: Point[], q: Point[]): number {
       const [a, b, c, d] = [p[i]!, p[i + 1]!, q[j]!, q[j + 1]!];
       const ph = a.y === b.y;
       if (ph === (c.y === d.y)) continue;
-      if ([a, b].some((u) => same(u, c) || same(u, d))) continue;
+      if ([a, b].some((u) => meets(u, c) || meets(u, d))) continue;
       const [h0, h1, v0, v1] = ph ? [a, b, c, d] : [c, d, a, b];
       const x = v0.x;
       const y = h0.y;

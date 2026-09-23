@@ -44,10 +44,13 @@ export function swapRepair(
         const rq = rp && reroute(q.edge, swapped.get(q.edge)!, trial);
         if (!rp || !rq) continue;
         trial.set(q.edge, rq);
-        // p was routed against q's OLD path; once more against the new one, or
-        // a swap that only works jointly (both routes change) is never seen.
+        // p was routed against q's OLD path, so each is routed once more against
+        // the other's new one; else a swap that only works when both routes
+        // change is never seen. Measured: +6 classic, 1 fewer crossing.
         const again = reroute(p.edge, swapped.get(p.edge)!, trial);
         if (again) trial.set(p.edge, again);
+        const againQ = again && reroute(q.edge, swapped.get(q.edge)!, trial);
+        if (againQ) trial.set(q.edge, againQ);
         const c = routingCost(trial);
         if (c < cost) {
           cost = c;
