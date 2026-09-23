@@ -43,10 +43,9 @@ export function routeGeometry(
       title: {
         x: b.x + 8,
         y: b.y + 6,
-        width: Math.min(
-          b.width - 16,
-          Math.ceil(estimateTextWidth(text, titleSize, theme.fontFamily)) + 16,
-        ),
+        // Not capped at the box: a long title the renderer draws past the
+        // border must still keep routes and chips off it.
+        width: Math.ceil(estimateTextWidth(text, titleSize, theme.fontFamily)) + 16,
         height: Math.ceil(titleSize * 1.3) + 12,
       },
     });

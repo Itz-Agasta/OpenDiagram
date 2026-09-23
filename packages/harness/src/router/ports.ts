@@ -6,6 +6,9 @@ import { FACES, type Face, NORMAL, type Point, type RouterInput } from "./types.
 const SLOT_GAP = 16;
 const INSET = 12;
 
+/** Slot key for one end of an edge. NUL-joined: ids are free text and may hold ":". */
+export const endKey = (edge: string, node: string) => `${edge}\u0000${node}`;
+
 const center = (b: Box): Point => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
 const along = (face: Face) => (face === "left" || face === "right" ? "y" : "x");
 
@@ -75,7 +78,7 @@ export function assignSlots(
 ): { slots: Map<string, number>; bundles: Map<string, string> } {
   const byFace = new Map<string, Endpoint[]>();
   for (const e of endpoints)
-    byFace.set(`${e.node}:${e.face}`, [...(byFace.get(`${e.node}:${e.face}`) ?? []), e]);
+    byFace.set(`${e.node}\u0000${e.face}`, [...(byFace.get(`${e.node}\u0000${e.face}`) ?? []), e]);
   const out = new Map<string, number>();
   const bundles = new Map<string, string>();
   for (const [key, group] of byFace) {
@@ -91,8 +94,8 @@ export function assignSlots(
       // Too many edges for the face (a hub icon): one shared port and trunk
       // that branches, instead of a comb of lines too close to label.
       for (const e of group) {
-        out.set(`${e.edge}:${e.node}`, Math.round(centre));
-        bundles.set(`${e.edge}:${e.node}`, key);
+        out.set(endKey(e.edge, e.node), Math.round(centre));
+        bundles.set(endKey(e.edge, e.node), key);
       }
       continue;
     }
@@ -101,7 +104,13 @@ export function assignSlots(
     const fit = pava(shifted).map((v, i) => v + i * gap);
     const over = Math.max(0, fit[fit.length - 1]! - hi);
     const under = Math.max(0, lo - (fit[0]! - over));
-    group.forEach((e, i) => out.set(`${e.edge}:${e.node}`, Math.round(fit[i]! - over + under)));
+    // Clamped last: a pooled PAVA block can still straddle the face ends.
+    group.forEach((e, i) =>
+      out.set(
+        endKey(e.edge, e.node),
+        Math.round(Math.min(hi, Math.max(lo, fit[i]! - over + under))),
+      ),
+    );
   }
   return { slots: out, bundles };
 }
@@ -152,11 +161,11 @@ export function alignPairs(
             ? p.b.y - (p.a.y + p.a.height)
             : p.a.y - (p.b.y + p.b.height);
     if (gapAhead <= 0) continue;
-    const sa = slots.get(`${p.edge}:${p.na}`)!;
-    const sb = slots.get(`${p.edge}:${p.nb}`)!;
+    const sa = slots.get(endKey(p.edge, p.na))!;
+    const sb = slots.get(endKey(p.edge, p.nb))!;
     if (sa === sb) continue;
     const tryMove = (node: string, face: Face, box: Box, to: number) => {
-      if (bundled.has(`${p.edge}:${node}`)) return false;
+      if (bundled.has(endKey(p.edge, node))) return false;
       const axis = along(face);
       const lo = (axis === "x" ? box.x : box.y) + INSET;
       const hi = (axis === "x" ? box.x + box.width : box.y + box.height) - INSET;
@@ -164,9 +173,9 @@ export function alignPairs(
       const others = endpoints.filter(
         (e) => e.node === node && e.face === face && e.edge !== p.edge,
       );
-      if (others.some((e) => Math.abs(slots.get(`${e.edge}:${node}`)! - to) < SLOT_GAP))
+      if (others.some((e) => Math.abs(slots.get(endKey(e.edge, node))! - to) < SLOT_GAP))
         return false;
-      slots.set(`${p.edge}:${node}`, to);
+      slots.set(endKey(p.edge, node), to);
       return true;
     };
     if (!tryMove(p.nb, p.fb, p.b, sa)) tryMove(p.na, p.fa, p.a, sb);

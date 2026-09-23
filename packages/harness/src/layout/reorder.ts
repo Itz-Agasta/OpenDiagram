@@ -32,7 +32,7 @@ export function reorderStacks(
   for (const ids of members.values()) {
     if (ids.length < 2 || !ids.every((id) => pos[id])) continue;
     const inner = new Set(ids);
-    if (edges.some((e) => inner.has(e.from) && inner.has(e.to))) continue;
+    if (edges.some((e) => e.from !== e.to && inner.has(e.from) && inner.has(e.to))) continue;
     // One column: every member overlaps every other along the flow axis.
     const spans = ids.map((id) => span(pos[id]!));
     if (Math.max(...spans.map((x) => x[0])) >= Math.min(...spans.map((x) => x[1]))) continue;

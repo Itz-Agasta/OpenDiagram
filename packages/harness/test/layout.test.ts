@@ -223,7 +223,7 @@ describe("place, polish, route", () => {
     expect(mgr.y).toBeGreaterThanOrEqual(emp.y + emp.height);
     // Authored order is run order: the retry is the back edge, not the flow.
     const xs = ["a", "b", "c", "d"].map((id) => center(p.positions[id]!).x);
-    expect([...xs].sort((u, v) => u - v)).toEqual(xs);
+    for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeGreaterThan(xs[i - 1]!);
   });
 
   test("replication does not rank the replica after the primary", async () => {
@@ -266,6 +266,7 @@ describe("place, polish, route", () => {
     const x = (id: string) => center(p.positions[id]!).x;
     expect(x("app")).toBeLessThan(x("gw"));
     expect(x("gw")).toBeLessThan(x("svc"));
+    expect(x("svc")).toBeLessThan(x("push"));
   });
 
   test("layers inside a group keep the root layer spacing", async () => {

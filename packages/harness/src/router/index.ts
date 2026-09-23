@@ -175,7 +175,7 @@ export function routeEdges(input: RouterInput): {
     new Map(edges.map((e) => [e.id, e.from])),
   );
   for (const e of edges.filter((x) => x.from === x.to))
-    final.set(e.id, selfLoop(nodes.get(e.from)!));
+    final.set(e.id, selfLoop(nodes.get(e.from)!.anchor ?? nodes.get(e.from)!));
   const labels = placeLabels(final, sizes, input.nodes, titles, input.containers);
   const out: Record<string, EdgeRoute> = {};
   for (const [id, points] of final) out[id] = { points, label: labels.get(id) };

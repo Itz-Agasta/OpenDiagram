@@ -36,7 +36,10 @@ export function straightenRows(
   const boxOf = (id?: string) => (id ? (geo.groupBoxes[id] ?? geo.zoneBoxes[id]) : undefined);
 
   const root = new Map(ids.map((i) => [i, i]));
-  const find = (i: string): string => (root.get(i) === i ? i : find(root.get(i)!));
+  const find = (i: string): string => {
+    while (root.get(i) !== i) i = root.get(i)!;
+    return i;
+  };
   const linked = new Set<string>();
   for (const e of edges) {
     const a = pos[e.from];
@@ -55,7 +58,20 @@ export function straightenRows(
     b.x + b.width + gap <= a.x ||
     a.y + a.height + gap <= b.y ||
     b.y + b.height + gap <= a.y;
+  // A node sitting directly in a zone must not slide into a sibling group.
+  const zoneOf = new Map<string, string>();
+  for (const z of s.zones) for (const g of z.contains) zoneOf.set(g, z.id);
+  const foreign = (id: string) => {
+    const own = new Set<string | undefined>([
+      s.nodeParent.get(id),
+      zoneOf.get(s.nodeParent.get(id) ?? ""),
+    ]);
+    return Object.entries(geo.groupBoxes)
+      .filter(([g]) => !own.has(g))
+      .map(([, box]) => box);
+  };
   const fits = (id: string, b: Box, band: string[]) => {
+    if (foreign(id).some((g) => !clear(b, g, 0))) return false;
     const c = boxOf(s.nodeParent.get(id));
     if (
       c &&

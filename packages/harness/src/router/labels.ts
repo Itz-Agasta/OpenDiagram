@@ -70,10 +70,25 @@ export function placeLabels(
     }
     // FIXME: a chip with no legal spot falls back to the longest run's middle and may collide;
     // counted by the report as LABEL_COLLISION.
-    best ??= options.get(edge)![0];
-    if (best) placed.set(edge, best.box);
+    best ??= options.get(edge)![0] ?? {
+      box: longestMiddle(routes.get(edge)!, sizes.get(edge)!),
+      cost: 0,
+    };
+    placed.set(edge, best.box);
   }
   return placed;
+}
+
+/** Chip centred on the longest run: the fallback when no run is long enough to slide along. */
+function longestMiddle(route: Point[], size: { width: number; height: number }): Box {
+  let best = { cx: route[0]!.x, cy: route[0]!.y, len: -1 };
+  for (let i = 0; i < route.length - 1; i++) {
+    const [a, b] = [route[i]!, route[i + 1]!];
+    const len = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+    if (len > best.len) best = { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, len };
+  }
+  const x = Math.round(best.cx - size.width / 2);
+  return { x, y: Math.round(best.cy - size.height / 2), width: size.width, height: size.height };
 }
 
 function candidates(

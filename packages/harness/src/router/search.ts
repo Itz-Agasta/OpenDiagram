@@ -46,8 +46,7 @@ function stubIndex(t: Terminal, grid: Grid): [number, number] | undefined {
   const xi = grid.xs.indexOf(Math.round(port.x));
   const yi = grid.ys.indexOf(Math.round(port.y));
   const past = (lines: number[], edge: number, sign: number) => {
-    const i = lines.findIndex((v) => (sign > 0 ? v >= edge + CLEARANCE / 2 : v > edge));
-    if (sign > 0) return i;
+    if (sign > 0) return lines.findIndex((v) => v >= edge + CLEARANCE / 2);
     for (let k = lines.length - 1; k >= 0; k--) if (lines[k]! <= edge - CLEARANCE / 2) return k;
     return -1;
   };
@@ -129,7 +128,13 @@ export function search(
   walls: Box[] = [],
 ): { points: Point[]; source: Terminal; target: Terminal } | undefined {
   const free = (a: Point, b: Point) => obstacles.every((o) => !segmentHitsBox(a, b, o));
-  const direct = straightRun(sources, targets, free);
+  // The shortcut skips A*, so it must also skip everything A* would price:
+  // a straight run on another route or along a border goes through search.
+  const direct = straightRun(
+    sources,
+    targets,
+    (a, b) => free(a, b) && penalty(a, b, occupied, bundles) === 0 && hugging(a, b, walls) === 0,
+  );
   if (direct) return direct;
   const nx = grid.xs.length;
   const ny = grid.ys.length;
@@ -166,6 +171,9 @@ export function search(
     if (!at) continue;
     const k = key(at[0], at[1], dirIndex(NORMAL[s.face]));
     const p = pt(at[0], at[1]);
+    // The stub from port to grid is drawn too; a neighbour or title closer
+    // than the stub line would otherwise be cut through.
+    if (!free(s.port, p)) continue;
     const c = s.cost + Math.abs(p.x - s.port.x) + Math.abs(p.y - s.port.y);
     if (c < g(k)) {
       cost.set(k, c);
@@ -186,6 +194,7 @@ export function search(
     for (const t of goals.get(cell) ?? []) {
       const inward = dirIndex({ x: -NORMAL[t.face].x, y: -NORMAL[t.face].y });
       if ((d + 2) % 4 === inward) continue; // would U-turn into the node
+      if (!free(here, t.port)) continue;
       const total =
         g(k) +
         t.cost +
@@ -242,7 +251,7 @@ export function search(
 function straightRun(
   sources: Terminal[],
   targets: Terminal[],
-  free: (a: Point, b: Point) => boolean,
+  clear: (a: Point, b: Point) => boolean,
 ): { points: Point[]; source: Terminal; target: Terminal } | undefined {
   let best: { points: Point[]; source: Terminal; target: Terminal; cost: number } | undefined;
   for (const s of sources) {
@@ -253,7 +262,7 @@ function straightRun(
       const dy = t.port.y - s.port.y;
       const aligned =
         n.x !== 0 ? Math.abs(dy) < 0.5 && dx * n.x > 0 : Math.abs(dx) < 0.5 && dy * n.y > 0;
-      if (!aligned || !free(s.port, t.port)) continue;
+      if (!aligned || !clear(s.port, t.port)) continue;
       const cost = s.cost + t.cost + Math.abs(dx) + Math.abs(dy);
       if (!best || cost < best.cost)
         best = { points: [s.port, t.port], source: s, target: t, cost };

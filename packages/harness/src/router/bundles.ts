@@ -61,11 +61,36 @@ export function alignBundles(
     for (const r of runs) counts.set(r.coord, (counts.get(r.coord) ?? 0) + 1);
     const target = [...counts].sort((x, y) => y[1] - x[1])[0]![0];
     const axis = runs[0]!.horizontal ? "y" : "x";
+    const mates = new Set(edges);
     for (const r of runs) {
       const pts = routes.get(r.edge)!;
       if (r.coord === target || !fits(r, target, pts, solid, axis)) continue;
+      if (landsOnOther(pts[r.i]!, pts[r.i + 1]!, axis, target, routes, mates)) continue;
       pts[r.i] = { ...pts[r.i]!, [axis]: target };
       pts[r.i + 1] = { ...pts[r.i + 1]!, [axis]: target };
     }
   }
+}
+
+/** Would the run, moved to `to`, lie on top of a route outside its bundle? */
+function landsOnOther(
+  a: Point,
+  b: Point,
+  axis: "x" | "y",
+  to: number,
+  routes: Map<string, Point[]>,
+  mates: Set<string>,
+): boolean {
+  const run = axis === "y" ? "x" : "y";
+  const [lo, hi] = [Math.min(a[run], b[run]), Math.max(a[run], b[run])];
+  for (const [edge, pts] of routes) {
+    if (mates.has(edge)) continue;
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [p, q] = [pts[k]!, pts[k + 1]!];
+      if (p[axis] !== to || q[axis] !== to) continue;
+      if (Math.min(hi, Math.max(p[run], q[run])) - Math.max(lo, Math.min(p[run], q[run])) > 0)
+        return true;
+    }
+  }
+  return false;
 }

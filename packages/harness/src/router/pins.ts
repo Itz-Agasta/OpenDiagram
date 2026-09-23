@@ -1,5 +1,5 @@
 import type { Box } from "../geometry.js";
-import { alignPairs, assignSlots, type Endpoint, portPoint } from "./ports.js";
+import { alignPairs, assignSlots, type Endpoint, endKey, portPoint } from "./ports.js";
 import type { Terminal } from "./search.js";
 import { type Face, faceBox, type Point, type RouterEdge, type RouterNode } from "./types.js";
 
@@ -17,9 +17,9 @@ export function pinPorts(
     faceBox(nodes.get(node)!, face),
   );
   const bundles = new Map<string, string[]>();
-  for (const [key, bundle] of byEnd) {
-    const edge = key.slice(0, key.lastIndexOf(":"));
-    bundles.set(edge, [...(bundles.get(edge) ?? []), bundle]);
+  for (const e of endpoints) {
+    const bundle = byEnd.get(endKey(e.edge, e.node));
+    if (bundle) bundles.set(e.edge, [...(bundles.get(e.edge) ?? []), bundle]);
   }
   alignPairs(
     edges.map((e) => {
@@ -37,13 +37,13 @@ export function pinPorts(
     const [a, b] = [nodes.get(e.from)!, nodes.get(e.to)!];
     out.set(e.id, [
       {
-        port: portPoint(faceBox(a, fs), fs, slots.get(`${e.id}:${a.id}`)!),
+        port: portPoint(faceBox(a, fs), fs, slots.get(endKey(e.id, a.id))!),
         face: fs,
         box: faceBox(a, fs),
         cost: 0,
       },
       {
-        port: portPoint(faceBox(b, ft), ft, slots.get(`${e.id}:${b.id}`)!),
+        port: portPoint(faceBox(b, ft), ft, slots.get(endKey(e.id, b.id))!),
         face: ft,
         box: faceBox(b, ft),
         cost: 0,

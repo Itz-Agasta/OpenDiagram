@@ -1,6 +1,6 @@
 import type { ElkNode } from "elkjs/lib/elk-api.js";
 import type { Box } from "../geometry.js";
-import { nodeSize } from "../measure.js";
+import { estimateTextWidth, nodeSize } from "../measure.js";
 import type { DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 import { BASE_OPTIONS, edgeLabelSize, elk } from "./elk-common.js";
@@ -63,7 +63,10 @@ export async function laneLayout(
     const label = edgeLabelSize(e, theme);
     if (!label || a === b) continue;
     const need = (vertical ? label.height : label.width) + COL_GAP;
-    for (let c = Math.min(a, b); c < Math.max(a, b); c++) gaps[c] = Math.max(gaps[c]!, need);
+    // One gap holds the chip: the one leaving the earlier column. Widening
+    // every gap a long edge crosses cost 3x its label on a 4-column jump.
+    const c = Math.min(a, b);
+    gaps[c] = Math.max(gaps[c]!, need);
   }
   const start: number[] = [];
   let at = PAD;
@@ -91,12 +94,29 @@ export async function laneLayout(
           : { x: along, y: across, width: W, height: H };
       });
     }
-    const thickness =
+    const content =
       (vertical ? PAD * 2 : TITLE + PAD) + depth * (vertical ? W : H) + (depth - 1) * ROW_GAP;
+    // A vertical lane is also as wide as its title, or the name spills into the next lane.
+    const g = spec.groups?.find((x) => x.id === lane.id);
+    const title = g ? `${g.label}${g.sublabel ? ` - ${g.sublabel}` : ""}` : "";
+    const titleWidth =
+      estimateTextWidth(title, theme.text.containerLabel.size, theme.fontFamily) + PAD * 2;
+    const thickness = vertical ? Math.max(content, titleWidth) : content;
     groupBoxes[lane.id] = vertical
       ? { x: offset, y: 0, width: thickness, height: length + TITLE }
       : { x: 0, y: offset, width: length, height: thickness };
     offset += thickness;
+  }
+  // RL and BT: lay out forward, then mirror along the flow. Lanes span the
+  // whole flow axis, so only nodes move.
+  const reverse = spec.meta?.direction === "RL" || spec.meta?.direction === "BT";
+  if (reverse) {
+    const end = vertical ? length + TITLE : length;
+    for (const [id, b] of Object.entries(positions)) {
+      positions[id] = vertical
+        ? { ...b, y: end + TITLE - b.y - b.height }
+        : { ...b, x: end - b.x - b.width };
+    }
   }
   return { positions, groupBoxes, zoneBoxes: {} };
 }

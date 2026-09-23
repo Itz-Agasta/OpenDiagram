@@ -40,7 +40,7 @@ The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
 
 - **LLM never chooses pixels/colors/fonts.** It emits a semantic `DiagramSpec`; layout (ELK / sequence grid) + themed renderer own all geometry and styling. Don't add visual fields to the spec.
 - **Sizing and rendering must agree:** `measure.ts#nodeSize` reserves the box the renderer draws into. Change both branches together.
-- **Route last, draw verbatim.** ELK only places; `src/router/` routes every edge and places every label against the final boxes, and the renderer draws those polylines exactly. Any pass that moves nodes must run before `routeGeometry`. Excalidraw `elbowed` arrows don't work via programmatic insert.
+- **Route last, draw verbatim.** ELK only places; `src/router/` routes every edge and places every label against the final boxes, and the renderer draws those polylines exactly (sequence diagrams are the exception: `layout/sequence.ts` builds its own grid and routes). Any pass that moves nodes must run before `routeGeometry`. Excalidraw `elbowed` arrows don't work via programmatic insert.
 - **Judge layout by screenshot, not only the report.** The report has had blind spots (flow inversion, stair-steps, oversize ribbons); a score change without a look at the render is not a result.
 - **No `@excalidraw/excalidraw` imports inside the harness** (browser-only package). Skeleton to element conversion lives in `apps/web/src/lib/excalidraw-utils.ts`, which must pass fresh elements through `restoreElements` (paint-skip bug otherwise).
 - **`bun --hot` does NOT reload harness edits.** Restart `dev:server` or you verify stale code.

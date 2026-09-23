@@ -34,10 +34,25 @@ export function routingCost(routes: Map<string, Point[]>): number {
   let length = 0;
   for (let i = 0; i < all.length; i++) {
     for (let j = i + 1; j < all.length; j++) cross += crossings(all[i]!, all[j]!);
-    bends += Math.max(0, all[i]!.length - 2);
+    bends += turns(all[i]!);
     for (let k = 0; k < all[i]!.length - 1; k++)
       length +=
         Math.abs(all[i]![k + 1]!.x - all[i]![k]!.x) + Math.abs(all[i]![k + 1]!.y - all[i]![k]!.y);
   }
   return cross * 1000 + bends * 100 + length;
+}
+
+/** Direction changes only; collinear or repeated vertices (fallback elbows) are not bends. */
+function turns(pts: Point[]): number {
+  let n = 0;
+  let last: boolean | undefined;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const a = pts[k]!;
+    const b = pts[k + 1]!;
+    if (a.x === b.x && a.y === b.y) continue;
+    const vertical = a.x === b.x;
+    if (last !== undefined && vertical !== last) n++;
+    last = vertical;
+  }
+  return n;
 }

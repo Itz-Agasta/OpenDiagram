@@ -60,6 +60,19 @@ src/
                       columns, messages are rows. Handles alt/loop fragments,
                       auto-numbering, red error and green success replies.
 
+  router/             Edge routing, after placement. index.ts is the entry.
+    grid.ts           Track lines and per-edge obstacles (title bands solid)
+    search.ts         A* over the grid: bend/crossing/overlap/wall costs
+    heap.ts           Open set + polyline simplify
+    ports.ts          Face costs, slot spreading (PAVA), shared trunks
+    pins.ts           Ties slots to terminals; port sort keys
+    repair.ts         Port-swap repair, kept only when crossings drop
+    bundles.ts        Squares up a trunk's branches onto one bus
+    labels.ts         Chip placement on or beside a straight run
+    quality.ts        One cost to compare whole routings
+  report/             Deterministic layout score + diagnostics (the corpus
+                      floors in test/ are pinned to it)
+
   renderer.ts         Orchestrator. renderToExcalidraw walks the positioned spec
                       and delegates to renderer/*
   renderer/

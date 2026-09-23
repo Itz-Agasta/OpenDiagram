@@ -51,9 +51,8 @@ const TARGET_ASPECT = 1.9; // slightly wide reads best on screens
 const ROW_GAP = 100; // vertical gap between stacked blocks in a column
 const GUTTER_BASE = 100; // minimum gutter between columns
 const LANE_SPACING = 30; // extra gutter width per routed edge lane
-// Grid-refinement cost of one edge running against the flow: larger than any
-// distance saving, so reading order is never traded for shorter edges.
-const BACKFLOW = 1e6;
+/** Block-pair key. NUL-joined: ids are free text and may contain spaces. */
+const pairKey = (a: string, b: string) => `${a}\u0000${b}`;
 // A block wider than this many heights gets its interior re-laid top-down.
 const WIDE_BLOCK = 2;
 
@@ -226,9 +225,10 @@ function assignColumns(blocks: Block[], qEdges: SanEdge[], blockOf: Map<string, 
       pairs.push([a, b]);
     }
   }
-  // Drop feedback edges first, so a return path (alerts flowing back to the
-  // plant floor) cannot rank the source after its own consumers. DFS starts at
-  // blocks nothing points to, then follows authored order.
+  // Drop feedback edges first. DFS starts at blocks nothing points to, then
+  // follows authored order, so in the common shape (a source feeding a system
+  // that sends alerts back) the return edge is the one dropped. A cycle with
+  // no such source is broken wherever authored order meets it first.
   const out = new Map<Block, Block[]>();
   for (const [a, b] of pairs) out.set(a, [...(out.get(a) ?? []), b]);
   const pointed = new Set(pairs.map(([, b]) => b));
@@ -237,14 +237,14 @@ function assignColumns(blocks: Block[], qEdges: SanEdge[], blockOf: Map<string, 
   const visit = (a: Block) => {
     state.set(a, "open");
     for (const b of out.get(a) ?? []) {
-      if (state.get(b) === "open") feedback.add(`${a.id} ${b.id}`);
+      if (state.get(b) === "open") feedback.add(pairKey(a.id, b.id));
       else if (!state.has(b)) visit(b);
     }
     state.set(a, "done");
   };
   for (const block of [...blocks.filter((b) => !pointed.has(b)), ...blocks])
     if (!state.has(block)) visit(block);
-  const forward = pairs.filter(([a, b]) => !feedback.has(`${a.id} ${b.id}`));
+  const forward = pairs.filter(([a, b]) => !feedback.has(pairKey(a.id, b.id)));
 
   for (const block of blocks) block.col = 0;
   // Bounded relaxation: terminates even if the quotient graph has a cycle.
@@ -333,7 +333,7 @@ function refineGrid(cols: Block[][], qEdges: SanEdge[], blockOf: Map<string, Blo
     // Only edges that run forward in rank carry the reading direction; the
     // feedback edges cycle-breaking dropped would contradict it either way.
     if (a.rank < b.rank) directed.push([a, b]);
-    const key = a.id < b.id ? `${a.id} ${b.id}` : `${b.id} ${a.id}`;
+    const key = a.id < b.id ? pairKey(a.id, b.id) : pairKey(b.id, a.id);
     if (!weight.has(key)) pairs.push([a, b]);
     weight.set(key, (weight.get(key) ?? 0) + 1);
   }
@@ -362,17 +362,19 @@ function refineGrid(cols: Block[][], qEdges: SanEdge[], blockOf: Map<string, Blo
     for (const [a, b] of pairs) {
       const ca = centers.get(a)!;
       const cb = centers.get(b)!;
-      const key = a.id < b.id ? `${a.id} ${b.id}` : `${b.id} ${a.id}`;
+      const key = a.id < b.id ? pairKey(a.id, b.id) : pairKey(b.id, a.id);
       cost += weight.get(key)! * (Math.abs(ca.x - cb.x) + Math.abs(ca.y - cb.y));
     }
     // Flow runs left to right, then down. An edge into an earlier column, or
-    // up within a column, reads backwards.
+    // up within a column, reads backwards; compared before cost, so reading
+    // order is never traded for shorter edges.
+    let back = 0;
     for (const [a, b] of directed) {
       const ca = centers.get(a)!;
       const cb = centers.get(b)!;
-      if (cb.x < ca.x - 1 || (Math.abs(cb.x - ca.x) <= 1 && cb.y < ca.y)) cost += BACKFLOW;
+      if (cb.x < ca.x - 1 || (Math.abs(cb.x - ca.x) <= 1 && cb.y < ca.y)) back++;
     }
-    return cost;
+    return { back, cost };
   };
 
   const slotOf = new Map<Block, [number, number]>();
@@ -393,9 +395,9 @@ function refineGrid(cols: Block[][], qEdges: SanEdge[], blockOf: Map<string, Blo
     for (let i = 0; i < flat.length; i++) {
       for (let j = i + 1; j < flat.length; j++) {
         swap(flat[i]!, flat[j]!);
-        const cost = measure();
-        if (cost < best - 1e-6) {
-          best = cost;
+        const next = measure();
+        if (next.back < best.back || (next.back === best.back && next.cost < best.cost - 1e-6)) {
+          best = next;
           improved = true;
         } else {
           swap(flat[i]!, flat[j]!);

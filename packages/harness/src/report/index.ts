@@ -166,7 +166,7 @@ export function buildReport(spec: PositionedSpec): DiagramReport {
       code: "OVERSIZE",
       severity: "warn",
       subjects: [],
-      message: `Fit to a 1920x1080 screen the diagram renders at ${Math.round(metrics.fit * 100)}%.`,
+      message: `Scaled to fit a 1920x1080 screen, the diagram shows at ${Math.round(metrics.fit * 100)}% size; text is hard to read.`,
     });
   }
   const bendCost = bendPenalty(metrics);

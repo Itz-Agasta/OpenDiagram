@@ -135,7 +135,15 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
       if (a.edge === b.edge) continue;
       const ea = edgeById.get(a.edge);
       const eb = edgeById.get(b.edge);
-      const siblings = !!ea && !!eb && (ea.from === eb.from || ea.to === eb.to);
+      // Only a real trunk: same source and same first point, or same target
+      // and same last point. Siblings touching anywhere else still count.
+      const [ra, rb] = [spec.edgeRoutes[a.edge]!.points, spec.edgeRoutes[b.edge]!.points];
+      const same = (p: Point, q: Point) => Math.abs(p.x - q.x) < 1 && Math.abs(p.y - q.y) < 1;
+      const siblings =
+        !!ea &&
+        !!eb &&
+        ((ea.from === eb.from && same(ra[0]!, rb[0]!)) ||
+          (ea.to === eb.to && same(ra[ra.length - 1]!, rb[rb.length - 1]!)));
       if (!segmentsCross(a.seg, b.seg, siblings)) continue;
       // Report each edge PAIR once even when their polylines cross twice,
       // a reader sees one tangle, not two.

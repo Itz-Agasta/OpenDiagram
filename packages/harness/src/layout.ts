@@ -136,7 +136,12 @@ export async function layoutDiagram(
   const swimlanes =
     spec.type === "bpmn" ||
     (s.groups.length > 1 && (spec.groups ?? []).every((g) => g.style === "swimlane"));
-  const lanes = swimlanes ? await laneLayout(spec, placing, theme) : null;
+  let lanes: LayoutGeometry | null = null;
+  try {
+    if (swimlanes) lanes = await laneLayout(spec, placing, theme);
+  } catch (error) {
+    s.warnings.push(`swimlane layout failed, using the general layout: ${String(error)}`);
+  }
   if (lanes) candidates.push(lanes);
   const topContainers =
     s.zones.length + s.groups.filter((g) => !s.zones.some((z) => z.contains.includes(g.id))).length;
