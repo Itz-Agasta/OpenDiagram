@@ -1,0 +1,50 @@
+apps/server/scripts/eval/run.ts
+  s_4a044119cfd727::t_54db6a18853246 22,96-98,139
+  s_4a044119cfd727::t_c2e2f75a6cf1b1 8
+apps/web/src/lib/excalidraw-utils.ts
+  s_4a044119cfd727::t_5af90b8dc6687b 247-257
+apps/web/src/components/whiteboard/ai-chat-panel/utils.ts
+  s_4a044119cfd727::t_f5e5ca7d39f81a 56
+  s_4a044119cfd727::t_f2e782fc3efe5d 27,55,58,62-69
+apps/server/src/routes/diagram.ts
+  s_4a044119cfd727::t_85a5450bbd581a 8,70
+apps/server/src/lib/agent/render-view.ts
+  s_4a044119cfd727::t_0ebcfeb5868990 1-32,34-63,65-83
+  s_4a044119cfd727::t_f128e1a344da8d 33,64
+apps/web/src/components/whiteboard/ai-chat-panel/use-diagram-canvas.ts
+  s_4a044119cfd727::t_0697560385885c 5,7,49-99,105-106,110-131,133-144
+apps/server/scripts/eval/strategies.ts
+  s_4a044119cfd727::t_54db6a18853246 1-2,5-9,18,24
+apps/web/src/components/whiteboard/ai-chat-panel/AIChatConversation.tsx
+  s_4a044119cfd727::t_7ddf43e652eb03 240
+  s_4a044119cfd727::t_fb45da43fabd2c 228,230-234,239,241,253-256
+  s_4a044119cfd727::t_f2e782fc3efe5d 14
+apps/server/src/lib/agent/chat-stream.ts
+  s_4a044119cfd727::t_98515286716ac8 36-42
+  s_4a044119cfd727::t_61f56e0de957fd 215,221
+  s_4a044119cfd727::t_d1b08af7c86a7c 17-18,20,32-35,43-46,49-50,62,138-139,141,217-220,222-223
+apps/server/src/lib/agent/tools.ts
+  s_4a044119cfd727::t_98515286716ac8 93-97
+  s_4a044119cfd727::t_939bca745732a5 4-5,13-15,98-101,104-126,128-148,150,154,157-161,163-168,175
+  s_4a044119cfd727::t_f128e1a344da8d 46,103,162,171
+apps/web/src/components/whiteboard/ai-chat-panel/types.ts
+  s_4a044119cfd727::t_0697560385885c 13-17
+apps/server/src/lib/agent/prompt.ts
+  s_4a044119cfd727::t_f980c955a9321f 11-14,19,24,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5df9b638f7010b064d42ad4420932bf872946057",
+  "prompts": {},
+  "sessions": {
+    "s_4a044119cfd727": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "619115ea-8dd8-49a7-86c8-be354488d9fd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
