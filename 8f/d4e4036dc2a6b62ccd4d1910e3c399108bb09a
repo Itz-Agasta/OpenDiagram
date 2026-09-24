@@ -1,0 +1,22 @@
+apps/web/src/lib/excalidraw-utils.ts
+  s_4a044119cfd727::t_c0bc3c4c08fec4 252-256,258-259,262-270,277
+  s_4a044119cfd727::t_a899f33a10a4b1 2,164-165,198,261,274,276
+  s_4a044119cfd727::t_3ef7339621b1f3 197,199,251,257,260,271-273
+  s_4a044119cfd727::t_8a054c3577a028 193,195-196,244
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8fd4e4036dc2a6b62ccd4d1910e3c399108bb09a",
+  "prompts": {},
+  "sessions": {
+    "s_4a044119cfd727": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "619115ea-8dd8-49a7-86c8-be354488d9fd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
