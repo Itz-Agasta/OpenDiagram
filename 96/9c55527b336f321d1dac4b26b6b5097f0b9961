@@ -1,0 +1,50 @@
+packages/harness/src/renderer/containers.ts
+  s_492173231a18a5::t_8c40b6b7addf44 2
+  s_492173231a18a5::t_d9bbc3503d6273 40
+packages/harness/README.md
+  s_492173231a18a5::t_23b1aaab34df00 13
+packages/harness/src/layout/route.ts
+  s_492173231a18a5::t_8c40b6b7addf44 2
+  s_492173231a18a5::t_d9bbc3503d6273 37
+packages/harness/src/layout.ts
+  s_492173231a18a5::t_8c40b6b7addf44 5,12
+  s_492173231a18a5::t_a6a7985a4443e2 23-28,71,94,96
+  s_492173231a18a5::t_8008be2a574812 35-37
+  s_492173231a18a5::t_0a17f9b82a98be 78,84-88,187-190,193-194,198
+  s_492173231a18a5::t_681b4253959a8b 152-155
+  s_492173231a18a5::t_3a9116bddb9495 199-201,204-208
+  s_492173231a18a5::t_d356e845313e69 159
+  s_492173231a18a5::t_062e75b94d989e 191-192,195-197,202-203,209
+  s_492173231a18a5::t_701434f117d4d7 34,42,51
+  s_492173231a18a5::t_89fb63d4b3d8a1 158,160
+  s_492173231a18a5::t_23b1aaab34df00 79-83
+packages/harness/src/measure.ts
+  s_492173231a18a5::t_8c40b6b7addf44 200-203
+packages/harness/test/layout.test.ts
+  s_492173231a18a5::t_23b1aaab34df00 294-305,344-345
+  s_492173231a18a5::t_062e75b94d989e 331,333-343,346-348
+  s_492173231a18a5::t_60b7134388275a 10,273-293,306-330
+  s_492173231a18a5::t_0c4f7e128aa3d1 332
+packages/harness/src/layout/elk-common.ts
+  s_492173231a18a5::t_701434f117d4d7 34-37,43,49-53,55-57
+  s_492173231a18a5::t_8008be2a574812 38-42,54
+  s_492173231a18a5::t_23b1aaab34df00 44-48
+packages/harness/src/layout/macro.ts
+  s_492173231a18a5::t_5df01233d05135 3,6,113,119,162,168-170,185,197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "969c55527b336f321d1dac4b26b6b5097f0b9961",
+  "prompts": {},
+  "sessions": {
+    "s_492173231a18a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74b2d28f-fec5-4b0c-b089-4de339f62551",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
