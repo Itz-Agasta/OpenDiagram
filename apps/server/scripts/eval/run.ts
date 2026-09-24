@@ -5,7 +5,7 @@
  * anything else through OpenRouter. Writes one JSON line per turn plus the
  * drawn specs, then prints a per-model summary.
  *
- *   bun scripts/eval/run.ts --models 'gemini:gemini-3.8-flash#low' --strategy s3 --runs 2 [--prompts x,y]
+ *   bun scripts/eval/run.ts --models 'gemini:gemini-3.8-flash#low' --strategy s0 --runs 2 [--prompts x,y]
  *
  * Run from apps/server so the server env loads.
  */
@@ -19,7 +19,7 @@ import { isStepCount, streamText, type ModelMessage, type StepResult, type ToolS
 import type { RequestLogger } from "evlog";
 import { buildCanvasContext } from "../../src/lib/agent/prompt";
 import { createCachingFetch } from "../../src/lib/agent/cache";
-import { repairDrawDiagramInput } from "../../src/lib/agent/chat-stream";
+import { repairToolInput } from "../../src/lib/agent/chat-stream";
 import { coverage, leaks, looseCoverage, stuffed } from "./metrics";
 import { prompts, type EvalPrompt } from "./prompts";
 import { strategies } from "./strategies";
@@ -93,7 +93,9 @@ function stubLogger(): {
   const warnings: string[] = [];
   const log = {
     set: (f: Record<string, unknown>) => {
-      if (f.diagram) draws.push(f.diagram as Record<string, unknown>);
+      // draw_system logs its views as one set.
+      const diagram = f.diagram as { views?: Record<string, unknown>[] } | undefined;
+      if (diagram) draws.push(...(diagram.views ?? [diagram]));
       Object.assign(fields, f);
     },
     warn: (message: string) => warnings.push(message),
@@ -134,8 +136,7 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
         // Same repair as production, so a model's score isn't sunk by a fixable key typo.
         // Counted separately: a repair is still a fidelity miss.
         experimental_repairToolCall: async ({ toolCall }) => {
-          if (toolCall.toolName !== "draw_diagram") return null;
-          const repaired = repairDrawDiagramInput(toolCall.input);
+          const repaired = repairToolInput(toolCall.toolName, toolCall.input);
           if (repaired) repairs++;
           return repaired ? { ...toolCall, input: repaired } : null;
         },

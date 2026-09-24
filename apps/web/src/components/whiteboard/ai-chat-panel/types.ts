@@ -10,6 +10,11 @@ export interface DrawDiagramOutput {
   summary: { title: string; nodes: number; edges: number; warnings: string[] };
 }
 
+/** `draw_system`: overview first, then one view per flow. `spec` is what the canvas list stores. */
+export interface DrawSystemOutput {
+  views: (DrawDiagramOutput & { spec: DiagramSpec })[];
+}
+
 export interface AIChatPanelProps {
   activeFileType?: "diagram" | "doc";
   excalidrawAPI: ExcalidrawImperativeAPI | null;

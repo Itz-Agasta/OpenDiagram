@@ -14,9 +14,10 @@ import type { RequestLogger } from "evlog";
 import type { AiQuotaGrant, AiUsage } from "../quota/enforce";
 import { LLM_MAX_RETRIES } from "../repo-ai";
 import { aiTelemetry } from "../telemetry";
-import { drawDiagramInputSchema } from "./tools";
+import type { z } from "zod";
+import { drawDiagramInputSchema, drawSystemInputSchema } from "./tools";
 
-// gemini-2.5-flash reliably mangles edge keys in draw_diagram calls (emits
+// gemini-2.5-flash reliably mangles edge keys in draw tool calls (emits
 // "from1" instead of "from" on the first attempt of nearly every session).
 // Rename the known-bad keys and revalidate - saves a full model retry
 // round-trip. Returns null (= normal tool-error flow) when the input still
@@ -28,12 +29,25 @@ const EDGE_KEY_FIXUPS: [string, string][] = [
   ["target", "to"],
 ];
 
-export function repairDrawDiagramInput(rawInput: unknown): string | null {
+type Input = Record<string, unknown>;
+const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+/** Per repairable tool: its schema, and every array whose items carry `from`/`to`. */
+const REPAIRABLE: Record<string, { schema: z.ZodType; edgeLists: (input: Input) => unknown[] }> = {
+  draw_diagram: { schema: drawDiagramInputSchema, edgeLists: (i) => [i.edges] },
+  draw_system: {
+    schema: drawSystemInputSchema,
+    edgeLists: (i) => [i.links, ...asArray(i.flows).map((f) => (f as Input | null)?.steps)],
+  },
+};
+
+export function repairToolInput(toolName: string, rawInput: unknown): string | null {
+  const tool = REPAIRABLE[toolName];
+  if (!tool) return null;
   try {
     const input: unknown = typeof rawInput === "string" ? JSON.parse(rawInput) : rawInput;
-    const edges = (input as { edges?: unknown })?.edges;
-    if (!Array.isArray(edges)) return null;
-    for (const edge of edges as Record<string, unknown>[]) {
+    if (!input || typeof input !== "object") return null;
+    for (const edge of tool.edgeLists(input as Input).flatMap(asArray) as Input[]) {
       if (!edge || typeof edge !== "object") continue;
       for (const [bad, good] of EDGE_KEY_FIXUPS) {
         if (edge[bad] !== undefined && edge[good] === undefined) {
@@ -45,7 +59,7 @@ export function repairDrawDiagramInput(rawInput: unknown): string | null {
     // The TOOL's schema, not the bare spec schema: the SDK re-validates whatever
     // this returns against it, so checking `diagramSpecSchema` here waved through
     // a bad `targetId` and burned a step on a repair that failed anyway.
-    return drawDiagramInputSchema.safeParse(input).success ? JSON.stringify(input) : null;
+    return tool.schema.safeParse(input).success ? JSON.stringify(input) : null;
   } catch {
     return null;
   }
@@ -121,10 +135,10 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       telemetry: aiTelemetry("diagram-chat"),
       stopWhen: isStepCount(6),
       experimental_repairToolCall: async ({ toolCall, error }) => {
-        if (NoSuchToolError.isInstance(error) || toolCall.toolName !== "draw_diagram") return null;
-        const repaired = repairDrawDiagramInput(toolCall.input);
+        if (NoSuchToolError.isInstance(error)) return null;
+        const repaired = repairToolInput(toolCall.toolName, toolCall.input);
         if (!repaired) return null;
-        log.warn("repaired malformed draw_diagram tool call (edge key fixups)", {
+        log.warn(`repaired malformed ${toolCall.toolName} tool call (edge key fixups)`, {
           diagram: { repairedToolCall: true },
         });
         return { ...toolCall, input: repaired };
@@ -198,10 +212,15 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
           // the signature of the model garbling the id - see the FIXME in
           // `agent/tools.ts` - and shows up here as a duplicate frame.
           canvasDiagrams: meta.canvasDiagrams,
+          // A `draw_system` redo lists every frame id it names, a new system is `<system>`.
           targetedIds: allSteps.flatMap((s) =>
-            s.toolCalls
-              .filter((t) => t.toolName === "draw_diagram")
-              .map((t) => (t.input as { targetId?: unknown })?.targetId ?? "<new>"),
+            s.toolCalls.flatMap((t) => {
+              const input = t.input as { targetId?: unknown; replaceIds?: unknown[] } | undefined;
+              if (t.toolName === "draw_diagram") return [input?.targetId ?? "<new>"];
+              if (t.toolName === "draw_system")
+                return input?.replaceIds?.length ? input.replaceIds : ["<system>"];
+              return [];
+            }),
           ),
           theme: meta.theme,
           steps: allSteps.length,

@@ -244,3 +244,14 @@ export async function applyDiagramToCanvas(
   api.scrollToContent(frame ?? converted, { fitToContent: true, animate: true, duration: 400 });
   return { frameId: frame?.id ?? null };
 }
+
+/** Deletes generated frames and everything inside them, e.g. the views a redrawn system no longer has. */
+export function removeFramesFromCanvas(api: ExcalidrawImperativeAPI, frameIds: string[]) {
+  if (frameIds.length === 0) return;
+  const gone = new Set(frameIds);
+  api.updateScene({
+    elements: api
+      .getSceneElements()
+      .filter((el) => !gone.has(el.id) && !(el.frameId && gone.has(el.frameId))),
+  });
+}
