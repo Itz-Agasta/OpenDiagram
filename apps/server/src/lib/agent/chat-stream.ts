@@ -1,5 +1,7 @@
 import {
+  APICallError,
   isStepCount,
+  RetryError,
   NoSuchToolError,
   streamText,
   toUIMessageStream,
@@ -191,6 +193,12 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
               log.error(error instanceof Error ? error : message, {
                 chat: { toolError: message },
               });
+              // A model call that ran out of retries (Gemini 503 overload, 429) lands
+              // here too and is not a spec problem: on 2026-09-24, 11 of 20 eval
+              // turns died on 503s, and users read "the spec was rejected".
+              const cause = RetryError.isInstance(error) ? error.lastError : error;
+              if (APICallError.isInstance(cause) && cause.isRetryable)
+                return "The AI model is overloaded right now. Please try again in a minute.";
               // The model gets the real validation error through its own tool
               // result and usually fixes it on the next step, so this string is
               // for the human only. Returning `message` put the whole rejected
