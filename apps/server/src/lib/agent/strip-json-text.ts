@@ -17,7 +17,7 @@ function partialTail(text: string, token: string): number {
  * draw tool's arguments as one before making the real call (1 of 16 live
  * replies on 2026-09-24, 0 of 117 eval turns), which put ~7k chars of JSON in
  * the chat and in stored history. Other code fences pass through. Deltas split
- * fences anywhere, so up to 6 chars are held back until the next delta decides.
+ * fences anywhere, so up to 7 chars are held back until the next delta decides.
  *
  * FIXME(gemini-field-fidelity): the tokens are still generated and billed; this
  * only hides them. `onStrip` feeds `chat.jsonBlocksStripped`, keep it measured.
