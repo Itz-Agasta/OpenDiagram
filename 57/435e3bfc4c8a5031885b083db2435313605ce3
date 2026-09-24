@@ -1,0 +1,20 @@
+apps/web/src/components/whiteboard/ai-chat-panel/use-diagram-canvas.ts
+  s_4a044119cfd727::t_a899f33a10a4b1 143
+  s_4a044119cfd727::t_6633776bdcb573 133-137,141-142,144,146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57435e3bfc4c8a5031885b083db2435313605ce3",
+  "prompts": {},
+  "sessions": {
+    "s_4a044119cfd727": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "619115ea-8dd8-49a7-86c8-be354488d9fd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
