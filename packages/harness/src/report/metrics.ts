@@ -19,6 +19,8 @@ export interface Metrics {
   /** Edges running against `meta.direction`. */
   backEdges: number;
   aspect: number;
+  /** Scale at which the whole diagram fits a 1920x1080 screen, capped at 1. */
+  fit: number;
   /** Edges with no route at all; layout dropped them. */
   unrouted: number;
   /** Spec ids behind each count, so diagnostics can point at something. */
@@ -69,14 +71,26 @@ function orient(a: Point, b: Point, c: Point): number {
   return Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
 }
 
-/** Proper crossing only: segments sharing an endpoint are edges meeting, not crossing. */
-function segmentsCross([p1, p2]: Segment, [p3, p4]: Segment): boolean {
+/**
+ * Segments sharing an endpoint are edges meeting, not crossing. A T-touch (an
+ * endpoint on the other segment) counts, since it reads as a connection that
+ * is not there, unless `siblings`: edges from one source or into one target
+ * that branch off a shared trunk meet in exactly that T.
+ */
+function segmentsCross([p1, p2]: Segment, [p3, p4]: Segment, siblings: boolean): boolean {
   for (const a of [p1, p2]) {
     for (const b of [p3, p4]) {
       if (Math.abs(a.x - b.x) < 2 && Math.abs(a.y - b.y) < 2) return false;
     }
   }
-  return orient(p1, p2, p3) !== orient(p1, p2, p4) && orient(p3, p4, p1) !== orient(p3, p4, p2);
+  const [o1, o2, o3, o4] = [
+    orient(p1, p2, p3),
+    orient(p1, p2, p4),
+    orient(p3, p4, p1),
+    orient(p3, p4, p2),
+  ];
+  if (siblings) return o1 * o2 < 0 && o3 * o4 < 0;
+  return o1 !== o2 && o3 !== o4;
 }
 
 function boxesOverlap(a: Box, b: Box): boolean {
@@ -119,7 +133,18 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
       const a = allSegments[i]!;
       const b = allSegments[j]!;
       if (a.edge === b.edge) continue;
-      if (!segmentsCross(a.seg, b.seg)) continue;
+      const ea = edgeById.get(a.edge);
+      const eb = edgeById.get(b.edge);
+      // Only a real trunk: same source and same first point, or same target
+      // and same last point. Siblings touching anywhere else still count.
+      const [ra, rb] = [spec.edgeRoutes[a.edge]!.points, spec.edgeRoutes[b.edge]!.points];
+      const same = (p: Point, q: Point) => Math.abs(p.x - q.x) < 1 && Math.abs(p.y - q.y) < 1;
+      const siblings =
+        !!ea &&
+        !!eb &&
+        ((ea.from === eb.from && same(ra[0]!, rb[0]!)) ||
+          (ea.to === eb.to && same(ra[ra.length - 1]!, rb[rb.length - 1]!)));
+      if (!segmentsCross(a.seg, b.seg, siblings)) continue;
       // Report each edge PAIR once even when their polylines cross twice,
       // a reader sees one tangle, not two.
       const key = a.edge < b.edge ? `${a.edge}|${b.edge}` : `${b.edge}|${a.edge}`;
@@ -210,11 +235,13 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     ...labelled.map(([, route]) => route.label),
   ];
   let aspect = 1;
+  let fit = 1;
   if (boxes.length > 0) {
     const width = Math.max(...boxes.map((b) => b.x + b.width)) - Math.min(...boxes.map((b) => b.x));
     const height =
       Math.max(...boxes.map((b) => b.y + b.height)) - Math.min(...boxes.map((b) => b.y));
     aspect = width / Math.max(height, 1);
+    fit = Math.min(1, 1920 / Math.max(width, 1), 1080 / Math.max(height, 1));
   }
 
   return {
@@ -227,6 +254,7 @@ export function computeMetrics(spec: PositionedSpec): Metrics {
     nodeOverlaps: nodeOverlap.length,
     backEdges: backEdge.length,
     aspect,
+    fit,
     unrouted: unrouted.length,
     offenders: {
       duplicateLabel,

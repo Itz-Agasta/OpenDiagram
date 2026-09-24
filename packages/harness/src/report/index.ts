@@ -12,7 +12,8 @@ export type DiagnosticCode =
   | "DUPLICATE_LABEL"
   | "BACK_EDGE"
   | "EXTREME_ASPECT"
-  | "BEND_HEAVY";
+  | "BEND_HEAVY"
+  | "OVERSIZE";
 
 export interface Diagnostic {
   code: DiagnosticCode;
@@ -57,6 +58,15 @@ const ASPECT_MAX = 2.6;
 // necessarily wide, and charging them for it makes every small diagram look
 // broken. Only score aspect once there is a choice to get wrong.
 const ASPECT_MIN_NODES = 5;
+
+// Fit to a 1920x1080 screen below this scale, 14px labels drop under ~10px:
+// the reader has to zoom and pan, and loses the whole-diagram view. Aspect
+// alone misses this: a 7-node row at 5:1 is wide but still fits.
+const FIT_MIN = 0.75;
+
+function fitPenalty(fit: number): number {
+  return fit >= FIT_MIN ? 0 : Math.min(30, Math.round(Math.log2(FIT_MIN / fit) * 30));
+}
 
 /** Bends per edge above which a diagram reads as stair-steppy rather than routed. */
 const BENDS_PER_EDGE_BUDGET = 1.5;
@@ -150,6 +160,15 @@ export function buildReport(spec: PositionedSpec): DiagramReport {
       message: `Canvas aspect ${metrics.aspect.toFixed(2)}:1 is outside ${ASPECT_MIN}-${ASPECT_MAX}.`,
     });
   }
+  const fitCost = fitPenalty(metrics.fit);
+  if (fitCost > 0) {
+    diagnostics.push({
+      code: "OVERSIZE",
+      severity: "warn",
+      subjects: [],
+      message: `Scaled to fit a 1920x1080 screen, the diagram shows at ${Math.round(metrics.fit * 100)}% size; text is hard to read.`,
+    });
+  }
   const bendCost = bendPenalty(metrics);
   if (bendCost > 0) {
     diagnostics.push({
@@ -169,6 +188,7 @@ export function buildReport(spec: PositionedSpec): DiagramReport {
     metrics.duplicateLabels * PENALTY.duplicateLabel +
     metrics.backEdges * PENALTY.backEdge +
     aspectCost +
+    fitCost +
     bendCost;
 
   // Severity-first so a caller can truncate the list and still see what matters.
