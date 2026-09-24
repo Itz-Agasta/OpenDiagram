@@ -15,6 +15,7 @@ import type { AiQuotaGrant, AiUsage } from "../quota/enforce";
 import { LLM_MAX_RETRIES } from "../repo-ai";
 import { aiTelemetry } from "../telemetry";
 import type { z } from "zod";
+import { stripJsonBlocks } from "./strip-json-text";
 import { drawDiagramInputSchema, drawSystemInputSchema } from "./tools";
 
 // gemini-2.5-flash reliably mangles edge keys in draw tool calls (emits
@@ -125,6 +126,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
   const allSteps: StepResult<ToolSet>[] = [];
   let failed = false;
   let malformedCalls = 0;
+  let jsonBlocksStripped = 0;
 
   const attempt = () =>
     streamText({
@@ -148,6 +150,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       // Bounds runaway/repetition-loop generations so a bad completion fails
       // fast instead of hanging (observed with gemini-2.5-flash during testing).
       maxOutputTokens: 16384,
+      experimental_transform: stripJsonBlocks(() => jsonBlocksStripped++),
       onStepEnd: ({ usage }) => {
         spent.inputTokens += usage.inputTokens ?? 0;
         spent.outputTokens += usage.outputTokens ?? 0;
@@ -226,6 +229,8 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
           steps: allSteps.length,
           toolCalls: allSteps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
           malformedCalls,
+          // Tool arguments the model drafted as a ```json block in its reply; see strip-json-text.ts.
+          jsonBlocksStripped,
           totalTokens: totals.totalTokens,
           // Output is most of the bill now that the head is cached, so it is
           // split out. The platform model pins thinking to `low` (resolve.ts);
