@@ -14,6 +14,9 @@ type Row = {
   cost: number;
   score?: number;
   coverage: number | null;
+  leaks?: string[];
+  stuffed?: number;
+  views?: number;
   nodes?: number;
   reasoningTokens: number;
 };
@@ -28,8 +31,8 @@ const fmt = (n: number, digits: number) => (Number.isFinite(n) ? n.toFixed(digit
 export function summarize(rows: Row[]): string {
   const byModel = Map.groupBy(rows, (r) => r.model);
   const lines = [
-    "model | drew | asked | toolErr | repairs | score | coverage | nodes | p50 s | p95 s | $ avg | $ p95 | reasoning",
-    "-- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --",
+    "model | drew | asked | toolErr | repairs | score | coverage | leaks | stuffed | views | nodes | p50 s | p95 s | $ avg | $ p95 | reasoning",
+    "-- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --",
   ];
   for (const [model, rs] of byModel) {
     const scores = rs.flatMap((r) => (r.score == null ? [] : [r.score]));
@@ -45,6 +48,9 @@ export function summarize(rows: Row[]): string {
         rs.reduce((a, r) => a + (r.repairs ?? 0), 0),
         fmt(avg(scores), 0),
         fmt(avg(covs), 2),
+        rs.reduce((a, r) => a + (r.leaks?.length ?? 0), 0),
+        fmt(avg(rs.map((r) => r.stuffed ?? 0)), 1),
+        fmt(avg(rs.map((r) => r.views ?? 1)), 1),
         fmt(avg(rs.flatMap((r) => (r.nodes == null ? [] : [r.nodes]))), 0),
         pct(ms, 0.5).toFixed(1),
         pct(ms, 0.95).toFixed(1),

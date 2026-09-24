@@ -16,11 +16,12 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { themes } from "@OpenDiagram/harness";
 import { isStepCount, streamText, type ModelMessage, type StepResult, type ToolSet } from "ai";
 import type { RequestLogger } from "evlog";
-import { buildCanvasContext, buildSystemPrompt } from "../../src/lib/agent/prompt";
+import { buildCanvasContext } from "../../src/lib/agent/prompt";
 import { createCachingFetch } from "../../src/lib/agent/cache";
 import { repairDrawDiagramInput } from "../../src/lib/agent/chat-stream";
-import { askUserTool, createDrawDiagramTool } from "../../src/lib/agent/tools";
+import { coverage, leaks, looseCoverage, stuffed } from "./metrics";
 import { prompts, type EvalPrompt } from "./prompts";
+import { strategies } from "./strategies";
 import { summarize } from "./summary";
 
 const { values: args } = parseArgs({
@@ -28,12 +29,15 @@ const { values: args } = parseArgs({
     models: { type: "string" },
     prompts: { type: "string" },
     runs: { type: "string", default: "1" },
+    strategy: { type: "string", default: "s0" },
     concurrency: { type: "string", default: "6" },
     out: { type: "string", default: "scripts/eval/out" },
   },
 });
 
 if (!args.models) throw new Error("--models is required");
+const strategy = strategies[args.strategy!];
+if (!strategy) throw new Error(`unknown --strategy ${args.strategy}`);
 const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
 const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "";
 
@@ -77,39 +81,33 @@ const outDir = join(args.out, new Date().toISOString().replace(/[:.]/g, "-"));
 mkdirSync(join(outDir, "specs"), { recursive: true });
 const resultsPath = join(outDir, "results.jsonl");
 
-/** Collects what the draw tool `log.set`s: score, diagnostics, counts. */
-function stubLogger(): { log: RequestLogger; fields: Record<string, unknown> } {
+/** Collects what each draw `log.set`s (score, diagnostics, counts), one entry per draw. */
+function stubLogger(): {
+  log: RequestLogger;
+  fields: Record<string, unknown>;
+  draws: Record<string, unknown>[];
+} {
   const fields: Record<string, unknown> = {};
+  const draws: Record<string, unknown>[] = [];
   const warnings: string[] = [];
   const log = {
-    set: (f: Record<string, unknown>) => Object.assign(fields, f),
+    set: (f: Record<string, unknown>) => {
+      if (f.diagram) draws.push(f.diagram as Record<string, unknown>);
+      Object.assign(fields, f);
+    },
     warn: (message: string) => warnings.push(message),
     error: (e: unknown) => warnings.push(String(e)),
     info: () => {},
   } as unknown as RequestLogger;
   fields.warnings = warnings;
-  return { log, fields };
-}
-
-function coverage(prompt: EvalPrompt, spec: Record<string, unknown> | undefined): number | null {
-  if (!prompt.expect.length) return null;
-  if (!spec) return 0;
-  const text = JSON.stringify(spec).toLowerCase();
-  // Word-start match, so "eta" does not score inside "metadata"; stems like "retriev" still work.
-  const hits = prompt.expect.filter((k) =>
-    k.split("|").some((alt) => new RegExp(`\\b${alt}`).test(text)),
-  );
-  return hits.length / prompt.expect.length;
+  return { log, fields, draws };
 }
 
 /** `vendor/model[@Host][#effort]`: pin one OpenRouter host, set reasoning effort. */
 async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
   const [, slug = modelId, host, effort] = /^([^@#]+)(?:@([^#]+))?(?:#(.+))?$/.exec(modelId) ?? [];
-  const { log, fields } = stubLogger();
-  const tools = {
-    ask_user: askUserTool,
-    draw_diagram: createDrawDiagramTool(log, themes.sketch, []),
-  };
+  const { log, draws: drawLogs } = stubLogger();
+  const tools = strategy.tools(log, themes.sketch);
   const started = performance.now();
   const steps: StepResult<ToolSet>[] = [];
   let error: string | undefined;
@@ -125,7 +123,7 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     for (let turn = 0; turn < 2; turn++) {
       const result = streamText({
         ...resolveModel(slug, host, effort),
-        instructions: buildSystemPrompt(),
+        instructions: strategy.instructions,
         messages,
         tools,
         stopWhen: isStepCount(6),
@@ -166,12 +164,26 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
 
   const draws = steps.flatMap((s) => s.toolCalls.filter((t) => t.toolName === "draw_diagram"));
   const toolErrors = steps.flatMap((s) =>
-    s.content.filter((c) => c.type === "tool-error" && c.toolName === "draw_diagram"),
+    s.content.filter((c) => c.type === "tool-error" && c.toolName.startsWith("draw_")),
   ).length;
   const drewOk = steps.some((s) =>
-    s.content.some((c) => c.type === "tool-result" && c.toolName === "draw_diagram"),
+    s.content.some(
+      (c) =>
+        c.type === "tool-result" && (c.toolName === "draw_diagram" || c.toolName === "draw_system"),
+    ),
   );
-  const lastDraw = draws.at(-1)?.input as Record<string, unknown> | undefined;
+  // Every successful draw of the turn: S2 may draw several views, draw_system returns its planned ones.
+  const drawn = steps.flatMap((s) =>
+    s.content.flatMap((c) => {
+      if (c.type !== "tool-result") return [];
+      if (c.toolName === "draw_diagram") return [c.input as Record<string, unknown>];
+      if (c.toolName === "draw_system")
+        return (c.output as { views: { spec: Record<string, unknown> }[] }).views.map(
+          (v) => v.spec,
+        );
+      return [];
+    }),
+  );
   const geminiPrice = GEMINI_PRICES[slug.replace("gemini:", "")];
   const cost = steps.reduce((sum, s) => {
     if (geminiPrice) {
@@ -187,13 +199,19 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
   const sum = (pick: (s: StepResult<ToolSet>) => number | undefined) =>
     steps.reduce((acc, s) => acc + (pick(s) ?? 0), 0);
 
-  const file = `${modelId.replace(/[/:@#]/g, "_")}__${prompt.id}__${run}`;
-  if (lastDraw)
-    writeFileSync(join(outDir, "specs", `${file}.json`), JSON.stringify(lastDraw, null, 2));
-
-  const diagram = (fields.diagram ?? {}) as Record<string, unknown>;
+  const file = `${modelId.replace(/[/:@#]/g, "_")}~${args.strategy}__${prompt.id}__${run}`;
+  if (drawn.length)
+    writeFileSync(
+      join(outDir, "specs", `${file}.json`),
+      JSON.stringify(drawn.length === 1 ? drawn[0] : { views: drawn }, null, 2),
+    );
+  // The draw_system input, so view planning can be replayed offline without the LLM.
+  const model = steps.flatMap((s) => s.toolCalls).find((t) => t.toolName === "draw_system")?.input;
+  if (model)
+    writeFileSync(join(outDir, "specs", `${file}.model.json`), JSON.stringify(model, null, 2));
+  const scores = drawLogs.flatMap((d) => (typeof d.score === "number" ? [d.score] : []));
   const row = {
-    model: modelId,
+    model: `${modelId}~${args.strategy}`,
     prompt: prompt.id,
     run,
     drewOk,
@@ -210,17 +228,22 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     cachedTokens: sum((s) => s.usage.inputTokenDetails.cacheReadTokens),
     outputTokens: sum((s) => s.usage.outputTokens),
     reasoningTokens: sum((s) => s.usage.outputTokenDetails.reasoningTokens),
-    nodes: diagram.nodeCount,
-    edges: diagram.edgeCount,
-    score: diagram.score,
-    diagnostics: diagram.diagnostics,
-    coverage: coverage(prompt, lastDraw),
-    textChars: text.length,
-    spec: lastDraw ? `specs/${file}.json` : undefined,
+    views: drawn.length,
+    nodes: drawLogs.reduce((a, d) => a + ((d.nodeCount as number) ?? 0), 0) || undefined,
+    edges: drawLogs.reduce((a, d) => a + ((d.edgeCount as number) ?? 0), 0) || undefined,
+    // Worst view, not the mean: one broken frame is what the user notices.
+    score: scores.length ? Math.min(...scores) : undefined,
+    diagnostics: drawLogs.flatMap((d) => (d.diagnostics as string[]) ?? []),
+    coverage: coverage(prompt, drawn),
+    looseCoverage: looseCoverage(prompt, drawn),
+    leaks: leaks(prompt, drawn),
+    stuffed: stuffed(drawn),
+    text,
+    spec: drawn.length ? `specs/${file}.json` : undefined,
   };
   appendFileSync(resultsPath, `${JSON.stringify(row)}\n`);
   console.log(
-    `${drewOk ? "ok " : "NO "} ${modelId.padEnd(40)} ${prompt.id.padEnd(16)} #${run} ${(ms / 1000).toFixed(1)}s $${cost.toFixed(4)} score=${row.score ?? "-"} cov=${row.coverage?.toFixed(2) ?? "-"}${error ? ` ERR ${error.slice(0, 80)}` : ""}`,
+    `${drewOk ? "ok " : "NO "} ${modelId.padEnd(40)} ${prompt.id.padEnd(16)} #${run} ${(ms / 1000).toFixed(1)}s $${cost.toFixed(4)} v=${row.views} n=${row.nodes ?? "-"} score=${row.score ?? "-"} cov=${row.coverage?.toFixed(2) ?? "-"} leak=${row.leaks.length} stuffed=${row.stuffed}${error ? ` ERR ${error.slice(0, 80)}` : ""}`,
   );
   return row;
 }
