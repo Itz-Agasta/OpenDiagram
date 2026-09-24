@@ -17,6 +17,10 @@ type Row = {
   leaks?: string[];
   stuffed?: number;
   views?: number;
+  planSentences?: number;
+  replyChars?: number;
+  echoedLabels?: number;
+  jsonDrafted?: boolean;
   nodes?: number;
   reasoningTokens: number;
 };
@@ -31,8 +35,8 @@ const fmt = (n: number, digits: number) => (Number.isFinite(n) ? n.toFixed(digit
 export function summarize(rows: Row[]): string {
   const byModel = Map.groupBy(rows, (r) => r.model);
   const lines = [
-    "model | drew | asked | toolErr | repairs | score | coverage | leaks | stuffed | views | nodes | p50 s | p95 s | $ avg | $ p95 | reasoning",
-    "-- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --",
+    "model | drew | asked | toolErr | repairs | score | coverage | leaks | stuffed | views | plan sent p50/max | reply chars p50 | echoed | json drafted | nodes | p50 s | p95 s | $ avg | $ p95 | reasoning",
+    "-- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --",
   ];
   for (const [model, rs] of byModel) {
     const scores = rs.flatMap((r) => (r.score == null ? [] : [r.score]));
@@ -51,6 +55,24 @@ export function summarize(rows: Row[]): string {
         rs.reduce((a, r) => a + (r.leaks?.length ?? 0), 0),
         fmt(avg(rs.flatMap((r) => (r.stuffed == null ? [] : [r.stuffed]))), 1),
         fmt(avg(rs.flatMap((r) => (r.views == null ? [] : [r.views]))), 1),
+        (() => {
+          const ps = rs.flatMap((r) => (r.planSentences == null ? [] : [r.planSentences]));
+          return ps.length ? `${pct(ps, 0.5)}/${Math.max(...ps)}` : "-";
+        })(),
+        fmt(
+          pct(
+            rs.flatMap((r) => (r.replyChars == null ? [] : [r.replyChars])),
+            0.5,
+          ),
+          0,
+        ),
+        fmt(avg(rs.flatMap((r) => (r.echoedLabels == null ? [] : [r.echoedLabels]))), 1),
+        (() => {
+          const known = rs.filter((r) => r.jsonDrafted != null);
+          return known.length
+            ? `${known.filter((r) => r.jsonDrafted).length}/${known.length}`
+            : "-";
+        })(),
         fmt(avg(rs.flatMap((r) => (r.nodes == null ? [] : [r.nodes]))), 0),
         pct(ms, 0.5).toFixed(1),
         pct(ms, 0.95).toFixed(1),

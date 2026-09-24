@@ -20,7 +20,7 @@ import type { RequestLogger } from "evlog";
 import { buildCanvasContext } from "../../src/lib/agent/prompt";
 import { createCachingFetch } from "../../src/lib/agent/cache";
 import { repairToolInput } from "../../src/lib/agent/chat-stream";
-import { coverage, leaks, looseCoverage, stuffed } from "./metrics";
+import { coverage, echoedLabels, leaks, looseCoverage, sentences, stuffed } from "./metrics";
 import { prompts, type EvalPrompt } from "./prompts";
 import { strategies } from "./strategies";
 import { summarize } from "./summary";
@@ -210,6 +210,28 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
   const model = steps.flatMap((s) => s.toolCalls).find((t) => t.toolName === "draw_system")?.input;
   if (model)
     writeFileSync(join(outDir, "specs", `${file}.model.json`), JSON.stringify(model, null, 2));
+  // Plan = text up to and including the draw step; reply = text after the last draw.
+  const draws = (s: StepResult<ToolSet>) => s.toolCalls.some((t) => t.toolName.startsWith("draw_"));
+  const first = steps.findIndex(draws);
+  const last = steps.findLastIndex(draws);
+  const planText =
+    first < 0
+      ? ""
+      : steps
+          .slice(0, first + 1)
+          .map((s) => s.text)
+          .join("");
+  const replyText =
+    last < 0
+      ? ""
+      : steps
+          .slice(last + 1)
+          .map((s) => s.text)
+          .join("");
+  writeFileSync(
+    join(outDir, "specs", `${file}.text.json`),
+    JSON.stringify({ plan: planText, reply: replyText }, null, 2),
+  );
   const scores = drawLogs.flatMap((d) => (typeof d.score === "number" ? [d.score] : []));
   const row = {
     model: `${modelId}~${args.strategy}`,
@@ -241,6 +263,12 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     leaks: leaks(prompt, drawn),
     stuffed: stuffed(drawn),
     textChars: text.length,
+    planSentences: sentences(planText),
+    planChars: planText.length,
+    replyChars: replyText.length,
+    echoedLabels: echoedLabels(drawn, replyText),
+    // Raw model: production strips these (strip-json-text.ts), the eval does not.
+    jsonDrafted: text.includes("```json"),
     spec: drawn.length ? `specs/${file}.json` : undefined,
   };
   appendFileSync(resultsPath, `${JSON.stringify(row)}\n`);
