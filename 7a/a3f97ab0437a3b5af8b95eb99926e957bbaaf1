@@ -1,0 +1,21 @@
+apps/server/src/lib/agent/prompt.ts
+  s_492173231a18a5::t_096f73960f4b76 21
+apps/web/src/components/whiteboard/ai-chat-panel/use-diagram-canvas.ts
+  s_492173231a18a5::t_096f73960f4b76 85,115,121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7aa3f97ab0437a3b5af8b95eb99926e957bbaaf1",
+  "prompts": {},
+  "sessions": {
+    "s_492173231a18a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74b2d28f-fec5-4b0c-b089-4de339f62551",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
