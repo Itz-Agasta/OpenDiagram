@@ -29,7 +29,7 @@ export type AiCallOptions = {
 export const LLM_MAX_RETRIES = 3;
 
 const GOOGLE_DEFAULTS = {
-  model: "gemini-2.5-flash",
+  model: "gemini-3.8-flash",
   maxTokens: 8192,
 };
 
