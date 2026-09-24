@@ -27,12 +27,13 @@ Run `just check` and `just types` before calling a coding session done.
 - **Next.js 16 is not the Next.js you know.** Breaking changes to APIs, conventions, and file structure. Read `node_modules/next/dist/docs/` before writing app-router or config code, and heed deprecation notices.
 - Install with `bun add`, never by hand-editing package.json. Workspace deps are `workspace:*`. `catalog:` is only for deps used by **two or more** packages.
 - `@/` aliases `apps/web/src/`. Shared components live in `components/`, page-specific ones in `components/<feature>/`.
-- **`apps/server` and `packages/*` files stay under 300 LOC, comments included.** Past that, split. Give the pieces a real structure - a directory with a narrow entry point, the way `lib/quota/` and `lib/dodo/` already do - rather than cutting wherever line 300 lands. Does not apply to `apps/web`, where vendored shadcn components skew the count.
+- **`apps/server` and `packages/*` files stay under 300-350 LOC, comments included.** Past that, split. Give the pieces a real structure - a directory with a narrow entry point, the way `lib/quota/` and `lib/dodo/` already do - rather than cutting wherever line 300 lands. Does not apply to `apps/web`, where vendored shadcn components skew the count.
 - Typed env: import from `@OpenDiagram/env/web` or `@OpenDiagram/env/server`.
 - `packages/db`: never acquire nested DB connections.
 - Interactive controls must look interactive: `cursor: pointer` from the global stylesheet. Only override for disabled/loading (`cursor-wait`, `cursor-not-allowed`).
 - No em dashes and no `--`. Prose, comments, commit messages.
 - Never guess an API. context7 MCP for known libraries, Exa for obscure packages / platform APIs / specific URLs, ask the user if neither settles it.
+- **Upstream defects get reported, not absorbed.** A bug, regression, or hard limitation in a dependency or tool is a finding to hand over, not a footnote. Say so in chat with the installed version, the `node_modules` file and line that proves it, and the upstream issue or commit if one exists. The user maintains open source and files these upstream. Never bury it in a code comment and move on, and never work around it silently: the workaround still ships, it just gets named as one.
 
 ## Harness (packages/harness) - read before touching diagram code
 
@@ -49,8 +50,6 @@ The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
 - **After ANY harness change run `bun test` in `packages/harness`** (`test/harness.test.ts` - geometry smoke suite: sequence fragments, ERD crow-feet, orthogonal routes, column alignment). Extend it when you add pipeline features.
 
 ## Verifying a change against the running app
-
-**`apps/server/.env` `DATABASE_URL` points at PRODUCTION.** Test fixtures are real rows. Clean them up, and never run destructive SQL without saying so first. (Temporary: the prod DB and its env get wiped before launch.)
 
 `next-server` exiting **143 is earlyoom**, not your bug.
 
