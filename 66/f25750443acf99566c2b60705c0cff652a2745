@@ -1,0 +1,29 @@
+apps/server/src/lib/ai-provider/resolve.ts
+  s_060f56e33cfac7::t_0eceb47e9ab6fc 16,21
+apps/server/scripts/eval/summary.ts
+  s_060f56e33cfac7::t_0eceb47e9ab6fc 26,46-48,53
+apps/server/scripts/eval/prompts.ts
+  s_060f56e33cfac7::t_0eceb47e9ab6fc 3-4
+apps/server/src/lib/repo-ai.ts
+  s_060f56e33cfac7::t_0eceb47e9ab6fc 4-11,48
+apps/server/src/lib/ai-provider/registry.ts
+  s_060f56e33cfac7::t_0eceb47e9ab6fc 80
+apps/server/scripts/eval/run.ts
+  s_060f56e33cfac7::t_0eceb47e9ab6fc 98-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66f25750443acf99566c2b60705c0cff652a2745",
+  "prompts": {},
+  "sessions": {
+    "s_060f56e33cfac7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9dcfd80a-1664-4a6d-91c4-ff4f80bf2d75",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
