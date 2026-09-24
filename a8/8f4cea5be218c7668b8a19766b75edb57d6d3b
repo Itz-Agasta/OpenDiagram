@@ -1,0 +1,60 @@
+packages/harness/src/renderer/containers.ts
+  s_492173231a18a5::t_3a5e60cf9ca540 2,40
+packages/harness/test/layout.test.ts
+  s_492173231a18a5::t_d9cab2954f37a5 230-247
+  s_492173231a18a5::t_7c4ecf964e3291 325-350
+  s_492173231a18a5::t_04a05433912c73 10
+apps/server/scripts/eval/metrics.ts
+  s_492173231a18a5::t_6d9554e6450fdf 18,23,36,54-55
+  s_492173231a18a5::t_6a744d2b977b21 24-26
+packages/harness/src/layout.ts
+  s_492173231a18a5::t_cf291da2cac016 12
+  s_492173231a18a5::t_a4f58329cb9743 194-198
+  s_492173231a18a5::t_7c4ecf964e3291 36
+  s_492173231a18a5::t_f5d8885c360b66 154-156
+packages/harness/src/model/schema.ts
+  s_492173231a18a5::t_6a744d2b977b21 2-5
+packages/harness/src/diagram-schema.ts
+  s_492173231a18a5::t_6d9554e6450fdf 27-41,52,70
+packages/harness/src/layout/elk-common.ts
+  s_492173231a18a5::t_cf291da2cac016 5,46,50-51
+  s_492173231a18a5::t_a4f58329cb9743 54-55
+apps/server/scripts/eval/run.ts
+  s_492173231a18a5::t_6d9554e6450fdf 242
+  s_492173231a18a5::t_6a744d2b977b21 221-222
+  s_492173231a18a5::t_7c4ecf964e3291 2-6,8
+packages/harness/src/layout/lanes.ts
+  s_492173231a18a5::t_d9cab2954f37a5 3,10-11,79-83,96,98,103,105,108,116,119
+packages/harness/src/layout/route.ts
+  s_492173231a18a5::t_3a5e60cf9ca540 2,35,46-47
+apps/server/scripts/eval/prompts-noisy.ts
+  s_492173231a18a5::t_6d9554e6450fdf 125
+packages/harness/src/model/views.ts
+  s_492173231a18a5::t_2dbc73c6f9c012 28-31,54-55,62-63,80,95,100,115-120,176-181
+  s_492173231a18a5::t_500bbac496ae19 170-172
+  s_492173231a18a5::t_f5d8885c360b66 25-26,250-252,255-259
+  s_492173231a18a5::t_7c4ecf964e3291 48-51
+  s_492173231a18a5::t_a4f58329cb9743 203,240-241,245,247
+apps/server/scripts/eval/summary.ts
+  s_492173231a18a5::t_6d9554e6450fdf 52-53
+packages/harness/src/layout/macro.ts
+  s_492173231a18a5::t_37ec6e15590765 3,170
+packages/harness/src/measure.ts
+  s_492173231a18a5::t_7b2d07d06e099e 201-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a88f4cea5be218c7668b8a19766b75edb57d6d3b",
+  "prompts": {},
+  "sessions": {
+    "s_492173231a18a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74b2d28f-fec5-4b0c-b089-4de339f62551",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
