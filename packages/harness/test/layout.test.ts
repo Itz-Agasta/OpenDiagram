@@ -7,6 +7,7 @@ import {
   sketchTheme,
   type DiagramSpec,
 } from "../src/index.js";
+import { containerTitleBox } from "../src/measure.js";
 import { allFinite } from "./helpers.js";
 
 describe("elk layout invariants", () => {
@@ -226,6 +227,30 @@ describe("place, polish, route", () => {
     for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeGreaterThan(xs[i - 1]!);
   });
 
+  test("swimlane nodes clear a wrapped lane title", async () => {
+    const spec: DiagramSpec = {
+      type: "bpmn",
+      title: "Lanes",
+      nodes: ["a", "b"].map((id) => ({ id, label: `Step ${id}` })),
+      edges: [{ from: "a", to: "b" }],
+      groups: [
+        {
+          id: "ops",
+          label: "Operations",
+          sublabel: "Night shift and weekend on-call rota",
+          contains: ["a"],
+          style: "swimlane",
+        },
+        { id: "fin", label: "Finance", contains: ["b"], style: "swimlane" },
+      ],
+    };
+    const p = await layoutDiagram(spec, sketchTheme);
+    const title = containerTitleBox(spec.groups![0]!, sketchTheme);
+    expect(title.lines.length).toBe(2);
+    // The renderer draws the title at box.y + 12.
+    expect(p.positions.a!.y).toBeGreaterThan(p.groupBoxes.ops!.y + 12 + title.height);
+  });
+
   test("replication does not rank the replica after the primary", async () => {
     const spec: DiagramSpec = {
       type: "cloud-architecture",
@@ -267,6 +292,90 @@ describe("place, polish, route", () => {
     expect(x("app")).toBeLessThan(x("gw"));
     expect(x("gw")).toBeLessThan(x("svc"));
     expect(x("svc")).toBeLessThan(x("push"));
+  });
+
+  test("a replica fed only by replication ranks after its primaries", async () => {
+    const spec: DiagramSpec = {
+      type: "system-design",
+      title: "DR",
+      nodes: ["gw", "a", "b", "dbA", "dbB", "dr"].map((id) => ({ id, label: id })),
+      edges: [
+        { from: "gw", to: "a" },
+        { from: "gw", to: "b" },
+        { from: "a", to: "dbA" },
+        { from: "b", to: "dbB" },
+        { from: "dbA", to: "dr", kind: "replication" },
+        { from: "dbB", to: "dr", kind: "replication" },
+      ],
+    };
+    const p = await layoutDiagram(spec, classicTheme);
+    const x = (id: string) => center(p.positions[id]!).x;
+    expect(x("dr")).toBeGreaterThan(Math.max(x("dbA"), x("dbB")));
+  });
+
+  test("group boxes fit their titles, LR and TB, single-run and fold", async () => {
+    const groups = [
+      {
+        id: "g1",
+        label: "Ingestion Pipeline",
+        sublabel: "Workers on EKS spot fleet",
+        contains: ["a", "b"],
+      },
+      {
+        id: "g2",
+        label: "Primary Region Persistence",
+        sublabel: "Read/Write Cluster",
+        contains: ["c", "d"],
+      },
+    ];
+    // The zone case is the one elkjs gets wrong in TB (eclipse/elk#1033): nested compounds.
+    for (const zones of [undefined, [{ id: "z", label: "Region", contains: ["g1", "g2"] }]])
+      for (const direction of ["LR", "TB"] as const)
+        for (const strategy of ["single", "two-phase"] as const) {
+          const spec: DiagramSpec = {
+            type: "system-design",
+            title: "Titles",
+            nodes: ["a", "b", "c", "d"].map((id) => ({ id, label: id })),
+            edges: [
+              { from: "a", to: "b" },
+              { from: "b", to: "c" },
+              { from: "c", to: "d" },
+            ],
+            groups,
+            zones,
+            meta: { direction },
+          };
+          const p = await layoutDiagram(spec, sketchTheme, { strategy });
+          for (const g of groups) {
+            const title = containerTitleBox(g, sketchTheme);
+            const box = p.groupBoxes[g.id]!;
+            expect(box.width).toBeGreaterThanOrEqual(title.width + 28);
+            // Long "label - sublabel" titles wrap instead of stretching the box to one line.
+            expect(title.lines).toEqual([g.label, g.sublabel]);
+            expect(box.width).toBeLessThan(480);
+            // A box widened for its title centres its children, it does not pin them left.
+            const kids = g.contains.map((id) => p.positions[id]!);
+            const left = Math.min(...kids.map((k) => k.x));
+            const right = Math.max(...kids.map((k) => k.x + k.width));
+            expect(Math.abs((left + right) / 2 - (box.x + box.width / 2))).toBeLessThan(6);
+          }
+        }
+  });
+
+  test("a long chain wraps instead of becoming a ribbon", async () => {
+    const ids = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const spec: DiagramSpec = {
+      type: "system-design",
+      title: "Chain",
+      nodes: ids.map((id) => ({ id, label: `Service ${id}`, category: "service" })),
+      edges: ids.slice(1).map((id, i) => ({ from: ids[i]!, to: id, label: "calls next" })),
+    };
+    const p = await layoutDiagram(spec, sketchTheme);
+    const boxes = Object.values(p.positions);
+    const width = Math.max(...boxes.map((b) => b.x + b.width)) - Math.min(...boxes.map((b) => b.x));
+    const height =
+      Math.max(...boxes.map((b) => b.y + b.height)) - Math.min(...boxes.map((b) => b.y));
+    expect(width / height).toBeLessThan(4);
   });
 
   test("layers inside a group keep the root layer spacing", async () => {

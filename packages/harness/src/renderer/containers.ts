@@ -1,4 +1,5 @@
 import type { Box } from "../geometry.js";
+import { containerTitleBox } from "../measure.js";
 import type { RenderSkeleton } from "../skeleton.js";
 import type { ContainerStyle, Theme } from "../theme/index.js";
 
@@ -36,7 +37,7 @@ export function renderContainer(
   out.push({
     kind: "text",
     id: `${id}-label`,
-    text: sublabel ? `${label} — ${sublabel}` : label,
+    text: containerTitleBox({ label, sublabel }, theme).lines.join("\n"),
     x: box.x + 14,
     y: box.y + 12,
     fontSize: theme.text.containerLabel.size,

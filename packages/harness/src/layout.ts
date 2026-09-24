@@ -2,7 +2,7 @@ import type { ElkNode } from "elkjs/lib/elk-api.js";
 import type { Box, PositionedSpec } from "./geometry.js";
 import { alignColumns } from "./layout/align.js";
 import { laneLayout } from "./layout/lanes.js";
-import { BASE_OPTIONS, CONTAINER_OPTIONS, elk, elkEdge } from "./layout/elk-common.js";
+import { BASE_OPTIONS, containerOptions, elk, elkEdge } from "./layout/elk-common.js";
 import { type LayoutGeometry, twoPhaseLayout } from "./layout/macro.js";
 import { routeGeometry } from "./layout/route.js";
 import { sanitize, type Sanitized } from "./layout/sanitize.js";
@@ -20,17 +20,25 @@ const flowDirection = (spec: DiagramSpec) =>
 
 const DIRECTION: Record<string, string> = { LR: "RIGHT", TB: "DOWN", BT: "UP", RL: "LEFT" };
 
-function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
+function buildGraph(
+  spec: DiagramSpec,
+  s: Sanitized,
+  theme: Theme,
+  extra: Record<string, string> = {},
+): ElkNode {
   const elkNodes = new Map<string, ElkNode>();
   for (const node of spec.nodes) {
     elkNodes.set(node.id, { id: node.id, ...nodeSize(node, theme, s.nodeParent.has(node.id)) });
   }
 
+  const named = new Map([...(spec.groups ?? []), ...(spec.zones ?? [])].map((c) => [c.id, c]));
+  const vertical = ["TB", "BT"].includes(flowDirection(spec));
+  const options = (id: string) => containerOptions(named.get(id) ?? { label: "" }, theme, vertical);
   const elkGroups = new Map<string, ElkNode>();
   for (const group of s.groups) {
     elkGroups.set(group.id, {
       id: group.id,
-      layoutOptions: CONTAINER_OPTIONS,
+      layoutOptions: options(group.id),
       children: group.contains.map((id) => elkNodes.get(id)!),
     });
   }
@@ -39,7 +47,7 @@ function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
   for (const zone of s.zones) {
     rootChildren.push({
       id: zone.id,
-      layoutOptions: CONTAINER_OPTIONS,
+      layoutOptions: options(zone.id),
       children: zone.contains.map((id) => elkGroups.get(id) ?? elkNodes.get(id)!),
     });
   }
@@ -59,10 +67,22 @@ function buildGraph(spec: DiagramSpec, s: Sanitized, theme: Theme): ElkNode {
       // ERDs read best top-down (parent tables above children); flows read LR.
       "elk.direction":
         DIRECTION[spec.meta?.direction ?? (spec.type === "erd" ? "TB" : "LR")] ?? "RIGHT",
+      ...extra,
     },
     children: rootChildren,
     edges: s.edges.map((edge) => elkEdge(edge, theme)),
   };
+}
+
+function aspect(geo: LayoutGeometry): number {
+  const boxes = [
+    ...Object.values(geo.positions),
+    ...Object.values(geo.groupBoxes),
+    ...Object.values(geo.zoneBoxes),
+  ];
+  const width = Math.max(...boxes.map((b) => b.x + b.width)) - Math.min(...boxes.map((b) => b.x));
+  const height = Math.max(...boxes.map((b) => b.y + b.height)) - Math.min(...boxes.map((b) => b.y));
+  return width / height;
 }
 
 /** Single-run ELK layout of the whole spec (nested compounds, one direction). */
@@ -70,8 +90,9 @@ async function singleRunLayout(
   spec: DiagramSpec,
   s: Sanitized,
   theme: Theme,
+  extra?: Record<string, string>,
 ): Promise<LayoutGeometry> {
-  const laidOut = await elk.layout(buildGraph(spec, s, theme));
+  const laidOut = await elk.layout(buildGraph(spec, s, theme, extra));
 
   const positions: Record<string, Box> = {};
   const groupBoxes: Record<string, Box> = {};
@@ -127,9 +148,17 @@ export async function layoutDiagram(
     e.from !== e.to &&
     initiators.has(e.to) &&
     ["client", "user"].includes(category.get(e.to) ?? "");
+  // A node reached ONLY by replication (a DR replica fed by two primaries) keeps
+  // those edges: with none left it ranks first and its edges cross everything.
+  const placedBy = (id: string) =>
+    s.edges.some(
+      (e) => e.kind !== "replication" && !intoClient(e) && (e.from === id || e.to === id),
+    );
   const placing: Sanitized = {
     ...s,
-    edges: s.edges.filter((e) => e.kind !== "replication" && !intoClient(e)),
+    edges: s.edges.filter(
+      (e) => !intoClient(e) && (e.kind !== "replication" || !placedBy(e.from) || !placedBy(e.to)),
+    ),
   };
 
   const candidates: LayoutGeometry[] = [];
@@ -156,8 +185,30 @@ export async function layoutDiagram(
       s.warnings.push(`two-phase layout failed, using single-run: ${String(error)}`);
     }
   }
-  if (!lanes && (strategy !== "two-phase" || candidates.length === 0))
-    candidates.push(await singleRunLayout(spec, placing, theme));
+  let single: LayoutGeometry | undefined;
+  if (!lanes && (strategy !== "two-phase" || candidates.length === 0)) {
+    single = await singleRunLayout(spec, placing, theme);
+    candidates.push(single);
+  }
+  // A wrapped run: ELK cuts a long layering into chunks placed side by side.
+  // Only a candidate, and only tried on a ribbon (a second ELK run and route
+  // cost +230 ms a view when always on); the report still picks. Measured on
+  // 190 eval views: mean score 78.5 -> 83.9, views wider than 4:1 from 54 to
+  // 12. SINGLE_EDGE throws NoSuchElementException inside elkjs 0.11.1 on most
+  // graphs; don't switch.
+  // https://eclipse.dev/elk/reference/options/org-eclipse-elk-layered-wrapping-strategy.html
+  if (single && strategy === "auto" && spec.nodes.length >= 5 && aspect(single) > 3) {
+    try {
+      candidates.push(
+        await singleRunLayout(spec, placing, theme, {
+          "elk.layered.wrapping.strategy": "MULTI_EDGE",
+          "elk.aspectRatio": "2.0",
+        }),
+      );
+    } catch (error) {
+      s.warnings.push(`wrapped layout failed: ${String(error)}`);
+    }
+  }
 
   let best: { positioned: PositionedSpec; score: number } | undefined;
   for (const geo of candidates) {

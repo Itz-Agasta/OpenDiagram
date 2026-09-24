@@ -10,7 +10,7 @@ that way.
 DiagramSpec (semantics only)
    │  nodes, edges, groups/zones, categories, kinds - no coordinates
    ▼
-place       ELK ranks and places nodes (fold / swimlane / single-run candidates;
+place       ELK ranks and places nodes (fold / swimlane / single-run / wrapped candidates;
    │         sequence diagrams use their own grid)
    ▼
 polish      column + row alignment, cross-block reordering; moves nodes freely

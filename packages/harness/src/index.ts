@@ -36,3 +36,7 @@ export type {
 
 export { classicTheme, sketchTheme, themes } from "./theme/index.js";
 export type { Theme, ThemeName } from "./theme/index.js";
+
+export { systemModelSchema } from "./model/schema.js";
+export type { SystemModel, SystemFlow } from "./model/schema.js";
+export { MAX_DETAIL_NODES, planViews } from "./model/views.js";

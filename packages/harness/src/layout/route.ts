@@ -1,5 +1,5 @@
 import type { Box, EdgeRoute } from "../geometry.js";
-import { estimateTextWidth } from "../measure.js";
+import { containerTitleBox } from "../measure.js";
 import { type RouterContainer, type RouterInput, routeEdges } from "../router/index.js";
 import type { DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
@@ -29,12 +29,10 @@ export function routeGeometry(
   for (const z of s.zones) for (const id of z.contains) zoneOf.set(id, z.id);
   const labelled = new Map<string, { label: string; sublabel?: string }>();
   for (const c of [...(spec.zones ?? []), ...(spec.groups ?? [])]) labelled.set(c.id, c);
-  const titleSize = theme.text.containerLabel.size;
 
   const containers: RouterContainer[] = [];
   const add = (id: string, box: Box) => {
-    const c = labelled.get(id);
-    const text = c?.sublabel ? `${c.label} - ${c.sublabel}` : (c?.label ?? "");
+    const title = containerTitleBox(labelled.get(id) ?? { label: "" }, theme);
     const b = round(box);
     containers.push({
       id,
@@ -45,8 +43,8 @@ export function routeGeometry(
         y: b.y + 6,
         // Not capped at the box: a long title the renderer draws past the
         // border must still keep routes and chips off it.
-        width: Math.ceil(estimateTextWidth(text, titleSize, theme.fontFamily)) + 16,
-        height: Math.ceil(titleSize * 1.3) + 12,
+        width: title.width + 16,
+        height: title.height + 12,
       },
     });
   };

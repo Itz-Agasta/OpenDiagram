@@ -3,7 +3,7 @@ import type { Box } from "../geometry.js";
 import { nodeSize } from "../measure.js";
 import type { DiagramEdge, DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
-import { BASE_OPTIONS, CONTAINER_OPTIONS, elk, elkEdge } from "./elk-common.js";
+import { BASE_OPTIONS, containerOptions, elk, elkEdge } from "./elk-common.js";
 import type { Sanitized } from "./sanitize.js";
 
 /**
@@ -110,13 +110,13 @@ export async function twoPhaseLayout(
       block.inner.positions[block.id] = { x: 0, y: 0, ...size };
       continue;
     }
-    await microLayout(block, s, theme, nodeById, "RIGHT");
+    await microLayout(block, spec, s, theme, nodeById, "RIGHT");
     // A tier laid out as a long row makes the whole diagram a ribbon. Stood
     // on end it becomes a column, the way hand-drawn diagrams show a tier:
     // blocks still flow left to right, the tier's own chain reads downward.
     if (block.members.size > 1 && block.width > block.height * WIDE_BLOCK) {
       block.inner = { positions: {}, groupBoxes: {}, zoneBoxes: {} };
-      await microLayout(block, s, theme, nodeById, "DOWN");
+      await microLayout(block, spec, s, theme, nodeById, "DOWN");
     }
   }
 
@@ -159,11 +159,15 @@ export async function twoPhaseLayout(
 /** ELK layout of one container's interior; sizes the block, coords relative. */
 async function microLayout(
   block: Block,
+  spec: DiagramSpec,
   s: Sanitized,
   theme: Theme,
   nodeById: Map<string, DiagramSpec["nodes"][number]>,
   direction: "RIGHT" | "DOWN",
 ): Promise<void> {
+  const named = new Map([...(spec.groups ?? []), ...(spec.zones ?? [])].map((c) => [c.id, c]));
+  const options = (id: string) =>
+    containerOptions(named.get(id) ?? { label: "" }, theme, direction === "DOWN");
   const elkNodes = new Map<string, ElkNode>();
   for (const id of block.members) {
     elkNodes.set(id, { id, ...nodeSize(nodeById.get(id)!, theme, true) });
@@ -178,7 +182,7 @@ async function microLayout(
       innerGroupIds.add(group.id);
       return {
         id: group.id,
-        layoutOptions: CONTAINER_OPTIONS,
+        layoutOptions: options(group.id),
         children: group.contains.map((n) => elkNodes.get(n)!),
       };
     });
@@ -190,7 +194,7 @@ async function microLayout(
   const laidOut = await elk.layout({
     id: "root",
     layoutOptions: { ...BASE_OPTIONS, "elk.direction": direction },
-    children: [{ id: block.id, layoutOptions: CONTAINER_OPTIONS, children: containerChildren }],
+    children: [{ id: block.id, layoutOptions: options(block.id), children: containerChildren }],
     edges: intraEdges.map((e) => elkEdge(e, theme)),
   });
   const container = laidOut.children![0]!;

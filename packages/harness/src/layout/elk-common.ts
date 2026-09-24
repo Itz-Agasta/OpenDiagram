@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import ELK from "elkjs/lib/elk-api.js";
 import type { ElkExtendedEdge } from "elkjs/lib/elk-api.js";
 import {
+  containerTitleBox,
   countTextLines,
   edgeLabelText,
   estimateTextHeight,
@@ -30,6 +31,35 @@ export const CONTAINER_OPTIONS = {
   "elk.padding": "[top=56,left=24,bottom=24,right=24]",
   ...SPACING,
 };
+
+/**
+ * CONTAINER_OPTIONS plus a minimum width that fits the title (renderer draws it
+ * at x+14). ELK otherwise sizes a container to its children alone, and 125 of
+ * 257 groups across the eval specs had a title spilling past their border.
+ *
+ * `vertical` works around an upstream bug (elkjs 0.11.1): in a DOWN/UP layout
+ * with INCLUDE_CHILDREN, ELK applies a compound node's minimum with width and
+ * height swapped, so the width goes in the second slot there.
+ * https://github.com/eclipse/elk/issues/1033
+ */
+export function containerOptions(
+  container: { label: string; sublabel?: string },
+  theme: Theme,
+  vertical: boolean,
+): Record<string, string> {
+  const title = containerTitleBox(container, theme);
+  const width = title.width + 32;
+  return {
+    ...CONTAINER_OPTIONS,
+    // Title band plus the gap to the children; 56 for a one-line title, as in CONTAINER_OPTIONS.
+    "elk.padding": `[top=${30 + title.height},left=24,bottom=24,right=24]`,
+    "elk.nodeSize.constraints": "MINIMUM_SIZE",
+    "elk.nodeSize.minimum": vertical ? `(0, ${width})` : `(${width}, 0)`,
+    // A box widened for its title centres its children instead of leaving them
+    // against the left padding. Same axis swap in vertical layouts.
+    "elk.contentAlignment": vertical ? "V_CENTER" : "H_CENTER",
+  };
+}
 
 // Shared layered-algorithm options (direction is decided per run).
 export const BASE_OPTIONS: Record<string, string> = {
