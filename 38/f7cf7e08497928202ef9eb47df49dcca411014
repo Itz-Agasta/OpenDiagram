@@ -1,0 +1,23 @@
+apps/server/src/lib/agent/prompt.ts
+  s_492173231a18a5::t_913fd391de0318 10
+apps/server/src/lib/agent/strip-json-text.ts
+  s_492173231a18a5::t_ebbc7da76d8450 1-65
+apps/server/src/lib/agent/chat-stream.ts
+  s_492173231a18a5::t_245c3a66026f8c 18,129,153,232-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "38f7cf7e08497928202ef9eb47df49dcca411014",
+  "prompts": {},
+  "sessions": {
+    "s_492173231a18a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74b2d28f-fec5-4b0c-b089-4de339f62551",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
