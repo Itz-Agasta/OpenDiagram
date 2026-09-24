@@ -1,0 +1,67 @@
+/**
+ * Per-model table from results.jsonl rows. Also runnable on a saved file:
+ *   bun scripts/eval/summary.ts scripts/eval/out/<run>/results.jsonl
+ */
+import { readFileSync } from "node:fs";
+
+type Row = {
+  model: string;
+  drewOk: boolean;
+  askedUser: boolean;
+  toolErrors: number;
+  repairs?: number;
+  ms: number;
+  cost: number;
+  score?: number;
+  coverage: number | null;
+  nodes?: number;
+  reasoningTokens: number;
+};
+
+const pct = (xs: number[], p: number) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(s.length * p))] ?? 0;
+};
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
+
+export function summarize(rows: Row[]): string {
+  const byModel = Map.groupBy(rows, (r) => r.model);
+  const lines = [
+    "model | drew | asked | toolErr | repairs | score | coverage | nodes | p50 s | p95 s | $ avg | $ p95 | reasoning",
+    "-- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --",
+  ];
+  for (const [model, rs] of byModel) {
+    const scores = rs.flatMap((r) => (r.score == null ? [] : [r.score]));
+    const covs = rs.flatMap((r) => (r.coverage == null ? [] : [r.coverage]));
+    const ms = rs.map((r) => r.ms / 1000);
+    const costs = rs.map((r) => r.cost);
+    lines.push(
+      [
+        model,
+        `${rs.filter((r) => r.drewOk).length}/${rs.length}`,
+        rs.filter((r) => r.askedUser).length,
+        rs.reduce((a, r) => a + r.toolErrors, 0),
+        rs.reduce((a, r) => a + (r.repairs ?? 0), 0),
+        avg(scores).toFixed(0),
+        avg(covs).toFixed(2),
+        avg(rs.flatMap((r) => (r.nodes == null ? [] : [r.nodes]))).toFixed(0),
+        pct(ms, 0.5).toFixed(1),
+        pct(ms, 0.95).toFixed(1),
+        avg(costs).toFixed(4),
+        pct(costs, 0.95).toFixed(4),
+        avg(rs.map((r) => r.reasoningTokens)).toFixed(0),
+      ].join(" | "),
+    );
+  }
+  return lines.join("\n");
+}
+
+if (import.meta.main) {
+  const file = process.argv[2];
+  if (!file) throw new Error("usage: summary.ts <results.jsonl>");
+  const rows = readFileSync(file, "utf8")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l) as Row);
+  console.log(summarize(rows));
+}
