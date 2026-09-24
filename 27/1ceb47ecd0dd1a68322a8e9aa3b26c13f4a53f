@@ -1,0 +1,33 @@
+apps/server/src/lib/quota/enforce.ts
+  s_060f56e33cfac7::t_7b3b350882a29e 26-27
+apps/server/src/lib/quota/cost-ceiling.ts
+  s_060f56e33cfac7::t_b14985d5cabdac 18,226
+  s_060f56e33cfac7::t_51aac1b7db2797 27-33,38-42,93-103,105,107-110,235-240
+apps/server/src/lib/ai-provider/resolve.ts
+  s_060f56e33cfac7::t_af6a9f95b48a7a 11,16-23,120
+apps/server/src/lib/ai-provider/registry.ts
+  s_060f56e33cfac7::t_4d5a7ff39a80a6 62-63,79
+apps/server/src/lib/repo-ai.ts
+  s_060f56e33cfac7::t_dccaaaae49c599 32
+apps/server/src/lib/agent/chat-stream.ts
+  s_060f56e33cfac7::t_9a9b33de354f86 212-214
+  s_060f56e33cfac7::t_4b55db0bc07ad4 235-239
+  s_060f56e33cfac7::t_4df377fa30846b 31
+  s_060f56e33cfac7::t_f5f35c53e54403 102,140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "271ceb47ecd0dd1a68322a8e9aa3b26c13f4a53f",
+  "prompts": {},
+  "sessions": {
+    "s_060f56e33cfac7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9dcfd80a-1664-4a6d-91c4-ff4f80bf2d75",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
