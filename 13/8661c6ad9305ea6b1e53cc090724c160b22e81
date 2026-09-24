@@ -1,0 +1,22 @@
+packages/harness/test/views.test.ts
+  s_4a044119cfd727::t_67642a69526f16 1-77,87-90,111-119
+  s_4a044119cfd727::t_7e55178f03aebd 91-93
+  s_4a044119cfd727::t_f5642d9dc3439c 78-86
+  s_4a044119cfd727::t_98515286716ac8 94-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "138661c6ad9305ea6b1e53cc090724c160b22e81",
+  "prompts": {},
+  "sessions": {
+    "s_4a044119cfd727": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "619115ea-8dd8-49a7-86c8-be354488d9fd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
