@@ -7,6 +7,7 @@ import {
   sketchTheme,
   type DiagramSpec,
 } from "../src/index.js";
+import { containerTitle, estimateTextWidth } from "../src/measure.js";
 import { allFinite } from "./helpers.js";
 
 describe("elk layout invariants", () => {
@@ -267,6 +268,82 @@ describe("place, polish, route", () => {
     expect(x("app")).toBeLessThan(x("gw"));
     expect(x("gw")).toBeLessThan(x("svc"));
     expect(x("svc")).toBeLessThan(x("push"));
+  });
+
+  test("a replica fed only by replication ranks after its primaries", async () => {
+    const spec: DiagramSpec = {
+      type: "system-design",
+      title: "DR",
+      nodes: ["gw", "a", "b", "dbA", "dbB", "dr"].map((id) => ({ id, label: id })),
+      edges: [
+        { from: "gw", to: "a" },
+        { from: "gw", to: "b" },
+        { from: "a", to: "dbA" },
+        { from: "b", to: "dbB" },
+        { from: "dbA", to: "dr", kind: "replication" },
+        { from: "dbB", to: "dr", kind: "replication" },
+      ],
+    };
+    const p = await layoutDiagram(spec, classicTheme);
+    const x = (id: string) => center(p.positions[id]!).x;
+    expect(x("dr")).toBeGreaterThan(Math.max(x("dbA"), x("dbB")));
+  });
+
+  test("group boxes fit their titles, LR and TB, single-run and fold", async () => {
+    const groups = [
+      {
+        id: "g1",
+        label: "Ingestion Pipeline",
+        sublabel: "Workers on EKS spot fleet",
+        contains: ["a", "b"],
+      },
+      {
+        id: "g2",
+        label: "Primary Region Persistence",
+        sublabel: "Read/Write Cluster",
+        contains: ["c", "d"],
+      },
+    ];
+    for (const direction of ["LR", "TB"] as const)
+      for (const strategy of ["single", "two-phase"] as const) {
+        const spec: DiagramSpec = {
+          type: "system-design",
+          title: "Titles",
+          nodes: ["a", "b", "c", "d"].map((id) => ({ id, label: id })),
+          edges: [
+            { from: "a", to: "b" },
+            { from: "b", to: "c" },
+            { from: "c", to: "d" },
+          ],
+          groups,
+          meta: { direction },
+        };
+        const p = await layoutDiagram(spec, sketchTheme, { strategy });
+        for (const g of groups) {
+          const title = estimateTextWidth(
+            containerTitle(g),
+            sketchTheme.text.containerLabel.size,
+            sketchTheme.fontFamily,
+          );
+          expect(p.groupBoxes[g.id]!.width).toBeGreaterThanOrEqual(title + 28);
+        }
+      }
+  });
+
+  test("a long chain wraps instead of becoming a ribbon", async () => {
+    const ids = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const spec: DiagramSpec = {
+      type: "system-design",
+      title: "Chain",
+      nodes: ids.map((id) => ({ id, label: `Service ${id}`, category: "service" })),
+      edges: ids.slice(1).map((id, i) => ({ from: ids[i]!, to: id, label: "calls next" })),
+    };
+    const p = await layoutDiagram(spec, sketchTheme);
+    const boxes = Object.values(p.positions);
+    const width = Math.max(...boxes.map((b) => b.x + b.width)) - Math.min(...boxes.map((b) => b.x));
+    const height =
+      Math.max(...boxes.map((b) => b.y + b.height)) - Math.min(...boxes.map((b) => b.y));
+    expect(width / height).toBeLessThan(4);
   });
 
   test("layers inside a group keep the root layer spacing", async () => {

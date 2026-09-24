@@ -197,3 +197,7 @@ export function nodeSize(
 export function edgeLabelText(edge: DiagramEdge): string | undefined {
   return [edge.label, edge.protocol].filter(Boolean).join(" · ") || undefined;
 }
+
+/** The one string drawn as a container's name: the renderer draws it, ELK sizes the box to it, the router keeps routes off it. */
+export const containerTitle = (c: { label: string; sublabel?: string }) =>
+  c.sublabel ? `${c.label} - ${c.sublabel}` : c.label;

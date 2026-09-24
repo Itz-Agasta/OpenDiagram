@@ -1,5 +1,5 @@
 import type { Box, EdgeRoute } from "../geometry.js";
-import { estimateTextWidth } from "../measure.js";
+import { containerTitle, estimateTextWidth } from "../measure.js";
 import { type RouterContainer, type RouterInput, routeEdges } from "../router/index.js";
 import type { DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
@@ -34,7 +34,7 @@ export function routeGeometry(
   const containers: RouterContainer[] = [];
   const add = (id: string, box: Box) => {
     const c = labelled.get(id);
-    const text = c?.sublabel ? `${c.label} - ${c.sublabel}` : (c?.label ?? "");
+    const text = c ? containerTitle(c) : "";
     const b = round(box);
     containers.push({
       id,

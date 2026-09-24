@@ -31,6 +31,30 @@ export const CONTAINER_OPTIONS = {
   ...SPACING,
 };
 
+/**
+ * CONTAINER_OPTIONS plus a minimum width that fits the title (renderer draws it
+ * at x+14). ELK otherwise sizes a container to its children alone, and 125 of
+ * 257 groups across the eval specs had a title spilling past their border.
+ *
+ * `vertical` works around an upstream bug (elkjs 0.11.1): in a DOWN/UP layout
+ * with INCLUDE_CHILDREN, ELK applies a compound node's minimum with width and
+ * height swapped, so the width goes in the second slot there.
+ * https://github.com/eclipse/elk/issues/1033
+ */
+export function containerOptions(
+  title: string,
+  theme: Theme,
+  vertical: boolean,
+): Record<string, string> {
+  const size = theme.text.containerLabel.size;
+  const width = Math.ceil(estimateTextWidth(title, size, theme.fontFamily)) + 32;
+  return {
+    ...CONTAINER_OPTIONS,
+    "elk.nodeSize.constraints": "MINIMUM_SIZE",
+    "elk.nodeSize.minimum": vertical ? `(0, ${width})` : `(${width}, 0)`,
+  };
+}
+
 // Shared layered-algorithm options (direction is decided per run).
 export const BASE_OPTIONS: Record<string, string> = {
   "elk.algorithm": "layered",
