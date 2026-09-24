@@ -28,7 +28,7 @@ const EDGE_KEY_FIXUPS: [string, string][] = [
   ["target", "to"],
 ];
 
-function repairDrawDiagramInput(rawInput: unknown): string | null {
+export function repairDrawDiagramInput(rawInput: unknown): string | null {
   try {
     const input: unknown = typeof rawInput === "string" ? JSON.parse(rawInput) : rawInput;
     const edges = (input as { edges?: unknown })?.edges;
@@ -99,7 +99,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
   // Accumulated per step because `onError` reports no usage. A stream that dies on
   // step four already spent the tokens of the first three, and releasing the whole
   // reservation to zero made that real spend invisible to the cost ceiling.
-  const spent: AiUsage = { inputTokens: 0, outputTokens: 0 };
+  const spent = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 } satisfies AiUsage;
   const totals = {
     inputTokens: 0,
     outputTokens: 0,
@@ -137,6 +137,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       onStepEnd: ({ usage }) => {
         spent.inputTokens += usage.inputTokens ?? 0;
         spent.outputTokens += usage.outputTokens ?? 0;
+        spent.cachedInputTokens += usage.inputTokenDetails.cacheReadTokens ?? 0;
       },
       onFinish: ({ steps, totalUsage }) => {
         allSteps.push(...steps);
@@ -208,9 +209,9 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
           malformedCalls,
           totalTokens: totals.totalTokens,
           // Output is most of the bill now that the head is cached, so it is
-          // split out. Reasoning measured 200-400 of it on gemini-2.5-flash, but
-          // `thinkingConfig` is unset and every model picks its own budget, so
-          // it is the number to watch when the model changes.
+          // split out. The platform model pins thinking to `low` (resolve.ts);
+          // BYOK models pick their own budget, so this is the number to watch
+          // when the model changes.
           outputTokens: totals.outputTokens,
           reasoningTokens: totals.reasoning,
           // The system prompt is ~8k tokens, three quarters of it the static icon
@@ -231,7 +232,11 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       // the credit back but keeps the tokens it burned on the ledger.
       if (failed) await grant.release(spent);
       else
-        await grant.settle({ inputTokens: totals.inputTokens, outputTokens: totals.outputTokens });
+        await grant.settle({
+          inputTokens: totals.inputTokens,
+          outputTokens: totals.outputTokens,
+          cachedInputTokens: totals.cacheRead,
+        });
     },
   });
 }

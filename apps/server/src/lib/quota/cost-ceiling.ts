@@ -15,6 +15,7 @@ import {
   usageLedger,
 } from "@OpenDiagram/db/schema/billing";
 import type { CreationQuotaActor } from "./actor";
+import type { AiUsage } from "./enforce";
 import { CostCeilingExceededError } from "./errors";
 
 /**
@@ -23,13 +24,22 @@ import { CostCeilingExceededError } from "./errors";
  * be maintained: gemini-2.5-flash went from $0.15/$0.60 to $0.30/$2.50 in one
  * pricing change, a 4x jump on output.
  */
-const MODEL_PRICING: Record<string, { inputPerMillion: number; outputPerMillion: number }> = {
-  "gemini-2.5-flash": { inputPerMillion: 0.3, outputPerMillion: 2.5 },
+type ModelPricing = { inputPerMillion: number; cachedPerMillion: number; outputPerMillion: number };
+
+// Gemini 3.x Flash rates are the intro prices, which double on 2027-01-01.
+// https://ai.google.dev/gemini-api/docs/pricing
+const MODEL_PRICING: Record<string, ModelPricing> = {
+  "gemini-2.5-flash": { inputPerMillion: 0.3, cachedPerMillion: 0.03, outputPerMillion: 2.5 },
+  "gemini-3.8-flash": { inputPerMillion: 0.75, cachedPerMillion: 0.075, outputPerMillion: 3.75 },
 };
 
 // Charged when a model has no entry above. Deliberately the priciest rate we've
 // seen, so an unpriced model over-reports rather than running effectively free.
-const UNKNOWN_MODEL_PRICING = { inputPerMillion: 1.5, outputPerMillion: 9.0 };
+const UNKNOWN_MODEL_PRICING: ModelPricing = {
+  inputPerMillion: 1.5,
+  cachedPerMillion: 1.5,
+  outputPerMillion: 9.0,
+};
 
 /**
  * Reserved up front, in micro-dollars. This is the p95 measured cost of a real
@@ -80,10 +90,24 @@ const RESERVATION_TTL_MINUTES = 10;
  */
 const MAX_REQUESTS_PER_TURN = 5;
 
-export function costMicros(modelId: string, inputTokens: number, outputTokens: number): number {
+/**
+ * Cached input is billed at its own rate. Charging it at the full input rate
+ * over-reported gemini-3.8-flash turns about 2x (89% of input is cached), enough
+ * to cut an honest Pro user off before 150 diagrams.
+ */
+export function costMicros(
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number,
+  cachedInputTokens = 0,
+): number {
   const pricing = MODEL_PRICING[modelId] ?? UNKNOWN_MODEL_PRICING;
+  const cached = Math.min(cachedInputTokens, inputTokens);
   const usd =
-    (inputTokens * pricing.inputPerMillion + outputTokens * pricing.outputPerMillion) / 1_000_000;
+    ((inputTokens - cached) * pricing.inputPerMillion +
+      cached * pricing.cachedPerMillion +
+      outputTokens * pricing.outputPerMillion) /
+    1_000_000;
   return Math.round(usd * MICROS_PER_USD);
 }
 
@@ -199,7 +223,7 @@ export async function isTurnAlreadyCharged(
  */
 export async function settleAiCost(
   ledgerId: string,
-  usage: { modelId: string; inputTokens: number; outputTokens: number },
+  usage: AiUsage & { modelId: string },
   options: { creditRefunded?: boolean } = {},
 ): Promise<void> {
   await db
@@ -208,7 +232,12 @@ export async function settleAiCost(
       status: options.creditRefunded ? "refunded" : "settled",
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
-      costMicros: costMicros(usage.modelId, usage.inputTokens, usage.outputTokens),
+      costMicros: costMicros(
+        usage.modelId,
+        usage.inputTokens,
+        usage.outputTokens,
+        usage.cachedInputTokens,
+      ),
       settledAt: new Date(),
     })
     .where(eq(usageLedger.id, ledgerId));

@@ -23,7 +23,8 @@ import {
 } from "./credits";
 import { AiRateLimitError, applyCreationQuotaHeaders } from "./errors";
 
-export type AiUsage = { inputTokens: number; outputTokens: number };
+/** `cachedInputTokens` is the part of `inputTokens` served from cache; omitted means none. */
+export type AiUsage = { inputTokens: number; outputTokens: number; cachedInputTokens?: number };
 
 export type AiQuotaGrant = {
   /** Reconciles the reservation to actual token usage. Idempotent. */

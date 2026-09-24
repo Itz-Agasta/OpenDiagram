@@ -1,7 +1,14 @@
 import { createGoogle } from "@ai-sdk/google";
 import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
-import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel } from "ai";
+import {
+  generateObject,
+  generateText,
+  NoObjectGeneratedError,
+  wrapLanguageModel,
+  type LanguageModel,
+} from "ai";
+import { PLATFORM_MODEL, PLATFORM_SETTINGS } from "./ai-provider/resolve";
 import { buildIconCatalog, normalizeSpecIcons } from "./icons/registry";
 import { aiTelemetry } from "./telemetry";
 
@@ -29,7 +36,6 @@ export type AiCallOptions = {
 export const LLM_MAX_RETRIES = 3;
 
 const GOOGLE_DEFAULTS = {
-  model: "gemini-2.5-flash",
   maxTokens: 8192,
 };
 
@@ -39,7 +45,7 @@ function createGeminiModel() {
     throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is required.");
   }
   const google = createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY });
-  return google(GOOGLE_DEFAULTS.model);
+  return wrapLanguageModel({ model: google(PLATFORM_MODEL), middleware: PLATFORM_SETTINGS });
 }
 
 function modelFor(options?: AiCallOptions): LanguageModel {
