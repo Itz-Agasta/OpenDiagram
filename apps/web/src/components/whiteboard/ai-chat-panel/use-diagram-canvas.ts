@@ -82,7 +82,7 @@ export function useDiagramCanvas({
       if (!frameId) return;
       // Replacing does not reuse the frame id. `applyDiagramToCanvas`
       // deletes the old frame along with every element inside it and
-      // builds a fresh one (`excalidraw-utils.ts:184-188`), so the id it
+      // builds a fresh one (`deleteFrames` in `excalidraw-utils.ts`), so the id it
       // returns is new even when `replaceFrameId` matched. Dropping the
       // replaced entry is therefore part of the update, not a tidy-up:
       // without it the list keeps an id whose frame no longer exists, and
@@ -112,13 +112,13 @@ export function useDiagramCanvas({
           //
           // It used to be inferred from how many node ids the new spec shared with
           // the last one drawn. That could only ever see ONE previous diagram, so on
-          // a canvas holding several it compared against the wrong one -- and a
+          // a canvas holding several it compared against the wrong one, and a
           // revision that renamed or restructured heavily shared too few ids and
           // read as a new subject, duplicating the frame.
           //
           // FIXME(gemini-field-fidelity): the same model mistypes `from`/`to` as
           // `from1`/`to1` on edges, so a garbled `targetId` will silently land here
-          // as a duplicate frame. Deliberately no node-id inference fallback -- the
+          // as a duplicate frame. Deliberately no node-id inference fallback: the
           // reliability of extra fields is tracked separately. `targetedIds` in the
           // diagram route's log is the signal to watch.
           const { targetId, ...spec } = part.input as DiagramSpec & { targetId?: string };

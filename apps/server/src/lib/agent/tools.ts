@@ -12,8 +12,6 @@ import type { RequestLogger } from "evlog";
 import { z } from "zod";
 import { renderView, type DrawDiagramOutput } from "./render-view";
 
-export type { DrawDiagramOutput } from "./render-view";
-
 export interface AskUserInput {
   question: string;
   options: string[];
