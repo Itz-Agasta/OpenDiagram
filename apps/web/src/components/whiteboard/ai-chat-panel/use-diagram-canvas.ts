@@ -130,18 +130,20 @@ export function useDiagramCanvas({
           continue;
         }
 
-        // View i redraws replaceIds[i]; old frames past the last view go. Each
-        // view is queued on its own, and a failed one is not retried: re-running
-        // the call would duplicate every view that did land.
+        // A redo deletes the old set, then draws the new one like a fresh set.
+        // Not view i into replaceIds[i]'s slot: a replacement keeps the old
+        // frame's top-left, so a view that grew covered its neighbour. Each view
+        // is queued on its own, and a failed one is not retried: re-running the
+        // call would duplicate every view that did land.
         const replaceIds = (part.input as { replaceIds?: string[] }).replaceIds ?? [];
         const { views } = part.output as DrawSystemOutput;
-        views.forEach((view, i) => queue(() => drawFrame(view, view.spec, replaceIds[i])));
         queue(async () => {
-          const leftover = replaceIds.slice(views.length).filter((id) => knownFrame(id));
-          if (leftover.length === 0) return;
-          removeFramesFromCanvas(excalidrawAPI, leftover);
-          report(diagramsRef.current.filter((diagram) => !leftover.includes(diagram.id)));
+          const old = replaceIds.filter((id) => knownFrame(id));
+          if (old.length === 0) return;
+          await removeFramesFromCanvas(excalidrawAPI, old);
+          report(diagramsRef.current.filter((diagram) => !old.includes(diagram.id)));
         });
+        for (const view of views) queue(() => drawFrame(view, view.spec, undefined));
       }
     }
   }, [diagramMessages, excalidrawAPI, fileId, onDiagramsChange, projectId]);
