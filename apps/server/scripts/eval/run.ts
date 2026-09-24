@@ -1,10 +1,11 @@
 /**
- * Model bake-off for the diagram agent. Runs the production system prompt,
- * tools, and layout against every model x prompt x run, through OpenRouter so
- * one key covers every vendor. Writes one JSON line per turn plus the drawn
- * spec, then prints a per-model summary.
+ * Eval for the diagram agent. Runs a strategy's system prompt and tools (see
+ * strategies.ts; s0 is production) with the production layout against every
+ * model x prompt x run. `gemini:<id>` goes direct to Google on the platform key,
+ * anything else through OpenRouter. Writes one JSON line per turn plus the
+ * drawn specs, then prints a per-model summary.
  *
- *   OPENROUTER_API_KEY=... bun scripts/eval/run.ts --models a,b --runs 2 [--prompts x,y]
+ *   bun scripts/eval/run.ts --models 'gemini:gemini-3.8-flash#low' --strategy s3 --runs 2 [--prompts x,y]
  *
  * Run from apps/server so the server env loads.
  */
@@ -162,7 +163,6 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
   }
   const ms = Math.round(performance.now() - started);
 
-  const draws = steps.flatMap((s) => s.toolCalls.filter((t) => t.toolName === "draw_diagram"));
   const toolErrors = steps.flatMap((s) =>
     s.content.filter((c) => c.type === "tool-error" && c.toolName.startsWith("draw_")),
   ).length;
@@ -218,7 +218,8 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     askedUser: steps.some((s) => s.toolCalls.some((t) => t.toolName === "ask_user")),
     finishReason: steps.at(-1)?.finishReason,
     steps: steps.length,
-    drawCalls: draws.length,
+    drawCalls: steps.flatMap((s) => s.toolCalls.filter((t) => t.toolName.startsWith("draw_")))
+      .length,
     toolErrors,
     repairs,
     error,
@@ -238,7 +239,7 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     looseCoverage: looseCoverage(prompt, drawn),
     leaks: leaks(prompt, drawn),
     stuffed: stuffed(drawn),
-    text,
+    textChars: text.length,
     spec: drawn.length ? `specs/${file}.json` : undefined,
   };
   appendFileSync(resultsPath, `${JSON.stringify(row)}\n`);

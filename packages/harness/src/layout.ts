@@ -9,7 +9,7 @@ import { sanitize, type Sanitized } from "./layout/sanitize.js";
 import { reorderStacks } from "./layout/reorder.js";
 import { straightenRows } from "./layout/straighten.js";
 import { buildReport } from "./report/index.js";
-import { containerTitle, nodeSize } from "./measure.js";
+import { nodeSize } from "./measure.js";
 import type { DiagramSpec } from "./schema.js";
 import { classicTheme, type Theme } from "./theme/index.js";
 
@@ -33,8 +33,7 @@ function buildGraph(
 
   const named = new Map([...(spec.groups ?? []), ...(spec.zones ?? [])].map((c) => [c.id, c]));
   const vertical = ["TB", "BT"].includes(flowDirection(spec));
-  const options = (id: string) =>
-    containerOptions(containerTitle(named.get(id) ?? { label: "" }), theme, vertical);
+  const options = (id: string) => containerOptions(named.get(id) ?? { label: "" }, theme, vertical);
   const elkGroups = new Map<string, ElkNode>();
   for (const group of s.groups) {
     elkGroups.set(group.id, {
@@ -152,7 +151,9 @@ export async function layoutDiagram(
   // A node reached ONLY by replication (a DR replica fed by two primaries) keeps
   // those edges: with none left it ranks first and its edges cross everything.
   const placedBy = (id: string) =>
-    s.edges.some((e) => e.kind !== "replication" && (e.from === id || e.to === id));
+    s.edges.some(
+      (e) => e.kind !== "replication" && !intoClient(e) && (e.from === id || e.to === id),
+    );
   const placing: Sanitized = {
     ...s,
     edges: s.edges.filter(
@@ -190,10 +191,11 @@ export async function layoutDiagram(
     candidates.push(single);
   }
   // A wrapped run: ELK cuts a long layering into chunks placed side by side.
-  // Only a candidate, and only tried on a ribbon (it costs a second ELK run and
-  // route: +230 ms a view when always on); the report still picks. Measured on 190 eval views: mean
-  // score 78.5 -> 83.9, views wider than 4:1 from 54 to 12. SINGLE_EDGE throws
-  // NoSuchElementException inside elkjs 0.11.1 on most graphs; don't switch.
+  // Only a candidate, and only tried on a ribbon (a second ELK run and route
+  // cost +230 ms a view when always on); the report still picks. Measured on
+  // 190 eval views: mean score 78.5 -> 83.9, views wider than 4:1 from 54 to
+  // 12. SINGLE_EDGE throws NoSuchElementException inside elkjs 0.11.1 on most
+  // graphs; don't switch.
   // https://eclipse.dev/elk/reference/options/org-eclipse-elk-layered-wrapping-strategy.html
   if (single && strategy === "auto" && spec.nodes.length >= 5 && aspect(single) > 3) {
     try {

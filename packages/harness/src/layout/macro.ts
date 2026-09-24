@@ -1,6 +1,6 @@
 import type { ElkNode } from "elkjs/lib/elk-api.js";
 import type { Box } from "../geometry.js";
-import { containerTitle, nodeSize } from "../measure.js";
+import { nodeSize } from "../measure.js";
 import type { DiagramEdge, DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 import { BASE_OPTIONS, containerOptions, elk, elkEdge } from "./elk-common.js";
@@ -167,7 +167,7 @@ async function microLayout(
 ): Promise<void> {
   const named = new Map([...(spec.groups ?? []), ...(spec.zones ?? [])].map((c) => [c.id, c]));
   const options = (id: string) =>
-    containerOptions(containerTitle(named.get(id) ?? { label: "" }), theme, direction === "DOWN");
+    containerOptions(named.get(id) ?? { label: "" }, theme, direction === "DOWN");
   const elkNodes = new Map<string, ElkNode>();
   for (const id of block.members) {
     elkNodes.set(id, { id, ...nodeSize(nodeById.get(id)!, theme, true) });

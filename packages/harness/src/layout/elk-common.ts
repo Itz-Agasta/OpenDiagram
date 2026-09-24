@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import ELK from "elkjs/lib/elk-api.js";
 import type { ElkExtendedEdge } from "elkjs/lib/elk-api.js";
 import {
+  containerTitleBox,
   countTextLines,
   edgeLabelText,
   estimateTextHeight,
@@ -42,14 +43,16 @@ export const CONTAINER_OPTIONS = {
  * https://github.com/eclipse/elk/issues/1033
  */
 export function containerOptions(
-  title: string,
+  container: { label: string; sublabel?: string },
   theme: Theme,
   vertical: boolean,
 ): Record<string, string> {
-  const size = theme.text.containerLabel.size;
-  const width = Math.ceil(estimateTextWidth(title, size, theme.fontFamily)) + 32;
+  const title = containerTitleBox(container, theme);
+  const width = title.width + 32;
   return {
     ...CONTAINER_OPTIONS,
+    // Title band plus the gap to the children; 56 for a one-line title, as in CONTAINER_OPTIONS.
+    "elk.padding": `[top=${30 + title.height},left=24,bottom=24,right=24]`,
     "elk.nodeSize.constraints": "MINIMUM_SIZE",
     "elk.nodeSize.minimum": vertical ? `(0, ${width})` : `(${width}, 0)`,
   };

@@ -1,21 +1,10 @@
 import { z } from "zod";
+import {
+  edgeKindSchema as kindSchema,
+  nodeCategorySchema as categorySchema,
+} from "../diagram-schema.js";
 
 // Gemini-safe like diagram-schema.ts: flat objects, optional enums, no refine/default/transform.
-
-const categorySchema = z.enum([
-  "service",
-  "database",
-  "queue",
-  "gateway",
-  "client",
-  "external",
-  "storage",
-  "cache",
-  "function",
-  "user",
-]);
-
-const kindSchema = z.enum(["sync", "async", "replication", "error", "success"]);
 
 const domainSchema = z.object({
   id: z.string(),

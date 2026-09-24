@@ -22,10 +22,13 @@ function allLinks(model: Model): Link[] {
 
 /**
  * One edge per unordered node pair. Opposite directions become one "bi" edge
- * (reverse edges render as loops); a label survives only when the pair had
- * exactly one link, since a merged edge has no single honest name.
+ * (reverse edges render as loops); a label survives only while every merged
+ * link carries the same one, since otherwise the edge has no single honest name.
  */
-function mergeLinks(links: Link[], keep: (id: string) => string | undefined): DiagramEdge[] {
+function mergeLinks(
+  links: Link[],
+  keep: (id: string) => string | undefined,
+): { edge: DiagramEdge; count: number }[] {
   const byPair = new Map<string, { edge: DiagramEdge; count: number }>();
   for (const link of links) {
     const from = keep(link.from);
@@ -42,10 +45,13 @@ function mergeLinks(links: Link[], keep: (id: string) => string | undefined): Di
     if (link.kind !== seen.edge.kind) seen.edge.kind = "sync";
     if (seen.edge.label !== link.label) delete seen.edge.label;
   }
-  return [...byPair.values()].map(
-    ({ edge, count }, i) => ({ ...edge, id: `e${i + 1}`, weight: count }) as DiagramEdge,
-  );
+  return [...byPair.values()].map(({ edge, count }, i) => ({
+    edge: { ...edge, id: `e${i + 1}` },
+    count,
+  }));
 }
+
+const edgesOf = (merged: { edge: DiagramEdge }[]) => merged.map((m) => m.edge);
 
 /**
  * Heaviest edges (most merged links) that join two still-separate parts come
@@ -53,9 +59,8 @@ function mergeLinks(links: Link[], keep: (id: string) => string | undefined): Di
  * `budget` by weight. "Each node keeps its heaviest edge" was tried first and
  * cut a pipeline off from the API that feeds it.
  */
-function pruneEdges(edges: DiagramEdge[], budget: number): DiagramEdge[] {
-  const w = (e: DiagramEdge) => (e as DiagramEdge & { weight: number }).weight;
-  const byWeight = [...edges].sort((a, b) => w(b) - w(a));
+function pruneEdges(merged: { edge: DiagramEdge; count: number }[], budget: number): DiagramEdge[] {
+  const byWeight = [...merged].sort((a, b) => b.count - a.count).map((m) => m.edge);
   const parent = new Map<string, string>();
   const root = (id: string): string => {
     const p = parent.get(id) ?? id;
@@ -72,7 +77,7 @@ function pruneEdges(edges: DiagramEdge[], budget: number): DiagramEdge[] {
     kept.add(e);
   }
   for (const e of byWeight) if (kept.size < budget) kept.add(e);
-  return edges.filter((e) => kept.has(e));
+  return edgesOf(merged).filter((e) => kept.has(e));
 }
 
 function componentNode(c: Component): DiagramNode {
@@ -87,11 +92,12 @@ function detailView(model: Model): DiagramSpec {
     type: "system-design",
     title: model.title,
     nodes: model.components.map(componentNode),
-    edges: mergeLinks(allLinks(model), (id) => (ids.has(id) ? id : undefined)),
+    edges: edgesOf(mergeLinks(allLinks(model), (id) => (ids.has(id) ? id : undefined))),
     groups: model.domains
       .map((d) => ({
         id: d.id,
         label: d.label,
+        sublabel: d.sublabel,
         contains: model.components.filter((c) => c.domain === d.id).map((c) => c.id),
       }))
       .filter((g) => g.contains.length > 0),
@@ -106,7 +112,12 @@ const STORES = ["database", "storage", "cache"];
  * the social model: every domain as one icon-less box scored 21, this 77.
  */
 function overview(model: Model): DiagramSpec {
-  const shown = model.components.filter((c) => !c.domain || !STORES.includes(c.category));
+  // A domain of stores only shows its stores: hidden, it would vanish from the overview.
+  const hasService = (domain: string) =>
+    model.components.some((m) => m.domain === domain && !STORES.includes(m.category));
+  const shown = model.components.filter(
+    (c) => !c.domain || !STORES.includes(c.category) || !hasService(c.domain),
+  );
   // Stand-in nodes for collapsed domains. Also tried merging shared clients and
   // externals into one node each: no score gain, so not done.
   const standIns = new Map<string, DiagramNode>();
@@ -156,11 +167,18 @@ function overview(model: Model): DiagramSpec {
     type: "system-design",
     title: `${model.title} - overview`,
     nodes,
-    // One edge per node: 64.8 -> 79.9 mean overview score on the eval's models.
+    // One edge per node: 64.8 -> 83.4 mean overview score on the eval's models.
+    // 0.8 per node scores 87 but is a bare spanning tree, and it cut the social
+    // overview's write path (the post service lost its publish to the bus).
     edges: pruneEdges(merged, nodes.length),
     groups: model.domains
       .filter((d) => !standIns.has(d.id))
-      .map((d) => ({ id: d.id, label: d.label, contains: inDomain(d.id).map((c) => c.id) }))
+      .map((d) => ({
+        id: d.id,
+        label: d.label,
+        sublabel: d.sublabel,
+        contains: inDomain(d.id).map((c) => c.id),
+      }))
       .filter((g) => g.contains.length > 1),
   };
 }
@@ -182,7 +200,7 @@ function flowView(model: Model, flow: SystemFlow): DiagramSpec {
     type: "system-design",
     title: flow.title,
     nodes,
-    edges: mergeLinks(steps, (id) => (ids.has(id) ? id : undefined)),
+    edges: edgesOf(mergeLinks(steps, (id) => (ids.has(id) ? id : undefined))),
   };
 }
 
@@ -219,19 +237,26 @@ function sequenceView(model: Model, flow: SystemFlow): DiagramSpec {
  * one view per flow. Sequence flows always get their own diagram.
  */
 export function planViews(input: SystemModel): DiagramSpec[] {
+  // Domain ids become group / stand-in node ids, and the model happily names a
+  // domain "search" next to a component "search": prefixed, they cannot collide.
   const declared = new Set(input.domains.map((d) => d.id));
   const model: Model = {
     ...input,
+    domains: input.domains.map((d) => ({ ...d, id: `domain_${d.id}` })),
     components: input.components.map(({ domain, ...c }) =>
-      declared.has(domain) ? { ...c, domain } : c,
+      declared.has(domain) ? { ...c, domain: `domain_${domain}` } : c,
     ),
   };
-  const sequences = model.flows
-    .filter((f) => f.type === "sequence")
-    .map((f) => sequenceView(model, f));
+  // MAX_DETAIL_NODES is a target, not a cap: domains of one member cannot
+  // collapse and flows follow the model's steps. In the eval 7 of 54 overviews
+  // and 2 of ~100 flows ran over, most from models that predate required `domain`.
   // Measured negative result: switching views deeper than 5 to "TB" (against
   // ribbons) cost 7 points on overviews and 2 on flow views. Leave them LR.
-  if (model.components.length <= MAX_DETAIL_NODES) return [detailView(model), ...sequences];
+  if (model.components.length <= MAX_DETAIL_NODES)
+    return [
+      detailView(model),
+      ...model.flows.filter((f) => f.type === "sequence").map((f) => sequenceView(model, f)),
+    ];
   return [
     overview(model),
     ...model.flows.map((f) =>

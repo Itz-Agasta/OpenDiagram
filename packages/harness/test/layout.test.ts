@@ -7,7 +7,7 @@ import {
   sketchTheme,
   type DiagramSpec,
 } from "../src/index.js";
-import { containerTitle, estimateTextWidth } from "../src/measure.js";
+import { containerTitleBox } from "../src/measure.js";
 import { allFinite } from "./helpers.js";
 
 describe("elk layout invariants", () => {
@@ -227,6 +227,24 @@ describe("place, polish, route", () => {
     for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeGreaterThan(xs[i - 1]!);
   });
 
+  test("swimlane nodes clear a wrapped lane title", async () => {
+    const spec: DiagramSpec = {
+      type: "bpmn",
+      title: "Lanes",
+      nodes: ["a", "b"].map((id) => ({ id, label: `Step ${id}` })),
+      edges: [{ from: "a", to: "b" }],
+      groups: [
+        { id: "ops", label: "Operations", sublabel: "Night shift and weekend on-call rota", contains: ["a"], style: "swimlane" },
+        { id: "fin", label: "Finance", contains: ["b"], style: "swimlane" },
+      ],
+    };
+    const p = await layoutDiagram(spec, sketchTheme);
+    const title = containerTitleBox(spec.groups![0]!, sketchTheme);
+    expect(title.lines.length).toBe(2);
+    // The renderer draws the title at box.y + 12.
+    expect(p.positions.a!.y).toBeGreaterThan(p.groupBoxes.ops!.y + 12 + title.height);
+  });
+
   test("replication does not rank the replica after the primary", async () => {
     const spec: DiagramSpec = {
       type: "cloud-architecture",
@@ -304,30 +322,33 @@ describe("place, polish, route", () => {
         contains: ["c", "d"],
       },
     ];
-    for (const direction of ["LR", "TB"] as const)
-      for (const strategy of ["single", "two-phase"] as const) {
-        const spec: DiagramSpec = {
-          type: "system-design",
-          title: "Titles",
-          nodes: ["a", "b", "c", "d"].map((id) => ({ id, label: id })),
-          edges: [
-            { from: "a", to: "b" },
-            { from: "b", to: "c" },
-            { from: "c", to: "d" },
-          ],
-          groups,
-          meta: { direction },
-        };
-        const p = await layoutDiagram(spec, sketchTheme, { strategy });
-        for (const g of groups) {
-          const title = estimateTextWidth(
-            containerTitle(g),
-            sketchTheme.text.containerLabel.size,
-            sketchTheme.fontFamily,
-          );
-          expect(p.groupBoxes[g.id]!.width).toBeGreaterThanOrEqual(title + 28);
+    // The zone case is the one elkjs gets wrong in TB (eclipse/elk#1033): nested compounds.
+    for (const zones of [undefined, [{ id: "z", label: "Region", contains: ["g1", "g2"] }]])
+      for (const direction of ["LR", "TB"] as const)
+        for (const strategy of ["single", "two-phase"] as const) {
+          const spec: DiagramSpec = {
+            type: "system-design",
+            title: "Titles",
+            nodes: ["a", "b", "c", "d"].map((id) => ({ id, label: id })),
+            edges: [
+              { from: "a", to: "b" },
+              { from: "b", to: "c" },
+              { from: "c", to: "d" },
+            ],
+            groups,
+            zones,
+            meta: { direction },
+          };
+          const p = await layoutDiagram(spec, sketchTheme, { strategy });
+          for (const g of groups) {
+            const title = containerTitleBox(g, sketchTheme);
+            const box = p.groupBoxes[g.id]!;
+            expect(box.width).toBeGreaterThanOrEqual(title.width + 28);
+            // Long "label - sublabel" titles wrap instead of stretching the box to one line.
+            expect(title.lines).toEqual([g.label, g.sublabel]);
+            expect(box.width).toBeLessThan(480);
+          }
         }
-      }
   });
 
   test("a long chain wraps instead of becoming a ribbon", async () => {

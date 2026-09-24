@@ -15,12 +15,15 @@ const isList = (s: string) => /[,;]/.test(s);
  * its first item: counting the whole list is what let a 12-node merge of a 30-part
  * system score 0.80 coverage.
  */
-function visibleText(specs: Spec[]): string {
+function visibleText(specs: Spec[], fullSublabels = false): string {
   const parts: string[] = [];
   for (const spec of specs) {
     for (const n of spec.nodes ?? []) {
       parts.push(n.label ?? "");
-      if (n.sublabel) parts.push(isList(n.sublabel) ? n.sublabel.split(/[,;]/)[0]! : n.sublabel);
+      if (n.sublabel)
+        parts.push(
+          isList(n.sublabel) && !fullSublabels ? n.sublabel.split(/[,;]/)[0]! : n.sublabel,
+        );
     }
     for (const e of spec.edges ?? []) parts.push(e.label ?? "");
     for (const g of [...(spec.groups ?? []), ...(spec.zones ?? [])]) parts.push(g.label ?? "");
@@ -30,7 +33,7 @@ function visibleText(specs: Spec[]): string {
 
 // Word-start match, so "eta" does not score inside "metadata"; stems like "retriev" still work.
 const hit = (text: string, term: string) =>
-  term.split("|").some((alt) => new RegExp(`\\b${alt}`).test(text));
+  term.split("|").some((alt) => new RegExp(`\\b${alt}`, "i").test(text));
 
 export function coverage(prompt: EvalPrompt, specs: Spec[]): number | null {
   if (!prompt.expect.length) return null;
@@ -48,7 +51,8 @@ export function looseCoverage(prompt: EvalPrompt, specs: Spec[]): number | null 
 }
 
 export function leaks(prompt: EvalPrompt, specs: Spec[]): string[] {
-  const text = visibleText(specs);
+  // Everything drawn counts for a leak, including the tail of a listed sublabel.
+  const text = visibleText(specs, true);
   return (prompt.forbid ?? []).filter((k) => hit(text, k));
 }
 

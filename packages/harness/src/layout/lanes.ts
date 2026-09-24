@@ -1,14 +1,14 @@
 import type { ElkNode } from "elkjs/lib/elk-api.js";
 import type { Box } from "../geometry.js";
-import { estimateTextWidth, nodeSize } from "../measure.js";
+import { containerTitleBox, nodeSize } from "../measure.js";
 import type { DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 import { BASE_OPTIONS, edgeLabelSize, elk } from "./elk-common.js";
 import type { LayoutGeometry } from "./macro.js";
 import type { Sanitized } from "./sanitize.js";
 
-// Band chrome: title row on top, side padding, gap between stacked nodes.
-const TITLE = 44;
+// Band chrome: side padding, gap between stacked nodes. The title row on top
+// is sized per diagram (laneLayout).
 const PAD = 28;
 const ROW_GAP = 40;
 // Column gap before label room is added: arrow plus arrowhead.
@@ -76,6 +76,11 @@ export async function laneLayout(
   }
   const length = at - gaps[ranks.length - 1]! + PAD;
 
+  // One title row for every lane, as tall as the tallest drawn title: 44 for one line.
+  const named = new Map((spec.groups ?? []).map((g) => [g.id, g]));
+  const titleOf = (id: string) => containerTitleBox(named.get(id) ?? { label: "" }, theme);
+  const titleRow = 18 + Math.max(...s.groups.map((g) => titleOf(g.id).height));
+
   const positions: Record<string, Box> = {};
   const groupBoxes: Record<string, Box> = {};
   let offset = 0;
@@ -88,22 +93,19 @@ export async function laneLayout(
       ids.sort((a, b) => order.get(a)! - order.get(b)!);
       ids.forEach((id, k) => {
         const along = start[c]!;
-        const across = offset + (vertical ? PAD : TITLE) + k * ((vertical ? W : H) + ROW_GAP);
+        const across = offset + (vertical ? PAD : titleRow) + k * ((vertical ? W : H) + ROW_GAP);
         positions[id] = vertical
-          ? { x: across, y: along + TITLE, width: W, height: H }
+          ? { x: across, y: along + titleRow, width: W, height: H }
           : { x: along, y: across, width: W, height: H };
       });
     }
     const content =
-      (vertical ? PAD * 2 : TITLE + PAD) + depth * (vertical ? W : H) + (depth - 1) * ROW_GAP;
+      (vertical ? PAD * 2 : titleRow + PAD) + depth * (vertical ? W : H) + (depth - 1) * ROW_GAP;
     // A vertical lane is also as wide as its title, or the name spills into the next lane.
-    const g = spec.groups?.find((x) => x.id === lane.id);
-    const title = g ? `${g.label}${g.sublabel ? ` - ${g.sublabel}` : ""}` : "";
-    const titleWidth =
-      estimateTextWidth(title, theme.text.containerLabel.size, theme.fontFamily) + PAD * 2;
+    const titleWidth = titleOf(lane.id).width + PAD * 2;
     const thickness = vertical ? Math.max(content, titleWidth) : content;
     groupBoxes[lane.id] = vertical
-      ? { x: offset, y: 0, width: thickness, height: length + TITLE }
+      ? { x: offset, y: 0, width: thickness, height: length + titleRow }
       : { x: 0, y: offset, width: length, height: thickness };
     offset += thickness;
   }
@@ -111,10 +113,10 @@ export async function laneLayout(
   // whole flow axis, so only nodes move.
   const reverse = spec.meta?.direction === "RL" || spec.meta?.direction === "BT";
   if (reverse) {
-    const end = vertical ? length + TITLE : length;
+    const end = vertical ? length + titleRow : length;
     for (const [id, b] of Object.entries(positions)) {
       positions[id] = vertical
-        ? { ...b, y: end + TITLE - b.y - b.height }
+        ? { ...b, y: end + titleRow - b.y - b.height }
         : { ...b, x: end - b.x - b.width };
     }
   }

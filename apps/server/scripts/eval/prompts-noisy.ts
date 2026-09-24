@@ -122,6 +122,7 @@ dana: yes`,
       "lina",
       "raj",
       "dana",
+      "tom\\b",
     ],
   },
   {

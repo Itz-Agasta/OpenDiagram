@@ -24,6 +24,21 @@ const entityColumnSchema = z.object({
   key: z.enum(["pk", "fk"]).optional(),
 });
 
+export const nodeCategorySchema = z.enum([
+  "service",
+  "database",
+  "queue",
+  "gateway",
+  "client",
+  "external",
+  "storage",
+  "cache",
+  "function",
+  "user",
+]);
+
+export const edgeKindSchema = z.enum(["sync", "async", "replication", "error", "success"]);
+
 const diagramNodeSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -34,20 +49,7 @@ const diagramNodeSchema = z.object({
     .optional()
     .describe("erd only: table columns rendered as rows inside the entity box"),
   shape: z.enum(["rectangle", "ellipse", "diamond", "cylinder", "document"]).optional(),
-  category: z
-    .enum([
-      "service",
-      "database",
-      "queue",
-      "gateway",
-      "client",
-      "external",
-      "storage",
-      "cache",
-      "function",
-      "user",
-    ])
-    .optional(),
+  category: nodeCategorySchema.optional(),
   style: z
     .object({
       strokeColor: z.string().optional(),
@@ -65,7 +67,7 @@ const diagramEdgeSchema = z.object({
   label: z.string().optional(),
   protocol: z.string().optional(),
   direction: z.enum(["uni", "bi"]).optional(),
-  kind: z.enum(["sync", "async", "replication", "error", "success"]).optional(),
+  kind: edgeKindSchema.optional(),
   cardinality: z
     .enum(["one-to-one", "one-to-many", "many-to-one", "many-to-many"])
     .optional()
