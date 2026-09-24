@@ -23,6 +23,7 @@ const pct = (xs: number[], p: number) => {
   return s[Math.min(s.length - 1, Math.floor(s.length * p))] ?? 0;
 };
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
+const fmt = (n: number, digits: number) => (Number.isFinite(n) ? n.toFixed(digits) : "-");
 
 export function summarize(rows: Row[]): string {
   const byModel = Map.groupBy(rows, (r) => r.model);
@@ -42,14 +43,14 @@ export function summarize(rows: Row[]): string {
         rs.filter((r) => r.askedUser).length,
         rs.reduce((a, r) => a + r.toolErrors, 0),
         rs.reduce((a, r) => a + (r.repairs ?? 0), 0),
-        avg(scores).toFixed(0),
-        avg(covs).toFixed(2),
-        avg(rs.flatMap((r) => (r.nodes == null ? [] : [r.nodes]))).toFixed(0),
+        fmt(avg(scores), 0),
+        fmt(avg(covs), 2),
+        fmt(avg(rs.flatMap((r) => (r.nodes == null ? [] : [r.nodes]))), 0),
         pct(ms, 0.5).toFixed(1),
         pct(ms, 0.95).toFixed(1),
         avg(costs).toFixed(4),
         pct(costs, 0.95).toFixed(4),
-        avg(rs.map((r) => r.reasoningTokens)).toFixed(0),
+        fmt(avg(rs.map((r) => r.reasoningTokens)), 0),
       ].join(" | "),
     );
   }

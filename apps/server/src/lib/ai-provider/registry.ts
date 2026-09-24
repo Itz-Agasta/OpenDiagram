@@ -77,6 +77,7 @@ const providers: ProviderDefinition[] = [
       { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" },
       { id: "openai/gpt-5.5", label: "GPT-5.5" },
       { id: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+      { id: "google/gemini-3.7-flash", label: "Gemini 3.7 Flash" },
       { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
       { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
       { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4" },

@@ -95,7 +95,10 @@ function coverage(prompt: EvalPrompt, spec: Record<string, unknown> | undefined)
   if (!prompt.expect.length) return null;
   if (!spec) return 0;
   const text = JSON.stringify(spec).toLowerCase();
-  const hits = prompt.expect.filter((k) => k.split("|").some((alt) => text.includes(alt)));
+  // Word-start match, so "eta" does not score inside "metadata"; stems like "retriev" still work.
+  const hits = prompt.expect.filter((k) =>
+    k.split("|").some((alt) => new RegExp(`\\b${alt}`).test(text)),
+  );
   return hits.length / prompt.expect.length;
 }
 

@@ -1,6 +1,7 @@
 /**
  * Eval prompts. `expect` lists the concepts a complete answer names, matched
- * case-insensitively against every label in the spec; `a|b` means either.
+ * case-insensitively at a word start against every label in the spec; `a|b`
+ * means either.
  * Coverage recall = matched / expected. Empty `expect` skips the metric.
  */
 export type EvalPrompt = { id: string; text: string; expect: string[] };
