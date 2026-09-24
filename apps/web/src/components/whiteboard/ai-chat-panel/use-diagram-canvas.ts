@@ -131,8 +131,8 @@ export function useDiagramCanvas({
         }
 
         // A redo deletes the old set, then draws the new one like a fresh set.
-        // Not view i into replaceIds[i]'s slot: a replacement keeps the old
-        // frame's top-left, so a view that grew covered its neighbour. Each view
+        // Slotting view i where replaceIds[i] stood was tried: a replacement keeps
+        // the old frame's top-left, so a view that grew covered its neighbour. Each view
         // is queued on its own, and a failed one is not retried: re-running the
         // call would duplicate every view that did land.
         const replaceIds = (part.input as { replaceIds?: string[] }).replaceIds ?? [];

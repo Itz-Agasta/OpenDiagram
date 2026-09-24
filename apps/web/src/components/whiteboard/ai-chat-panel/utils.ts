@@ -62,7 +62,10 @@ export function stripDrawDiagramOutput(messages: UIMessage[]): UIMessage[] {
       if (part.type === "tool-draw_system") {
         // Per view the same trim, and `spec` too: the canvas list already carries it.
         const views = output.views as { summary?: unknown; skeletons?: unknown }[] | undefined;
-        if (!Array.isArray(views) || !views.some((view) => view && "skeletons" in view))
+        if (
+          !Array.isArray(views) ||
+          !views.some((view) => view && typeof view === "object" && "skeletons" in view)
+        )
           return part;
         touched = true;
         return { ...part, output: { views: views.map((view) => ({ summary: view?.summary })) } };

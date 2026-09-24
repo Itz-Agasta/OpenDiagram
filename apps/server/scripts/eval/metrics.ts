@@ -72,5 +72,7 @@ export function echoedLabels(specs: Spec[], reply: string): number {
   const labels = new Set(
     specs.flatMap((s) => s.nodes ?? []).map((n) => (n.label ?? "").toLowerCase()),
   );
-  return [...labels].filter((l) => l.length >= 4 && text.includes(l)).length;
+  // Whole words, so "data" does not count inside "metadata".
+  const word = (l: string) => new RegExp(`\\b${l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+  return [...labels].filter((l) => l.length >= 4 && word(l).test(text)).length;
 }

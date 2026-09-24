@@ -1,7 +1,9 @@
 import type { StreamTextTransform, TextStreamPart, ToolSet } from "ai";
 
-const OPEN = "```json";
-const CLOSE = "```";
+// Newlines on both tokens: only a real fence counts, so ``` inside the JSON does
+// not end the block early and a "```js" fence followed by "on..." is not "```json".
+const OPEN = "```json\n";
+const CLOSE = "\n```";
 
 /** Length of the longest tail of `text` that could still become `token`. */
 function partialTail(text: string, token: string): number {

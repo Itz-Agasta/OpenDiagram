@@ -59,13 +59,10 @@ export function summarize(rows: Row[]): string {
           const ps = rs.flatMap((r) => (r.planSentences == null ? [] : [r.planSentences]));
           return ps.length ? `${pct(ps, 0.5)}/${Math.max(...ps)}` : "-";
         })(),
-        fmt(
-          pct(
-            rs.flatMap((r) => (r.replyChars == null ? [] : [r.replyChars])),
-            0.5,
-          ),
-          0,
-        ),
+        (() => {
+          const rc = rs.flatMap((r) => (r.replyChars == null ? [] : [r.replyChars]));
+          return rc.length ? fmt(pct(rc, 0.5), 0) : "-";
+        })(),
         fmt(avg(rs.flatMap((r) => (r.echoedLabels == null ? [] : [r.echoedLabels]))), 1),
         (() => {
           const known = rs.filter((r) => r.jsonDrafted != null);

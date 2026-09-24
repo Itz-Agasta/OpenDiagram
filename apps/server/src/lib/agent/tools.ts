@@ -142,7 +142,10 @@ export function createDrawSystemTool(
       "Draw a system architecture from a model of it. Code turns the model into one diagram (small system) or an overview plus one diagram per flow (large system). Call once per system.",
     inputSchema: drawSystemInputSchema,
     execute: async ({ replaceIds: _, ...model }): Promise<DrawSystemOutput> => {
-      const rendered = await Promise.all(planViews(model).map((spec) => renderView(spec, theme)));
+      // One at a time: layout is single-threaded CPU work, so parallel renders
+      // saved no time and held every view's layout in memory at once.
+      const rendered = [];
+      for (const spec of planViews(model)) rendered.push(await renderView(spec, theme));
       const warnings = rendered.flatMap((view) => view.summary.warnings);
       if (warnings.length > 0) {
         log.warn("draw_system sanitized malformed LLM output", {
@@ -157,13 +160,8 @@ export function createDrawSystemTool(
           flowCount: model.flows.length,
           // The model, not the views: `planViews` replays it for $0. Same gate as draw_diagram's spec.
           ...(env.LOG_DIAGRAM_SPEC && { model: JSON.stringify(model) }),
-          views: rendered.map(({ logFields: v }) => ({
-            title: v.title,
-            nodeCount: v.nodeCount,
-            edgeCount: v.edgeCount,
-            score: v.score,
-            diagnostics: v.diagnostics,
-          })),
+          // Same fields as draw_diagram's event, minus the spec: `model` above replays every view.
+          views: rendered.map(({ logFields: { spec: _, ...fields } }) => fields),
         },
       });
       return { views: rendered.map(({ logFields: _, ...view }) => view) };
