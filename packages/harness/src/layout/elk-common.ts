@@ -55,6 +55,9 @@ export function containerOptions(
     "elk.padding": `[top=${30 + title.height},left=24,bottom=24,right=24]`,
     "elk.nodeSize.constraints": "MINIMUM_SIZE",
     "elk.nodeSize.minimum": vertical ? `(0, ${width})` : `(${width}, 0)`,
+    // A box widened for its title centres its children instead of leaving them
+    // against the left padding. Same axis swap in vertical layouts.
+    "elk.contentAlignment": vertical ? "V_CENTER" : "H_CENTER",
   };
 }
 

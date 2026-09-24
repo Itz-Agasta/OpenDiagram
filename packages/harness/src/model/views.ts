@@ -238,14 +238,22 @@ function sequenceView(model: Model, flow: SystemFlow): DiagramSpec {
  */
 export function planViews(input: SystemModel): DiagramSpec[] {
   // Domain ids become group / stand-in node ids, and the model happily names a
-  // domain "search" next to a component "search": prefixed, they cannot collide.
-  const declared = new Set(input.domains.map((d) => d.id));
+  // domain "search" next to a component "search": each gets an id no component has.
+  const taken = new Set(input.components.map((c) => c.id));
+  const domainId = new Map<string, string>();
+  for (const d of input.domains) {
+    let id = `domain_${d.id}`;
+    while (taken.has(id)) id += "_";
+    taken.add(id);
+    domainId.set(d.id, id);
+  }
   const model: Model = {
     ...input,
-    domains: input.domains.map((d) => ({ ...d, id: `domain_${d.id}` })),
-    components: input.components.map(({ domain, ...c }) =>
-      declared.has(domain) ? { ...c, domain: `domain_${domain}` } : c,
-    ),
+    domains: input.domains.map((d) => ({ ...d, id: domainId.get(d.id)! })),
+    components: input.components.map(({ domain, ...c }) => {
+      const id = domainId.get(domain);
+      return id ? { ...c, domain: id } : c;
+    }),
   };
   // MAX_DETAIL_NODES is a target, not a cap: domains of one member cannot
   // collapse and flows follow the model's steps. In the eval 7 of 54 overviews

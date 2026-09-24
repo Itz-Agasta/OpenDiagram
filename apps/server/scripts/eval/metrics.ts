@@ -11,9 +11,10 @@ type Spec = {
 const isList = (s: string) => /[,;]/.test(s);
 
 /**
- * Text a reader can actually see as a concept. A listed sublabel contributes only
- * its first item: counting the whole list is what let a 12-node merge of a 30-part
- * system score 0.80 coverage.
+ * Text a reader can actually see as a concept. For coverage a listed sublabel
+ * contributes only its first item: counting the whole list is what let a 12-node
+ * merge of a 30-part system score 0.80. `fullSublabels` keeps the whole list,
+ * which is what `leaks` needs, since everything drawn can leak.
  */
 function visibleText(specs: Spec[], fullSublabels = false): string {
   const parts: string[] = [];

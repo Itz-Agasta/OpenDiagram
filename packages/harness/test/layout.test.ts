@@ -234,7 +234,13 @@ describe("place, polish, route", () => {
       nodes: ["a", "b"].map((id) => ({ id, label: `Step ${id}` })),
       edges: [{ from: "a", to: "b" }],
       groups: [
-        { id: "ops", label: "Operations", sublabel: "Night shift and weekend on-call rota", contains: ["a"], style: "swimlane" },
+        {
+          id: "ops",
+          label: "Operations",
+          sublabel: "Night shift and weekend on-call rota",
+          contains: ["a"],
+          style: "swimlane",
+        },
         { id: "fin", label: "Finance", contains: ["b"], style: "swimlane" },
       ],
     };
@@ -347,6 +353,11 @@ describe("place, polish, route", () => {
             // Long "label - sublabel" titles wrap instead of stretching the box to one line.
             expect(title.lines).toEqual([g.label, g.sublabel]);
             expect(box.width).toBeLessThan(480);
+            // A box widened for its title centres its children, it does not pin them left.
+            const kids = g.contains.map((id) => p.positions[id]!);
+            const left = Math.min(...kids.map((k) => k.x));
+            const right = Math.max(...kids.map((k) => k.x + k.width));
+            expect(Math.abs((left + right) / 2 - (box.x + box.width / 2))).toBeLessThan(6);
           }
         }
   });
