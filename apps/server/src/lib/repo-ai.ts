@@ -10,7 +10,7 @@ import {
 } from "ai";
 import { PLATFORM_MODEL, PLATFORM_SETTINGS } from "./ai-provider/resolve";
 import { buildIconCatalog, normalizeSpecIcons } from "./icons/registry";
-import { aiTelemetry } from "./telemetry";
+import { aiTelemetry, type AiRuntimeContext } from "./telemetry";
 
 export type AiUsage = { inputTokens: number; outputTokens: number };
 
@@ -28,6 +28,7 @@ export type AiUsage = { inputTokens: number; outputTokens: number };
 export type AiCallOptions = {
   model?: LanguageModel;
   onUsage?: (usage: AiUsage) => void;
+  runtimeContext?: AiRuntimeContext;
 };
 
 // The AI SDK retries retryable errors (429/5xx) with exponential backoff up to
@@ -165,6 +166,7 @@ export async function generateDiagramSpec(
       system: buildSystemPrompt(input.diagramType),
       prompt: userPrompt,
       telemetry: aiTelemetry("repo-diagram-spec"),
+      ...(options?.runtimeContext && { runtimeContext: options.runtimeContext }),
       maxRetries: LLM_MAX_RETRIES,
       // Bounds runaway/repetition-loop generations (observed during testing:
       // gemini-2.5-flash occasionally gets stuck dumping a huge repeated string
@@ -207,6 +209,7 @@ export async function generateGroundedProjectAnswer(
     ].join("\n"),
     prompt: `Project context:\n${input.context}\n\nUser question:\n${input.message}`,
     telemetry: aiTelemetry("project-chat"),
+    ...(options?.runtimeContext && { runtimeContext: options.runtimeContext }),
     maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 1200,
   });
@@ -252,6 +255,7 @@ export async function generateArchitectureDoc(
       "Return valid markdown only — no wrapper explanations.",
     ].join("\n"),
     telemetry: aiTelemetry("architecture-doc"),
+    ...(options?.runtimeContext && { runtimeContext: options.runtimeContext }),
     maxRetries: LLM_MAX_RETRIES,
     maxOutputTokens: 4096,
   });

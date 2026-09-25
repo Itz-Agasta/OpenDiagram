@@ -49,6 +49,7 @@
     "motion": "catalog:",
     "nanoid": "^5.1.16",
     "next": "^16.2.0",
+    "posthog-js": "1.434.14",
     "react": "catalog:",
     "react-dom": "catalog:",
     "remark": "15.0.1",

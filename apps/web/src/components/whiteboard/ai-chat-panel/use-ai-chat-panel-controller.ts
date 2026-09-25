@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ThemeName } from "@OpenDiagram/harness";
+import posthog from "posthog-js";
 import {
   parseCanvasDiagrams,
   serializeCanvasDiagrams,
@@ -210,13 +211,20 @@ export function useAIChatPanelController({
       if (!text || (status !== "ready" && status !== "error")) return;
 
       canvas.setApplyError(null);
+      const track = (chatRoute: "diagram" | "project") =>
+        posthog.capture("ai_chat_message_submitted", {
+          file_type: activeFileType,
+          chat_route: chatRoute,
+        });
       const pending = pendingAskUser(diagramChat.messages);
       if (pending) {
+        track("diagram");
         answerAskUser(pending.toolCallId, text);
         return;
       }
 
       if (useDiagramChatDirectly) {
+        track("diagram");
         void diagramChat.sendMessage({ text });
         return;
       }
@@ -228,12 +236,16 @@ export function useAIChatPanelController({
       const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(text);
 
       if (useProjectChat || !excalidrawAPI) {
+        // `run` is a no-op without a project, so that path is not a submission.
+        if (projectId) track("project");
         await projectChat.run(text);
       } else {
+        track("diagram");
         void diagramChat.sendMessage({ text });
       }
     },
     [
+      activeFileType,
       answerAskUser,
       canvas.setApplyError,
       diagramChat.messages,

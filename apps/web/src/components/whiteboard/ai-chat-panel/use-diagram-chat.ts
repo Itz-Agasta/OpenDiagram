@@ -97,6 +97,7 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
           modelId,
           providerId,
           theme: themeRef.current,
+          conversationId: threadId ?? undefined,
         }),
         // Returning a body REPLACES the transport's default one rather than
         // merging into it, so `id`, `trigger` and `messageId` have to be carried
@@ -108,7 +109,7 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
         }),
         fetch: chatFetch,
       }),
-    [chatFetch, diagramsRef, modelId, providerId],
+    [chatFetch, diagramsRef, modelId, providerId, threadId],
   );
   const initialMessages =
     activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];

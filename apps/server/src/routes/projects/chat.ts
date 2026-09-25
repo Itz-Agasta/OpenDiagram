@@ -44,7 +44,14 @@ chatRoute.post("/:projectId/chat", async (c) => {
         message: parsed.data.message,
         context: projectContext.context,
       },
-      grant.ai,
+      {
+        ...grant.ai,
+        runtimeContext: {
+          distinctId: userId,
+          sessionId: `project:${projectId}`,
+          traceName: "project-chat",
+        },
+      },
     );
   } catch (error) {
     // Nothing billable came back, so hand the credit and the reservation back

@@ -15,7 +15,7 @@ import {
 import type { RequestLogger } from "evlog";
 import type { AiQuotaGrant, AiUsage } from "../quota/enforce";
 import { LLM_MAX_RETRIES } from "../repo-ai";
-import { aiTelemetry } from "../telemetry";
+import { aiTelemetry, type AiRuntimeContext } from "../telemetry";
 import type { z } from "zod";
 import { stripJsonBlocks } from "./strip-json-text";
 import { drawDiagramInputSchema, drawSystemInputSchema } from "./tools";
@@ -100,6 +100,7 @@ export type DiagramChatOptions = {
   grant: AiQuotaGrant;
   meta: { canvasDiagrams: number; theme: string; messageCount: number };
   instructions: string;
+  runtimeContext: AiRuntimeContext;
 };
 
 /**
@@ -112,7 +113,7 @@ export type DiagramChatOptions = {
  * second call would overwrite the first attempt's spend rather than add to it.
  */
 export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<UIMessageChunk> {
-  const { log, model, messages, tools, grant, meta, instructions } = options;
+  const { log, model, messages, tools, grant, meta, instructions, runtimeContext } = options;
   // Accumulated per step because `onError` reports no usage. A stream that dies on
   // step four already spent the tokens of the first three, and releasing the whole
   // reservation to zero made that real spend invisible to the cost ceiling.
@@ -137,6 +138,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       messages,
       tools,
       telemetry: aiTelemetry("diagram-chat"),
+      runtimeContext,
       stopWhen: isStepCount(6),
       experimental_repairToolCall: async ({ toolCall, error }) => {
         if (NoSuchToolError.isInstance(error)) return null;

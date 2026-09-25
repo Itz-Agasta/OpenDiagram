@@ -36,7 +36,18 @@ repoGenerationRoute.post("/:projectId/repo-generation", async (c) => {
 
   let started: Awaited<ReturnType<typeof startRepoGeneration>>;
   try {
-    started = await startRepoGeneration({ projectId, userId, ai: grant.ai });
+    started = await startRepoGeneration({
+      projectId,
+      userId,
+      ai: {
+        ...grant.ai,
+        runtimeContext: {
+          distinctId: userId,
+          sessionId: `repo-generation:${projectId}`,
+          traceName: "repo-generation",
+        },
+      },
+    });
   } catch (error) {
     await grant.release();
     return c.json(

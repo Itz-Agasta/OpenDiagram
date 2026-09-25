@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
+import posthog from "posthog-js";
 import {
   getBillingState,
   openBillingPortal,
@@ -44,10 +45,17 @@ export function PricingPlans() {
     setActionError(null);
     setPending(kind);
     try {
-      window.location.href =
+      const destination =
         kind === "checkout"
           ? await startCheckout(discountCode.trim() || undefined)
           : await openBillingPortal();
+      // Beacon: the next line leaves our origin, which can abort a normal request.
+      posthog.capture(
+        kind === "checkout" ? "billing_checkout_started" : "billing_portal_opened",
+        undefined,
+        { transport: "sendBeacon" },
+      );
+      window.location.href = destination;
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Something went wrong.");
       setPending(null);

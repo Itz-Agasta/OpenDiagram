@@ -4,6 +4,7 @@ import { sentry } from "@sentry/hono/bun";
 import { initLogger } from "evlog";
 import { createFsDrain } from "evlog/fs";
 import { evlog } from "evlog/hono";
+import { createPostHogDrain } from "evlog/posthog";
 import { createSentryDrain } from "evlog/sentry";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
@@ -67,8 +68,8 @@ app.use(
   }),
 );
 
-// All wide events go to local NDJSON files; only warn/error events also reach
-// Sentry Logs, so we stay inside the free Logs allotment on Cloud Run traffic.
+// All wide events go to local NDJSON files; only warn/error and 5xx events also
+// reach Sentry Logs and PostHog Logs, so we stay inside both free Logs allotments.
 // The drain is intentionally fire-and-forget (evlog's contract) so it never adds
 // latency to the response. Note: actual exceptions are captured separately and
 // synchronously by the Sentry middleware above, which flushes on its own — this
@@ -76,6 +77,10 @@ app.use(
 // the error itself. Rejections are swallowed to avoid unhandled rejections.
 const fsDrain = createFsDrain();
 const sentryDrain = createSentryDrain({ dsn: SENTRY_DSN, environment: env.NODE_ENV });
+const posthogDrain =
+  env.POSTHOG_PROJECT_TOKEN && env.POSTHOG_HOST
+    ? createPostHogDrain({ apiKey: env.POSTHOG_PROJECT_TOKEN, host: env.POSTHOG_HOST })
+    : undefined;
 app.use(
   evlog({
     drain: (ctx) => {
@@ -92,6 +97,11 @@ app.use(
         void Promise.resolve()
           .then(() => sentryDrain(ctx))
           .catch(() => {});
+        if (posthogDrain) {
+          void Promise.resolve()
+            .then(() => posthogDrain(ctx))
+            .catch(() => {});
+        }
       }
     },
   }),

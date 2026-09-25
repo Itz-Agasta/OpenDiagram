@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { createAuthClient } from "better-auth/react";
+import posthog from "posthog-js";
 
 const baseURL = process.env.NEXT_PUBLIC_SERVER_URL;
 if (!baseURL) {
@@ -10,6 +12,28 @@ if (!baseURL) {
 }
 
 export const authClient = createAuthClient({ baseURL });
+
+/**
+ * Ties browser analytics to the Better Auth user id, and resets it whenever the
+ * session goes away (sign-out, expiry, revocation) so the next visitor on this
+ * browser is not attributed to the old account.
+ */
+export function PostHogIdentify() {
+  const { data, isPending } = authClient.useSession();
+  const user = data?.user;
+  const identified = useRef(false);
+  useEffect(() => {
+    if (isPending) return;
+    if (user) {
+      posthog.identify(user.id, { email: user.email, name: user.name });
+      identified.current = true;
+    } else if (identified.current) {
+      posthog.reset();
+      identified.current = false;
+    }
+  }, [isPending, user]);
+  return null;
+}
 
 const DEFAULT_FRONTEND_PATH = "/dashboard";
 const FRONTEND_PATH_BASE = "https://frontend.opendiagram.invalid";
