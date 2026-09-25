@@ -2,7 +2,7 @@ import { createGoogle } from "@ai-sdk/google";
 import { diagramSpecSchema, type DiagramSpec, type DiagramType } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import {
-  generateObject,
+  Output,
   generateText,
   NoObjectGeneratedError,
   wrapLanguageModel,
@@ -160,9 +160,12 @@ export async function generateDiagramSpec(
     : input.prompt;
 
   try {
-    const result = await generateObject({
+    // generateText + Output.object, not generateObject: besides being deprecated in
+    // ai 7, generateObject's spans drop runtimeContext in @ai-sdk/otel 1.0.40
+    // (onObjectOperationStart hard-codes it to undefined), so PostHog lost the user.
+    const result = await generateText({
       model: modelFor(options),
-      schema: diagramSpecSchema,
+      output: Output.object({ schema: diagramSpecSchema }),
       system: buildSystemPrompt(input.diagramType),
       prompt: userPrompt,
       telemetry: aiTelemetry("repo-diagram-spec"),
@@ -179,13 +182,13 @@ export async function generateDiagramSpec(
     // The catalog names icons by slug, the renderer indexes them by registry id.
     // Callers here hand the spec straight to `renderToExcalidraw`, so without
     // this every icon would miss its lookup and silently draw as a bare box.
-    return normalizeSpecIcons<DiagramSpec>(result.object).spec;
+    return normalizeSpecIcons<DiagramSpec>(result.output).spec;
   } catch (error) {
-    // The failure mode this bounds -- a repetition loop that runs to
-    // maxOutputTokens and then fails schema validation -- is the single most
-    // expensive outcome here, and it throws instead of returning. Reporting its
-    // usage before rethrowing is what keeps that spend visible to the cost
-    // ceiling; without it a caller can provoke unpriced generations on purpose.
+    // Every failed generation must still be priced, or a caller can provoke
+    // unpriced generations on purpose. A repetition loop that hits
+    // maxOutputTokens returns (finishReason "length") and is priced by the
+    // reportUsage above before `result.output` throws. JSON that is complete but
+    // invalid throws from inside generateText instead, so it is priced here.
     if (NoObjectGeneratedError.isInstance(error) && error.usage) reportUsage(options, error.usage);
     throw error;
   }

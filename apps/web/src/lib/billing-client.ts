@@ -1,4 +1,5 @@
 import { env } from "@OpenDiagram/env/web";
+import posthog from "posthog-js";
 
 export type BillingState = {
   /** False on a self-hosted instance with no Dodo keys — hide all upgrade UI. */
@@ -37,6 +38,8 @@ export async function startCheckout(discountCode?: string): Promise<string> {
   });
   if (!response.ok) throw new Error(await readError(response, "Could not start checkout."));
   const { checkoutUrl } = (await response.json()) as { checkoutUrl: string };
+  // Beacon: every caller navigates off our origin next, which can abort a normal request.
+  posthog.capture("billing_checkout_started", undefined, { transport: "sendBeacon" });
   return checkoutUrl;
 }
 
@@ -68,5 +71,6 @@ export async function openBillingPortal(): Promise<string> {
   });
   if (!response.ok) throw new Error(await readError(response, "Could not open billing portal."));
   const { portalUrl } = (await response.json()) as { portalUrl: string };
+  posthog.capture("billing_portal_opened", undefined, { transport: "sendBeacon" });
   return portalUrl;
 }

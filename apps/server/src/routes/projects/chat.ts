@@ -49,7 +49,6 @@ chatRoute.post("/:projectId/chat", async (c) => {
         runtimeContext: {
           distinctId: userId,
           sessionId: `project:${projectId}`,
-          traceName: "project-chat",
         },
       },
     );

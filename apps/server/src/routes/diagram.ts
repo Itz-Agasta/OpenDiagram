@@ -150,7 +150,6 @@ diagramRoute.post("/chat", async (c) => {
       runtimeContext: {
         ...(userId && { distinctId: userId }),
         sessionId: `diagram:${conversationId ?? chatId ?? crypto.randomUUID()}`,
-        traceName: "diagram-chat",
       },
       meta: {
         canvasDiagrams: diagrams.length,

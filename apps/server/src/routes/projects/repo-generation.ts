@@ -44,7 +44,6 @@ repoGenerationRoute.post("/:projectId/repo-generation", async (c) => {
         runtimeContext: {
           distinctId: userId,
           sessionId: `repo-generation:${projectId}`,
-          traceName: "repo-generation",
         },
       },
     });

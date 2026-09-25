@@ -31,7 +31,6 @@ if (env.POSTHOG_PROJECT_TOKEN && env.POSTHOG_HOST) {
       enrichSpan: ({ runtimeContext }) => ({
         "posthog.distinct_id": runtimeContext?.distinctId as string | undefined,
         $ai_session_id: runtimeContext?.sessionId as string | undefined,
-        $ai_trace_name: runtimeContext?.traceName as string | undefined,
       }),
     }),
   );
@@ -43,7 +42,6 @@ registerTelemetry(...integrations);
 export type AiRuntimeContext = {
   distinctId?: string;
   sessionId: string;
-  traceName: string;
 };
 
 /**
@@ -58,6 +56,6 @@ export function aiTelemetry(functionId: string) {
     functionId,
     recordInputs: false,
     recordOutputs: false,
-    includeRuntimeContext: { distinctId: true, sessionId: true, traceName: true },
+    includeRuntimeContext: { distinctId: true, sessionId: true },
   };
 }

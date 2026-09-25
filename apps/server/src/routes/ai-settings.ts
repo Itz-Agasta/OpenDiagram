@@ -65,7 +65,6 @@ async function assertKeyWorks(userId: string, provider: string, apiKey: string, 
     runtimeContext: {
       distinctId: userId,
       sessionId: `ai-settings:${userId}`,
-      traceName: "byok-key-check",
     },
     maxOutputTokens: 8,
     maxRetries: 0,
