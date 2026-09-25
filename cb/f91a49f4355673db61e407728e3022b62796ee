@@ -1,0 +1,27 @@
+apps/server/src/lib/telemetry.ts
+  s_0a50a89d5c19e5::t_d9348d4fa48ece 59
+apps/web/src/components/billing/pricing-plans.tsx
+  s_0a50a89d5c19e5::t_d9348d4fa48ece 47
+apps/server/src/lib/repo-ai.ts
+  s_0a50a89d5c19e5::t_1ef284af45e091 163-166,168,185
+  s_0a50a89d5c19e5::t_6a9802ff3b7fbb 187-191
+  s_0a50a89d5c19e5::t_33c27b3a874001 5
+apps/web/src/lib/billing-client.ts
+  s_0a50a89d5c19e5::t_d8dcba303734ee 2,41-42,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cbf91a49f4355673db61e407728e3022b62796ee",
+  "prompts": {},
+  "sessions": {
+    "s_0a50a89d5c19e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29aef8ad-28ef-4103-9ffb-027b164100d3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
