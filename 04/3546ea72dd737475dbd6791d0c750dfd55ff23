@@ -1,0 +1,23 @@
+apps/server/src/index.ts
+  s_0a50a89d5c19e5::t_06282aa32c290e 130-138
+apps/server/src/routes/diagram.ts
+  s_0a50a89d5c19e5::t_06282aa32c290e 151-153
+apps/web/instrumentation-client.ts
+  s_0a50a89d5c19e5::t_06282aa32c290e 19-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "043546ea72dd737475dbd6791d0c750dfd55ff23",
+  "prompts": {},
+  "sessions": {
+    "s_0a50a89d5c19e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29aef8ad-28ef-4103-9ffb-027b164100d3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
