@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { env } from "@OpenDiagram/env/web";
+import posthog from "posthog-js";
 import { createGuestProjectDraft, saveGuestProjectDraft } from "@/lib/guest-drafts";
 import { createProject, createProjectFile, type SavedProjectFile } from "@/lib/projects-client";
 import type { DashboardData } from "./use-dashboard-data";
@@ -44,6 +45,7 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
           type: "diagram",
         });
         data.setSavedProjects((current) => [project, ...current]);
+        posthog.capture("project_created", { source: "saved", creation_method: "manual" });
         setProjectModalOpen(false);
         setProjectName("");
         router.push(`/project/${project.id}/workspace/${file.id}`);
@@ -54,6 +56,7 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
       const draft = createGuestProjectDraft(name);
       saveGuestProjectDraft(draft);
       data.setGuestDrafts((current) => [draft, ...current]);
+      posthog.capture("project_created", { source: "guest", creation_method: "manual" });
       setProjectModalOpen(false);
       setProjectName("");
       router.push(`/project/${draft.id}/workspace`);
@@ -82,6 +85,7 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
         });
         data.setSavedProjects((current) => [project, ...current]);
         data.setFilesByProject((current) => ({ ...current, [project.id]: [file] }));
+        posthog.capture("agent_project_created", { source: "saved", file_type: kind });
         router.push(
           workspaceUrl(`/project/${project.id}/workspace/${file.id}`, providerId, modelId),
         );
@@ -94,6 +98,7 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
       ]);
       saveGuestProjectDraft(draft);
       data.setGuestDrafts((current) => [draft, ...current]);
+      posthog.capture("agent_project_created", { source: "guest", file_type: kind });
       router.push(
         workspaceUrl(
           `/project/${draft.id}/workspace/${draft.files[0]?.id ?? ""}`,
@@ -129,6 +134,7 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
         [selectedProject.id]: [...(current[selectedProject.id] ?? []), file],
       }));
       data.setExpandedProjectId(selectedProject.id);
+      posthog.capture("project_file_created", { file_type: fileKind });
       setFileModalProjectId(null);
       setFileName("");
       router.push(`/project/${selectedProject.id}/workspace/${file.id}`);

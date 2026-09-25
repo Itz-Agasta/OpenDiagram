@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import posthog from "posthog-js";
 import { authClient, frontendCallbackURL } from "@/lib/auth-client";
 import {
   importGitHubRepositoryStream,
@@ -211,6 +212,7 @@ export function GitHubImportContent() {
     setImportState("importing");
     setImportMessage("Queued repository import");
     setError(null);
+    posthog.capture("github_repository_import_started");
 
     try {
       const completed = await importGitHubRepositoryStream(
@@ -230,8 +232,10 @@ export function GitHubImportContent() {
       window.localStorage.removeItem("opendiagram:pending-github-repo");
       setImportedProject(completed.project);
       setImportState("done");
+      posthog.capture("github_repository_import_completed");
     } catch (err) {
       if (!mountedRef.current || controller.signal.aborted) return;
+      posthog.capture("github_repository_import_failed");
       setError(err instanceof Error ? err.message : "Could not import GitHub repository.");
       setImportState("idle");
     } finally {

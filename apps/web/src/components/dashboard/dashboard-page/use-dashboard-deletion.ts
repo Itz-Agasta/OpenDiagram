@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 import { deleteGuestProjectDraft } from "@/lib/guest-drafts";
 import { forgetLocalFiles } from "@/lib/local-file-cleanup";
 import { cancelQueuedProjectFilePatch } from "@/lib/project-file-sync";
@@ -63,6 +64,7 @@ export function useDashboardDeletion(data: DashboardData) {
     try {
       if (target.kind === "project") {
         await deleteTargetProject(target.project);
+        posthog.capture("project_deleted", { source: target.project.source });
         toast.success(`Deleted "${target.project.name}".`);
       } else {
         const { file } = target;
@@ -76,6 +78,7 @@ export function useDashboardDeletion(data: DashboardData) {
             (item) => item.id !== file.fileId,
           ),
         }));
+        posthog.capture("project_file_deleted");
         toast.success(`Deleted "${file.name}".`);
       }
       setTarget(null);

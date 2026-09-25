@@ -5,8 +5,22 @@ const publicAssetUrl = process.env.NEXT_PUBLIC_ASSET_URL
   ? new URL(process.env.NEXT_PUBLIC_ASSET_URL)
   : null;
 
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST?.replace(/\/+$/, "");
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@OpenDiagram/harness"],
+  // PostHog ingestion paths end in `/` (`/e/`); the default redirect strips it and drops events.
+  // https://github.com/posthog/posthog.com/blob/02399e0e2ee8dcb50a0eb3a6bd22f7008b1bed7a/contents/docs/advanced/proxy/nextjs.mdx
+  skipTrailingSlashRedirect: Boolean(posthogHost),
+  async rewrites() {
+    if (!posthogHost) return [];
+    const assetsHost = posthogHost.replace(".i.posthog.com", "-assets.i.posthog.com");
+    return [
+      { source: "/relay/static/:path*", destination: `${assetsHost}/static/:path*` },
+      { source: "/relay/array/:path*", destination: `${assetsHost}/array/:path*` },
+      { source: "/relay/:path*", destination: `${posthogHost}/:path*` },
+    ];
+  },
   async redirects() {
     return [
       {

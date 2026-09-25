@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 import { saveGuestProjectDraft } from "@/lib/guest-drafts";
 import { updateProject, updateProjectFile } from "@/lib/projects-client";
 import type { DashboardData } from "./use-dashboard-data";
@@ -47,6 +48,7 @@ export function useDashboardRenaming(data: DashboardData) {
         data.setSavedProjects((current) =>
           current.map((item) => (item.id === project.id ? { ...item, name: updated.name } : item)),
         );
+        posthog.capture("project_renamed", { source: "saved" });
       } else {
         const target = data.guestDrafts.find((entry) => entry.id === project.id);
         if (target) {
@@ -55,6 +57,7 @@ export function useDashboardRenaming(data: DashboardData) {
           data.setGuestDrafts((current) =>
             current.map((item) => (item.id === project.id ? updated : item)),
           );
+          posthog.capture("project_renamed", { source: "guest" });
         }
       }
     } catch (error) {
@@ -80,6 +83,7 @@ export function useDashboardRenaming(data: DashboardData) {
           item.id === file.fileId ? { ...item, name: updated.name } : item,
         ),
       }));
+      posthog.capture("project_file_renamed");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not rename file.");
     }

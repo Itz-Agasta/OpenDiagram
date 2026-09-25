@@ -55,13 +55,17 @@ function publicProvider(row: typeof userAiProvider.$inferSelect) {
  *
  * https://github.com/vercel/ai/blob/main/content/docs/03-ai-sdk-core/25-settings.mdx
  */
-async function assertKeyWorks(provider: string, apiKey: string, modelId: string) {
+async function assertKeyWorks(userId: string, provider: string, apiKey: string, modelId: string) {
   const def = getProvider(provider);
   if (!def) throw new Error("Unknown provider.");
   await generateText({
     model: def.createModel(apiKey, modelId),
     prompt: "Reply with the single character: ok",
     telemetry: aiTelemetry("byok-key-check"),
+    runtimeContext: {
+      distinctId: userId,
+      sessionId: `ai-settings:${userId}`,
+    },
     maxOutputTokens: 8,
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(20_000),
@@ -101,7 +105,7 @@ aiSettingsRoute.post("/providers", async (c) => {
   if (!isKnownModel(def, modelId)) return c.json({ error: "Unsupported model." }, 400);
 
   try {
-    await assertKeyWorks(def.id, parsed.data.apiKey, modelId);
+    await assertKeyWorks(c.get("userId"), def.id, parsed.data.apiKey, modelId);
   } catch (error) {
     return c.json({ error: keyErrorMessage(error), code: "key_validation_failed" }, 400);
   }

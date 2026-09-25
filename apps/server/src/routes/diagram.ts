@@ -28,6 +28,10 @@ const chatRequestSchema = z.object({
   // `resolveModel` against their own rows, not here.
   providerId: z.string().min(1).max(64).optional(),
   modelId: z.string().min(1).max(120).optional(),
+  // One PostHog AI session per persisted thread. A new thread's row is only
+  // written after its first turn, so that turn falls back to the useChat `id`.
+  conversationId: z.string().min(1).max(200).optional(),
+  id: z.string().min(1).max(200).optional(),
 });
 
 /**
@@ -62,7 +66,15 @@ diagramRoute.post("/chat", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
-  const { messages, providerId, modelId, diagrams = [], theme: themeName = "sketch" } = parsed.data;
+  const {
+    messages,
+    providerId,
+    modelId,
+    diagrams = [],
+    theme: themeName = "sketch",
+    conversationId,
+    id: chatId,
+  } = parsed.data;
 
   const tools = {
     ask_user: askUserTool,
@@ -135,6 +147,10 @@ diagramRoute.post("/chat", async (c) => {
       ],
       tools,
       grant,
+      runtimeContext: {
+        ...(userId && { distinctId: userId }),
+        sessionId: `diagram:${conversationId ?? chatId ?? crypto.randomUUID()}`,
+      },
       meta: {
         canvasDiagrams: diagrams.length,
         theme: themeName,
