@@ -1,0 +1,26 @@
+packages/auth/src/index.ts
+  s_0a50a89d5c19e5::t_9ce3c34feddb0d 139
+  s_0a50a89d5c19e5::t_3e27f0e4bbd697 8,129-138,140-143
+packages/auth/src/signup-event.ts
+  s_0a50a89d5c19e5::t_b20fbf9faefff7 31
+  s_0a50a89d5c19e5::t_f42fc0c9a08fc8 33
+  s_0a50a89d5c19e5::t_9ce3c34feddb0d 14-17,26-29
+  s_0a50a89d5c19e5::t_3aac0d6b6ea6e3 20
+  s_0a50a89d5c19e5::t_3d5a6e0ff668f0 1-13,18-19,21-25,30,32,34-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b441a13390f6678df32756ee506c9fc684c996ed",
+  "prompts": {},
+  "sessions": {
+    "s_0a50a89d5c19e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29aef8ad-28ef-4103-9ffb-027b164100d3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
