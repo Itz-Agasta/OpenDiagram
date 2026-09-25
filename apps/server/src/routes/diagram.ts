@@ -148,7 +148,9 @@ diagramRoute.post("/chat", async (c) => {
       tools,
       grant,
       runtimeContext: {
-        ...(userId && { distinctId: userId }),
+        // Guests have no user id; the browser's PostHog id (tracing_headers) keeps
+        // their traces on one person. Client-supplied, so analytics only.
+        distinctId: userId ?? c.req.header("x-posthog-distinct-id")?.slice(0, 200),
         sessionId: `diagram:${conversationId ?? chatId ?? crypto.randomUUID()}`,
       },
       meta: {

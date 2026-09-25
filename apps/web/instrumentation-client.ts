@@ -16,6 +16,9 @@ if (env.NEXT_PUBLIC_POSTHOG_KEY && env.NEXT_PUBLIC_POSTHOG_HOST) {
     defaults: "2026-08-30",
     // Errors are Sentry's; set in code so the project toggle can't double-report them.
     capture_exceptions: false,
+    // Sends this visitor's PostHog id to our API so a guest's AI traces join the
+    // same person as their pageviews. The API must allow these headers in CORS.
+    tracing_headers: [new URL(env.NEXT_PUBLIC_SERVER_URL).hostname],
   });
 }
 

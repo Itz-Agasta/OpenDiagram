@@ -127,7 +127,15 @@ app.use(
   cors({
     origin: origins,
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      // posthog-js `tracing_headers` (instrumentation-client.ts) sends all three;
+      // missing one fails the preflight and breaks every API call from the web app.
+      "X-POSTHOG-DISTINCT-ID",
+      "X-POSTHOG-SESSION-ID",
+      "X-POSTHOG-WINDOW-ID",
+    ],
     exposeHeaders: ["X-CreationQuota-Limit", "X-CreationQuota-Used", "X-CreationQuota-Remaining"],
     credentials: true,
     maxAge: 86400,
