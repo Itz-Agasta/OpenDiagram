@@ -5,6 +5,7 @@ import { env } from "@OpenDiagram/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { sendPasswordResetMail, sendVerificationMail, sendWelcomeMail } from "./email";
+import { captureSignup } from "./signup-event";
 
 /** First entry of CORS_ORIGIN - the web app, which owns every user-facing page. */
 function webOrigin(): string {
@@ -125,6 +126,21 @@ export function createAuth() {
       encryptOAuthTokens: true,
     },
     socialProviders: githubProvider,
+    // Runs after the signup transaction commits (better-auth queues create.after
+    // hooks), so a rolled-back signup never reports. `/sign-up/email` or the
+    // OAuth callback, whose `:id` param is the provider.
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user, ctx) => {
+            const method = ctx?.path.startsWith("/sign-up")
+              ? "email"
+              : (ctx?.params?.id ?? "unknown");
+            await captureSignup(user, method);
+          },
+        },
+      },
+    },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
