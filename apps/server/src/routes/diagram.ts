@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { streamDiagramChat } from "../lib/agent/chat-stream";
 import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
-import { askUserTool, createDrawDiagramTool } from "../lib/agent/tools";
+import { askUserTool, createDrawDiagramTool, createDrawSystemTool } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
 import { ModelSelectionError, resolveModel } from "../lib/ai-provider/resolve";
@@ -67,6 +67,7 @@ diagramRoute.post("/chat", async (c) => {
   const tools = {
     ask_user: askUserTool,
     draw_diagram: createDrawDiagramTool(log, themes[themeName], diagrams),
+    draw_system: createDrawSystemTool(log, themes[themeName]),
   };
 
   // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad

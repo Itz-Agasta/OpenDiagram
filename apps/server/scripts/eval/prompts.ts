@@ -31,6 +31,16 @@ const basePrompts: EvalPrompt[] = [
     expect: ["user", "product", "order", "item", "payment", "review"],
   },
   {
+    id: "vague-startup",
+    text: "Draw the architecture for my startup's app.",
+    expect: [],
+  },
+  {
+    id: "vague-chat",
+    text: "diagram for a chat app",
+    expect: [],
+  },
+  {
     id: "ride-hailing",
     text: "Backend for an Uber-like ride hailing app.",
     expect: [],

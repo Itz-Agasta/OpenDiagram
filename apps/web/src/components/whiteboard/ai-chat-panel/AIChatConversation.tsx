@@ -11,7 +11,7 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
-import type { DrawDiagramOutput } from "./types";
+import type { DrawDiagramOutput, DrawSystemOutput } from "./types";
 import { DotMatrixLoader } from "./DotMatrixLoader";
 
 interface AIChatConversationProps {
@@ -225,15 +225,20 @@ function renderMessagePart(
     );
   }
 
-  if (part.type !== "tool-draw_diagram") return null;
-  const title = (part.input as Partial<DiagramSpec> | undefined)?.title;
+  if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") return null;
   if (part.state === "output-available") {
-    const summary = (part.output as DrawDiagramOutput).summary;
+    const summaries =
+      part.type === "tool-draw_system"
+        ? (part.output as DrawSystemOutput).views.map((view) => view.summary)
+        : [(part.output as DrawDiagramOutput).summary];
+    const [first] = summaries;
     return (
       <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
         <CheckCircle2 className="size-3.5 text-primary" />
         <span>
-          {summary.title} — {summary.nodes} nodes, {summary.edges} edges
+          {summaries.length === 1 && first
+            ? `${first.title}: ${first.nodes} nodes, ${first.edges} edges`
+            : `Drew ${summaries.length} diagrams: ${summaries.map((s) => s.title).join(", ")}`}
         </span>
       </div>
     );
@@ -245,6 +250,10 @@ function renderMessagePart(
       </p>
     );
   }
+  if (part.type === "tool-draw_system") {
+    return <ToolActivity key={key} label="Modelling the system…" />;
+  }
+  const title = (part.input as Partial<DiagramSpec> | undefined)?.title;
   return <ToolActivity key={key} label={title ? `Drawing “${title}”…` : "Drawing diagram…"} />;
 }
 

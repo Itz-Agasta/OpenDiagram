@@ -60,3 +60,19 @@ export function leaks(prompt: EvalPrompt, specs: Spec[]): string[] {
 export function stuffed(specs: Spec[]): number {
   return specs.flatMap((s) => s.nodes ?? []).filter((n) => n.sublabel && isList(n.sublabel)).length;
 }
+
+export const sentences = (text: string) => (text.match(/[.!?](\s|$)/g) ?? []).length;
+
+/**
+ * Drawn node labels repeated in the post-draw reply. Rule 4 forbids describing
+ * the drawing; three or more echoed labels is a node list in prose.
+ */
+export function echoedLabels(specs: Spec[], reply: string): number {
+  const text = reply.toLowerCase();
+  const labels = new Set(
+    specs.flatMap((s) => s.nodes ?? []).map((n) => (n.label ?? "").toLowerCase()),
+  );
+  // Whole words, so "data" does not count inside "metadata".
+  const word = (l: string) => new RegExp(`\\b${l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+  return [...labels].filter((l) => l.length >= 4 && word(l).test(text)).length;
+}

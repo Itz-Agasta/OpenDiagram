@@ -1,20 +1,16 @@
 import {
-  buildReport,
   classicTheme,
   diagramSpecSchema,
-  layoutDiagram,
-  renderSequenceDiagram,
-  renderToExcalidraw,
-  type DiagramReport,
+  planViews,
+  systemModelSchema,
   type DiagramSpec,
-  type RenderSkeleton,
   type Theme,
 } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
-import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
+import { renderView, type DrawDiagramOutput } from "./render-view";
 
 export interface AskUserInput {
   question: string;
@@ -39,24 +35,13 @@ export const askUserTool: Tool<AskUserInput, string> = tool({
   outputSchema: z.string().describe("The user's answer"),
 });
 
-export interface DrawDiagramOutput {
-  skeletons: RenderSkeleton[];
-  rawElements: Record<string, unknown>[];
-  summary: {
-    title: string;
-    nodes: number;
-    edges: number;
-    warnings: string[];
-  };
-}
-
 /**
  * The spec plus the one thing the model has to tell us that is not part of the
  * drawing: which diagram on the canvas this is.
  *
  * Extended rather than nested (`{ targetId, spec }`) on purpose. The schema stays
  * one flat object, which is the shape the model already emits reliably, and
- * `repairDrawDiagramInput` in `routes/diagram.ts` keeps finding `edges` at the top
+ * `repairToolInput` in `chat-stream.ts` keeps finding `edges` at the top
  * level. Nesting would move it and quietly break the repair path.
  *
  * FIXME(gemini-field-fidelity): this assumes the model echoes `targetId` back
@@ -103,75 +88,87 @@ export function createDrawDiagramTool(
     inputSchema: drawDiagramInputSchema,
     execute: async ({ targetId, ...rawSpec }): Promise<DrawDiagramOutput> => {
       const previous = canvas.find((diagram) => diagram.id === targetId)?.spec;
-      const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(
-        restoreIcons(rawSpec as DiagramSpec, previous),
-      );
-      const warnings = unknownIcons.map((key) => `unknown icon "${key}" - drawn as a box`);
-
-      // Sequence diagrams use their own lifeline grid, not ELK.
-      let skeletons: RenderSkeleton[];
-      let rawElements: Record<string, unknown>[];
-      let edgeCount = spec.edges.length;
-      // Sequence diagrams skip the report: its metrics assume ELK routes, and a
-      // lifeline grid crosses its own messages by construction.
-      let report: DiagramReport | undefined;
-      if (spec.type === "sequence") {
-        const result = renderSequenceDiagram(spec, theme);
-        skeletons = result.skeletons;
-        rawElements = result.rawElements;
-        warnings.push(...result.warnings);
-      } else {
-        const positioned = await layoutDiagram(spec, theme);
-        const result = renderToExcalidraw(positioned, iconRegistry, theme);
-        skeletons = result.skeletons;
-        rawElements = result.rawElements;
-        warnings.push(...positioned.warnings);
-        // Post-sanitize count, matching what actually renders on canvas.
-        edgeCount = positioned.edges.length;
-        report = buildReport(positioned);
-      }
-
-      if (warnings.length > 0) {
+      const {
+        spec: _,
+        logFields,
+        ...output
+      } = await renderView(restoreIcons(rawSpec as DiagramSpec, previous), theme);
+      if (output.summary.warnings.length > 0) {
         log.warn("draw_diagram sanitized malformed LLM output", {
-          diagram: { layoutWarnings: warnings },
+          diagram: { layoutWarnings: output.summary.warnings },
         });
       }
-      log.set({
-        diagram: {
-          title: spec.title,
-          diagramType: spec.type,
-          nodeCount: spec.nodes.length,
-          edgeCount,
-          elementCount: skeletons.length + rawElements.length,
-          // Off unless LOG_DIAGRAM_SPEC is set. The spec is how a bad diagram
-          // gets replayed into the harness corpus and counts alone are not
-          // reproducible, but wide events reach Sentry and this is the user's
-          // architecture. Turn it on locally to harvest fixtures, never in a
-          // deployment serving anyone else.
-          ...(env.LOG_DIAGRAM_SPEC && { spec: JSON.stringify(spec) }),
-          ...(report && {
-            score: report.score,
-            metrics: report.metrics,
-            diagnostics: report.diagnostics.map((d) => `${d.code}:${d.subjects.join(",")}`),
-          }),
-        },
-      });
-      return {
-        skeletons,
-        rawElements,
-        summary: {
-          title: spec.title,
-          nodes: spec.nodes.length,
-          edges: edgeCount,
-          warnings,
-        },
-      };
+      log.set({ diagram: logFields });
+      return output;
     },
     // The model only ever sees the compact summary - element JSON is for the
     // client and would waste thousands of tokens per step.
     toModelOutput: ({ output }) => ({
       type: "content",
       value: [{ type: "text", text: JSON.stringify(output.summary) }],
+    }),
+  });
+}
+
+/**
+ * The system model plus which frames it redraws. Flat for the same reason as
+ * `drawDiagramInputSchema`: `repairToolInput` finds `links` and `flows` at the top.
+ */
+export const drawSystemInputSchema = systemModelSchema.extend({
+  replaceIds: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "When redrawing a system already on the canvas: the ids of ALL its diagrams, copied EXACTLY from CANVAS, overview first. Omit for a new system.",
+    ),
+});
+
+export interface DrawSystemOutput {
+  views: (DrawDiagramOutput & { spec: DiagramSpec })[];
+}
+
+/**
+ * Server-side tool: the model describes the system, `planViews` decides the
+ * diagrams (one for a small system, overview plus one per flow for a large
+ * one), each drawn like `draw_diagram`. `spec` rides along per view because
+ * the client stores it for CANVAS and cannot re-plan without the harness.
+ */
+export function createDrawSystemTool(
+  log: RequestLogger,
+  theme: Theme = classicTheme,
+): Tool<z.infer<typeof drawSystemInputSchema>, DrawSystemOutput> {
+  return tool({
+    description:
+      "Draw a system architecture from a model of it. Code turns the model into one diagram (small system) or an overview plus one diagram per flow (large system). Call once per system.",
+    inputSchema: drawSystemInputSchema,
+    execute: async ({ replaceIds: _, ...model }): Promise<DrawSystemOutput> => {
+      // One at a time: layout is single-threaded CPU work, so parallel renders
+      // saved no time and held every view's layout in memory at once.
+      const rendered = [];
+      for (const spec of planViews(model)) rendered.push(await renderView(spec, theme));
+      const warnings = rendered.flatMap((view) => view.summary.warnings);
+      if (warnings.length > 0) {
+        log.warn("draw_system sanitized malformed LLM output", {
+          diagram: { layoutWarnings: warnings },
+        });
+      }
+      // One wide event for the whole set: a `log.set` per view would overwrite.
+      log.set({
+        diagram: {
+          title: model.title,
+          componentCount: model.components.length,
+          flowCount: model.flows.length,
+          // The model, not the views: `planViews` replays it for $0. Same gate as draw_diagram's spec.
+          ...(env.LOG_DIAGRAM_SPEC && { model: JSON.stringify(model) }),
+          // Same fields as draw_diagram's event, minus the spec: `model` above replays every view.
+          views: rendered.map(({ logFields: { spec: _, ...fields } }) => fields),
+        },
+      });
+      return { views: rendered.map(({ logFields: _, ...view }) => view) };
+    },
+    toModelOutput: ({ output }) => ({
+      type: "content",
+      value: [{ type: "text", text: JSON.stringify(output.views.map((v) => v.summary)) }],
     }),
   });
 }

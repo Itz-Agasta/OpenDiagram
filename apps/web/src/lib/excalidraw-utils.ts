@@ -1,4 +1,5 @@
 import type { ExcalidrawElementSkeleton } from "@excalidraw/excalidraw/data/transform";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { RenderSkeleton } from "@OpenDiagram/harness";
 
@@ -160,7 +161,8 @@ export async function applyDiagramToCanvas(
 ): Promise<ApplyDiagramResult> {
   // Dynamic import: @excalidraw/excalidraw touches `window` at module scope,
   // so it can only be evaluated in the browser, never during Next.js SSR.
-  const { convertToExcalidrawElements, restoreElements } = await import("@excalidraw/excalidraw");
+  const { convertToExcalidrawElements, restoreElements, newElementWith } =
+    await import("@excalidraw/excalidraw");
   // restoreElements applies the same normalization a page reload does. Without
   // it, freshly inserted elements occasionally exist in the scene (selectable,
   // saved to drafts) but are skipped by the static canvas paint until reload —
@@ -187,13 +189,14 @@ export async function applyDiagramToCanvas(
     });
   }
 
-  const scene = api.getSceneElements();
   const oldFrame = opts?.replaceFrameId
-    ? scene.find((el) => el.id === opts.replaceFrameId)
+    ? api.getSceneElements().find((el) => el.id === opts.replaceFrameId)
     : undefined;
-  const kept = opts?.replaceFrameId
-    ? scene.filter((el) => el.id !== opts.replaceFrameId && el.frameId !== opts.replaceFrameId)
-    : scene;
+  const { elements, live: kept } = deleteFrames(
+    api,
+    new Set(opts?.replaceFrameId ? [opts.replaceFrameId] : []),
+    newElementWith,
+  );
 
   if (converted.length > 0) {
     const newBounds = contentBounds(converted);
@@ -238,9 +241,38 @@ export async function applyDiagramToCanvas(
     }
   }
 
-  api.updateScene({ elements: [...kept, ...converted] });
+  api.updateScene({ elements: [...elements, ...converted] });
 
   const frame = converted.find((el) => el.type === "frame");
   api.scrollToContent(frame ?? converted, { fitToContent: true, animate: true, duration: 400 });
   return { frameId: frame?.id ?? null };
+}
+
+/**
+ * The whole scene array with `frameIds` and their members marked deleted, plus
+ * the live elements left. Built from IncludingDeleted and never dropping
+ * anything, because the delta save (`scene-delta.ts`) only sends elements whose
+ * version moved: an element that leaves the array is never deleted on the
+ * server, and a reload brought back every frame a redraw had replaced.
+ */
+function deleteFrames(
+  api: ExcalidrawImperativeAPI,
+  frameIds: Set<string>,
+  newElementWith: typeof import("@excalidraw/excalidraw").newElementWith,
+): { elements: ExcalidrawElement[]; live: ExcalidrawElement[] } {
+  const elements = api
+    .getSceneElementsIncludingDeleted()
+    .map((el) =>
+      !el.isDeleted && (frameIds.has(el.id) || (el.frameId && frameIds.has(el.frameId)))
+        ? newElementWith(el, { isDeleted: true })
+        : el,
+    );
+  return { elements, live: elements.filter((el) => !el.isDeleted) };
+}
+
+/** Deletes generated frames and everything inside them, e.g. an old set a redraw replaces. */
+export async function removeFramesFromCanvas(api: ExcalidrawImperativeAPI, frameIds: string[]) {
+  if (frameIds.length === 0) return;
+  const { newElementWith } = await import("@excalidraw/excalidraw");
+  api.updateScene({ elements: deleteFrames(api, new Set(frameIds), newElementWith).elements });
 }
