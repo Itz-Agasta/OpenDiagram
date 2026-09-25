@@ -1,0 +1,20 @@
+turbo.json
+  s_3961abb762568f::t_71fc957cad969d 8
+  s_3961abb762568f::t_e5d30ec293528c 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14a6d140a42743cb991bb1d88bdc45e5d829c2c0",
+  "prompts": {},
+  "sessions": {
+    "s_3961abb762568f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fb05c4f3-9dd6-4170-8543-fa9e29925a16",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
