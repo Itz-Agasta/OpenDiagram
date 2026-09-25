@@ -1,0 +1,76 @@
+apps/server/src/index.ts
+  s_0a50a89d5c19e5::t_1a044feaad106a 7,72,80-83,100-104
+apps/web/package.json
+  s_0a50a89d5c19e5::t_ba5e25edf975c8 52
+apps/server/src/routes/diagram.ts
+  s_0a50a89d5c19e5::t_abbe6472e11276 152
+  s_0a50a89d5c19e5::t_7ad180a8db515a 31-34,69-76
+  s_0a50a89d5c19e5::t_13ad4b7edace7d 77,150-151,153-154
+apps/web/src/components/billing/pricing-plans.tsx
+  s_0a50a89d5c19e5::t_93ce4f579ae7d8 5
+  s_0a50a89d5c19e5::t_796e802d80754b 48,52-53
+apps/web/src/components/dashboard/dashboard-page/use-dashboard-deletion.ts
+  s_0a50a89d5c19e5::t_93ce4f579ae7d8 3
+  s_0a50a89d5c19e5::t_1774f0f20f3fc4 67,81
+apps/web/src/components/dashboard/dashboard-page/use-dashboard-creation.ts
+  s_0a50a89d5c19e5::t_93ce4f579ae7d8 5
+  s_0a50a89d5c19e5::t_9f1e183e44842f 48,59,88,101,137
+apps/web/src/components/whiteboard/ai-chat-panel/use-ai-chat-panel-controller.ts
+  s_0a50a89d5c19e5::t_93ce4f579ae7d8 3
+  s_0a50a89d5c19e5::t_4c0cb71fe90459 221-224,236-239,242-245
+apps/server/src/lib/telemetry.ts
+  s_0a50a89d5c19e5::t_9f8079d0cf5177 3-4,8,14-47,52-54
+  s_0a50a89d5c19e5::t_01fbf2fd844de1 2,57-62
+.env.sample
+  s_0a50a89d5c19e5::t_dfa282f62ac844 78-86
+apps/server/src/lib/repo-ai.ts
+  s_0a50a89d5c19e5::t_c91dfce98b3ac4 169,212,258
+  s_0a50a89d5c19e5::t_f5cf698ae3427e 13,31
+apps/server/src/routes/ai-settings.ts
+  s_0a50a89d5c19e5::t_abbe6472e11276 67
+  s_0a50a89d5c19e5::t_057fc61ea79fc9 58,65-66,68-69,109
+apps/server/src/routes/projects/chat.ts
+  s_0a50a89d5c19e5::t_abbe6472e11276 51
+  s_0a50a89d5c19e5::t_b51e6d81d1a336 47-50,52-54
+apps/web/src/components/dashboard/dashboard-page/use-dashboard-renaming.ts
+  s_0a50a89d5c19e5::t_93ce4f579ae7d8 3
+  s_0a50a89d5c19e5::t_c26b1d4930f689 51,60,86
+apps/server/package.json
+  s_0a50a89d5c19e5::t_ba5e25edf975c8 21-23
+apps/web/src/app/import/github/github-import-content.tsx
+  s_0a50a89d5c19e5::t_93ce4f579ae7d8 7
+  s_0a50a89d5c19e5::t_091e210496221e 215,235
+apps/server/src/routes/projects/repo-generation.ts
+  s_0a50a89d5c19e5::t_abbe6472e11276 46
+  s_0a50a89d5c19e5::t_08d24d12f42ed8 39-45,47-50
+apps/web/instrumentation-client.ts
+  s_0a50a89d5c19e5::t_a4951579fb9252 18
+  s_0a50a89d5c19e5::t_cbd2cd03632f64 10,12-16
+  s_0a50a89d5c19e5::t_427b9babd425a5 11,17
+  s_0a50a89d5c19e5::t_dffafcd9ffe5cd 1,3,19-21
+apps/web/next.config.ts
+  s_0a50a89d5c19e5::t_cbd2cd03632f64 8-9,12,14-23
+  s_0a50a89d5c19e5::t_a4951579fb9252 13
+apps/web/src/lib/auth-client.ts
+  s_0a50a89d5c19e5::t_380cf02671f119 5
+  s_0a50a89d5c19e5::t_abbe6472e11276 3,16-21
+  s_0a50a89d5c19e5::t_c9aca07066070c 22-31
+bun.lock
+  s_0a50a89d5c19e5::t_53b662f6250cef 76-78,144,730,732-734,738-742,744,746-750,836-843,1492-1493,1738-1739,2328-2331,2334-2335,2386-2387,2692,2726-2729,2854-2855,2866-2867,2942-2943,2968-2969,3158-3163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8e0e6d2ddeec108c8f76c1ddcf9fa5ea7c5fb652",
+  "prompts": {},
+  "sessions": {
+    "s_0a50a89d5c19e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29aef8ad-28ef-4103-9ffb-027b164100d3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
