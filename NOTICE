@@ -7,7 +7,8 @@ Source code: https://github.com/Itz-Agasta/OpenDiagram
 
 Licensed under the GNU Affero General Public License v3.0. See LICENSE.
 Code published before the switch to AGPL-3.0 remains available under the
-Apache License 2.0.
+Apache License 2.0, as stated in LICENSE at commit 6cf306a:
+https://github.com/Itz-Agasta/OpenDiagram/blob/6cf306a/LICENSE
 
 "OpenDiagram" and the OpenDiagram logo are trademarks of the project's
 authors. The license does not grant permission to use them.
