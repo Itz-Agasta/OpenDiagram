@@ -18,6 +18,12 @@
       "skillPath": "security/SKILL.md",
       "computedHash": "7a230edf3a24ce18162cb4379f59b6a19b8d24ca04db530609d0f15cede556dc"
     },
+    "brag-slim": {
+      "source": "latent-spaces/brag",
+      "sourceType": "github",
+      "skillPath": "skills/brag-slim/SKILL.md",
+      "computedHash": "6dab27b4473fb5dd900c383f503e2f65d2f7b089b3cd5fd46b0897ad781a404d"
+    },
     "create-auth": {
       "source": "better-auth/skills",
       "sourceType": "github",

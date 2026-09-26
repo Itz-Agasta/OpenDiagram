@@ -58,3 +58,6 @@ COGNEE_INTEGRATION_PLAN.md
 
 # local agent tooling
 opencode.json
+
+# launch videos (local renders, large binaries)
+brag-output/
