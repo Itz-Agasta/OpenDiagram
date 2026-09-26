@@ -1,0 +1,23 @@
+apps/fumadocs/package.json
+  s_a10ac29cfa5d42::t_c5526556613029 26
+apps/web/package.json
+  s_a10ac29cfa5d42::t_c5526556613029 51
+bun.lock
+  s_a10ac29cfa5d42::t_5b90289a112d84 42,143,546,548,550,552,554,556,558,560,562,564,566,568,570,572,574,576,578,580,582,584,586,588,590,592-596,700,702,704,706,708,710,712,714,716,2202,2522,2952
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fd402dc26f34c381410d240d0427a568daf7cb17",
+  "prompts": {},
+  "sessions": {
+    "s_a10ac29cfa5d42": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6bc36545-f6f4-4780-be06-bad6f055ebe0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
