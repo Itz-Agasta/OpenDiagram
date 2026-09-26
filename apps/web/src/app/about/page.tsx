@@ -38,7 +38,7 @@ const aboutStructuredData = {
     url: SITE_URL.href,
     sameAs: [GITHUB_URL],
     description: "Open-source, editable architecture diagramming workspace.",
-    license: "https://www.apache.org/licenses/LICENSE-2.0",
+    license: "https://www.gnu.org/licenses/agpl-3.0.html",
   },
 };
 
@@ -56,7 +56,7 @@ const principles = [
   {
     title: "Open source first",
     description:
-      "The code is available under Apache 2.0. Teams can inspect it, contribute to it, and run the workspace on infrastructure they control.",
+      "The code is available under AGPL-3.0. Teams can inspect it, contribute to it, and run the workspace on infrastructure they control.",
   },
 ];
 
@@ -150,7 +150,7 @@ export default function AboutPage() {
                   <dt className="font-mono text-[9px] uppercase tracking-[0.16em] text-black/38">
                     License
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold">Apache 2.0</dd>
+                  <dd className="mt-1 text-sm font-semibold">AGPL-3.0</dd>
                 </div>
               </div>
               <div className="flex items-center gap-2.5">

@@ -86,3 +86,7 @@ Stuck on setup or using the app? Open a [discussion](https://github.com/Itz-Agas
 ## Security
 
 Do not open a public issue for security problems. See [SECURITY.md](./SECURITY.md).
+
+## License and CLA
+
+OpenDiagram is licensed under [AGPL-3.0](./LICENSE). By opening a pull request you agree to the [Contributor License Agreement](./CLA.md): you keep the copyright to your work and let the maintainers distribute it under AGPL-3.0 or another license.

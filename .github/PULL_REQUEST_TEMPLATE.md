@@ -21,3 +21,4 @@
 - [ ] If I touched `packages/harness`, `bun test` passes in that package
 - [ ] I restarted `dev:server` when verifying harness changes (`bun --hot` does not reload them)
 - [ ] Changes are scoped to the issue - no unrelated refactors
+- [ ] I agree to the [Contributor License Agreement](../CLA.md)

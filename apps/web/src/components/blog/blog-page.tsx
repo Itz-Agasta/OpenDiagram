@@ -423,7 +423,7 @@ export function BlogPage({ posts, tags }: BlogPageProps) {
                   Open Source Code
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-black/55">
-                  OpenDiagram is Apache 2.0 licensed. Review our code, self-host the repository, or
+                  OpenDiagram is AGPL-3.0 licensed. Review our code, self-host the repository, or
                   contribute updates.
                 </p>
               </div>
