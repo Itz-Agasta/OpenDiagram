@@ -1,0 +1,19 @@
+.oxfmtrc.json
+  s_3f707c257ec4f8::t_a723e97efa8825 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6cf306aed655f167e472d4a61e41d90ca5fd0707",
+  "prompts": {},
+  "sessions": {
+    "s_3f707c257ec4f8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e3451e7b-6b2b-4c04-805a-28f744301c14",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
