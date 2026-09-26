@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3" /></a>
   <a href="https://github.com/Itz-Agasta/OpenDiagram/stargazers"><img src="https://img.shields.io/github/stars/Itz-Agasta/OpenDiagram?style=flat&color=yellow" alt="GitHub stars" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white" alt="Bun" /></a>
@@ -57,7 +57,7 @@ Engineering teams scatter design work across tools: diagrams in one app, docs in
 - **Memory that persists.** Project context, design decisions and diagram state survive across sessions. Ask "why did we pick Kafka?" next week and get a real answer.
 - **Conversational iteration.** _"Add a Redis cache between the gateway and the product service"_ updates the diagram in place.
 - **Bring your own key.** Plug in your own OpenAI, Anthropic, Google or OpenRouter key. Keys are encrypted at rest and never leave your instance.
-- **Open and self-hostable.** Apache 2.0. Run the whole stack on your own infrastructure.
+- **Open and self-hostable.** AGPL-3.0. Run the whole stack on your own infrastructure.
 
 ## Features
 
@@ -89,7 +89,7 @@ Projects, files, a docs editor, GitHub repo import, and guest mode - try everyth
 
 |                           | **OpenDiagram**            | Eraser.io / DiagramGPT | draw.io | Mermaid   | Lucidchart  |
 | ------------------------- | -------------------------- | ---------------------- | ------- | --------- | ----------- |
-| Open source               | ✅ Apache 2.0              | ❌                     | ✅      | ✅        | ❌          |
+| Open source               | ✅ AGPL-3.0                | ❌                     | ✅      | ✅        | ❌          |
 | Self-hostable             | ✅                         | ❌                     | ✅      | ✅        | ❌          |
 | AI generation from text   | ✅                         | ✅                     | Plugin  | External  | ✅          |
 | Output format             | Native Excalidraw elements | Proprietary            | XML     | Mermaid   | Proprietary |
@@ -134,7 +134,7 @@ Web runs on `:3001`, API on `:3000`, docs on `:4000`. Open <http://localhost:300
 
 ### Is there an open-source alternative to Eraser.io?
 
-Yes - OpenDiagram. It is Apache 2.0 licensed, self-hostable, and generates system architecture, sequence and ER diagrams from natural language. Unlike Eraser, the output is native Excalidraw elements you fully own and can edit anywhere.
+Yes - OpenDiagram. It is AGPL-3.0 licensed, self-hostable, and generates system architecture, sequence and ER diagrams from natural language. Unlike Eraser, the output is native Excalidraw elements you fully own and can edit anywhere.
 
 ### Can AI generate architecture diagrams from text?
 
@@ -150,7 +150,7 @@ Vibe diagramming is describing a system, flow or process in plain language and l
 
 ### Can I self-host OpenDiagram?
 
-Yes. The entire stack - Next.js web app, Hono API and diagram engine - is Apache 2.0 and runs on your own infrastructure. You supply your own database and AI provider key.
+Yes. The entire stack - Next.js web app, Hono API and diagram engine - is AGPL-3.0 and runs on your own infrastructure. You supply your own database and AI provider key.
 
 ### Which AI models are supported?
 
@@ -158,7 +158,7 @@ OpenDiagram is provider-agnostic. Bring your own key for OpenAI, Anthropic, Goog
 
 ### Is OpenDiagram free?
 
-Yes, and it always will be. Apache 2.0, no open-core tricks on the diagram engine.
+Yes, and it always will be. AGPL-3.0, no open-core tricks on the diagram engine.
 
 ## Contributing
 
@@ -170,7 +170,7 @@ Found a security issue? Please follow [SECURITY.md](./SECURITY.md) instead of op
 
 ## License
 
-[Apache License 2.0](./LICENSE)
+[GNU Affero General Public License v3.0](./LICENSE). Contributions are accepted under the [CLA](./CLA.md). Code published before the switch to AGPL-3.0 remains available under Apache 2.0.
 
 ---
 
