@@ -1,0 +1,33 @@
+packages/auth/src/email/index.ts
+  s_ece80ff4f65a3c::t_146f2b15c06ac0 4-10,66,76
+  s_ece80ff4f65a3c::t_5dfaab75a37ddc 87,91-98
+packages/env/src/server.ts
+  s_ece80ff4f65a3c::t_047685808a05f2 49-52
+.env.sample
+  s_ece80ff4f65a3c::t_047685808a05f2 51-52
+packages/auth/src/email/templates.ts
+  s_ece80ff4f65a3c::t_beef1bbc9c83a4 1,3,10-14,18,20-26,30,47-49,55,60-68,72,74-80,82-83,88,103-107,111,113-119,122-125,127-128,137,142-182
+  s_ece80ff4f65a3c::t_38565eab2a4ed5 32-33
+packages/auth/src/email/layout.ts
+  s_ece80ff4f65a3c::t_5d8ba482320111 99,107,110
+  s_ece80ff4f65a3c::t_084029233bdc35 1-96,98,100-106,108-109,111-120
+  s_ece80ff4f65a3c::t_59c47b717df2f3 97
+packages/auth/src/index.ts
+  s_ece80ff4f65a3c::t_38565eab2a4ed5 7-12,26-35,92-95,112,117,152-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ab273c0284a56c38adfca185604bf8916fc7854",
+  "prompts": {},
+  "sessions": {
+    "s_ece80ff4f65a3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bd3b5345-d1d3-4fb7-bfc3-b74475e760a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
