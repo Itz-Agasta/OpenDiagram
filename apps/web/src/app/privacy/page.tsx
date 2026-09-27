@@ -86,8 +86,9 @@ export default function PrivacyPage() {
           <li>Sentry: error monitoring</li>
         </ul>
         <p>
-          These providers may process data in the United States and other countries. We may also
-          disclose data if the law requires it.
+          Your account and content are stored in the United States (our database is in Ohio and
+          our API runs in Iowa). Some providers, such as the content delivery network, may process
+          data in other countries. We may also disclose data if the law requires it.
         </p>
       </LegalSection>
 
