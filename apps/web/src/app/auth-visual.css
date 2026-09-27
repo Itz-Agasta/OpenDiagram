@@ -60,5 +60,8 @@
     padding: 32px 16px;
     border-radius: 0;
     box-shadow: none;
+    /* Opaque: with the scene hidden, the translucent card turns grey over the black stage. */
+    background: linear-gradient(180deg, #fbfaf8, #f1f0ed);
+    backdrop-filter: none;
   }
 }

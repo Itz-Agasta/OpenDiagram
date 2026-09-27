@@ -140,7 +140,7 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
  * pointer and shows the lit version of whatever it covers. The ball passes under the
  * auth card, which frosts it. Without WebGL2 the plain scene image shows.
  */
-export function LensScene() {
+export function LensScene({ xray = XRAY }: { xray?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wide = useSyncExternalStore(subscribeWide, isWide, () => false);
 
@@ -250,7 +250,7 @@ export function LensScene() {
     raf = requestAnimationFrame(frame);
 
     let disposed = false;
-    Promise.all([loadImage(SCENE), loadImage(XRAY)])
+    Promise.all([loadImage(SCENE), loadImage(xray)])
       .then((imgs) => {
         if (disposed) return;
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -272,7 +272,7 @@ export function LensScene() {
       textures.forEach((t) => gl.deleteTexture(t));
       gl.deleteProgram(program);
     };
-  }, [wide]);
+  }, [wide, xray]);
 
   return (
     <div className="lens-scene" aria-hidden>

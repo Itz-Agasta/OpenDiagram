@@ -29,7 +29,14 @@ export function SignInFields({ form }: { form: AuthFormController }) {
         htmlFor="signin-password"
         error={signIn.errors.password}
         hint={
-          <Link className="linklike" href="/reset-password">
+          <Link
+            className="linklike"
+            href={
+              signIn.email
+                ? `/reset-password?email=${encodeURIComponent(signIn.email)}`
+                : "/reset-password"
+            }
+          >
             Forgot password?
           </Link>
         }
