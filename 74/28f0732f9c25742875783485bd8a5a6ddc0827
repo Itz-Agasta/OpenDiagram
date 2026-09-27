@@ -1,0 +1,19 @@
+apps/web/src/components/auth/aurora-backdrop.tsx
+  s_6a028171a36627::t_eeb1d7cadb77a9 16-18,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7428f0732f9c25742875783485bd8a5a6ddc0827",
+  "prompts": {},
+  "sessions": {
+    "s_6a028171a36627": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e405977-3f17-4894-b16c-e07a3ea75e60",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
