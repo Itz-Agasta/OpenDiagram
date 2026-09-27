@@ -135,7 +135,12 @@ function RequestLink({
           </p>
         )}
         <div className="alt">
-          <button className="linklike" type="button" onClick={() => setSent(false)}>
+          <button
+            className="linklike"
+            type="button"
+            onClick={() => setSent(false)}
+            disabled={loading}
+          >
             Use a different email
           </button>
           {" · "}

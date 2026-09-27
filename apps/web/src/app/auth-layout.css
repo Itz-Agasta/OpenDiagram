@@ -76,7 +76,7 @@
   margin-top: 20px;
 }
 
-.success-resend .linklike:disabled {
+.success .linklike:disabled {
   color: var(--od-ink-faint);
   text-decoration-color: transparent;
   cursor: not-allowed;
