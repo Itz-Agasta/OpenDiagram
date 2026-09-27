@@ -1,0 +1,31 @@
+apps/web/src/app/auth-visual.css
+  s_6a028171a36627::t_7baa2d433688cb 51,54
+apps/web/src/components/auth/lens-scene.tsx
+  s_6a028171a36627::t_df5729a1fb9d15 275,279
+  s_6a028171a36627::t_7cd587382f934c 80
+  s_6a028171a36627::t_5d21a1291d1061 49-50,53
+  s_6a028171a36627::t_60404d63264bfd 121-130
+  s_6a028171a36627::t_88b2f971300412 3
+  s_6a028171a36627::t_60a971bf4890bd 102-106
+  s_6a028171a36627::t_f10216313ea1a4 178-187,190,194-197,204-205
+  s_6a028171a36627::t_ce425ea9c7891c 145
+  s_6a028171a36627::t_e72b23167033be 235-243
+apps/web/src/app/privacy/page.tsx
+  s_6a028171a36627::t_e5c27d90a70837 82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2918f0898669150be595f53593f0b5f333dc7038",
+  "prompts": {},
+  "sessions": {
+    "s_6a028171a36627": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e405977-3f17-4894-b16c-e07a3ea75e60",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
