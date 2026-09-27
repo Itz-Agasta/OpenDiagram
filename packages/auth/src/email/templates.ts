@@ -1,76 +1,36 @@
-export type EmailBody = { subject: string; html: string; text: string };
+import { type EmailBody, greet, greetText, panel, paragraph, shell } from "./layout";
 
-/** User-controlled strings (display names) can't go into markup unescaped. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function greet(name?: string | null): string {
-  const trimmed = name?.trim();
-  return trimmed ? `Hi ${escapeHtml(trimmed)},` : "Hi,";
-}
-
-type ShellInput = {
-  /** Short pre-header: the grey preview line clients show next to the subject. */
-  preview: string;
-  bodyHtml: string;
-  cta?: { label: string; url: string };
-  /** Rendered small and grey under the CTA. */
-  footerHtml?: string;
-};
-
-function shell({ preview, bodyHtml, cta, footerHtml }: ShellInput): string {
-  return `<!doctype html>
-<html>
-  <body style="margin:0;padding:32px 16px;background:#f4f4f5;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preview)}</div>
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;padding:32px;">
-      <p style="margin:0 0 28px;font-size:17px;font-weight:600;letter-spacing:-0.01em;">OpenDiagram</p>
-      ${bodyHtml}
-      ${
-        cta
-          ? `<p style="margin:28px 0 0;">
-        <a href="${escapeHtml(cta.url)}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-size:15px;font-weight:500;padding:12px 22px;border-radius:8px;">${escapeHtml(cta.label)}</a>
-      </p>
-      <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#71717a;">
-        Button not working? Paste this into your browser:<br />
-        <a href="${escapeHtml(cta.url)}" style="color:#3f3f46;word-break:break-all;">${escapeHtml(cta.url)}</a>
-      </p>`
-          : ""
-      }
-      ${footerHtml ? `<p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #f4f4f5;font-size:13px;line-height:1.6;color:#71717a;">${footerHtml}</p>` : ""}
-    </div>
-    <p style="max-width:520px;margin:16px auto 0;font-size:12px;line-height:1.6;color:#a1a1aa;text-align:center;">
-      OpenDiagram &middot; open-source AI workspace for software architecture
-    </p>
-  </body>
-</html>`;
-}
-
-function paragraph(html: string): string {
-  return `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;">${html}</p>`;
-}
+export type { EmailBody } from "./layout";
 
 /**
  * Sent on signup, and again if an unverified account signs in. Single-purpose:
  * verifying is what lifts an account off the guest allowance onto the Free
  * monthly credits, so the copy says what the click buys and nothing else.
  */
-export function verificationEmail(input: { name?: string | null; url: string }): EmailBody {
+export function verificationEmail(input: {
+  name?: string | null;
+  url: string;
+  site: string;
+}): EmailBody {
   return {
     subject: "Verify your OpenDiagram email",
     html: shell({
+      site: input.site,
       preview: "Confirm your address to unlock your monthly credits.",
+      hero: {
+        file: "verify.png",
+        alt: "The OpenDiagram octopus inspecting an ID badge",
+        bg: "#98d7fa",
+      },
+      eyebrow: "Verify it's you",
+      headline: "Is this your inbox?",
       bodyHtml: [
         paragraph(greet(input.name)),
         paragraph("Confirm your email address to unlock your monthly OpenDiagram credits."),
-      ].join("\n      "),
+      ].join("\n"),
       cta: { label: "Verify email address", url: input.url },
-      footerHtml: "This link expires in an hour. Didn't sign up? You can ignore this email.",
+      finePrint:
+        "This link expires in an hour. Didn't sign up? Ignore this email and nothing happens.",
     }),
     text: [
       greetText(input.name),
@@ -84,39 +44,48 @@ export function verificationEmail(input: { name?: string | null; url: string }):
 }
 
 /**
- * Sent once, immediately after verification succeeds -- not at signup. Sending a
- * welcome before the address is confirmed means the two mails race in the inbox
- * and the one that matters (verification) is the one that gets buried.
+ * Sent once per account: after email verification, or at creation for GitHub
+ * sign-ups, which arrive verified. Sending it at signup instead would race the
+ * verification mail in the inbox and bury the one that unlocks the account.
  */
 export function welcomeEmail(input: {
   name?: string | null;
   dashboardUrl: string;
   credits: number;
+  site: string;
 }): EmailBody {
   return {
     subject: "Welcome to OpenDiagram",
     html: shell({
-      preview: `You're verified. ${input.credits} diagram credits are on your account.`,
+      site: input.site,
+      preview: `You're in. ${input.credits} diagram credits are on your account.`,
+      hero: {
+        file: "welcome.png",
+        alt: "The OpenDiagram octopus drawing a system diagram at a drafting desk",
+        bg: "#fbd79d",
+      },
+      eyebrow: "Welcome to OpenDiagram",
+      headline: "Describe it. We'll draw it.",
       bodyHtml: [
         paragraph(greet(input.name)),
         paragraph(
-          `You're verified, and <strong>${input.credits} diagram credits</strong> are on your account.`,
+          `You're in, and <strong>${input.credits} diagram credits</strong> are on your account.`,
         ),
-        paragraph("Three things worth trying first:"),
-        `<ul style="margin:0 0 14px;padding-left:20px;font-size:15px;line-height:1.8;">
-        <li>Describe a system in plain English and let it draw the architecture.</li>
-        <li>Ask for a change ("add a Redis cache") instead of dragging boxes.</li>
-        <li>Add your own AI key in Settings for <strong>unlimited</strong> diagrams, free forever.</li>
-      </ul>`,
-      ].join("\n      "),
+        panel(`<strong style="color:#18181b;">Three things worth trying first</strong>
+<ul style="margin:8px 0 0;padding-left:20px;">
+<li>Describe a system in plain English and let it draw the architecture.</li>
+<li>Ask for a change ("add a Redis cache") instead of dragging boxes.</li>
+<li>Add your own AI key in Settings for <strong>unlimited</strong> diagrams, free forever.</li>
+</ul>`),
+      ].join("\n"),
       cta: { label: "Open your dashboard", url: input.dashboardUrl },
-      footerHtml:
-        "Replying to this email reaches us directly - tell us what you're building and what's missing.",
+      finePrint:
+        "Replying to this email reaches us directly. Tell us what you're building and what's missing.",
     }),
     text: [
       greetText(input.name),
       "",
-      `You're verified, and ${input.credits} diagram credits are on your account.`,
+      `You're in, and ${input.credits} diagram credits are on your account.`,
       "",
       "Three things worth trying first:",
       "- Describe a system in plain English and let it draw the architecture.",
@@ -131,18 +100,32 @@ export function welcomeEmail(input: {
 }
 
 /** Sent on an explicit reset request only, so it names the request and the expiry. */
-export function passwordResetEmail(input: { name?: string | null; url: string }): EmailBody {
+export function passwordResetEmail(input: {
+  name?: string | null;
+  url: string;
+  site: string;
+}): EmailBody {
   return {
     subject: "Reset your OpenDiagram password",
     html: shell({
+      site: input.site,
       preview: "Set a new password for your OpenDiagram account.",
+      hero: {
+        file: "reset.png",
+        alt: "The OpenDiagram octopus holding out a brass key",
+        bg: "#fee276",
+      },
+      eyebrow: "Password reset",
+      headline: "Locked out? Here's your key.",
       bodyHtml: [
         paragraph(greet(input.name)),
-        paragraph("Someone asked to reset the password on your OpenDiagram account."),
-      ].join("\n      "),
+        paragraph(
+          "Someone asked to reset the password on your OpenDiagram account. If that was you, pick a new one below.",
+        ),
+      ].join("\n"),
       cta: { label: "Set a new password", url: input.url },
-      footerHtml:
-        "This link expires in an hour and can be used once. If you didn't request it, ignore this email - your password stays as it is.",
+      finePrint:
+        "This link expires in an hour and works once. Didn't ask for it? Ignore this email and your password stays as it is.",
     }),
     text: [
       greetText(input.name),
@@ -151,13 +134,50 @@ export function passwordResetEmail(input: { name?: string | null; url: string })
       `Set a new password: ${input.url}`,
       "",
       "This link expires in an hour and can be used once. If you didn't request it,",
-      "ignore this email - your password stays as it is.",
+      "ignore this email and your password stays as it is.",
     ].join("\n"),
   };
 }
 
-/** The text part is not markup, so it takes the raw name rather than the escaped one. */
-function greetText(name?: string | null): string {
-  const trimmed = name?.trim();
-  return trimmed ? `Hi ${trimmed},` : "Hi,";
+/**
+ * Sent after a reset completes. Every session is revoked on reset, so if someone
+ * else did it, this mail is the owner's only signal; it points back at the reset
+ * page, which works without being signed in.
+ */
+export function passwordChangedEmail(input: { name?: string | null; site: string }): EmailBody {
+  const resetUrl = `${input.site}/reset-password`;
+  return {
+    subject: "Your OpenDiagram password was changed",
+    html: shell({
+      site: input.site,
+      preview: "Your password was changed and every device was signed out.",
+      hero: {
+        file: "password-changed.png",
+        alt: "The OpenDiagram octopus fitting a new lock on a vault door",
+        bg: "#a0efc0",
+      },
+      eyebrow: "Security notice",
+      headline: "Your password was changed.",
+      bodyHtml: [
+        paragraph(greet(input.name)),
+        paragraph(
+          "The password on your OpenDiagram account was just changed, and every device was signed out. If that was you, you're all set.",
+        ),
+        paragraph(
+          "<strong>Wasn't you?</strong> Reset your password now, then reply to this email so we can help.",
+        ),
+      ].join("\n"),
+      cta: { label: "Reset your password", url: resetUrl },
+      finePrint: "We send this whenever your account password changes.",
+    }),
+    text: [
+      greetText(input.name),
+      "",
+      "The password on your OpenDiagram account was just changed, and every device",
+      "was signed out. If that was you, you're all set.",
+      "",
+      `Wasn't you? Reset your password now: ${resetUrl}`,
+      "Then reply to this email so we can help.",
+    ].join("\n"),
+  };
 }

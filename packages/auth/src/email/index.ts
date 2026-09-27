@@ -1,7 +1,13 @@
 import { env } from "@OpenDiagram/env/server";
 import { log } from "evlog";
 import { Resend } from "resend";
-import { passwordResetEmail, verificationEmail, welcomeEmail, type EmailBody } from "./templates";
+import {
+  passwordChangedEmail,
+  passwordResetEmail,
+  verificationEmail,
+  welcomeEmail,
+  type EmailBody,
+} from "./templates";
 
 let cached: Resend | null | undefined;
 
@@ -57,6 +63,7 @@ export async function sendVerificationMail(input: {
   to: string;
   name?: string | null;
   url: string;
+  site: string;
 }): Promise<void> {
   await sendSafely("verification", input.to, verificationEmail(input));
 }
@@ -66,6 +73,7 @@ export async function sendWelcomeMail(input: {
   name?: string | null;
   dashboardUrl: string;
   credits: number;
+  site: string;
 }): Promise<void> {
   // Verification can only succeed once per token, but a retried request could
   // reach the callback twice; the key makes a duplicate a no-op at Resend.
@@ -76,6 +84,15 @@ export async function sendPasswordResetMail(input: {
   to: string;
   name?: string | null;
   url: string;
+  site: string;
 }): Promise<void> {
   await sendSafely("password-reset", input.to, passwordResetEmail(input));
+}
+
+export async function sendPasswordChangedMail(input: {
+  to: string;
+  name?: string | null;
+  site: string;
+}): Promise<void> {
+  await sendSafely("password-changed", input.to, passwordChangedEmail(input));
 }

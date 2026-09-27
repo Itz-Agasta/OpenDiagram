@@ -46,6 +46,10 @@ export const env = createEnv({
     // address, which is enough for local testing and nothing else.
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM: z.string().min(1).default("OpenDiagram <onboarding@resend.dev>"),
+    // Where email images load from. Mail clients fetch them through their own
+    // proxies, so this must be publicly reachable: localhost never renders in Gmail.
+    // Point it at a Vercel preview's /email to test a branch before merge.
+    EMAIL_ASSET_URL: z.url().default("https://opendiagram.ink/email"),
     // Fraction of traces sampled, 0..1. Full sampling by default: gen_ai runs
     // are sampled as a whole span tree, so dropping a root span loses the
     // entire agent run. Lower it here if span volume becomes a problem.

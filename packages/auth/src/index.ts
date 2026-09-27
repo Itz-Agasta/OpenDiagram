@@ -4,7 +4,12 @@ import { plan } from "@OpenDiagram/db/schema/billing";
 import { env } from "@OpenDiagram/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { sendPasswordResetMail, sendVerificationMail, sendWelcomeMail } from "./email";
+import {
+  sendPasswordChangedMail,
+  sendPasswordResetMail,
+  sendVerificationMail,
+  sendWelcomeMail,
+} from "./email";
 import { captureSignup } from "./signup-event";
 
 /** First entry of CORS_ORIGIN - the web app, which owns every user-facing page. */
@@ -16,6 +21,16 @@ function withCallback(url: string, callbackURL: string): string {
   const link = new URL(url);
   link.searchParams.set("callbackURL", callbackURL);
   return link.toString();
+}
+
+async function welcome(user: { email: string; name?: string | null }): Promise<void> {
+  await sendWelcomeMail({
+    to: user.email,
+    name: user.name,
+    dashboardUrl: `${webOrigin()}/dashboard`,
+    credits: await signupCredits(),
+    site: webOrigin(),
+  });
 }
 
 /** Read credits from the plan table, not hardcoded -- the grant changes over time. */
@@ -74,7 +89,10 @@ export function createAuth() {
       // The landing page comes from the caller's `redirectTo`, so Better Auth
       // builds this link correctly without a rewrite here.
       sendResetPassword: async ({ user, url }) => {
-        await sendPasswordResetMail({ to: user.email, name: user.name, url });
+        await sendPasswordResetMail({ to: user.email, name: user.name, url, site: webOrigin() });
+      },
+      onPasswordReset: async ({ user }) => {
+        await sendPasswordChangedMail({ to: user.email, name: user.name, site: webOrigin() });
       },
     },
     // Soft gate, not a wall. `requireEmailVerification` would lock out pre-existing
@@ -91,18 +109,12 @@ export function createAuth() {
           // Better Auth builds the link against the API origin and defaults its
           // callbackURL to "/", which lands the user on the bare API host.
           url: withCallback(url, `${webOrigin()}/dashboard?verified=1`),
+          site: webOrigin(),
         });
       },
       // Welcome lands after verification, not at signup: two mails racing in the
       // inbox buries the one that actually unlocks the account.
-      afterEmailVerification: async (user) => {
-        await sendWelcomeMail({
-          to: user.email,
-          name: user.name,
-          dashboardUrl: `${webOrigin()}/dashboard`,
-          credits: await signupCredits(),
-        });
-      },
+      afterEmailVerification: welcome,
     },
     // `storage: "database"` because Cloud Run scales to zero -- in-memory counters
     // are per-instance and wiped by every cold start.
@@ -137,6 +149,8 @@ export function createAuth() {
               ? "email"
               : (ctx?.params?.id ?? "unknown");
             await captureSignup(user, method);
+            // GitHub sign-ups arrive verified and never reach afterEmailVerification.
+            if (user.emailVerified) await welcome(user);
           },
         },
       },
