@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { IconArrowRight, IconCheck, IconMail } from "@tabler/icons-react";
+import { IconArrowRight, IconCheck, IconMail, IconMailCheck } from "@tabler/icons-react";
 import { authClient } from "@/lib/auth-client";
 import { Field, PasswordInput, scoreStrength } from "./auth-components";
+import { AuthShell } from "./auth-shell";
+
+const RESEND_COOLDOWN_S = 60;
 
 /**
  * Both halves of password recovery on one route.
@@ -22,17 +25,13 @@ export function ResetPasswordForm() {
   const linkError = searchParams.get("error");
 
   return (
-    <div className="stage" data-layout="single" data-accent="lime">
-      <div className="pane-form">
-        <div className="auth-card">
-          <div className="brand">
-            <div className="brand-mark">O</div>
-            <div className="brand-name">OpenDiagram</div>
-          </div>
-          {token ? <NewPassword token={token} /> : <RequestLink linkError={linkError} />}
-        </div>
-      </div>
-    </div>
+    <AuthShell backdrop="spectrum">
+      {token ? (
+        <NewPassword token={token} />
+      ) : (
+        <RequestLink linkError={linkError} initialEmail={searchParams.get("email") ?? ""} />
+      )}
+    </AuthShell>
   );
 }
 
@@ -52,11 +51,24 @@ function emailIsValid(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function RequestLink({ linkError }: { linkError: string | null }) {
-  const [email, setEmail] = useState("");
+function RequestLink({
+  linkError,
+  initialEmail,
+}: {
+  linkError: string | null;
+  initialEmail: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const tick = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(tick);
+  }, [cooldown]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -64,6 +76,10 @@ function RequestLink({ linkError }: { linkError: string | null }) {
       setError("Enter a valid email");
       return;
     }
+    await send();
+  }
+
+  async function send() {
     setError(null);
     setLoading(true);
     try {
@@ -76,8 +92,12 @@ function RequestLink({ linkError }: { linkError: string | null }) {
       });
       // Shown whether or not the address exists -- the response is the same either
       // way, and saying "no such account" would turn this into a user enumerator.
-      if (requestError) setError(requestError.message ?? "Could not send the reset link.");
-      else setSent(true);
+      if (requestError) {
+        setError(requestError.message ?? "Could not send the reset link.");
+      } else {
+        setSent(true);
+        setCooldown(RESEND_COOLDOWN_S);
+      }
     } catch {
       setError("Could not reach the server. Check your connection and try again.");
     } finally {
@@ -90,10 +110,43 @@ function RequestLink({ linkError }: { linkError: string | null }) {
     return (
       <div className="success">
         <div className="success-icon">
-          <IconCheck width={28} height={28} />
+          <IconMailCheck width={28} height={28} />
         </div>
         <h2>Check your inbox</h2>
-        <p>If an account exists for {email}, a reset link is on its way. It expires in an hour.</p>
+        <p>
+          If an account exists for <strong>{email}</strong>, a reset link is on its way. It expires
+          in an hour.
+        </p>
+        <p className="success-resend">
+          Didn&apos;t get it?{" "}
+          <button
+            className="linklike"
+            type="button"
+            onClick={send}
+            disabled={loading || cooldown > 0}
+          >
+            {loading ? "Sending…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend link"}
+          </button>
+        </p>
+        {error && (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="alt">
+          <button
+            className="linklike"
+            type="button"
+            onClick={() => setSent(false)}
+            disabled={loading}
+          >
+            Use a different email
+          </button>
+          {" · "}
+          <Link className="linklike" href="/login">
+            Back to sign in
+          </Link>
+        </div>
       </div>
     );
   }
@@ -106,9 +159,9 @@ function RequestLink({ linkError }: { linkError: string | null }) {
       <p className="subtitle">We&apos;ll email you a link to choose a new one.</p>
 
       {linkError && (
-        <p className="field-error" role="alert">
-          That reset link has expired or was already used. Request a new one below.
-        </p>
+        <div className="auth-notice" role="alert">
+          <p>That reset link has expired or was already used. Request a new one below.</p>
+        </div>
       )}
 
       <form onSubmit={submit} noValidate>
@@ -134,7 +187,10 @@ function RequestLink({ linkError }: { linkError: string | null }) {
       </form>
 
       <div className="alt">
-        Remembered it? <Link href="/login">Back to sign in</Link>
+        Remembered it?{" "}
+        <Link className="linklike" href="/login">
+          Back to sign in
+        </Link>
       </div>
     </>
   );
@@ -169,6 +225,12 @@ function NewPassword({ token }: { token: string }) {
         newPassword: password,
         token,
       });
+      // A token that expired while the form sat open lands on the same notice as a dead
+      // mailed link, which already offers to send a new one.
+      if (resetError?.code === "INVALID_TOKEN") {
+        router.replace("/reset-password?error=INVALID_TOKEN");
+        return;
+      }
       if (resetError) {
         setFormError(resetError.message ?? "Could not reset your password.");
         return;
@@ -249,6 +311,13 @@ function NewPassword({ token }: { token: string }) {
           <SubmitButton loading={loading}>Update password</SubmitButton>
         </div>
       </form>
+
+      <div className="alt">
+        Changed your mind?{" "}
+        <Link className="linklike" href="/login">
+          Back to sign in
+        </Link>
+      </div>
     </>
   );
 }

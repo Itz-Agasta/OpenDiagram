@@ -14,20 +14,6 @@
   min-height: 100dvh;
 }
 
-/* Password reset: one card, no visual pane to balance it against. */
-.stage[data-layout="single"] {
-  display: grid;
-  place-items: center;
-}
-
-.stage[data-layout="single"] .pane-form {
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  width: 100%;
-  max-width: 480px;
-}
-
 /* Auth card */
 
 .auth-card {
@@ -40,20 +26,6 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 32px;
-}
-
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--od-ink);
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1;
 }
 
 .brand-name {
@@ -90,7 +62,24 @@
 
 .success p {
   font-size: 13px;
+  line-height: 1.6;
   color: var(--od-ink-muted);
+}
+
+.success strong {
+  font-weight: 500;
+  color: var(--od-ink);
+  overflow-wrap: anywhere;
+}
+
+.success-resend {
+  margin-top: 20px;
+}
+
+.success .linklike:disabled {
+  color: var(--od-ink-faint);
+  text-decoration-color: transparent;
+  cursor: not-allowed;
 }
 
 /* Title / subtitle */
