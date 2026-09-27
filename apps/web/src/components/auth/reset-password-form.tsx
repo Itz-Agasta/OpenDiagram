@@ -8,7 +8,6 @@ import { authClient } from "@/lib/auth-client";
 import { Field, PasswordInput, scoreStrength } from "./auth-components";
 import { AuthShell } from "./auth-shell";
 
-const RESET_XRAY = "/auth/scene-xray-reset.webp";
 const RESEND_COOLDOWN_S = 60;
 
 /**
@@ -26,7 +25,7 @@ export function ResetPasswordForm() {
   const linkError = searchParams.get("error");
 
   return (
-    <AuthShell xray={RESET_XRAY}>
+    <AuthShell backdrop="aurora">
       {token ? (
         <NewPassword token={token} />
       ) : (

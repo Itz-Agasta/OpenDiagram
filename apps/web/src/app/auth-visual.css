@@ -43,7 +43,189 @@
   max-width: 360px;
 }
 
+/* Centre layout: drifting rainbow backdrop, card in the middle (password reset) */
+
+.stage[data-layout="center"] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow: hidden;
+  background: #050505;
+}
+
+/* Registered so the transition below can ease them; an unregistered custom property
+   snaps instead of interpolating. */
+@property --mx {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+
+@property --my {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 40%;
+}
+
+/* Soft radial blobs rather than one filter: blur() layer, which would repaint the whole
+   blurred surface every frame while the blobs move. */
+.aurora {
+  position: absolute;
+  inset: -6%;
+  transition:
+    --mx 1.4s cubic-bezier(0.16, 1, 0.3, 1),
+    --my 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  /* A dim spectrum underneath so the blobs read as light moving across a wall, not spots. */
+  background: linear-gradient(
+    100deg,
+    #2e0b09 0%,
+    #4a1a0c 18%,
+    #4d3a12 36%,
+    #123a34 56%,
+    #16244f 74%,
+    #26163f 92%
+  );
+}
+
+.aurora span {
+  position: absolute;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--c) 0%, transparent 58%);
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  will-change: transform;
+  /* Parallax: each blob slides against the pointer by its own depth. `translate`
+     composes with the drift's `transform` instead of replacing it. */
+  translate: calc((50% - var(--mx)) * var(--depth)) calc((50% - var(--my)) * var(--depth));
+  animation: aurora-drift var(--t) ease-in-out infinite alternate;
+}
+
+/* The light that follows the pointer. */
+.aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    circle 34vmax at var(--mx) var(--my),
+    rgb(255 236 214 / 0.22) 0%,
+    rgb(255 236 214 / 0.07) 45%,
+    transparent 70%
+  );
+}
+
+/* The scene wall's spectrum, red to violet. */
+.aurora span:nth-child(1) {
+  --c: #d8392b;
+  --t: 13s;
+  --depth: 0.05;
+  --dx: 18vw;
+  --dy: 12vh;
+  left: -25vmax;
+  top: -30vmax;
+}
+.aurora span:nth-child(2) {
+  --c: #ee7a2f;
+  --t: 16s;
+  --depth: 0.09;
+  --dx: -14vw;
+  --dy: 18vh;
+  left: 0;
+  top: -10vmax;
+}
+.aurora span:nth-child(3) {
+  --c: #e9b949;
+  --t: 11s;
+  --depth: 0.07;
+  --dx: 16vw;
+  --dy: -14vh;
+  left: 20vw;
+  top: -20vmax;
+}
+.aurora span:nth-child(4) {
+  --c: #36a896;
+  --t: 15s;
+  --depth: 0.11;
+  --dx: -20vw;
+  --dy: 10vh;
+  left: 40vw;
+  top: -5vmax;
+}
+.aurora span:nth-child(5) {
+  --c: #3f5fc9;
+  --t: 12s;
+  --depth: 0.06;
+  --dx: 12vw;
+  --dy: -16vh;
+  left: 55vw;
+  top: -25vmax;
+}
+.aurora span:nth-child(6) {
+  --c: #7c4bc4;
+  --t: 14s;
+  --depth: 0.1;
+  --dx: -16vw;
+  --dy: 14vh;
+  left: 70vw;
+  top: 0;
+}
+
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(var(--dx), var(--dy), 0) scale(1.2);
+  }
+}
+
+/* Fade to black at the bottom and edges, like the lens scene's floor; then film grain. */
+.stage[data-layout="center"]::before,
+.stage[data-layout="center"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.stage[data-layout="center"]::before {
+  background:
+    linear-gradient(180deg, transparent 35%, #050505 92%),
+    radial-gradient(ellipse at 50% 30%, transparent 40%, rgb(5 5 5 / 0.7) 100%);
+}
+
+.stage[data-layout="center"]::after {
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.stage[data-layout="center"] .pane-form {
+  position: relative;
+  z-index: 2;
+  width: min(440px, 100%);
+  padding: 40px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgb(251 250 248 / 0.88), rgb(241 240 237 / 0.88));
+  backdrop-filter: blur(28px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora span {
+    animation: none;
+  }
+}
+
 @media (max-width: 768px) {
+  .stage[data-layout="center"] .pane-form {
+    padding: 32px 20px;
+  }
+
   .stage[data-layout="scene"] {
     padding: 0;
   }
