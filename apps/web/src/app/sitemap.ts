@@ -48,6 +48,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.6,
     },
+    {
+      url: new URL("/terms", SITE_URL).href,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.2,
+    },
+    {
+      url: new URL("/privacy", SITE_URL).href,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.2,
+    },
     ...blogPosts,
   ];
 }

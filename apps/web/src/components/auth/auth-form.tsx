@@ -1,20 +1,23 @@
 "use client";
 
+import Image from "next/image";
 import { IconBrandGithubFilled, IconCheck } from "@tabler/icons-react";
 import { authClient, frontendCallbackURL } from "@/lib/auth-client";
-import { VisualPane } from "./auth-components";
+import { assetUrl } from "@/lib/site";
 import { SignInFields, SignUpFields } from "./auth-form-fields";
+import { LensScene } from "./lens-scene";
 import { useAuthForm } from "./use-auth-form";
 
 export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
   const form = useAuthForm(initialTab);
 
   return (
-    <div className="stage" data-layout="split" data-accent="lime">
+    <div className="stage" data-layout="scene" data-accent="lime">
+      <LensScene />
       <div className="pane-form">
         <div className="auth-card">
           <div className="brand">
-            <div className="brand-mark">O</div>
+            <Image src={assetUrl("/brand/mascot.png")} alt="" width={32} height={32} />
             <div className="brand-name">OpenDiagram</div>
           </div>
 
@@ -41,8 +44,8 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
               </h1>
               <p className="subtitle">
                 {form.tab === "signin"
-                  ? "Sign in to continue exploring the archive."
-                  : "Start charting your own diagrams in minutes."}
+                  ? "Pick up where your diagrams left off."
+                  : "Describe your system. Get a diagram you can edit."}
               </p>
 
               {form.notice ? (
@@ -64,6 +67,25 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
                   ) : null}
                 </div>
               ) : null}
+
+              <button
+                className="btn btn-github"
+                type="button"
+                onClick={() =>
+                  authClient.signIn.social({
+                    provider: "github",
+                    callbackURL: frontendCallbackURL(form.redirectTo),
+                    errorCallbackURL: frontendCallbackURL(
+                      `/login?redirect=${encodeURIComponent(form.redirectTo)}`,
+                    ),
+                  })
+                }
+              >
+                <IconBrandGithubFilled size={16} />
+                Continue with GitHub
+              </button>
+
+              <div className="divider">or with email</div>
 
               <div className="tabs" role="tablist">
                 <div className="tab-pill" data-pos={form.tab} />
@@ -89,24 +111,6 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
                 </div>
               </form>
 
-              <div className="divider">or continue with</div>
-              <button
-                className="btn btn-github"
-                type="button"
-                onClick={() =>
-                  authClient.signIn.social({
-                    provider: "github",
-                    callbackURL: frontendCallbackURL(form.redirectTo),
-                    errorCallbackURL: frontendCallbackURL(
-                      `/login?redirect=${encodeURIComponent(form.redirectTo)}`,
-                    ),
-                  })
-                }
-              >
-                <IconBrandGithubFilled size={16} />
-                Continue with GitHub
-              </button>
-
               <div className="alt">
                 {form.tab === "signin" ? "New here? " : "Already a member? "}
                 <button
@@ -121,8 +125,6 @@ export function AuthForm({ initialTab }: { initialTab: "signin" | "signup" }) {
           )}
         </div>
       </div>
-
-      <VisualPane _isSignup={form.tab === "signup"} />
     </div>
   );
 }

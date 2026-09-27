@@ -126,7 +126,15 @@ export function SignUpFields({ form }: { form: AuthFormController }) {
       </Field>
 
       <Checkbox checked={signUp.terms} onChange={setSignUp.terms}>
-        I agree to the <Link href="#">Terms</Link> and <Link href="#">Privacy Policy</Link>.
+        I agree to the{" "}
+        <Link href="/terms" target="_blank">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" target="_blank">
+          Privacy Policy
+        </Link>
+        .
         {signUp.errors.terms && (
           <span style={{ color: "var(--destructive)", display: "block", marginTop: 2 }}>
             {signUp.errors.terms}

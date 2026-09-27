@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { IconEye, IconEyeOff, IconCheck } from "@tabler/icons-react";
-import { assetUrl } from "@/lib/site";
 
 export function scoreStrength(pwd: string): { level: number; label: string } {
   if (!pwd) return { level: 0, label: "" };
@@ -102,28 +100,5 @@ export function Checkbox({
       </span>
       <span className="check-text">{children}</span>
     </label>
-  );
-}
-
-export function VisualPane({ _isSignup }: { _isSignup: boolean }) {
-  return (
-    <div className="pane-visual">
-      <Image
-        src={assetUrl("/auth/flower.jpg")}
-        alt="Annotated flower architecture study"
-        fill
-        priority
-        sizes="50vw"
-        className="visual-image"
-      />
-      <div className="visual-label">
-        <span className="visual-tag">VIBE DIAGRAMS</span>
-        <p className="visual-quote">
-          {_isSignup
-            ? "Architect systems visually, generate instantly."
-            : "Make Vibe Diagrams for your Vibe Projects."}
-        </p>
-      </div>
-    </div>
   );
 }
