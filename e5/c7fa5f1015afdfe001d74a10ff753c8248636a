@@ -1,0 +1,45 @@
+apps/web/src/components/auth/auth-form.tsx
+  s_6a028171a36627::t_639b9469e6e789 14-17,19-39,41-57,59,61-76,78-82,84,86-90,92,94-95,97-102,104-115
+  s_6a028171a36627::t_52a23e7c5bb7e1 6,13
+  s_6a028171a36627::t_c5f36ea7a0052a 116
+apps/web/src/app/auth-layout.css
+  s_6a028171a36627::t_99b2226dd714ce 65,69-83
+  s_6a028171a36627::t_c2ed0ce740658f 84
+apps/web/src/components/auth/auth-shell.tsx
+  s_6a028171a36627::t_8354a661eca23e 1-21
+apps/web/src/components/auth/auth-form-fields.tsx
+  s_6a028171a36627::t_7653c96587867b 32-39
+apps/web/src/components/auth/lens-scene.tsx
+  s_6a028171a36627::t_a499670090dccc 143
+  s_6a028171a36627::t_ec5fdf9a749b6e 253
+  s_6a028171a36627::t_5829b04e1c8310 275
+apps/web/src/components/auth/reset-password-form.tsx
+  s_6a028171a36627::t_271d5e7610e843 158-160
+  s_6a028171a36627::t_639b9469e6e789 118-119
+  s_6a028171a36627::t_bd9d68b9e4b96e 96-101
+  s_6a028171a36627::t_fe2e19cf01e20e 114,117,120-141,145
+  s_6a028171a36627::t_c3dd169596119e 29-35
+  s_6a028171a36627::t_85699de92450d7 3,6,9-12
+  s_6a028171a36627::t_db5d783701c1df 310-311,316
+  s_6a028171a36627::t_0d41583f7e13ce 142-144,186-189,312-315
+  s_6a028171a36627::t_bcbdb37e2b2faf 224-229
+  s_6a028171a36627::t_f3204ec7fdc33b 55-62,66-72,80-83
+apps/web/src/app/auth-visual.css
+  s_6a028171a36627::t_fb9cd9f8faa35a 63-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5c7fa5f1015afdfe001d74a10ff753c8248636a",
+  "prompts": {},
+  "sessions": {
+    "s_6a028171a36627": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e405977-3f17-4894-b16c-e07a3ea75e60",
+        "model": "unknown"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
