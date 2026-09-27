@@ -1,0 +1,19 @@
+apps/web/src/components/auth/spectrum-backdrop.tsx
+  s_17bd662212c3ee::t_b663f2a4c8654f 72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a01246bcf641638d6232f13e508048d1dcd830cc",
+  "prompts": {},
+  "sessions": {
+    "s_17bd662212c3ee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1596e998-5122-4897-a83c-65213c245434",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
