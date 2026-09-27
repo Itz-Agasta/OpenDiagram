@@ -25,7 +25,7 @@ export function ResetPasswordForm() {
   const linkError = searchParams.get("error");
 
   return (
-    <AuthShell backdrop="aurora">
+    <AuthShell backdrop="spectrum">
       {token ? (
         <NewPassword token={token} />
       ) : (

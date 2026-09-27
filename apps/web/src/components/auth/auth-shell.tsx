@@ -1,18 +1,18 @@
 import Image from "next/image";
 import { assetUrl } from "@/lib/site";
-import { AuroraBackdrop } from "./aurora-backdrop";
 import { LensScene } from "./lens-scene";
+import { SpectrumBackdrop } from "./spectrum-backdrop";
 
 /**
  * Card and brand shared by the auth pages. `lens`: the mascot scene with the card on the
- * left (sign in / sign up). `aurora`: a drifting rainbow gradient with the card centred
- * (password reset).
+ * left (sign in / sign up). `spectrum`: the scene's rainbow wall as a
+ * drifting shader, card centred (password reset).
  */
 export function AuthShell({
   backdrop = "lens",
   children,
 }: {
-  backdrop?: "lens" | "aurora";
+  backdrop?: "lens" | "spectrum";
   children: React.ReactNode;
 }) {
   return (
@@ -21,7 +21,7 @@ export function AuthShell({
       data-layout={backdrop === "lens" ? "scene" : "center"}
       data-accent="lime"
     >
-      {backdrop === "lens" ? <LensScene /> : <AuroraBackdrop />}
+      {backdrop === "lens" ? <LensScene /> : <SpectrumBackdrop />}
       <div className="pane-form">
         <div className="auth-card">
           <div className="brand">
