@@ -1,0 +1,21 @@
+packages/auth/src/email/index.ts
+  s_ece80ff4f65a3c::t_49824a64277584 34,46-50,52
+  s_ece80ff4f65a3c::t_b87475d0947715 12-15,29-31,33,35-45,51
+  s_ece80ff4f65a3c::t_2926e38b914feb 32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9316a6601217c1a826752c1384062afece39fe8e",
+  "prompts": {},
+  "sessions": {
+    "s_ece80ff4f65a3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bd3b5345-d1d3-4fb7-bfc3-b74475e760a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
