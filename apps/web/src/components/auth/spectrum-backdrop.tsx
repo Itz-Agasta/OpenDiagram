@@ -69,7 +69,7 @@ void main() {
   vec2 p = vec2(uv.x * u_resolution.x / u_resolution.y / 1.7778, uv.y);
   vec2 q = vec2(fbm(p * 2.0 + vec2(t, 0.0)), fbm(p * 2.0 + vec2(5.2, 1.3) - t));
   vec3 col = wall(uv.x + 0.35 * (fbm(p * 1.5 + q * 1.8 + t) - 0.5)) * 1.25;
-  col *= mix(0.03, 1.0, smoothstep(0.95, 0.15, uv.y));
+  col *= mix(0.03, 1.0, 1.0 - smoothstep(0.15, 0.95, uv.y));
   col *= 1.0 - 0.35 * pow(abs(uv.x - 0.45) * 1.8, 2.0);
   col += (hash(gl_FragCoord.xy + fract(u_time) * 100.0) - 0.5) * 0.06;
   fragColor = vec4(col, 1.0);
