@@ -13,8 +13,11 @@ export function AuroraBackdrop() {
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!el) return;
+    // Read per event so toggling the OS setting takes effect without a reload.
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onMove = (e: PointerEvent) => {
+      if (reduce.matches) return;
       el.style.setProperty("--mx", `${((e.clientX / window.innerWidth) * 100).toFixed(2)}%`);
       el.style.setProperty("--my", `${((e.clientY / window.innerHeight) * 100).toFixed(2)}%`);
     };
