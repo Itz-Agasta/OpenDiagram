@@ -1,0 +1,20 @@
+packages/auth/src/email/index.ts
+  s_ece80ff4f65a3c::t_b87475d0947715 12-15
+  s_ece80ff4f65a3c::t_ea1cb698104560 16-17,31-36,45-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "98e0783253dfaa0199797987b952a8da9b8925b1",
+  "prompts": {},
+  "sessions": {
+    "s_ece80ff4f65a3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bd3b5345-d1d3-4fb7-bfc3-b74475e760a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": null
+    }
+  }
+}
