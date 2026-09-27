@@ -25,6 +25,8 @@ const columns = [
     links: [
       ["About OpenDiagram", "/about"],
       ["Contact", "mailto:support@opendiagram.ink"],
+      ["Terms", "/terms"],
+      ["Privacy", "/privacy"],
     ],
   },
 ];
