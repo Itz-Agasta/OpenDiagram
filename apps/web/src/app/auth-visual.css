@@ -48,8 +48,10 @@
     padding: 0;
   }
 
+  /* background: none too, or the hidden fallback image still downloads. */
   .stage[data-layout="scene"] .lens-scene {
     display: none;
+    background: none;
   }
 
   .stage[data-layout="scene"] .pane-form {

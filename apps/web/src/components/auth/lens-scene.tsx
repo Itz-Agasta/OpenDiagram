@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 // Adapted from StarKnightt/liquid-glass (MIT). Changes: two image textures instead of
 // rendered text (the lens reveals the lit scene), rigid ball (no squash, wobble or
@@ -46,10 +46,11 @@ void main() {
   float r = length(q);
   float d = r - R;
   float aa = 1.5 * uDpr;
-  float inside = smoothstep(aa, -aa, d);
+  // smoothstep with edge0 > edge1 is undefined in GLSL ES 3.00, so falling edges invert.
+  float inside = 1.0 - smoothstep(-aa, aa, d);
 
   vec2 shq = frag - (uLens.xy - vec2(0.0, R * 0.2));
-  float shadow = smoothstep(R * 1.3, R * 0.6, length(shq)) * 0.35 * (1.0 - inside);
+  float shadow = (1.0 - smoothstep(R * 0.6, R * 1.3, length(shq))) * 0.35 * (1.0 - inside);
   vec3 col = texture(uScene, coverUv(frag)).rgb * (1.0 - shadow);
 
   if (inside > 0.0) {
@@ -76,7 +77,7 @@ void main() {
     float fres = pow(1.0 - max(N.z, 0.0), 3.0);
 
     glass += spec + fres * 0.12;
-    glass += smoothstep(aa * 2.5, 0.0, abs(d)) * 0.18;
+    glass += (1.0 - smoothstep(0.0, aa * 2.5, abs(d))) * 0.18;
     col = mix(col, glass, inside);
   }
 
@@ -98,7 +99,11 @@ function compileProgram(gl: WebGL2RenderingContext): WebGLProgram | null {
   };
   const vs = make(gl.VERTEX_SHADER, VERT);
   const fs = make(gl.FRAGMENT_SHADER, FRAG);
-  if (!vs || !fs) return null;
+  if (!vs || !fs) {
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
+    return null;
+  }
   const prog = gl.createProgram();
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);
@@ -111,6 +116,16 @@ function compileProgram(gl: WebGL2RenderingContext): WebGLProgram | null {
     return null;
   }
   return prog;
+}
+
+// Mirrors the 768px breakpoint in auth-visual.css that hides the scene: below it the
+// canvas is not mounted, so no textures download and no frame loop runs.
+const WIDE_QUERY = "(min-width: 769px)";
+const isWide = () => window.matchMedia(WIDE_QUERY).matches;
+function subscribeWide(onChange: () => void) {
+  const mq = window.matchMedia(WIDE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement> {
@@ -127,6 +142,7 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
  */
 export function LensScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wide = useSyncExternalStore(subscribeWide, isWide, () => false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -159,29 +175,36 @@ export function LensScene() {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let dpr = 1;
     let radius = 150;
+    // Lens state in device px, origin bottom-left like gl_FragCoord.
+    let px = 0;
+    let py = 0;
+    let vx = 0;
+    let vy = 0;
+    let tx = 0;
+    let ty = 0;
+    let lastMove = -10;
+    let idleT = Math.random() * 100;
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
+      const [oldW, oldH] = [canvas.width, canvas.height];
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.max(1, Math.round(rect.width * dpr));
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      // Keep the ball where it was relative to the scene instead of in stale pixels.
+      const sx = canvas.width / oldW;
+      const sy = canvas.height / oldH;
+      [px, tx, py, ty] = [px * sx, tx * sx, py * sy, ty * sy];
       gl.viewport(0, 0, canvas.width, canvas.height);
       const aspect = rect.width / Math.max(rect.height, 1);
       gl.uniform2f(uScale, Math.min(1, aspect / IMAGE_ASPECT), Math.min(1, IMAGE_ASPECT / aspect));
       radius = Math.min(Math.max(rect.height * 0.2, 110), 200) * dpr;
     };
     resize();
+    px = tx = canvas.width * 0.7;
+    py = ty = canvas.height * 0.55;
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
-
-    // Device px, origin bottom-left like gl_FragCoord.
-    let px = canvas.width * 0.7;
-    let py = canvas.height * 0.55;
-    let vx = 0;
-    let vy = 0;
-    let tx = px;
-    let ty = py;
-    let lastMove = -10;
-    let idleT = Math.random() * 100;
 
     const onMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -209,11 +232,15 @@ export function LensScene() {
       const cx = Math.min(Math.max(tx, radius * 0.6), canvas.width - radius * 0.6);
       const cy = Math.min(Math.max(ty, radius * 0.6), canvas.height - radius * 0.6);
 
-      // Spring-follow with a heavier lag than upstream (130/14): reads as a solid ball.
-      vx = (vx + (cx - px) * 70 * dt) * Math.exp(-11 * dt);
-      vy = (vy + (cy - py) * 70 * dt) * Math.exp(-11 * dt);
-      px += vx * dt;
-      py += vy * dt;
+      if (reducedMotion) {
+        [px, py] = [cx, cy];
+      } else {
+        // Spring-follow with a heavier lag than upstream (130/14): reads as a solid ball.
+        vx = (vx + (cx - px) * 70 * dt) * Math.exp(-11 * dt);
+        vy = (vy + (cy - py) * 70 * dt) * Math.exp(-11 * dt);
+        px += vx * dt;
+        py += vy * dt;
+      }
 
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform1f(uDpr, dpr);
@@ -245,11 +272,11 @@ export function LensScene() {
       textures.forEach((t) => gl.deleteTexture(t));
       gl.deleteProgram(program);
     };
-  }, []);
+  }, [wide]);
 
   return (
     <div className="lens-scene" aria-hidden>
-      <canvas ref={canvasRef} className="lens-canvas" />
+      {wide && <canvas ref={canvasRef} className="lens-canvas" />}
     </div>
   );
 }

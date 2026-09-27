@@ -79,6 +79,7 @@ export default function PrivacyPage() {
           <li>Vercel: website hosting and privacy-friendly traffic analytics</li>
           <li>Google Cloud: API hosting and the Gemini models</li>
           <li>Supabase: database</li>
+          <li>GitHub: sign in with GitHub and importing public repositories</li>
           <li>Resend: account emails</li>
           <li>Dodo Payments: checkout, billing, and tax as merchant of record</li>
           <li>PostHog: product analytics</li>
