@@ -1,53 +1,62 @@
-/* Visual pane */
+/* Scene layout: full-bleed lens backdrop, card floating on the left */
 
-.pane-visual {
+.stage[data-layout="scene"] {
   position: relative;
+  display: flex;
+  padding: 24px;
+  background: #050505;
 }
 
-.visual-image {
-  object-fit: fill;
-}
-
-.visual-label {
+.lens-scene {
   position: absolute;
-  right: 48px;
-  bottom: 48px;
+  inset: 0;
+  background: #050505 url("/auth/scene.webp") 72% 50% / cover no-repeat;
+}
+
+.lens-canvas {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.lens-canvas[data-ready="true"] {
+  opacity: 1;
+}
+
+.stage[data-layout="scene"] .pane-form {
+  position: relative;
   z-index: 1;
-  max-width: 440px;
-  font-family: var(--font-inter-next), sans-serif;
-  text-align: right;
+  display: grid;
+  place-items: center;
+  width: min(520px, 100%);
+  min-height: calc(100dvh - 48px);
+  padding: 40px;
+  border-radius: 12px;
+  /* Translucent so the lens reads through the card as it passes under, like Macroscope's. */
+  background: linear-gradient(180deg, rgb(251 250 248 / 0.85), rgb(241 240 237 / 0.85));
+  backdrop-filter: blur(28px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 
-.visual-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 16px;
-  backdrop-filter: blur(4px);
+.stage[data-layout="scene"] .auth-card {
+  max-width: 360px;
 }
-
-.visual-quote {
-  font-size: 30px;
-  line-height: 1.4;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-/* Responsive */
 
 @media (max-width: 768px) {
-  .stage[data-layout="split"] {
-    grid-template-columns: 1fr;
+  .stage[data-layout="scene"] {
+    padding: 0;
   }
 
-  .stage[data-layout="split"] .pane-visual {
+  .stage[data-layout="scene"] .lens-scene {
     display: none;
+  }
+
+  .stage[data-layout="scene"] .pane-form {
+    width: 100%;
+    min-height: 100dvh;
+    padding: 32px 16px;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
