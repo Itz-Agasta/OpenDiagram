@@ -1,0 +1,33 @@
+apps/web/src/components/marketing/site-footer.tsx
+  s_6a028171a36627::t_9b964ce467ff79 28-29
+apps/web/src/app/sitemap.ts
+  s_6a028171a36627::t_34c949427eb143 51-62
+apps/web/src/app/terms/page.tsx
+  s_6a028171a36627::t_6e1d34aa1b5aa2 83-84
+  s_6a028171a36627::t_89323f046f8023 1-60,63-82,85-122,126-130
+  s_6a028171a36627::t_6e302f9978f246 61-62,123-125
+apps/web/src/app/privacy/page.tsx
+  s_6a028171a36627::t_49598918c75bd1 1-64,68-87,90-102,107,109-142
+  s_6a028171a36627::t_56829ff26e74ea 88-89
+  s_6a028171a36627::t_6e302f9978f246 65-67,103-106,108
+apps/web/src/components/auth/auth-form-fields.tsx
+  s_6a028171a36627::t_811b065bb46106 129-137
+apps/web/src/components/legal/legal-page.tsx
+  s_6a028171a36627::t_228f87b5425791 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0bbf8728be357df82f2b358602b5cb974e9d7e95",
+  "prompts": {},
+  "sessions": {
+    "s_6a028171a36627": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e405977-3f17-4894-b16c-e07a3ea75e60",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
