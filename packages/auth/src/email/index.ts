@@ -9,6 +9,12 @@ import {
   type EmailBody,
 } from "./templates";
 
+// Well above a normal send (~1.2s measured) and short enough that a stalled
+// socket fails the mail instead of the signup or reset request carrying it.
+const SEND_TIMEOUT_MS = 10_000;
+
+type SendOptions = Parameters<Resend["emails"]["send"]>[1];
+
 let cached: Resend | null | undefined;
 
 function client(): Resend | null {
@@ -22,7 +28,12 @@ async function send(to: string, body: EmailBody, idempotencyKey?: string): Promi
   const mailer = client();
   if (!mailer) return;
 
-  // Resend returns errors in-band rather than throwing.
+  // Resend returns errors in-band rather than throwing, an aborted fetch included.
+  // resend 6.18.1 gives fetch() no deadline, so one stalled socket held a password
+  // reset open for 271s. Its options are spread into the fetch init, so a signal
+  // works at runtime, but the types leave it out; hence the cast. A Promise.race
+  // would stop waiting without closing the socket.
+  // https://github.com/resend/resend-node/discussions/958
   const { error } = await mailer.emails.send(
     {
       from: env.RESEND_FROM,
@@ -31,7 +42,10 @@ async function send(to: string, body: EmailBody, idempotencyKey?: string): Promi
       html: body.html,
       text: body.text,
     },
-    idempotencyKey ? { idempotencyKey } : undefined,
+    {
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    } as SendOptions,
   );
 
   if (error) throw new Error(`Resend rejected "${body.subject}": ${error.message}`);
