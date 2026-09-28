@@ -23,24 +23,36 @@ function withCallback(url: string, callbackURL: string): string {
   return link.toString();
 }
 
-async function welcome(user: { email: string; name?: string | null }): Promise<void> {
+async function welcome(user: {
+  email: string;
+  name?: string | null;
+  createdAt: Date;
+}): Promise<void> {
   await sendWelcomeMail({
     to: user.email,
     name: user.name,
     dashboardUrl: `${webOrigin()}/dashboard`,
-    credits: await signupCredits(),
+    credits: await welcomeCredits(user.createdAt),
     site: webOrigin(),
   });
 }
 
-/** Read credits from the plan table, not hardcoded -- the grant changes over time. */
-async function signupCredits(): Promise<number> {
+/**
+ * Read from the plan table, not hardcoded: the grant changes over time. The grant
+ * only covers the first month after signup (`userActor` in the server's
+ * `lib/quota/actor.ts`), so someone verifying later gets the monthly allowance and
+ * the mail has to say so. Approximates that month as 30 days; the verify link lives
+ * an hour, so a verification near the boundary needs a resend and is rare.
+ */
+async function welcomeCredits(createdAt: Date): Promise<number> {
   const [row] = await db
     .select({ signupGrant: plan.signupGrant, monthlyCredits: plan.monthlyCredits })
     .from(plan)
     .where(eq(plan.id, "free"))
     .limit(1);
-  return row ? row.signupGrant || row.monthlyCredits : 0;
+  if (!row) return 0;
+  const inFirstMonth = Date.now() - createdAt.getTime() < 30 * 24 * 60 * 60 * 1000;
+  return inFirstMonth && row.signupGrant > 0 ? row.signupGrant : row.monthlyCredits;
 }
 
 export function createAuth() {
