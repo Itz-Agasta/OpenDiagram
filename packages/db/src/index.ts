@@ -72,9 +72,7 @@ function tracedSocket() {
   socket.once("close", () => {
     if (tcpUp) return;
     const ms = Math.round(performance.now() - started);
-    console.error(
-      `[db] no TCP connection to ${attempted.join(", ") || "no address"} after ${ms}ms`,
-    );
+    console.warn(`[db] no TCP connection to ${attempted.join(", ") || "no address"} after ${ms}ms`);
   });
   return socket;
 }
