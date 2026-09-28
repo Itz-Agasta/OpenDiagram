@@ -33,7 +33,11 @@ async function send(to: string, body: EmailBody, idempotencyKey?: string): Promi
   // reset open for 271s. Its options are spread into the fetch init, so a signal
   // works at runtime, but the types leave it out; hence the cast. A Promise.race
   // would stop waiting without closing the socket.
-  // https://github.com/resend/resend-node/discussions/958
+  //
+  // FIXME(upstream-resend): drop the cast once `signal` is typed. Until then a
+  // timeout comes back as a generic `application_error`, not a TimeoutError, so
+  // the log can't tell it from a DNS failure (still true in 6.30.0).
+  // https://github.com/resend/resend-node/issues/1115
   const { error } = await mailer.emails.send(
     {
       from: env.RESEND_FROM,
