@@ -2,7 +2,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec, RenderSkeleton } from "@OpenDiagram/harness";
 import { diagramTypeSchema } from "@OpenDiagram/harness/diagram-schema";
 import type { StoredChatMessage } from "@/lib/chat-history";
-import type { RepoGenerationJob } from "@/lib/projects-client";
+import type { CreationQuotaError, RepoGenerationJob } from "@/lib/projects-client";
 
 export interface DrawDiagramOutput {
   skeletons: RenderSkeleton[];
@@ -28,7 +28,7 @@ export interface AIChatPanelProps {
   allowSeedAutoRun?: boolean;
   repoGenerationJob?: RepoGenerationJob | null;
   repoGenerationError?: string | null;
-  onQuotaError?: (message: string) => void;
+  onQuotaError?: (error: CreationQuotaError) => void;
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
   onHistoryChange?: (history: StoredChatMessage[]) => void;

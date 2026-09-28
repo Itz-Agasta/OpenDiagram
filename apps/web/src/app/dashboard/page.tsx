@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { clearAiSettingsCache } from "@/lib/settings-client";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
+import { VerifyEmailReturn } from "@/components/auth/verify-email-return";
 import { CheckoutReturn } from "@/components/billing/checkout-return";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { DashboardDialogs } from "@/components/dashboard/dashboard-page/DashboardDialogs";
@@ -55,6 +56,7 @@ export default function DashboardPage() {
       {/* Suspense because it reads search params, which Next requires a boundary for. */}
       <Suspense fallback={null}>
         <CheckoutReturn />
+        <VerifyEmailReturn />
       </Suspense>
       <div className="flex h-full w-full overflow-hidden">
         <DashboardSidebar

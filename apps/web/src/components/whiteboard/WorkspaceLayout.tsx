@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { KeyRound, Sparkles } from "lucide-react";
+import type { CreationQuotaError } from "@/lib/projects-client";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
@@ -13,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { QuotaDialog } from "./workspace-layout/QuotaDialog";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
@@ -24,7 +24,7 @@ import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLay
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const searchParams = useSearchParams();
-  const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
+  const [quotaError, setQuotaError] = useState<CreationQuotaError | null>(null);
   const [providerErrorMessage, setProviderErrorMessage] = useState<string | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   useEffect(() => {
@@ -109,7 +109,7 @@ export function WorkspaceLayout() {
         isContextPending={state.agentContextPending}
         onClose={actions.closeAgent}
         onHistoryChange={actions.handleAgentHistoryChange}
-        onQuotaError={setQuotaMessage}
+        onQuotaError={setQuotaError}
         onProviderError={setProviderErrorMessage}
         onRateLimitError={setRateLimitMessage}
         onResizeStart={actions.handleResizeStart}
@@ -169,40 +169,11 @@ export function WorkspaceLayout() {
           </DialogHeader>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={quotaMessage !== null}
-        onOpenChange={(open) => {
-          if (!open) setQuotaMessage(null);
-        }}
-      >
-        <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-od-ink">You've used your creation credits</DialogTitle>
-            <DialogDescription className="leading-6 text-od-ink-muted">
-              {quotaMessage}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            {/* Ordered by what actually converts: paying is the primary path now
-                that billing ships, and BYOK is the free alternative we promise
-                forever. */}
-            <Link
-              href="/pricing"
-              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
-            >
-              <Sparkles className="size-4" />
-              Upgrade to Pro
-            </Link>
-            <Link
-              href={byokSettingsHref}
-              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
-            >
-              <KeyRound className="size-4" />
-              Use your own AI key - free, unlimited
-            </Link>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <QuotaDialog
+        error={quotaError}
+        byokSettingsHref={byokSettingsHref}
+        onClose={() => setQuotaError(null)}
+      />
     </div>
   );
 }

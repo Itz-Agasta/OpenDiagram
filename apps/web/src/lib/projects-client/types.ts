@@ -98,6 +98,8 @@ export type RepoGenerationJob = {
 
 export type CreationQuota = {
   actorType: "guest" | "user";
+  /** `guest` on a `user` actor means the account has not verified its email yet. */
+  planId: "guest" | "free" | "pro";
   limit: number;
   used: number;
   remaining: number;

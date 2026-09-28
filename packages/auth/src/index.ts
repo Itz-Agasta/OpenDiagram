@@ -23,24 +23,41 @@ function withCallback(url: string, callbackURL: string): string {
   return link.toString();
 }
 
-async function welcome(user: { email: string; name?: string | null }): Promise<void> {
+async function welcome(user: {
+  email: string;
+  name?: string | null;
+  createdAt: Date;
+}): Promise<void> {
   await sendWelcomeMail({
     to: user.email,
     name: user.name,
     dashboardUrl: `${webOrigin()}/dashboard`,
-    credits: await signupCredits(),
+    credits: await welcomeCredits(user.createdAt),
     site: webOrigin(),
   });
 }
 
-/** Read credits from the plan table, not hardcoded -- the grant changes over time. */
-async function signupCredits(): Promise<number> {
+/**
+ * Read from the plan table, not hardcoded: the grant changes over time. The grant
+ * only covers the first billing month after signup, so someone verifying later
+ * gets the monthly allowance and the mail has to say so. The month end must match
+ * `addMonthsUtc` in the server's `lib/quota/actor.ts` (same UTC day, clamped to
+ * the target month's length), or the mail and the quota disagree near the edge.
+ */
+async function welcomeCredits(createdAt: Date): Promise<number> {
   const [row] = await db
     .select({ signupGrant: plan.signupGrant, monthlyCredits: plan.monthlyCredits })
     .from(plan)
     .where(eq(plan.id, "free"))
     .limit(1);
-  return row ? row.signupGrant || row.monthlyCredits : 0;
+  if (!row) return 0;
+  const year = createdAt.getUTCFullYear();
+  const month = createdAt.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const firstMonthEnd = new Date(createdAt);
+  firstMonthEnd.setUTCFullYear(year, month, Math.min(createdAt.getUTCDate(), lastDay));
+  const inFirstMonth = Date.now() < firstMonthEnd.getTime();
+  return inFirstMonth && row.signupGrant > 0 ? row.signupGrant : row.monthlyCredits;
 }
 
 export function createAuth() {

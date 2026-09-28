@@ -41,7 +41,7 @@ interface UseDiagramChatOptions {
   onProviderUsage: (usage: AiProviderUsage | null) => void;
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
-  onQuotaError?: (message: string) => void;
+  onQuotaError?: (error: CreationQuotaError) => void;
   projectId?: string;
   providerId?: string;
   modelId?: string;
@@ -170,7 +170,7 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
   }, [activeFileType, fileId, threadId, normalizedHistory, chat.status, chat.setMessages]);
 
   useEffect(() => {
-    if (chat.error instanceof CreationQuotaError) onQuotaError?.(chat.error.message);
+    if (chat.error instanceof CreationQuotaError) onQuotaError?.(chat.error);
     else if (chat.error instanceof UpstreamRateLimitError) onRateLimitError?.(chat.error.message);
     else if (
       chat.error instanceof AiProviderCreditError ||
