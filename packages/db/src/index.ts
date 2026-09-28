@@ -37,10 +37,8 @@ export function createDb() {
   // pooler's addresses. Safe because no query has run yet. Workaround for
   // Cloud Run to Supavisor connects that never open (Sentry SERVER-C).
   // `pool.query` passes a callback, Drizzle transactions await the promise.
-  //
-  // TODO: a retry can't save an instance that can't reach the pooler at all
-  // (28 Sep: 4 failures in 3 min on one instance). A liveness probe running
-  // `SELECT 1` would let Cloud Run replace it.
+  // An instance that can't reach the pooler at all is taken out of rotation by
+  // the readiness probe on `/health/ready` instead.
   const connect = pool.connect.bind(pool);
   pool.connect = ((callback?: Parameters<typeof connect>[0]) => {
     if (!callback) {

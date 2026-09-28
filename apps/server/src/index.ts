@@ -1,4 +1,5 @@
 import { auth } from "@OpenDiagram/auth";
+import { db, sql } from "@OpenDiagram/db";
 import { env } from "@OpenDiagram/env/server";
 import { sentry } from "@sentry/hono/bun";
 import { initLogger } from "evlog";
@@ -117,6 +118,19 @@ app.use(compress());
 
 app.get("/", (c) => c.text("OK"));
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// TODO: move this probe into Terraform with the rest of the service
+/**
+ * Cloud Run's readiness probe: after 2 failures it stops routing to this instance
+ * without killing it, for when one instance can't reach the DB but others can.
+ * A DB error goes through `onError` (500 plus `errorCause`). Configured by hand:
+ * `--readiness-probe httpGet.path=/health/ready,periodSeconds=30,timeoutSeconds=8,failureThreshold=2`
+ * (8s clears the 3s connect timeout plus its one retry.)
+ */
+app.get("/health/ready", async (c) => {
+  await db.execute(sql`select 1`);
+  return c.json({ status: "ok" });
+});
 
 // Ahead of `resolveSession` deliberately: cors answers a preflight with 204 and
 // never calls next(), so an OPTIONS stops resolving a session it cannot use.
