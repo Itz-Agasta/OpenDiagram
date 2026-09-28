@@ -54,6 +54,9 @@ export const env = createEnv({
     // Fraction of traces sampled, 0..1. Full sampling by default: gen_ai runs
     // are sampled as a whole span tree, so dropping a root span loses the
     // entire agent run. Lower it here if span volume becomes a problem.
+    // Sentry - OPTIONAL. Unset means no error or trace reporting. Not hardcoded:
+    // a clone of this repo would otherwise report into our Sentry project.
+    SENTRY_DSN: z.url().optional(),
     SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     // Writes the whole DiagramSpec into the draw_diagram wide event, which is
