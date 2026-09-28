@@ -12,7 +12,9 @@ export class CreationQuotaExceededError extends Error {
           ? "You've hit today's creation limit. It resets tomorrow."
           : snapshot.actorType === "guest"
             ? `You've used all ${snapshot.limit} free creation requests. Sign in for more.`
-            : `You've used all ${snapshot.limit} creation requests for this billing period.`,
+            : snapshot.planId === "guest"
+              ? `You've used all ${snapshot.limit} starter creation requests. Verify your email to unlock more.`
+              : `You've used all ${snapshot.limit} creation requests for this billing period.`,
     );
     this.name = "CreationQuotaExceededError";
     this.snapshot = snapshot;
