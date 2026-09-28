@@ -1,0 +1,19 @@
+.env.sample
+  s_b6c8a61f0b72cc::t_87655390dda374 65,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "928e2a9127992f40c17b4fb3fba547c97a96c97b",
+  "prompts": {},
+  "sessions": {
+    "s_b6c8a61f0b72cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a7854886-3bca-4b56-9a67-46791d9f1ae2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
