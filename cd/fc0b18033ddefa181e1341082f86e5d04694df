@@ -1,0 +1,19 @@
+packages/db/src/index.ts
+  s_b6c8a61f0b72cc::t_01c092c18d3f93 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cdfc0b18033ddefa181e1341082f86e5d04694df",
+  "prompts": {},
+  "sessions": {
+    "s_b6c8a61f0b72cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a7854886-3bca-4b56-9a67-46791d9f1ae2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
