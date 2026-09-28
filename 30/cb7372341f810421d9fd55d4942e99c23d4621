@@ -1,0 +1,24 @@
+apps/server/src/index.ts
+  s_b6c8a61f0b72cc::t_c14fc52116cdb8 2
+  s_b6c8a61f0b72cc::t_ed387fd7de1a45 123-133
+  s_b6c8a61f0b72cc::t_fa1bd412cd6061 122
+  s_b6c8a61f0b72cc::t_a1834762fdce37 134
+packages/db/src/index.ts
+  s_b6c8a61f0b72cc::t_f282338915b63b 40-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "30cb7372341f810421d9fd55d4942e99c23d4621",
+  "prompts": {},
+  "sessions": {
+    "s_b6c8a61f0b72cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a7854886-3bca-4b56-9a67-46791d9f1ae2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
