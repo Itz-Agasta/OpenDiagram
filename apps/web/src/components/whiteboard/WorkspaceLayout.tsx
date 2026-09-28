@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { KeyRound, Sparkles } from "lucide-react";
+import { KeyRound, MailCheck, Sparkles } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
+import { useResendVerification } from "@/components/auth/verify-email-banner";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
   Dialog,
@@ -25,6 +27,9 @@ export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const searchParams = useSearchParams();
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
+  const sessionUser = authClient.useSession().data?.user;
+  const unverifiedEmail = sessionUser && !sessionUser.emailVerified ? sessionUser.email : undefined;
+  const verification = useResendVerification(unverifiedEmail);
   const [providerErrorMessage, setProviderErrorMessage] = useState<string | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   useEffect(() => {
@@ -177,22 +182,43 @@ export function WorkspaceLayout() {
       >
         <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-od-ink">You've used your creation credits</DialogTitle>
+            <DialogTitle className="text-od-ink">
+              {unverifiedEmail ? "Verify your email to keep going" : "You've used your creation credits"}
+            </DialogTitle>
             <DialogDescription className="leading-6 text-od-ink-muted">
-              {quotaMessage}
+              {verification.state === "sent" && unverifiedEmail
+                ? `New link sent to ${unverifiedEmail}. It expires in an hour.`
+                : quotaMessage}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             {/* Ordered by what actually converts: paying is the primary path now
                 that billing ships, and BYOK is the free alternative we promise
-                forever. */}
-            <Link
-              href="/pricing"
-              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
-            >
-              <Sparkles className="size-4" />
-              Upgrade to Pro
-            </Link>
+                forever. An unverified account is one click from its signup
+                grant, so that click replaces the upsell. */}
+            {unverifiedEmail ? (
+              <button
+                type="button"
+                onClick={() => void verification.resend()}
+                disabled={verification.state === "sending" || verification.state === "sent"}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <MailCheck className="size-4" />
+                {verification.state === "sending"
+                  ? "Sending..."
+                  : verification.state === "error"
+                    ? "Couldn't send. Try again"
+                    : "Resend verification link"}
+              </button>
+            ) : (
+              <Link
+                href="/pricing"
+                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
+              >
+                <Sparkles className="size-4" />
+                Upgrade to Pro
+              </Link>
+            )}
             <Link
               href={byokSettingsHref}
               className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"

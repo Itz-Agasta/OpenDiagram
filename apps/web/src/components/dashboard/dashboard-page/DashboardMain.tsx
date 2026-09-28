@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { GithubLogoIcon } from "@phosphor-icons/react";
 import { assetUrl } from "@/lib/site";
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner";
 import { AgentInputPanel, AgentInputPanelSkeleton, PresetTagRow } from "./AgentInputPanel";
 import type { AgentInputSubmit } from "./types";
 
@@ -38,6 +39,7 @@ export function DashboardMain({ creating, loading, onCreate, signedIn }: Dashboa
           <AgentInputPanelSkeleton />
         ) : (
           <>
+            <VerifyEmailBanner />
             <AgentInputPanel creating={creating} onSubmit={onCreate} signedIn={signedIn} />
             <PresetTagRow creating={creating} onSubmit={onCreate} />
             <div className="mt-8 flex flex-col items-center gap-4">

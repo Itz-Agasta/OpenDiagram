@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   creationQuotaColorClass,
+  creationQuotaUpsell,
   getCreationQuota,
   type CreationQuota,
 } from "@/lib/projects-client";
@@ -176,9 +177,7 @@ function AccountMenu({
               ) : quota ? (
                 <span className="text-od-ink-muted">
                   {quota.remaining} of {quota.limit} creation requests left
-                  {quota.actorType === "guest" && quota.signupCredits
-                    ? `. Sign in to get ${quota.signupCredits}.`
-                    : "."}
+                  {creationQuotaUpsell(quota)}
                 </span>
               ) : (
                 <span className="text-od-ink-faint">Usage will appear here.</span>
