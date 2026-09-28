@@ -32,11 +32,9 @@ initLogger({
 
 const origins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
 
-// Server-project DSN (public value). The Bun transport flushes asynchronously;
-// on Cloud Run (CPU throttled after response) low-traffic events may lag until
-// the next request or SIGTERM. Acceptable for now — revisit if events drop.
-const SENTRY_DSN =
-  "https://d065bd035ab8612f7d8527b0529c6742@o4511790063812608.ingest.us.sentry.io/4511790076592128";
+// The Bun transport flushes asynchronously; on Cloud Run (CPU throttled after
+// response) low-traffic events may lag until the next request or SIGTERM.
+// Acceptable for now — revisit if events drop.
 
 const app = new Hono<{ Variables: SessionVariables }>();
 
@@ -48,7 +46,7 @@ const app = new Hono<{ Variables: SessionVariables }>();
 // https://docs.sentry.io/platforms/javascript/guides/hono/install/late-initialization/
 app.use(
   sentry(app, {
-    dsn: SENTRY_DSN,
+    dsn: env.SENTRY_DSN,
     // Without this the SDK falls back to "production", so local dev traffic
     // lands in the same bucket as Cloud Run and every env filter is useless.
     // Release is picked up automatically from SENTRY_RELEASE when deploys set it.
@@ -76,7 +74,10 @@ app.use(
 // log drain is supplementary, so a dropped log on a Cloud Run freeze never loses
 // the error itself. Rejections are swallowed to avoid unhandled rejections.
 const fsDrain = createFsDrain();
-const sentryDrain = createSentryDrain({ dsn: SENTRY_DSN, environment: env.NODE_ENV });
+// Only with a DSN: without one, evlog's drain logs "Missing DSN" on every call.
+const sentryDrain = env.SENTRY_DSN
+  ? createSentryDrain({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV })
+  : undefined;
 const posthogDrain =
   env.POSTHOG_PROJECT_TOKEN && env.POSTHOG_HOST
     ? createPostHogDrain({ apiKey: env.POSTHOG_PROJECT_TOKEN, host: env.POSTHOG_HOST })
@@ -94,9 +95,11 @@ app.use(
       if (ctx.event.level === "warn" || ctx.event.level === "error" || failed) {
         // Defer into the chain so a synchronous throw is caught too, rather
         // than escaping as an uncaught error.
-        void Promise.resolve()
-          .then(() => sentryDrain(ctx))
-          .catch(() => {});
+        if (sentryDrain) {
+          void Promise.resolve()
+            .then(() => sentryDrain(ctx))
+            .catch(() => {});
+        }
         if (posthogDrain) {
           void Promise.resolve()
             .then(() => posthogDrain(ctx))

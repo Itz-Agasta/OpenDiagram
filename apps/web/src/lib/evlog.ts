@@ -9,15 +9,15 @@ import { WEB_SENTRY_DSN, WEB_SENTRY_ENVIRONMENT } from "../../sentry.dsn";
 // warn/error wide events are forwarded to Sentry Logs — this keeps us inside the
 // free Logs allotment while routine info/debug logs stay in the platform's log
 // stream.
-const sentryDrain = createSentryDrain({
-  dsn: WEB_SENTRY_DSN,
-  environment: WEB_SENTRY_ENVIRONMENT,
-});
+// Only with a DSN: without one, evlog's drain logs "Missing DSN" on every call.
+const sentryDrain = WEB_SENTRY_DSN
+  ? createSentryDrain({ dsn: WEB_SENTRY_DSN, environment: WEB_SENTRY_ENVIRONMENT })
+  : undefined;
 
 export const { withEvlog, useLogger, log, createError } = createEvlog({
   service: "OpenDiagram-web",
   drain: (ctx) => {
-    if (ctx.event.level === "warn" || ctx.event.level === "error") {
+    if (sentryDrain && (ctx.event.level === "warn" || ctx.event.level === "error")) {
       // Fire-and-forget: never block the response on log delivery. Defer the
       // call into the chain so both synchronous throws and async rejections are
       // caught and can't surface as an unhandled rejection.
