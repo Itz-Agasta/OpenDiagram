@@ -152,7 +152,14 @@ app.use("*", resolveSession);
 // event a bare status with nothing to debug. Logging through the request's own
 // logger attaches it to that event, which the drain above forwards to Sentry.
 app.onError((error, c) => {
-  c.get("log")?.error(error);
+  // evlog serializes an Error `cause` as {}, and Drizzle wraps every pg
+  // failure, so the real reason would be lost.
+  //
+  // FIXME(upstream-evlog): drop `errorCause` once evlog flattens Error causes
+  // (still broken in 2.29.0).
+  // https://github.com/evloghq/evlog/issues/737
+  const cause = error.cause instanceof Error ? error.cause.message : undefined;
+  c.get("log")?.error(error, { errorCause: cause });
   // `use-dashboard-data.ts` string-matches this exact `error` value for its toast.
   return c.json({ error: "Internal Server Error" }, 500);
 });
