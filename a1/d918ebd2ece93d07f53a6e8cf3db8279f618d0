@@ -1,0 +1,19 @@
+packages/auth/src/index.ts
+  s_5363fd35101aa2::t_98b8758ba1753a 26-30,35,40-47,53-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1d918ebd2ece93d07f53a6e8cf3db8279f618d0",
+  "prompts": {},
+  "sessions": {
+    "s_5363fd35101aa2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93917ee0-523d-4872-a1fd-e27fa06b0e98",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
