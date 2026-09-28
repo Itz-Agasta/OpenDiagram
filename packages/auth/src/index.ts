@@ -39,10 +39,10 @@ async function welcome(user: {
 
 /**
  * Read from the plan table, not hardcoded: the grant changes over time. The grant
- * only covers the first month after signup (`userActor` in the server's
- * `lib/quota/actor.ts`), so someone verifying later gets the monthly allowance and
- * the mail has to say so. Approximates that month as 30 days; the verify link lives
- * an hour, so a verification near the boundary needs a resend and is rare.
+ * only covers the first billing month after signup, so someone verifying later
+ * gets the monthly allowance and the mail has to say so. The month end must match
+ * `addMonthsUtc` in the server's `lib/quota/actor.ts` (same UTC day, clamped to
+ * the target month's length), or the mail and the quota disagree near the edge.
  */
 async function welcomeCredits(createdAt: Date): Promise<number> {
   const [row] = await db
@@ -51,7 +51,12 @@ async function welcomeCredits(createdAt: Date): Promise<number> {
     .where(eq(plan.id, "free"))
     .limit(1);
   if (!row) return 0;
-  const inFirstMonth = Date.now() - createdAt.getTime() < 30 * 24 * 60 * 60 * 1000;
+  const year = createdAt.getUTCFullYear();
+  const month = createdAt.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const firstMonthEnd = new Date(createdAt);
+  firstMonthEnd.setUTCFullYear(year, month, Math.min(createdAt.getUTCDate(), lastDay));
+  const inFirstMonth = Date.now() < firstMonthEnd.getTime();
   return inFirstMonth && row.signupGrant > 0 ? row.signupGrant : row.monthlyCredits;
 }
 

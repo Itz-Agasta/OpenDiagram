@@ -24,9 +24,10 @@ usageRoute.get("/creation-quota", async (c) => {
   // What signing up is worth, for the guest upsell. Served from the plan table
   // rather than written into the frontend: the grant is data precisely so it can
   // change without a deploy (25 during launch, 15 after), and the UI was still
-  // promising the long-deleted USER_LIMIT of 10.
+  // promising the long-deleted USER_LIMIT of 10. An unverified account gets what
+  // verifying unlocks for it instead: past its first month, the monthly allowance.
   const free = await getPlan("free");
-  const signupCredits = free.signupGrant || free.monthlyCredits;
+  const signupCredits = actor.verifyUnlocks ?? (free.signupGrant || free.monthlyCredits);
 
   applyCreationQuotaHeaders(c, quota);
   c.header("Cache-Control", "private, no-store");

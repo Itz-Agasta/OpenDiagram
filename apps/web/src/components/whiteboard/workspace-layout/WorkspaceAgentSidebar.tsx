@@ -1,7 +1,7 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Loader2, PanelRightClose } from "lucide-react";
 import type { StoredChatMessage } from "@/lib/chat-history";
-import type { RepoGenerationJob } from "@/lib/projects-client";
+import type { CreationQuotaError, RepoGenerationJob } from "@/lib/projects-client";
 import { AIChatPanel } from "../AIChatPanel";
 
 type WorkspaceAgentSidebarProps = {
@@ -22,7 +22,7 @@ type WorkspaceAgentSidebarProps = {
   repoGenerationError: string | null;
   repoGenerationJob: RepoGenerationJob | null;
   onHistoryChange: (history: StoredChatMessage[]) => void;
-  onQuotaError: (message: string) => void;
+  onQuotaError: (error: CreationQuotaError) => void;
   onProviderError: (message: string) => void;
   onRateLimitError: (message: string) => void;
   onClose: () => void;

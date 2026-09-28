@@ -7,15 +7,25 @@ import { getCreationQuota } from "@/lib/projects-client";
 
 /** Sends a fresh verify link; the old one expires after an hour. */
 export function useResendVerification(email: string | undefined) {
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  // Keyed by address so a sign-out and sign-in as someone else starts idle,
+  // and a reply for the previous account lands on a key nobody reads.
+  const [result, setResult] = useState<{ email: string; state: ResendState } | null>(null);
+  const state: ResendState = result && result.email === email ? result.state : "idle";
+
   async function resend() {
     if (!email) return;
-    setState("sending");
-    const { error } = await authClient.sendVerificationEmail({ email });
-    setState(error ? "error" : "sent");
+    setResult({ email, state: "sending" });
+    try {
+      const { error } = await authClient.sendVerificationEmail({ email });
+      setResult({ email, state: error ? "error" : "sent" });
+    } catch {
+      setResult({ email, state: "error" });
+    }
   }
   return { state, resend };
 }
+
+type ResendState = "idle" | "sending" | "sent" | "error";
 
 /**
  * Until the email is verified the account runs on the guest allowance. The

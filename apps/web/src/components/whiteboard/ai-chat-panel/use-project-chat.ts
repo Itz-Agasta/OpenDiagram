@@ -18,7 +18,7 @@ interface UseProjectChatOptions {
   onProviderUsage: (usage: AiProviderUsage | null) => void;
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
-  onQuotaError?: (message: string) => void;
+  onQuotaError?: (error: CreationQuotaError) => void;
   projectId?: string;
   providerId?: string;
   modelId?: string;
@@ -157,7 +157,7 @@ export function useProjectChat({
           return true;
         }
         const message = caught instanceof Error ? caught.message : "Project chat failed";
-        if (caught instanceof CreationQuotaError) onQuotaError?.(message);
+        if (caught instanceof CreationQuotaError) onQuotaError?.(caught);
         else if (caught instanceof UpstreamRateLimitError) onRateLimitError?.(message);
         else if (caught instanceof Error && caught.name === "AiProviderCreditError") {
           onProviderError?.(message);

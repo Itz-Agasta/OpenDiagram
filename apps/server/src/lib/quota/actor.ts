@@ -32,6 +32,8 @@ export type CreationQuotaActor = {
   resetAt: Date | null;
   /** Hashed client IP bucket, guests only. Null when the IP is unknown. */
   ipBucketId: string | null;
+  /** Unverified accounts only: the free limit verifying would unlock right now. */
+  verifyUnlocks?: number;
 };
 
 const GUEST_COOKIE = "opendiagram_guest_id";
@@ -264,7 +266,8 @@ async function userActor(userId: string, c?: Context): Promise<CreationQuotaActo
   // An unverified account stays on the guest allowance. Without this, 5 free
   // diagrams a month costs one throwaway address to farm indefinitely.
   if (!paid && !account?.emailVerified) {
-    const guestPlan = await getPlan("guest");
+    const [guestPlan, free] = await Promise.all([getPlan("guest"), getPlan("free")]);
+    const firstWindow = anniversaryWindow(account?.createdAt ?? now, now).index === 0;
     return {
       actorType: "user",
       actorId: userId,
@@ -278,6 +281,7 @@ async function userActor(userId: string, c?: Context): Promise<CreationQuotaActo
       // lifetime platform credits with nothing bounding how many you make --
       // strictly easier to farm than the guest path it borrows its limits from.
       ipBucketId: c ? hashClientIp(c) : null,
+      verifyUnlocks: firstWindow && free.signupGrant > 0 ? free.signupGrant : free.monthlyCredits,
     };
   }
 

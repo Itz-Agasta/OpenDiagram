@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { KeyRound, MailCheck, Sparkles } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import type { CreationQuotaError } from "@/lib/projects-client";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
 import { useResendVerification } from "@/components/auth/verify-email-banner";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
@@ -26,10 +27,15 @@ import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLay
 export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const searchParams = useSearchParams();
-  const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
+  const [quotaError, setQuotaError] = useState<CreationQuotaError | null>(null);
   const sessionUser = authClient.useSession().data?.user;
-  const unverifiedEmail = sessionUser && !sessionUser.emailVerified ? sessionUser.email : undefined;
-  const verification = useResendVerification(unverifiedEmail);
+  // Only the guest allowance is gated on verification. An unverified account on
+  // a paid plan that runs out still needs the upgrade path, not a resend.
+  const verifyEmail =
+    sessionUser && !sessionUser.emailVerified && quotaError?.quota?.planId === "guest"
+      ? sessionUser.email
+      : undefined;
+  const verification = useResendVerification(verifyEmail);
   const [providerErrorMessage, setProviderErrorMessage] = useState<string | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   useEffect(() => {
@@ -114,7 +120,7 @@ export function WorkspaceLayout() {
         isContextPending={state.agentContextPending}
         onClose={actions.closeAgent}
         onHistoryChange={actions.handleAgentHistoryChange}
-        onQuotaError={setQuotaMessage}
+        onQuotaError={setQuotaError}
         onProviderError={setProviderErrorMessage}
         onRateLimitError={setRateLimitMessage}
         onResizeStart={actions.handleResizeStart}
@@ -175,20 +181,22 @@ export function WorkspaceLayout() {
         </DialogContent>
       </Dialog>
       <Dialog
-        open={quotaMessage !== null}
+        open={quotaError !== null}
         onOpenChange={(open) => {
-          if (!open) setQuotaMessage(null);
+          if (!open) setQuotaError(null);
         }}
       >
         <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-od-ink">
-              {unverifiedEmail ? "Verify your email to keep going" : "You've used your creation credits"}
+              {verifyEmail
+                ? "Verify your email to keep going"
+                : "You've used your creation credits"}
             </DialogTitle>
             <DialogDescription className="leading-6 text-od-ink-muted">
-              {verification.state === "sent" && unverifiedEmail
-                ? `New link sent to ${unverifiedEmail}. It expires in an hour.`
-                : quotaMessage}
+              {verification.state === "sent" && verifyEmail
+                ? `New link sent to ${verifyEmail}. It expires in an hour.`
+                : quotaError?.message}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -196,7 +204,7 @@ export function WorkspaceLayout() {
                 that billing ships, and BYOK is the free alternative we promise
                 forever. An unverified account is one click from its signup
                 grant, so that click replaces the upsell. */}
-            {unverifiedEmail ? (
+            {verifyEmail ? (
               <button
                 type="button"
                 onClick={() => void verification.resend()}
