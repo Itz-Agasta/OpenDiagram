@@ -1,0 +1,41 @@
+apps/web/src/components/dashboard/dashboard-page/DashboardMain.tsx
+  s_5363fd35101aa2::t_d7d62bf1fd8de1 5,42
+apps/web/src/components/whiteboard/WorkspaceLayout.tsx
+  s_5363fd35101aa2::t_36ef0bb506674a 6-7,9
+  s_5363fd35101aa2::t_33bc45c6d9d4c0 30-32
+  s_5363fd35101aa2::t_20e7a21b7b1473 185-187
+  s_5363fd35101aa2::t_0e74a883058c00 189-191,197-221
+apps/web/src/lib/projects-client/quota.ts
+  s_5363fd35101aa2::t_88f439e9824225 13-20
+apps/web/src/components/auth/verify-email-return.tsx
+  s_5363fd35101aa2::t_72269f1f2ed32a 1-44
+apps/web/src/components/auth/verify-email-banner.tsx
+  s_5363fd35101aa2::t_ffac175fb96790 21-24
+  s_5363fd35101aa2::t_1e1687481f2e24 8-19
+  s_5363fd35101aa2::t_6661bd58c72f18 1-7,20,25-30,32-80
+  s_5363fd35101aa2::t_e05330835d442b 31
+apps/web/src/components/whiteboard/workspace-layout/WorkspaceSidebarAccount.tsx
+  s_5363fd35101aa2::t_88f439e9824225 17,114
+apps/web/src/app/dashboard/page.tsx
+  s_5363fd35101aa2::t_d7d62bf1fd8de1 8,59
+apps/web/src/components/dashboard/dashboard-page/DashboardSidebar.tsx
+  s_5363fd35101aa2::t_88f439e9824225 18,180
+apps/web/src/lib/projects-client/types.ts
+  s_5363fd35101aa2::t_88f439e9824225 101-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "058e0b8e193d5b139a941ddcd1449031aa2b297a",
+  "prompts": {},
+  "sessions": {
+    "s_5363fd35101aa2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93917ee0-523d-4872-a1fd-e27fa06b0e98",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
