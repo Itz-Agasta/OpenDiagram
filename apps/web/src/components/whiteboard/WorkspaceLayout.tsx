@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { KeyRound, MailCheck, Sparkles } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
 import type { CreationQuotaError } from "@/lib/projects-client";
 import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
-import { useResendVerification } from "@/components/auth/verify-email-banner";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
   Dialog,
@@ -16,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { QuotaDialog } from "./workspace-layout/QuotaDialog";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
@@ -28,14 +25,6 @@ export function WorkspaceLayout() {
   const { state, actions } = useWorkspaceLayoutController();
   const searchParams = useSearchParams();
   const [quotaError, setQuotaError] = useState<CreationQuotaError | null>(null);
-  const sessionUser = authClient.useSession().data?.user;
-  // Only the guest allowance is gated on verification. An unverified account on
-  // a paid plan that runs out still needs the upgrade path, not a resend.
-  const verifyEmail =
-    sessionUser && !sessionUser.emailVerified && quotaError?.quota?.planId === "guest"
-      ? sessionUser.email
-      : undefined;
-  const verification = useResendVerification(verifyEmail);
   const [providerErrorMessage, setProviderErrorMessage] = useState<string | null>(null);
   const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   useEffect(() => {
@@ -180,63 +169,11 @@ export function WorkspaceLayout() {
           </DialogHeader>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={quotaError !== null}
-        onOpenChange={(open) => {
-          if (!open) setQuotaError(null);
-        }}
-      >
-        <DialogContent className="border-od-border-soft bg-white sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-od-ink">
-              {verifyEmail
-                ? "Verify your email to keep going"
-                : "You've used your creation credits"}
-            </DialogTitle>
-            <DialogDescription className="leading-6 text-od-ink-muted">
-              {verification.state === "sent" && verifyEmail
-                ? `New link sent to ${verifyEmail}. It expires in an hour.`
-                : quotaError?.message}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            {/* Ordered by what actually converts: paying is the primary path now
-                that billing ships, and BYOK is the free alternative we promise
-                forever. An unverified account is one click from its signup
-                grant, so that click replaces the upsell. */}
-            {verifyEmail ? (
-              <button
-                type="button"
-                onClick={() => void verification.resend()}
-                disabled={verification.state === "sending" || verification.state === "sent"}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <MailCheck className="size-4" />
-                {verification.state === "sending"
-                  ? "Sending..."
-                  : verification.state === "error"
-                    ? "Couldn't send. Try again"
-                    : "Resend verification link"}
-              </button>
-            ) : (
-              <Link
-                href="/pricing"
-                className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-od-ink px-4 text-sm font-medium text-od-on-dark transition-opacity hover:opacity-90"
-              >
-                <Sparkles className="size-4" />
-                Upgrade to Pro
-              </Link>
-            )}
-            <Link
-              href={byokSettingsHref}
-              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-od-border-soft bg-white px-4 text-sm font-medium text-od-ink transition-colors hover:bg-od-canvas/45"
-            >
-              <KeyRound className="size-4" />
-              Use your own AI key - free, unlimited
-            </Link>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <QuotaDialog
+        error={quotaError}
+        byokSettingsHref={byokSettingsHref}
+        onClose={() => setQuotaError(null)}
+      />
     </div>
   );
 }
