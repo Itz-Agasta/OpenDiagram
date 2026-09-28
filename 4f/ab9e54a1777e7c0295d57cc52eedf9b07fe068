@@ -1,0 +1,20 @@
+apps/server/src/lib/quota/errors.ts
+  s_5363fd35101aa2::t_d36f56d246eae5 16
+  s_5363fd35101aa2::t_75fe3d4587cb53 15,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4fab9e54a1777e7c0295d57cc52eedf9b07fe068",
+  "prompts": {},
+  "sessions": {
+    "s_5363fd35101aa2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93917ee0-523d-4872-a1fd-e27fa06b0e98",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
