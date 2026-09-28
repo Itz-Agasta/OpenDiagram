@@ -1,0 +1,29 @@
+AGENTS.md
+  s_17bd662212c3ee::t_d2f3164f588eb9 10-12,15-17,25,31,51-67,77,87,90-91,103-105
+apps/web/src/components/whiteboard/WorkspaceLayout.tsx
+  s_5363fd35101aa2::t_373f76a44fefb5 186-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4282987a0cec77e6a49dc63c3463b958f4f7879a",
+  "prompts": {},
+  "sessions": {
+    "s_17bd662212c3ee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1596e998-5122-4897-a83c-65213c245434",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    },
+    "s_5363fd35101aa2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93917ee0-523d-4872-a1fd-e27fa06b0e98",
+        "model": "unknown"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
