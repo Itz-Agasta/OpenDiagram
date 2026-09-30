@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { assetUrl } from "@/lib/site";
+import { compileProgram, loadImage } from "@/lib/webgl";
 
 // Adapted from StarKnightt/liquid-glass (MIT). Changes: two image textures instead of
 // rendered text (the lens reveals the lit scene), rigid ball (no squash, wobble or
@@ -8,10 +10,10 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 // following while the cursor is over the auth card.
 // https://github.com/StarKnightt/liquid-glass/blob/5ed54a1a2c38390034121a79e1b81afeaf709e53/src/components/ui/liquid-glass.tsx
 
-// Served same-origin, not through assetUrl: the R2 bucket sends no CORS headers, so a
-// texture loaded from it taints the WebGL context.
-const SCENE = "/auth/scene.webp";
-const XRAY = "/auth/scene-xray.webp";
+// WebGL textures: needs the media bucket's CORS rule (AllowedOrigins "*", GET/HEAD).
+// Without it both crossOrigin loads fail: the texture load rejects and the fallback <img> is blocked.
+const SCENE = assetUrl("/auth/scene.webp");
+const XRAY = assetUrl("/auth/scene-xray.webp");
 const IMAGE_ASPECT = 16 / 9;
 // Horizontal focus of the cover crop: keeps the mascot and board in frame on narrow screens.
 const ANCHOR_X = 0.72;
@@ -84,40 +86,6 @@ void main() {
   outColor = vec4(col, 1.0);
 }`;
 
-function compileProgram(gl: WebGL2RenderingContext): WebGLProgram | null {
-  const make = (type: number, src: string) => {
-    const s = gl.createShader(type);
-    if (!s) return null;
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      console.error("LensScene shader error:", gl.getShaderInfoLog(s));
-      gl.deleteShader(s);
-      return null;
-    }
-    return s;
-  };
-  const vs = make(gl.VERTEX_SHADER, VERT);
-  const fs = make(gl.FRAGMENT_SHADER, FRAG);
-  if (!vs || !fs) {
-    if (vs) gl.deleteShader(vs);
-    if (fs) gl.deleteShader(fs);
-    return null;
-  }
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error("LensScene link error:", gl.getProgramInfoLog(prog));
-    gl.deleteProgram(prog);
-    return null;
-  }
-  return prog;
-}
-
 // Mirrors the 768px breakpoint in auth-visual.css that hides the scene: below it the
 // canvas is not mounted, so no textures download and no frame loop runs.
 const WIDE_QUERY = "(min-width: 769px)";
@@ -126,13 +94,6 @@ function subscribeWide(onChange: () => void) {
   const mq = window.matchMedia(WIDE_QUERY);
   mq.addEventListener("change", onChange);
   return () => mq.removeEventListener("change", onChange);
-}
-
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  const img = new Image();
-  img.src = src;
-  await img.decode();
-  return img;
 }
 
 /**
@@ -148,7 +109,7 @@ export function LensScene() {
     const canvas = canvasRef.current;
     const gl = canvas?.getContext("webgl2", { alpha: false, antialias: false, depth: false });
     if (!canvas || !gl) return;
-    const program = compileProgram(gl);
+    const program = compileProgram(gl, VERT, FRAG, "LensScene");
     if (!program) return;
     gl.useProgram(program);
 
@@ -276,6 +237,9 @@ export function LensScene() {
 
   return (
     <div className="lens-scene" aria-hidden>
+      {/* An <img>, not a CSS background: same CORS mode as loadImage, so one cache entry.
+          Lazy so phones, where auth-visual.css hides the scene, never fetch it. */}
+      <img src={SCENE} crossOrigin="anonymous" loading="lazy" alt="" className="scene-fallback" />
       {wide && <canvas ref={canvasRef} className="lens-canvas" />}
     </div>
   );

@@ -1,0 +1,94 @@
+.nf-stage {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #050505;
+  color: #f5f5f4;
+}
+
+.nf-scene {
+  position: absolute;
+  inset: 0;
+  background: #050505;
+}
+
+.nf-scene .scene-fallback {
+  object-position: 55% 50%;
+}
+
+.nf-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.nf-canvas[data-ready="true"] {
+  opacity: 1;
+}
+
+.nf-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+  padding: clamp(32px, 8vh, 96px) clamp(16px, 6vw, 88px);
+  pointer-events: none;
+}
+
+.nf-code {
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: rgb(245 245 244 / 0.5);
+  margin-bottom: 14px;
+}
+
+.nf-title {
+  font-size: clamp(34px, 4.6vw, 60px);
+  font-weight: 550;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+.nf-title em {
+  font-style: normal;
+  font-family: var(--font-excalifont), "Excalifont", cursive;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.nf-sub {
+  margin-top: 16px;
+  max-width: 360px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgb(245 245 244 / 0.62);
+}
+
+.nf-cta {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 28px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: #f5f5f4;
+  color: #0a0a0a;
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: auto;
+  transition: transform 0.15s ease;
+}
+
+.nf-cta:hover {
+  transform: translateY(-1px);
+}
+
+/* Portrait: copy on top of the black wall, scene as the bottom band so the
+   cover crop keeps both the blueprint and the octopus. */
+@media (max-width: 768px) {
+  .nf-scene {
+    top: auto;
+    height: 46dvh;
+    mask-image: linear-gradient(to bottom, transparent, #000 20%);
+  }
+}
