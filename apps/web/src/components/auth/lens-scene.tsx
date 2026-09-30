@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { compileProgram, loadImage } from "@/lib/webgl";
 
 // Adapted from StarKnightt/liquid-glass (MIT). Changes: two image textures instead of
 // rendered text (the lens reveals the lit scene), rigid ball (no squash, wobble or
@@ -84,40 +85,6 @@ void main() {
   outColor = vec4(col, 1.0);
 }`;
 
-function compileProgram(gl: WebGL2RenderingContext): WebGLProgram | null {
-  const make = (type: number, src: string) => {
-    const s = gl.createShader(type);
-    if (!s) return null;
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      console.error("LensScene shader error:", gl.getShaderInfoLog(s));
-      gl.deleteShader(s);
-      return null;
-    }
-    return s;
-  };
-  const vs = make(gl.VERTEX_SHADER, VERT);
-  const fs = make(gl.FRAGMENT_SHADER, FRAG);
-  if (!vs || !fs) {
-    if (vs) gl.deleteShader(vs);
-    if (fs) gl.deleteShader(fs);
-    return null;
-  }
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error("LensScene link error:", gl.getProgramInfoLog(prog));
-    gl.deleteProgram(prog);
-    return null;
-  }
-  return prog;
-}
-
 // Mirrors the 768px breakpoint in auth-visual.css that hides the scene: below it the
 // canvas is not mounted, so no textures download and no frame loop runs.
 const WIDE_QUERY = "(min-width: 769px)";
@@ -126,13 +93,6 @@ function subscribeWide(onChange: () => void) {
   const mq = window.matchMedia(WIDE_QUERY);
   mq.addEventListener("change", onChange);
   return () => mq.removeEventListener("change", onChange);
-}
-
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  const img = new Image();
-  img.src = src;
-  await img.decode();
-  return img;
 }
 
 /**
@@ -148,7 +108,7 @@ export function LensScene() {
     const canvas = canvasRef.current;
     const gl = canvas?.getContext("webgl2", { alpha: false, antialias: false, depth: false });
     if (!canvas || !gl) return;
-    const program = compileProgram(gl);
+    const program = compileProgram(gl, VERT, FRAG, "LensScene");
     if (!program) return;
     gl.useProgram(program);
 
