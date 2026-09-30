@@ -11,7 +11,7 @@ import { compileProgram, loadImage } from "@/lib/webgl";
 // https://github.com/StarKnightt/liquid-glass/blob/5ed54a1a2c38390034121a79e1b81afeaf709e53/src/components/ui/liquid-glass.tsx
 
 // WebGL textures: needs the media bucket's CORS rule (AllowedOrigins "*", GET/HEAD).
-// Without it texImage2D throws and the crossOrigin fallback <img> is blocked too.
+// Without it both crossOrigin loads fail: the texture load rejects and the fallback <img> is blocked.
 const SCENE = assetUrl("/auth/scene.webp");
 const XRAY = assetUrl("/auth/scene-xray.webp");
 const IMAGE_ASPECT = 16 / 9;
