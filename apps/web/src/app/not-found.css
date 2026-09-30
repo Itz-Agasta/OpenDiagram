@@ -9,10 +9,15 @@
 .nf-scene {
   position: absolute;
   inset: 0;
-  background: #050505 url("/not-found/scene-dark.webp") 55% 50% / cover no-repeat;
+  background: #050505;
+}
+
+.nf-scene .scene-fallback {
+  object-position: 55% 50%;
 }
 
 .nf-canvas {
+  position: relative;
   width: 100%;
   height: 100%;
   opacity: 0;

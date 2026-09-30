@@ -38,8 +38,13 @@ export function compileProgram(
   return prog;
 }
 
+/**
+ * Decodes an image for texImage2D. Requests it with CORS: a cross-origin image without
+ * an Access-Control-Allow-Origin match taints the context and texImage2D throws.
+ */
 export async function loadImage(src: string): Promise<HTMLImageElement> {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.src = src;
   await img.decode();
   return img;

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { assetUrl } from "@/lib/site";
 import { compileProgram, loadImage } from "@/lib/webgl";
 
 // Pixel-aligned pair: the dark layer is an edit-down of the lit one, so the beam can
-// swap between them without the subject jumping. Same-origin for the same reason as
-// the auth lens: the R2 bucket sends no CORS headers and would taint the context.
-const LIT = "/not-found/scene-lit.webp";
-const DARK = "/not-found/scene-dark.webp";
+// swap between them without the subject jumping. CORS caveat as in auth/lens-scene.tsx.
+const LIT = assetUrl("/not-found/scene-lit.webp");
+const DARK = assetUrl("/not-found/scene-dark.webp");
 const IMAGE_ASPECT = 16 / 9;
 // Cover-crop focus between the blueprint and the octopus, so a portrait crop keeps both.
 const ANCHOR_X = 0.55;
@@ -197,6 +197,8 @@ export function FlashlightScene() {
 
   return (
     <div className="nf-scene" aria-hidden>
+      {/* See lens-scene.tsx: an <img> so the fallback and the texture share a CORS cache entry. */}
+      <img src={DARK} crossOrigin="anonymous" alt="" className="scene-fallback" />
       <canvas ref={canvasRef} className="nf-canvas" />
     </div>
   );

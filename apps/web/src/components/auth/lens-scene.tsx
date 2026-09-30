@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { assetUrl } from "@/lib/site";
 import { compileProgram, loadImage } from "@/lib/webgl";
 
 // Adapted from StarKnightt/liquid-glass (MIT). Changes: two image textures instead of
@@ -9,10 +10,10 @@ import { compileProgram, loadImage } from "@/lib/webgl";
 // following while the cursor is over the auth card.
 // https://github.com/StarKnightt/liquid-glass/blob/5ed54a1a2c38390034121a79e1b81afeaf709e53/src/components/ui/liquid-glass.tsx
 
-// Served same-origin, not through assetUrl: the R2 bucket sends no CORS headers, so a
-// texture loaded from it taints the WebGL context.
-const SCENE = "/auth/scene.webp";
-const XRAY = "/auth/scene-xray.webp";
+// WebGL textures: the media bucket's CORS rule must list every origin that renders
+// this (prod + localhost:3001). Unlisted origins, like Vercel previews, get the fallback.
+const SCENE = assetUrl("/auth/scene.webp");
+const XRAY = assetUrl("/auth/scene-xray.webp");
 const IMAGE_ASPECT = 16 / 9;
 // Horizontal focus of the cover crop: keeps the mascot and board in frame on narrow screens.
 const ANCHOR_X = 0.72;
@@ -236,6 +237,9 @@ export function LensScene() {
 
   return (
     <div className="lens-scene" aria-hidden>
+      {/* An <img>, not a CSS background: same CORS mode as loadImage, so one cache entry.
+          Lazy so phones, where auth-visual.css hides the scene, never fetch it. */}
+      <img src={SCENE} crossOrigin="anonymous" loading="lazy" alt="" className="scene-fallback" />
       {wide && <canvas ref={canvasRef} className="lens-canvas" />}
     </div>
   );
