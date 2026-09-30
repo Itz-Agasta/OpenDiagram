@@ -127,6 +127,9 @@ export function FlashlightScene() {
 
     const aim = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
+      // On phones the scene is a bottom band: taps on the copy above it must not aim
+      // the beam off-canvas, where reduced motion (no idle sweep) would leave it.
+      if (e.clientY < rect.top || e.clientY > rect.bottom) return;
       tx = (e.clientX - rect.left) * dpr;
       ty = (rect.bottom - e.clientY) * dpr;
       lastMove = performance.now() / 1000;

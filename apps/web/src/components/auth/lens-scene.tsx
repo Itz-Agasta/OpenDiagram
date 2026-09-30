@@ -10,8 +10,8 @@ import { compileProgram, loadImage } from "@/lib/webgl";
 // following while the cursor is over the auth card.
 // https://github.com/StarKnightt/liquid-glass/blob/5ed54a1a2c38390034121a79e1b81afeaf709e53/src/components/ui/liquid-glass.tsx
 
-// WebGL textures: the media bucket's CORS rule must list every origin that renders
-// this (prod + localhost:3001). Unlisted origins, like Vercel previews, get the fallback.
+// WebGL textures: needs the media bucket's CORS rule (AllowedOrigins "*", GET/HEAD).
+// Without it texImage2D throws and the crossOrigin fallback <img> is blocked too.
 const SCENE = assetUrl("/auth/scene.webp");
 const XRAY = assetUrl("/auth/scene-xray.webp");
 const IMAGE_ASPECT = 16 / 9;
