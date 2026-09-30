@@ -1,0 +1,21 @@
+apps/web/src/components/not-found/flashlight-scene.tsx
+  s_70d30f8188b7a3::t_d0757e73af5829 130-132
+apps/web/src/components/auth/lens-scene.tsx
+  s_70d30f8188b7a3::t_d0757e73af5829 13-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "36842922a54d7ebc2668bd186df036fdd17b6556",
+  "prompts": {},
+  "sessions": {
+    "s_70d30f8188b7a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5e7a97d5-c59f-46ed-a234-4e4d20291dd2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
