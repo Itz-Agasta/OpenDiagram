@@ -1,0 +1,21 @@
+apps/web/src/components/whiteboard/export/ExportPopover.tsx
+  s_26dd9e3bbed3db::t_8d81e396022467 81-83,108,187,227
+apps/web/src/components/whiteboard/export/export-scene.ts
+  s_26dd9e3bbed3db::t_8d81e396022467 80-83,85-86,88-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "35a95b50ecbebaaa5417494feb7195086b30da71",
+  "prompts": {},
+  "sessions": {
+    "s_26dd9e3bbed3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f3d9da6-9961-4aca-bee5-2409ac1cf395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
