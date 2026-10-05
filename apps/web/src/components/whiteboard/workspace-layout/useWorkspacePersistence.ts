@@ -207,7 +207,9 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       sceneRef.current = scene;
 
       const currentDraft = draftRef.current;
-      if (currentDraft && !isSignedInRef.current) {
+      // Not gated on signed-out: until promotion succeeds the draft is the only
+      // copy, and a retry after a failed one promotes whatever it holds.
+      if (currentDraft) {
         lastSavedVersionRef.current = version;
         updateGuestDraft(currentDraft, currentFileIdRef.current, { scene }, draftRef, setDraft);
       } else if (activeFileRef.current?.type === "diagram" && isSignedInRef.current) {
@@ -233,7 +235,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       contentRef.current = value;
       setDocContent(value);
       const currentDraft = draftRef.current;
-      if (currentDraft && !isSignedInRef.current) {
+      if (currentDraft) {
         updateGuestDraft(
           currentDraft,
           currentFileIdRef.current,

@@ -47,7 +47,7 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
     promotedFilesRef.current = new Map();
   }, [draft?.id]);
 
-  const saveDraftAfterLogin = useCallback(async () => {
+  const promote = useCallback(async () => {
     const currentDraft = draftRef.current;
     if (!currentDraft || !user) return;
     setSaveStatus("saving");
@@ -100,6 +100,16 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
       setSaveStatus((status) => (status === "saving" ? "idle" : status));
     }
   }, [currentFileIdRef, draftRef, router, setDraft, setSaveError, setSaveStatus, user]);
+
+  // Single-flight: the automatic run, Retry save and leaving for the dashboard can
+  // all call this, and two concurrent runs create duplicate projects and files.
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const saveDraftAfterLogin = useCallback(() => {
+    inFlightRef.current ??= promote().finally(() => {
+      inFlightRef.current = null;
+    });
+    return inFlightRef.current;
+  }, [promote]);
 
   useEffect(() => {
     if (!draft || !user || savePending || promotionStartedRef.current) return;
