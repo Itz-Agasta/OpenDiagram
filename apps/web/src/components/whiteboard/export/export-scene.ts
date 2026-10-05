@@ -66,9 +66,10 @@ function parts(api: ExcalidrawImperativeAPI, target: ExportTarget, fileName: str
     return [{ name: fileName, elements: picked, frame: null }];
   }
 
+  const ids = new Set(target.ids);
   return elements
     .filter(isFrame)
-    .filter((frame) => target.ids.includes(frame.id))
+    .filter((frame) => ids.has(frame.id))
     .map((frame) => ({
       name: frameName(frame),
       elements: elements.filter((el) => el.id === frame.id || el.frameId === frame.id),
@@ -141,7 +142,10 @@ function download(blob: Blob, fileName: string) {
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName;
+  // Attached first: a detached anchor's click starts no download in older Firefox.
+  document.body.append(link);
   link.click();
+  link.remove();
   // Deferred: some browsers start the download after click() returns.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

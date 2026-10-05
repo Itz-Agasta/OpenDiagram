@@ -108,6 +108,7 @@ export function useAIChatPanelController({
       : STANDARD_MODEL_OPTION.id,
   );
   const [providerOptions, setProviderOptions] = useState<ProviderModelOption[]>([]);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -117,6 +118,7 @@ export function useAIChatPanelController({
         if (!active) return;
         const options = pickerModelOptions(settings);
         setProviderOptions(options);
+        setOptionsLoaded(true);
         // Standard arrives with no modelId, so match on what the URL carries.
         const initialOption = initialProviderId
           ? options.find(
@@ -130,13 +132,19 @@ export function useAIChatPanelController({
             STANDARD_MODEL_OPTION.id,
         );
       })
-      .catch(() => undefined);
+      .catch(() => active && setOptionsLoaded(true));
     return () => {
       active = false;
     };
   }, [initialModelId, initialProviderId, projectId]);
 
   const selectedProvider = providerOptions.find((option) => option.id === providerId);
+  // Until settings load, send the dashboard's pick from the URL. Sending nothing
+  // let an auto-seeded first turn run on the saved default key, even when the
+  // user had picked Standard.
+  const requestModel = optionsLoaded
+    ? { providerId: selectedProvider?.providerId, modelId: selectedProvider?.modelId }
+    : { providerId: initialProviderId, modelId: initialModelId };
   const autoDiagramPrompt =
     activeFileType === "diagram"
       ? normalizedHistory.find((message) => message.role === "user")
@@ -157,8 +165,8 @@ export function useAIChatPanelController({
     persistTurn: thread.persistTurn,
     threadId: thread.threadId,
     projectId,
-    providerId: selectedProvider?.providerId,
-    modelId: selectedProvider?.modelId,
+    providerId: requestModel.providerId,
+    modelId: requestModel.modelId,
     theme,
   });
   const canvas = useDiagramCanvas({
@@ -197,8 +205,8 @@ export function useAIChatPanelController({
     onRateLimitError,
     onQuotaError,
     projectId,
-    providerId: selectedProvider?.providerId,
-    modelId: selectedProvider?.modelId,
+    providerId: requestModel.providerId,
+    modelId: requestModel.modelId,
     setDiagramMessages: diagramChat.setMessages,
   });
 

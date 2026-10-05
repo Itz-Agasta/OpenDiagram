@@ -32,10 +32,11 @@ export function WorkspaceLayout() {
     return () => window.clearTimeout(timeout);
   }, [providerErrorMessage]);
   const [exportOpen, setExportOpen] = useState(false);
-  // A guest who signed in from the export panel lands back with it open. Waits out
-  // draft promotion, which replaces the URL and would close it again.
+  // A guest who signed in from the export panel lands back with it open.
+  // agentProjectId, not isSignedIn: it stays unset until the draft lookup resolves
+  // and promotion is done, which replaces the URL and would close the panel again.
   useEffect(() => {
-    if (!state.isSignedIn || !state.excalidrawAPI || state.draft) return;
+    if (!state.agentProjectId || !state.excalidrawAPI || state.agentFileType === "doc") return;
     try {
       if (!sessionStorage.getItem(REOPEN_EXPORT_KEY)) return;
       sessionStorage.removeItem(REOPEN_EXPORT_KEY);
@@ -43,7 +44,7 @@ export function WorkspaceLayout() {
       return;
     }
     setExportOpen(true);
-  }, [state.isSignedIn, state.excalidrawAPI, state.draft]);
+  }, [state.agentProjectId, state.excalidrawAPI, state.agentFileType]);
   const byokSettingsHref = state.isSignedIn
     ? "/dashboard/settings"
     : "/login?redirect=%2Fdashboard%2Fsettings";
@@ -54,6 +55,8 @@ export function WorkspaceLayout() {
         <WorkspaceHeader
           activeFileName={state.activeFileName}
           exportControl={
+            // Not while loading: the API still points at the previous file's scene.
+            !state.fileLoading &&
             state.excalidrawAPI &&
             state.agentFileType !== "doc" && (
               <ExportPopover

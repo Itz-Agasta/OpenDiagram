@@ -60,7 +60,9 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
   } = options;
 
   async function saveActiveFile() {
-    if (!isSignedIn) return saveDraftAfterLogin();
+    // A draft still here once signed in means promotion failed; retrying the
+    // file save would no-op on the missing activeFile.
+    if (!isSignedIn || draftRef.current) return saveDraftAfterLogin();
     if (!activeFile) return;
     setSaveError(null);
     setSaveStatus("saving");

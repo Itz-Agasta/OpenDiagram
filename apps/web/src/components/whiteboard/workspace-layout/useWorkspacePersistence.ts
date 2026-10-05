@@ -214,12 +214,17 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         // Already queued. Excalidraw fires onChange on focus and pointer changes
         // too; rescheduling on those flipped a manual save's "saving" straight
         // back to "unsaved" in the same render, so the click looked ignored.
-        if (version === pendingVersionRef.current) return;
+        // Still refresh the queued snapshot, or a pan or zoom made inside the
+        // autosave window is lost: the saved viewport is what a reload opens on.
+        if (version === pendingVersionRef.current) {
+          if (dirtyRef.current) snapshotRef.current = snapshotCurrent();
+          return;
+        }
         pendingVersionRef.current = version;
         scheduleAutosave();
       }
     },
-    [currentFileIdRef, draftRef, scheduleAutosave, setDraft],
+    [currentFileIdRef, draftRef, scheduleAutosave, setDraft, snapshotCurrent],
   );
 
   const handleDocChange = useCallback(

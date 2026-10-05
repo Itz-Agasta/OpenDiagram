@@ -88,35 +88,21 @@ export function ExportPopover({
   }, [api, open]);
 
   const options: ExportOptions = { format, target, scale, transparent };
-  const pickedIds = target.kind === "diagrams" ? target.ids : [];
-  const fileCount = Math.max(pickedIds.length, 1);
+  const fileCount = target.kind === "diagrams" ? target.ids.length : 1;
   const isRaster = format === "png" || format === "jpg";
   const canBeTransparent = format === "png" || format === "svg";
 
   useEffect(() => {
     if (!open || !isRaster) return setSize(null);
     let cancelled = false;
-    void exportSize(api, { format, target, scale, transparent }).then((next) => {
-      if (!cancelled) setSize(next);
-    });
+    // transparent left out: it never changes the size, and each run is a render.
+    exportSize(api, { format, target, scale, transparent: false })
+      .then((next) => !cancelled && setSize(next))
+      .catch(() => !cancelled && setSize(null));
     return () => {
       cancelled = true;
     };
-  }, [api, open, isRaster, format, target, scale, transparent]);
-
-  function toggleDiagram(id: string) {
-    const ids = pickedIds.includes(id) ? pickedIds.filter((x) => x !== id) : [...pickedIds, id];
-    setTarget(ids.length ? { kind: "diagrams", ids } : { kind: "canvas" });
-  }
-
-  const includeLabel =
-    target.kind === "canvas"
-      ? "Whole canvas"
-      : target.kind === "selection"
-        ? `Selection (${selection})`
-        : pickedIds.length === 1
-          ? (frames.find((frame) => frame.id === pickedIds[0])?.name ?? "1 diagram")
-          : `${pickedIds.length} diagrams`;
+  }, [api, open, isRaster, format, target, scale]);
 
   async function handleDownload() {
     setBusy(true);
@@ -173,69 +159,12 @@ export function ExportPopover({
               </Select>
             </Field>
 
-            <Field label="Include" aside={fileCount > 1 ? `${fileCount} files, one .zip` : null}>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger
-                  aria-label="Include"
-                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-[13px] text-od-ink"
-                >
-                  <span className="truncate">{includeLabel}</span>
-                  <ChevronDown aria-hidden className="h-4 w-4 opacity-50" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="max-h-80 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
-                >
-                  <DropdownMenuCheckboxItem
-                    checked={target.kind === "canvas"}
-                    onCheckedChange={() => setTarget({ kind: "canvas" })}
-                  >
-                    Whole canvas
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={target.kind === "selection"}
-                    disabled={!selection}
-                    onCheckedChange={() => setTarget({ kind: "selection" })}
-                  >
-                    {selection ? `Selection (${selection})` : "Selection (select something first)"}
-                  </DropdownMenuCheckboxItem>
-                  {frames.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-[11px] font-normal text-od-ink-faint">
-                        Diagrams, one file each
-                      </DropdownMenuLabel>
-                      {frames.length > 1 && (
-                        <DropdownMenuCheckboxItem
-                          checked={pickedIds.length === frames.length}
-                          onSelect={(event) => event.preventDefault()}
-                          onCheckedChange={(checked) =>
-                            setTarget(
-                              checked
-                                ? { kind: "diagrams", ids: frames.map((frame) => frame.id) }
-                                : { kind: "canvas" },
-                            )
-                          }
-                        >
-                          All diagrams
-                        </DropdownMenuCheckboxItem>
-                      )}
-                      {frames.map((frame) => (
-                        <DropdownMenuCheckboxItem
-                          key={frame.id}
-                          checked={pickedIds.includes(frame.id)}
-                          // Stay open: picking several is the point of this list.
-                          onSelect={(event) => event.preventDefault()}
-                          onCheckedChange={() => toggleDiagram(frame.id)}
-                        >
-                          <span className="truncate">{frame.name}</span>
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </Field>
+            <IncludePicker
+              frames={frames}
+              selection={selection}
+              target={target}
+              onChange={setTarget}
+            />
 
             {isRaster && (
               <Field
@@ -318,6 +247,101 @@ function Field({
   );
 }
 
+function IncludePicker({
+  frames,
+  selection,
+  target,
+  onChange,
+}: {
+  frames: { id: string; name: string }[];
+  selection: number;
+  target: ExportTarget;
+  onChange: (target: ExportTarget) => void;
+}) {
+  const picked = new Set(target.kind === "diagrams" ? target.ids : []);
+  const setTarget = onChange;
+
+  function toggleDiagram(id: string) {
+    const ids = frames.map((frame) => frame.id).filter((x) => (x === id) !== picked.has(x));
+    setTarget(ids.length ? { kind: "diagrams", ids } : { kind: "canvas" });
+  }
+
+  const label =
+    target.kind === "canvas"
+      ? "Whole canvas"
+      : target.kind === "selection"
+        ? `Selection (${selection})`
+        : picked.size === 1
+          ? (frames.find((frame) => picked.has(frame.id))?.name ?? "1 diagram")
+          : `${picked.size} diagrams`;
+
+  return (
+    <Field label="Include" aside={picked.size > 1 ? `${picked.size} files, one .zip` : null}>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger
+          aria-label="Include"
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-[13px] text-od-ink"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown aria-hidden className="h-4 w-4 opacity-50" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="max-h-80 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+        >
+          <DropdownMenuCheckboxItem
+            checked={target.kind === "canvas"}
+            onCheckedChange={() => setTarget({ kind: "canvas" })}
+          >
+            Whole canvas
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={target.kind === "selection"}
+            disabled={!selection}
+            onCheckedChange={() => setTarget({ kind: "selection" })}
+          >
+            {selection ? `Selection (${selection})` : "Selection (select something first)"}
+          </DropdownMenuCheckboxItem>
+          {frames.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[11px] font-normal text-od-ink-faint">
+                Diagrams, one file each
+              </DropdownMenuLabel>
+              {frames.length > 1 && (
+                <DropdownMenuCheckboxItem
+                  checked={picked.size === frames.length}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={(checked) =>
+                    setTarget(
+                      checked
+                        ? { kind: "diagrams", ids: frames.map((frame) => frame.id) }
+                        : { kind: "canvas" },
+                    )
+                  }
+                >
+                  All diagrams
+                </DropdownMenuCheckboxItem>
+              )}
+              {frames.map((frame) => (
+                <DropdownMenuCheckboxItem
+                  key={frame.id}
+                  checked={picked.has(frame.id)}
+                  // Stay open: picking several is the point of this list.
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={() => toggleDiagram(frame.id)}
+                >
+                  <span className="truncate">{frame.name}</span>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </Field>
+  );
+}
+
 function SignInCard({ onSignIn }: { onSignIn: () => void }) {
   function remember() {
     try {
@@ -326,7 +350,6 @@ function SignInCard({ onSignIn }: { onSignIn: () => void }) {
       // Storage blocked: they land back without the panel open, nothing worse.
     }
   }
-  const back = window.location.pathname + window.location.search;
   const button =
     "flex h-10 w-full items-center justify-center gap-2 rounded-[8px] text-[13px] font-medium transition";
 
@@ -344,6 +367,7 @@ function SignInCard({ onSignIn }: { onSignIn: () => void }) {
           type="button"
           onClick={() => {
             remember();
+            const back = window.location.pathname + window.location.search;
             void authClient.signIn.social({
               provider: "github",
               callbackURL: frontendCallbackURL(back),

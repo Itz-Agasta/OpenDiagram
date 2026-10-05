@@ -57,7 +57,8 @@ export function ModelPickerDialog({
                 {items.map((option) => (
                   <CommandItem
                     key={option.id}
-                    value={option.label}
+                    // Provider too, so typing "OpenDiagram" finds Standard.
+                    value={`${option.providerLabel} ${option.label}`}
                     onSelect={() => {
                       onSelect(option);
                       onOpenChange(false);
@@ -67,17 +68,18 @@ export function ModelPickerDialog({
                     <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
                       {option.id === selectedId && <Check aria-hidden="true" />}
                     </span>
-                    <span className="min-w-0">
-                      <span className="flex min-w-0 items-center gap-2">
+                    {/* div, not span: RecommendedBadge renders a div. */}
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
                         <span className="truncate font-medium">{option.modelLabel}</span>
                         {option.modelId && isRecommendedModel(option.modelId, option.modelLabel) ? (
                           <RecommendedBadge />
                         ) : null}
-                      </span>
+                      </div>
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                         {option.hint ?? option.label}
                       </span>
-                    </span>
+                    </div>
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -53,6 +53,17 @@ export function WorkspaceAgentSidebar({
   onClose,
   onResizeStart,
 }: WorkspaceAgentSidebarProps) {
+  const closeButton = (
+    <button
+      type="button"
+      onClick={onClose}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
+      aria-label="Close agent panel"
+    >
+      <PanelRightClose className="h-4 w-4" />
+    </button>
+  );
+
   return (
     <aside
       className={`group/agent relative h-full shrink-0 flex-col border-l border-od-border-soft bg-white ${isOpen ? "flex" : "hidden"}`}
@@ -94,24 +105,17 @@ export function WorkspaceAgentSidebar({
             onQuotaError={onQuotaError}
             onProviderError={onProviderError}
             onRateLimitError={onRateLimitError}
-            headerAction={
-              <button
-                type="button"
-                onClick={onClose}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-od-ink-faint transition hover:bg-od-canvas/45 hover:text-od-ink"
-                aria-label="Close agent panel"
-              >
-                <PanelRightClose className="h-4 w-4" />
-              </button>
-            }
+            headerAction={closeButton}
           />
         </div>
         {isContextPending && (
           <div
             role="status"
             aria-live="polite"
-            className="absolute inset-x-0 top-12 bottom-0 grid place-items-center bg-white text-od-ink-muted"
+            className="absolute inset-0 grid place-items-center bg-white text-od-ink-muted"
           >
+            {/* The panel's own row is inert while loading; closing must still work. */}
+            <div className="absolute top-2 right-2">{closeButton}</div>
             <div className="flex items-center gap-2 text-[13px]">
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />
               Loading agent context...

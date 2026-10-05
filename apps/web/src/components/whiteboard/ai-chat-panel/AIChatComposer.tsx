@@ -67,6 +67,8 @@ export function AIChatComposer({
               disabled={providerOptions.length === 0}
               className="h-7 max-w-56 min-w-0 justify-between gap-1 px-2 text-xs"
               aria-label="Choose AI provider model"
+              // Full "Provider · Model": the same model can come from two keys.
+              title={selectedProvider?.label}
               onClick={() => setProviderDialogOpen(true)}
             >
               <span className="truncate">{selectedProvider?.modelLabel ?? "Default model"}</span>
