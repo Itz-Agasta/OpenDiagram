@@ -33,8 +33,11 @@ export type ResolvedModel = {
 
 /**
  * One request's override of the user's saved default. `providerId` is the
- * `user_ai_provider` ROW id, NOT the provider kind ("openai").
+ * `user_ai_provider` ROW id, NOT the provider kind ("openai"), or
+ * `PLATFORM_PROVIDER_ID` to skip BYOK even when a default key is saved.
  */
+export const PLATFORM_PROVIDER_ID = "platform";
+
 export type ModelSelection = { providerId?: string | null; modelId?: string | null };
 
 /**
@@ -137,7 +140,8 @@ export async function resolveModel(
   userId?: string | null,
   selection: ModelSelection = {},
 ): Promise<ResolvedModel | null> {
-  if (userId) {
+  // Row ids are UUIDs, so this never shadows a connected provider.
+  if (userId && selection.providerId !== PLATFORM_PROVIDER_ID) {
     const byok = await resolveUserModel(userId, selection);
     if (byok) return byok;
   }
