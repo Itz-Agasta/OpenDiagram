@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { deleteGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import type { SavedProject, SavedProjectFile } from "@/lib/projects-client";
-import { clearAiSettingsCache } from "@/lib/settings-client";
 import { useWorkspaceLayoutStore } from "@/lib/workspace-layout-store";
 import type { SaveStatus } from "./helpers";
 import { useWorkspacePaneResize } from "./useWorkspacePaneResize";
@@ -49,17 +48,12 @@ export function useWorkspaceLayoutController() {
   const draftRef = useRef<GuestProjectDraft | null>(null);
   const currentFileIdRef = useRef<string | null>(null);
   const panes = useWorkspacePaneResize();
-  useEffect(() => {
-    panes.closeSidebar();
-  }, [panes.closeSidebar, params.projectId, params.workspaceId]);
   const storedProjectId = useWorkspaceLayoutStore((state) => state.projectId);
   const projectName = useWorkspaceLayoutStore((state) => state.projectName);
   const sidebarFiles = useWorkspaceLayoutStore((state) => state.files);
   const activeFileId = useWorkspaceLayoutStore((state) => state.activeFileId);
   const setProjectSnapshot = useWorkspaceLayoutStore((state) => state.setProjectSnapshot);
-  const setStoredActiveFileId = useWorkspaceLayoutStore((state) => state.setActiveFileId);
   const upsertStoredFile = useWorkspaceLayoutStore((state) => state.upsertFile);
-  const removeStoredFile = useWorkspaceLayoutStore((state) => state.removeFile);
   const { repoGenerationError, repoGenerationJob } = useRepoGeneration({
     activeFileIdRef: currentFileIdRef,
     draft,
@@ -129,20 +123,15 @@ export function useWorkspaceLayoutController() {
     persistence,
     projectId: params.projectId,
     projectName,
-    removeStoredFile,
     saveDraftAfterLogin,
     setActiveFile,
     setDocContent,
     setDraft,
-    setFileLoading,
-    setFirstFileName,
     setInitialScene,
     setProjectSnapshot,
     setSaveError,
     setSaveStatus,
     setShowFirstFileDialog,
-    setStoredActiveFileId,
-    sidebarFiles,
     upsertStoredFile,
   });
   const fileName = useWorkspaceFileName({
@@ -163,15 +152,6 @@ export function useWorkspaceLayoutController() {
     router.push(`/login?redirect=${redirect}`);
   }
 
-  async function signOut() {
-    await authClient.signOut();
-    clearAiSettingsCache();
-  }
-
-  function continueAsGuest() {
-    router.push("/dashboard");
-  }
-
   function leaveWithoutSaving() {
     const currentDraft = draftRef.current;
     if (currentDraft) {
@@ -188,7 +168,6 @@ export function useWorkspaceLayoutController() {
     router.push("/dashboard");
   }
 
-  const accountName = session.data?.user?.name || session.data?.user?.email || "Guest";
   const hasCurrentProjectSnapshot = storedProjectId === params.projectId;
   const sidebarProjectName = hasCurrentProjectSnapshot ? projectName : "OpenDiagram";
   const sidebarFilesForProject = hasCurrentProjectSnapshot ? sidebarFiles : [];
@@ -263,8 +242,6 @@ export function useWorkspaceLayoutController() {
 
   return {
     state: {
-      accountImage: session.data?.user?.image,
-      accountName,
       activeFile,
       activeFileId,
       activeFileName,
@@ -283,7 +260,6 @@ export function useWorkspaceLayoutController() {
       firstFileName,
       initialScene,
       isAgentOpen: panes.isAgentOpen,
-      isSidebarOpen: panes.isSidebarOpen,
       isEditingName: fileName.isEditingName,
       isSignedIn,
       leavePromptOpen,
@@ -294,9 +270,7 @@ export function useWorkspaceLayoutController() {
       savePending,
       saveStatus,
       showFirstFileDialog,
-      sidebarFilesForProject,
       sidebarProjectName,
-      sidebarWidth: panes.sidebarWidth,
     },
     actions: {
       beginEditName: fileName.beginEditName,
@@ -305,12 +279,8 @@ export function useWorkspaceLayoutController() {
         router.push("/dashboard");
       },
       cancelName: fileName.cancelName,
-      closeSidebar: panes.closeSidebar,
       closeAgent: panes.closeAgent,
       commitName: fileName.commitName,
-      continueAsGuest,
-      createWorkspaceFile: fileActions.createWorkspaceFile,
-      deleteWorkspaceFile: fileActions.deleteWorkspaceFile,
       handleCreateFirstFile: fileActions.handleCreateFirstFile,
       handleDocChange: persistence.handleDocChange,
       handleExcalidrawAPI: excalidraw.handleExcalidrawAPI,
@@ -320,13 +290,10 @@ export function useWorkspaceLayoutController() {
       leaveWithoutSaving,
       navigateToDashboard,
       openAgent: panes.openAgent,
-      openSidebar: panes.openSidebar,
-      openWorkspaceFile: fileActions.openWorkspaceFile,
       saveActiveFile: fileActions.saveActiveFile,
       setFirstFileName,
       setNameDraft: fileName.setNameDraft,
       signInToSave,
-      signOut,
     },
   };
 }

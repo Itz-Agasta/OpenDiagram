@@ -25,6 +25,7 @@ type WorkspaceEditorPaneProps = {
   isLoading: boolean;
   onDocChange: (value: string) => void;
   onExcalidrawAPI: (api: ExcalidrawImperativeAPI) => void;
+  onExport: () => void;
   onSceneChange: (elements: readonly unknown[], appState: unknown, files: unknown) => void;
 };
 
@@ -35,6 +36,7 @@ export function WorkspaceEditorPane({
   isLoading,
   onDocChange,
   onExcalidrawAPI,
+  onExport,
   onSceneChange,
 }: WorkspaceEditorPaneProps) {
   if (isLoading) {
@@ -58,6 +60,7 @@ export function WorkspaceEditorPane({
         <Whiteboard
           initialScene={initialScene}
           onAPIReady={onExcalidrawAPI}
+          onExport={onExport}
           onSceneChange={onSceneChange}
         />
       )}

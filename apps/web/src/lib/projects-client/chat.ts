@@ -1,5 +1,4 @@
 import { env } from "@OpenDiagram/env/web";
-import { readAiProviderUsage } from "../ai-provider-usage";
 import { projectResponseError, readProjectResponse } from "./http";
 import type { ProjectChatResult } from "./types";
 
@@ -23,5 +22,5 @@ export async function chatWithProject(
   if (!response.ok)
     throw projectResponseError(data, "Could not ask project assistant.", response.status);
 
-  return { ...data, aiProvider: readAiProviderUsage(response) ?? undefined };
+  return data;
 }

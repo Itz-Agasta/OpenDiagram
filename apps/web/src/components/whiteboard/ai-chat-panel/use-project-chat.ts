@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatStatus, UIMessage } from "ai";
 import type { Dispatch, SetStateAction } from "react";
-import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { uiMessagesToStoredChatHistory, type StoredChatMessage } from "@/lib/chat-history";
 import { runProjectChatAgent } from "@/lib/workspace-agents";
 import { CreationQuotaError, UpstreamRateLimitError } from "@/lib/projects-client";
@@ -15,7 +14,6 @@ interface UseProjectChatOptions {
   fileId?: string;
   normalizedHistory: StoredChatMessage[];
   onHistoryChange?: (history: StoredChatMessage[]) => void;
-  onProviderUsage: (usage: AiProviderUsage | null) => void;
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
   onQuotaError?: (error: CreationQuotaError) => void;
@@ -31,7 +29,6 @@ export function useProjectChat({
   fileId,
   normalizedHistory,
   onHistoryChange,
-  onProviderUsage,
   onProviderError,
   onRateLimitError,
   onQuotaError,
@@ -105,7 +102,6 @@ export function useProjectChat({
       }
       setStatus("submitted");
       setError(null);
-      onProviderUsage(null);
       const requestController = new AbortController();
       requestControllerRef.current = requestController;
 
@@ -117,7 +113,6 @@ export function useProjectChat({
           modelId,
           signal: requestController.signal,
         });
-        if (result.aiProvider) onProviderUsage(result.aiProvider);
         const assistantMessage: StoredChatMessage = {
           id: `msg-${messageIdRef.current++}`,
           role: "assistant",
@@ -190,7 +185,6 @@ export function useProjectChat({
     },
     [
       activeFileType,
-      onProviderUsage,
       onProviderError,
       onRateLimitError,
       onQuotaError,

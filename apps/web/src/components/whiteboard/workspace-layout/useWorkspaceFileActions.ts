@@ -4,14 +4,8 @@ import { useRouter } from "next/navigation";
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
 import { writeLocalChat } from "@/lib/local-chat";
-import { forgetLocalFiles } from "@/lib/local-file-cleanup";
-import { cancelQueuedProjectFilePatch, queueProjectFilePatch } from "@/lib/project-file-sync";
-import {
-  createProjectFile,
-  deleteProjectFile,
-  type ProjectFileType,
-  type SavedProjectFile,
-} from "@/lib/projects-client";
+import { queueProjectFilePatch } from "@/lib/project-file-sync";
+import { createProjectFile, type SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 import { fileContentToText, toSidebarFile, type SaveStatus } from "./helpers";
 import type { useWorkspacePersistence } from "./useWorkspacePersistence";
@@ -29,8 +23,6 @@ interface FileActionsOptions {
   setActiveFile: Dispatch<SetStateAction<SavedProjectFile | null>>;
   setDocContent: Dispatch<SetStateAction<string>>;
   setDraft: Dispatch<SetStateAction<GuestProjectDraft | null>>;
-  setFileLoading: Dispatch<SetStateAction<boolean>>;
-  setFirstFileName: Dispatch<SetStateAction<string>>;
   setInitialScene: Dispatch<SetStateAction<unknown>>;
   setProjectSnapshot: (snapshot: {
     projectId: string;
@@ -41,9 +33,6 @@ interface FileActionsOptions {
   setSaveError: Dispatch<SetStateAction<string | null>>;
   setSaveStatus: Dispatch<SetStateAction<SaveStatus>>;
   setShowFirstFileDialog: Dispatch<SetStateAction<boolean>>;
-  setStoredActiveFileId: (fileId: string | null) => void;
-  sidebarFiles: WorkspaceSidebarFile[];
-  removeStoredFile: (fileId: string) => void;
   upsertStoredFile: (file: WorkspaceSidebarFile) => void;
 }
 
@@ -58,25 +47,22 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     persistence,
     projectId,
     projectName,
-    removeStoredFile,
     saveDraftAfterLogin,
     setActiveFile,
     setDocContent,
     setDraft,
-    setFileLoading,
-    setFirstFileName,
     setInitialScene,
     setProjectSnapshot,
     setSaveError,
     setSaveStatus,
     setShowFirstFileDialog,
-    setStoredActiveFileId,
-    sidebarFiles,
     upsertStoredFile,
   } = options;
 
   async function saveActiveFile() {
-    if (!isSignedIn) return saveDraftAfterLogin();
+    // A draft still here once signed in means promotion failed; retrying the
+    // file save would no-op on the missing activeFile.
+    if (!isSignedIn || draftRef.current) return saveDraftAfterLogin();
     if (!activeFile) return;
     setSaveError(null);
     setSaveStatus("saving");
@@ -134,78 +120,6 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
     }
   }
 
-  function openWorkspaceFile(fileId: string) {
-    if (fileId === currentFileIdRef.current) return;
-    setFileLoading(true);
-    setStoredActiveFileId(fileId);
-    router.push(`/project/${projectId}/workspace/${fileId}`);
-  }
-
-  async function createWorkspaceFile(type: ProjectFileType) {
-    if (!isSignedIn) return setSaveError("Log in to save your project before adding files.");
-    setSaveError(null);
-    setSaveStatus("saving");
-    try {
-      const file = await createProjectFile(projectId, {
-        name: type === "doc" ? "Untitled doc" : "Untitled diagram",
-        type,
-      });
-      setActiveFile(file);
-      upsertStoredFile(toSidebarFile(file));
-      setStoredActiveFileId(file.id);
-      currentFileIdRef.current = file.id;
-      persistence.initialize(file.type, null, "");
-      setDocContent("");
-      setInitialScene(null);
-      setSaveStatus("saved");
-      router.push(`/project/${projectId}/workspace/${file.id}`);
-    } catch (error) {
-      setSaveStatus("error");
-      setSaveError(error instanceof Error ? error.message : "Could not create file.");
-    }
-  }
-
-  async function deleteWorkspaceFile(fileId: string) {
-    if (!isSignedIn) return setSaveError("Log in to save your project before deleting files.");
-    setSaveError(null);
-    setSaveStatus("saving");
-    const deletingActiveFile = persistence.activeFileRef.current?.id === fileId;
-    if (deletingActiveFile) {
-      persistence.invalidateFileAutosave(fileId);
-      persistence.clearAutosave();
-    }
-    // Before the DELETE, not after: a patch still sitting in the write queue would
-    // otherwise go out behind it and 404, reporting a save error for a file the
-    // user just deliberately threw away.
-    cancelQueuedProjectFilePatch(fileId);
-    try {
-      await deleteProjectFile(projectId, fileId);
-      removeStoredFile(fileId);
-      forgetLocalFiles([fileId]);
-      const nextFile = sidebarFiles.find((file) => file.id !== fileId);
-      if (persistence.activeFileRef.current?.id === fileId) {
-        setActiveFile(null);
-        currentFileIdRef.current = nextFile?.id ?? null;
-        persistence.initialize("diagram", null, "");
-        setDocContent("");
-        setInitialScene(null);
-        setStoredActiveFileId(nextFile?.id ?? null);
-        if (nextFile) router.replace(`/project/${projectId}/workspace/${nextFile.id}`);
-        else {
-          setShowFirstFileDialog(true);
-          setFirstFileName("");
-          router.replace(`/project/${projectId}/workspace`);
-        }
-      }
-      persistence.markClean();
-      setSaveStatus("saved");
-    } catch (error) {
-      if (deletingActiveFile) persistence.restoreFileAutosave(fileId);
-      setSaveStatus("error");
-      setSaveError(error instanceof Error ? error.message : "Could not delete file.");
-    }
-  }
-
   const handleAgentHistoryChange = useCallback(
     (history: StoredChatMessage[]) => {
       const currentDraft = draftRef.current;
@@ -236,11 +150,8 @@ export function useWorkspaceFileActions(options: FileActionsOptions) {
   );
 
   return {
-    createWorkspaceFile,
-    deleteWorkspaceFile,
     handleAgentHistoryChange,
     handleCreateFirstFile,
-    openWorkspaceFile,
     saveActiveFile,
   };
 }

@@ -1,8 +1,6 @@
 import type { SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 
-export const SIDEBAR_MIN_WIDTH = 220;
-export const SIDEBAR_MAX_WIDTH = 360;
 export const AGENT_MIN_WIDTH = 300;
 export const AGENT_MAX_WIDTH = 560;
 export const CONTENT_MIN_WIDTH = 420;
@@ -18,7 +16,9 @@ export const CONTENT_MIN_WIDTH = 420;
 // and we additionally reconcile a dirty local copy on open.
 export const AUTOSAVE_THROTTLE_MS = 15000;
 
-export type SaveStatus = "idle" | "saving" | "saved" | "error";
+// `unsaved`: edits are on IndexedDB, waiting out the autosave throttle. Kept apart
+// from `saving` (request in flight) so manual Save stays clickable in that window.
+export type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
 
 type DiagramSceneFields = {
   appState?: unknown;
@@ -91,12 +91,29 @@ export function hasDiagramSpec(value: unknown) {
 }
 
 /** collaborators is a Map and does not survive a JSON round trip. */
+// What a saved scene keeps of Excalidraw's appState: the camera, the canvas look,
+// and the user's drawing defaults (currentItem*). An allowlist, not the whole
+// object: that carried session state back in, so a file saved mid-edit reopened
+// with its text stuck in edit mode and unpainted (editingTextElement), and with
+// the last session's selection. Excalidraw keeps the same split for its own
+// storage (APP_STATE_STORAGE_CONF, browser: false).
+const PERSISTED_APP_STATE = new Set([
+  "scrollX",
+  "scrollY",
+  "zoom",
+  "viewBackgroundColor",
+  "gridModeEnabled",
+  "gridSize",
+  "gridStep",
+]);
+
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
-
-  const { collaborators: _collaborators, ...rest } = appState as Record<string, unknown>;
-
-  return rest;
+  return Object.fromEntries(
+    Object.entries(appState).filter(
+      ([key]) => PERSISTED_APP_STATE.has(key) || key.startsWith("currentItem"),
+    ),
+  );
 }
 
 /**

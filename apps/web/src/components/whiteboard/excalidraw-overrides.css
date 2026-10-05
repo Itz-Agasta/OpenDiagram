@@ -1,0 +1,12 @@
+/*
+ * FIXME(excalidraw): 0.18.1 has no prop to hide any of these, so CSS it is.
+ * The Library trigger renders as an internal fallback whenever the host passes
+ * none, the help button is hardcoded in the footer, and HintViewer has no flag.
+ * Drop the Library rule once a `showLibraryButton`-style UIOption ships.
+ * https://github.com/excalidraw/excalidraw/issues/7425
+ */
+.od-canvas .excalidraw .default-sidebar-trigger,
+.od-canvas .excalidraw .help-icon,
+.od-canvas .excalidraw .HintViewer {
+  display: none;
+}

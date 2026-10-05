@@ -1,18 +1,46 @@
 "use client";
 
 import "@excalidraw/excalidraw/index.css";
+import "./excalidraw-overrides.css";
 import type {
   BinaryFiles,
+  ExcalidrawProps,
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
 import dynamic from "next/dynamic";
+import { Download } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { sanitizeSceneAppState } from "./workspace-layout/helpers";
 
+// MainMenu is a compound child of Excalidraw and just as browser-only, so both
+// come from the one dynamic import.
 const Excalidraw = dynamic(
   async () => {
-    const { Excalidraw } = await import("@excalidraw/excalidraw");
-    return Excalidraw;
+    const { Excalidraw, MainMenu } = await import("@excalidraw/excalidraw");
+    return function OpenDiagramExcalidraw({
+      onExport,
+      ...props
+    }: ExcalidrawProps & { onExport?: () => void }) {
+      return (
+        <Excalidraw {...props}>
+          {/* Replaces the default menu: no Open/Save-to-file (we persist),
+              no "Excalidraw links", no dark toggle that only darkens the canvas. */}
+          <MainMenu>
+            {onExport && (
+              <MainMenu.Item icon={<Download size={16} />} onSelect={onExport}>
+                Export...
+              </MainMenu.Item>
+            )}
+            <MainMenu.DefaultItems.SearchMenu />
+            <MainMenu.DefaultItems.Help />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
+            <MainMenu.Separator />
+            <MainMenu.DefaultItems.ClearCanvas />
+          </MainMenu>
+        </Excalidraw>
+      );
+    };
   },
   { ssr: false, loading: () => <WhiteboardSkeleton /> },
 );
@@ -27,6 +55,7 @@ function WhiteboardSkeleton() {
 
 interface WhiteboardProps {
   onAPIReady?: (api: ExcalidrawImperativeAPI) => void;
+  onExport?: () => void;
   onSceneChange?: (elements: readonly unknown[], appState: unknown, files: unknown) => void;
   initialScene?: unknown;
 }
@@ -37,10 +66,7 @@ function toExcalidrawInitialData(scene: unknown): ExcalidrawInitialDataState | u
   const value = scene as { elements?: unknown; appState?: unknown; files?: unknown };
   const appState =
     value.appState && typeof value.appState === "object"
-      ? ({
-          ...(value.appState as Record<string, unknown>),
-          collaborators: undefined,
-        } as ExcalidrawInitialDataState["appState"])
+      ? (sanitizeSceneAppState(value.appState) as ExcalidrawInitialDataState["appState"])
       : undefined;
 
   return {
@@ -51,7 +77,7 @@ function toExcalidrawInitialData(scene: unknown): ExcalidrawInitialDataState | u
   };
 }
 
-export function Whiteboard({ onAPIReady, onSceneChange, initialScene }: WhiteboardProps) {
+export function Whiteboard({ onAPIReady, onExport, onSceneChange, initialScene }: WhiteboardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
   const handleAPI = useCallback(
@@ -90,15 +116,22 @@ export function Whiteboard({ onAPIReady, onSceneChange, initialScene }: Whiteboa
   }, [isMounted]);
 
   return (
-    <div ref={containerRef} className="w-full h-full overflow-hidden relative">
+    <div ref={containerRef} className="od-canvas w-full h-full overflow-hidden relative">
       <Excalidraw
         excalidrawAPI={handleAPI}
+        onExport={onExport}
         initialData={toExcalidrawInitialData(initialScene)}
         onChange={(elements, appState, files) => onSceneChange?.(elements, appState, files)}
+        // Excalidraw's own Text-to-diagram and Wireframe-to-code compete with the agent.
+        aiEnabled={false}
         UIOptions={{
           canvasActions: {
             saveToActiveFile: false,
             loadScene: false,
+            toggleTheme: null,
+            // Ctrl+Shift+E would open Excalidraw's own dialog around our panel and its sign-in gate.
+            export: false,
+            saveAsImage: false,
           },
         }}
       />

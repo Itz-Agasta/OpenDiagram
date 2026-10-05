@@ -9,51 +9,36 @@ export type WorkspaceSidebarFile = {
 };
 
 type WorkspaceLayoutStore = {
-  sidebarWidth: number;
-  isSidebarOpen: boolean;
   agentWidth: number;
   isAgentOpen: boolean;
   projectId: string | null;
   projectName: string;
   files: WorkspaceSidebarFile[];
   activeFileId: string | null;
-  setSidebarWidth: (width: number) => void;
-  openSidebar: () => void;
-  closeSidebar: () => void;
   setAgentWidth: (width: number) => void;
   openAgent: () => void;
   closeAgent: () => void;
-  toggleAgent: () => void;
   setProjectSnapshot: (snapshot: {
     projectId: string;
     projectName: string;
     files: WorkspaceSidebarFile[];
     activeFileId: string | null;
   }) => void;
-  setActiveFileId: (fileId: string | null) => void;
   upsertFile: (file: WorkspaceSidebarFile) => void;
-  removeFile: (fileId: string) => void;
-  clearProject: (projectId?: string) => void;
 };
 
 export const useWorkspaceLayoutStore = create<WorkspaceLayoutStore>()(
   persist(
     (set) => ({
-      sidebarWidth: 280,
-      isSidebarOpen: false,
       agentWidth: 384,
       isAgentOpen: true,
       projectId: null,
       projectName: "OpenDiagram",
       files: [],
       activeFileId: null,
-      setSidebarWidth: (width) => set({ sidebarWidth: width }),
-      openSidebar: () => set({ isSidebarOpen: true }),
-      closeSidebar: () => set({ isSidebarOpen: false }),
       setAgentWidth: (width) => set({ agentWidth: width }),
       openAgent: () => set({ isAgentOpen: true }),
       closeAgent: () => set({ isAgentOpen: false }),
-      toggleAgent: () => set((state) => ({ isAgentOpen: !state.isAgentOpen })),
       setProjectSnapshot: (snapshot) =>
         set({
           projectId: snapshot.projectId,
@@ -61,7 +46,6 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutStore>()(
           files: snapshot.files,
           activeFileId: snapshot.activeFileId,
         }),
-      setActiveFileId: (fileId) => set({ activeFileId: fileId }),
       upsertFile: (file) =>
         set((state) => {
           const exists = state.files.some((item) => item.id === file.id);
@@ -72,38 +56,13 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutStore>()(
               : [file, ...state.files],
           };
         }),
-      removeFile: (fileId) =>
-        set((state) => ({
-          files: state.files.filter((item) => item.id !== fileId),
-          activeFileId: state.activeFileId === fileId ? null : state.activeFileId,
-        })),
-      clearProject: (projectId) =>
-        set((state) => {
-          if (projectId && state.projectId !== projectId) return state;
-
-          return {
-            projectId: null,
-            projectName: "OpenDiagram",
-            files: [],
-            activeFileId: null,
-          };
-        }),
     }),
     {
       name: "workspace-layout",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        sidebarWidth: state.sidebarWidth,
         agentWidth: state.agentWidth,
         isAgentOpen: state.isAgentOpen,
-      }),
-      // Sidebar visibility is session UI, not a durable preference. Older
-      // persisted payloads may still contain it, so force the hydrated value
-      // closed while preserving widths and the agent preference.
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...(persistedState as Partial<WorkspaceLayoutStore>),
-        isSidebarOpen: false,
       }),
     },
   ),

@@ -1,5 +1,3 @@
-import type { AiProviderUsage } from "../ai-provider-usage";
-
 export type SavedProject = {
   id: string;
   name: string;
@@ -71,7 +69,6 @@ export type ProjectChatResult = {
   answer: string;
   sources: ProjectChatSource[];
   provider?: "local";
-  aiProvider?: AiProviderUsage;
 };
 
 export type RepoGenerationTask = {

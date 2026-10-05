@@ -11,27 +11,32 @@ export function AIChatPanel(props: AIChatPanelProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white text-od-ink">
-      {props.projectId && props.fileId && (
-        <AIChatThreadBar
-          // Also disabled mid-turn: a turn is persisted against whichever thread
-          // is open when it finishes, so switching under a running model files
-          // the answer under a conversation that never asked the question.
-          //
-          // Busy means in flight, NOT "not ready". `error` is a resting state --
-          // `handleSubmit` accepts it, and gating on `!== "ready"` left History
-          // and "New chat" disabled forever after any failed turn, with starting
-          // a fresh conversation being exactly what you want next.
-          disabled={
-            controller.threadSwitching ||
-            controller.submitStatus === "submitted" ||
-            controller.submitStatus === "streaming"
-          }
-          loadThreadList={controller.loadThreadList}
-          onResumeThread={controller.resumeThread}
-          startNewThread={controller.startNewThread}
-          threads={controller.threads}
-        />
-      )}
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-od-border-soft px-2">
+        {props.projectId && props.fileId ? (
+          <AIChatThreadBar
+            // Also disabled mid-turn: a turn is persisted against whichever thread
+            // is open when it finishes, so switching under a running model files
+            // the answer under a conversation that never asked the question.
+            //
+            // Busy means in flight, NOT "not ready". `error` is a resting state --
+            // `handleSubmit` accepts it, and gating on `!== "ready"` left History
+            // and "New chat" disabled forever after any failed turn, with starting
+            // a fresh conversation being exactly what you want next.
+            disabled={
+              controller.threadSwitching ||
+              controller.submitStatus === "submitted" ||
+              controller.submitStatus === "streaming"
+            }
+            loadThreadList={controller.loadThreadList}
+            onResumeThread={controller.resumeThread}
+            startNewThread={controller.startNewThread}
+            threads={controller.threads}
+          />
+        ) : (
+          <div className="flex-1" />
+        )}
+        {props.headerAction}
+      </div>
       <AIChatConversation
         answerAskUser={controller.answerAskUser}
         applyError={controller.applyError}
@@ -47,7 +52,6 @@ export function AIChatPanel(props: AIChatPanelProps) {
       <AIChatComposer
         onStop={controller.stop}
         onSubmit={controller.handleSubmit}
-        providerUsage={controller.providerUsage}
         providerId={controller.providerId}
         providerOptions={controller.providerOptions}
         setProviderId={controller.setProviderId}
