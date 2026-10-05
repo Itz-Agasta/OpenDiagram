@@ -1,0 +1,37 @@
+apps/web/src/components/whiteboard/workspace-layout/WorkspaceAgentSidebar.tsx
+  s_26dd9e3bbed3db::t_0fee15281dd6ab 56-66,108,115,117-118
+apps/web/src/components/whiteboard/export/export-scene.ts
+  s_26dd9e3bbed3db::t_deb6e09ff62c26 69,72,145-146,148
+apps/web/src/components/whiteboard/workspace-layout/useWorkspacePersistence.ts
+  s_26dd9e3bbed3db::t_bb8176b5793b0c 217-222
+  s_26dd9e3bbed3db::t_0fee15281dd6ab 227
+apps/web/src/components/whiteboard/export/ExportPopover.tsx
+  s_26dd9e3bbed3db::t_93e610a4a45d00 91,98-101,105,162-167,250-344,370
+apps/web/src/components/whiteboard/ai-chat-panel/use-ai-chat-panel-controller.ts
+  s_26dd9e3bbed3db::t_43f67834d67f96 111,121,135,142-147,168-169,208-209
+apps/web/src/components/model-picker-dialog.tsx
+  s_26dd9e3bbed3db::t_bb8176b5793b0c 60-61,71-73,78
+  s_26dd9e3bbed3db::t_aa0ff6a954db53 82
+apps/web/src/components/whiteboard/ai-chat-panel/AIChatComposer.tsx
+  s_26dd9e3bbed3db::t_bb8176b5793b0c 70-71
+apps/web/src/components/whiteboard/workspace-layout/useWorkspaceFileActions.ts
+  s_26dd9e3bbed3db::t_bb8176b5793b0c 63-65
+apps/web/src/components/whiteboard/WorkspaceLayout.tsx
+  s_26dd9e3bbed3db::t_0fee15281dd6ab 35-37,39,47,58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bbcbf6c4ff1d7046b2eafb841177d6df1adb4d28",
+  "prompts": {},
+  "sessions": {
+    "s_26dd9e3bbed3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f3d9da6-9961-4aca-bee5-2409ac1cf395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
