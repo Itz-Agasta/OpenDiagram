@@ -1,0 +1,19 @@
+apps/server/src/lib/ai-provider/resolve.ts
+  s_26dd9e3bbed3db::t_ac86a4622536d5 36-37,39-40,143-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3f5cd1b925c5cb453f7efb8b489232be42b948ee",
+  "prompts": {},
+  "sessions": {
+    "s_26dd9e3bbed3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f3d9da6-9961-4aca-bee5-2409ac1cf395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
