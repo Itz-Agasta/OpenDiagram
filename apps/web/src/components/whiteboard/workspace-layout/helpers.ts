@@ -91,19 +91,29 @@ export function hasDiagramSpec(value: unknown) {
 }
 
 /** collaborators is a Map and does not survive a JSON round trip. */
+// What a saved scene keeps of Excalidraw's appState: the camera, the canvas look,
+// and the user's drawing defaults (currentItem*). An allowlist, not the whole
+// object: that carried session state back in, so a file saved mid-edit reopened
+// with its text stuck in edit mode and unpainted (editingTextElement), and with
+// the last session's selection. Excalidraw keeps the same split for its own
+// storage (APP_STATE_STORAGE_CONF, browser: false).
+const PERSISTED_APP_STATE = new Set([
+  "scrollX",
+  "scrollY",
+  "zoom",
+  "viewBackgroundColor",
+  "gridModeEnabled",
+  "gridSize",
+  "gridStep",
+]);
+
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
-
-  // Selection too: restored on open, a file came up with the last session's
-  // elements selected, and Export defaulted to exporting only those.
-  const {
-    collaborators: _collaborators,
-    selectedElementIds: _selectedElementIds,
-    selectedGroupIds: _selectedGroupIds,
-    ...rest
-  } = appState as Record<string, unknown>;
-
-  return rest;
+  return Object.fromEntries(
+    Object.entries(appState).filter(
+      ([key]) => PERSISTED_APP_STATE.has(key) || key.startsWith("currentItem"),
+    ),
+  );
 }
 
 /**

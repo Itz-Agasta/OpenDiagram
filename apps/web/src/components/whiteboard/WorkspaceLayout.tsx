@@ -32,19 +32,27 @@ export function WorkspaceLayout() {
     return () => window.clearTimeout(timeout);
   }, [providerErrorMessage]);
   const [exportOpen, setExportOpen] = useState(false);
-  // A guest who signed in from the export panel lands back with it open.
-  // agentProjectId, not isSignedIn: it stays unset until the draft lookup resolves
-  // and promotion is done, which replaces the URL and would close the panel again.
+  // A guest who signed in from the export panel lands back with it open. The flag
+  // is cleared when the panel closes, not when it opens: draft promotion mounts the
+  // old draft URL first and then redirects, remounting this layout, so a flag
+  // spent on the first mount left the final page closed (measured).
   useEffect(() => {
     if (!state.agentProjectId || !state.excalidrawAPI || state.agentFileType === "doc") return;
     try {
-      if (!sessionStorage.getItem(REOPEN_EXPORT_KEY)) return;
+      if (sessionStorage.getItem(REOPEN_EXPORT_KEY)) setExportOpen(true);
+    } catch {
+      // Storage blocked: the user lands back without the panel open, nothing worse.
+    }
+  }, [state.agentProjectId, state.excalidrawAPI, state.agentFileType]);
+  function handleExportOpenChange(open: boolean) {
+    setExportOpen(open);
+    if (open) return;
+    try {
       sessionStorage.removeItem(REOPEN_EXPORT_KEY);
     } catch {
-      return;
+      // As above.
     }
-    setExportOpen(true);
-  }, [state.agentProjectId, state.excalidrawAPI, state.agentFileType]);
+  }
   const byokSettingsHref = state.isSignedIn
     ? "/dashboard/settings"
     : "/login?redirect=%2Fdashboard%2Fsettings";
@@ -64,7 +72,7 @@ export function WorkspaceLayout() {
                 fileName={state.activeFileName}
                 isSignedIn={state.isSignedIn}
                 open={exportOpen}
-                onOpenChange={setExportOpen}
+                onOpenChange={handleExportOpenChange}
                 onSignIn={actions.signInToSave}
               />
             )
