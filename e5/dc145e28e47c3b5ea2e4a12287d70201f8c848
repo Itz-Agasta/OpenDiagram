@@ -1,0 +1,23 @@
+apps/web/src/components/whiteboard/workspace-layout/useWorkspacePersistence.ts
+  s_26dd9e3bbed3db::t_fc2867b9063460 64,85,161
+  s_26dd9e3bbed3db::t_47dd31349c0a31 214-217
+  s_26dd9e3bbed3db::t_cd58110e00ca0c 342-344,347
+apps/web/src/components/whiteboard/workspace-layout/helpers.ts
+  s_26dd9e3bbed3db::t_fc2867b9063460 19-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5dc145e28e47c3b5ea2e4a12287d70201f8c848",
+  "prompts": {},
+  "sessions": {
+    "s_26dd9e3bbed3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f3d9da6-9961-4aca-bee5-2409ac1cf395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
