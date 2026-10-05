@@ -11,6 +11,7 @@ import type {
 import dynamic from "next/dynamic";
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { sanitizeSceneAppState } from "./workspace-layout/helpers";
 
 // MainMenu is a compound child of Excalidraw and just as browser-only, so both
 // come from the one dynamic import.
@@ -65,10 +66,7 @@ function toExcalidrawInitialData(scene: unknown): ExcalidrawInitialDataState | u
   const value = scene as { elements?: unknown; appState?: unknown; files?: unknown };
   const appState =
     value.appState && typeof value.appState === "object"
-      ? ({
-          ...(value.appState as Record<string, unknown>),
-          collaborators: undefined,
-        } as ExcalidrawInitialDataState["appState"])
+      ? (sanitizeSceneAppState(value.appState) as ExcalidrawInitialDataState["appState"])
       : undefined;
 
   return {

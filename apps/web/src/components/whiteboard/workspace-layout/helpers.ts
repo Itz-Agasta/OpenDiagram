@@ -94,7 +94,14 @@ export function hasDiagramSpec(value: unknown) {
 export function sanitizeSceneAppState(appState: unknown) {
   if (!appState || typeof appState !== "object") return appState;
 
-  const { collaborators: _collaborators, ...rest } = appState as Record<string, unknown>;
+  // Selection too: restored on open, a file came up with the last session's
+  // elements selected, and Export defaulted to exporting only those.
+  const {
+    collaborators: _collaborators,
+    selectedElementIds: _selectedElementIds,
+    selectedGroupIds: _selectedGroupIds,
+    ...rest
+  } = appState as Record<string, unknown>;
 
   return rest;
 }

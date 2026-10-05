@@ -92,9 +92,10 @@ export async function exportSize(api: ExcalidrawImperativeAPI, options: ExportOp
     files: api.getFiles(),
     exportingFrame: part.frame,
     getDimensions: (width: number, height: number) => {
+      // floor, as assigning canvas.width truncates: round showed 280 for a 279 file.
       size = {
-        width: Math.round(width * options.scale),
-        height: Math.round(height * options.scale),
+        width: Math.floor(width * options.scale),
+        height: Math.floor(height * options.scale),
       };
       return { width: 1, height: 1, scale: 1 / Math.max(width, height) };
     },

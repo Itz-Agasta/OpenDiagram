@@ -45,6 +45,10 @@ const FORMATS: { value: ExportFormat; label: string; hint: string }[] = [
 ];
 
 const SCALES: ExportScale[] = [1, 2, 3];
+// Chrome's canvas ceiling. Past it toBlob hands back null after the full render,
+// and Excalidraw rejects with "couldn't export to blob", so refuse up front.
+const MAX_CANVAS_SIDE = 32_767;
+const MAX_CANVAS_AREA = 16_384 * 16_384;
 
 type ExportPopoverProps = {
   api: ExcalidrawImperativeAPI;
@@ -90,6 +94,11 @@ export function ExportPopover({
   const options: ExportOptions = { format, target, scale, transparent };
   const fileCount = target.kind === "diagrams" ? target.ids.length : 1;
   const isRaster = format === "png" || format === "jpg";
+  const tooLarge =
+    isRaster &&
+    !!size &&
+    (Math.max(size.width, size.height) > MAX_CANVAS_SIDE ||
+      size.width * size.height > MAX_CANVAS_AREA);
   const canBeTransparent = format === "png" || format === "svg";
 
   useEffect(() => {
@@ -170,9 +179,11 @@ export function ExportPopover({
               <Field
                 label="Size"
                 aside={
-                  size
-                    ? `${size.width.toLocaleString()} × ${size.height.toLocaleString()} px`
-                    : null
+                  tooLarge ? (
+                    <span className="text-red-600">Too large, pick a smaller size</span>
+                  ) : size ? (
+                    `${size.width.toLocaleString()} × ${size.height.toLocaleString()} px`
+                  ) : null
                 }
               >
                 <div className="grid grid-cols-3 gap-1 rounded-[8px] bg-od-canvas/50 p-1">
@@ -210,8 +221,8 @@ export function ExportPopover({
             <button
               type="button"
               onClick={() => void handleDownload()}
-              disabled={busy}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-od-ink text-[13px] font-medium text-white transition hover:bg-od-ink/90 disabled:cursor-wait disabled:opacity-70"
+              disabled={busy || tooLarge}
+              className={`flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-od-ink text-[13px] font-medium text-white transition hover:bg-od-ink/90 disabled:opacity-70 ${busy ? "disabled:cursor-wait" : "disabled:cursor-not-allowed"}`}
             >
               {busy ? (
                 <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -233,7 +244,7 @@ function Field({
   children,
 }: {
   label: string;
-  aside?: string | null;
+  aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
