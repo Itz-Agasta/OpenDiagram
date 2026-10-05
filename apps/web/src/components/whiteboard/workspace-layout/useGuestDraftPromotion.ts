@@ -3,6 +3,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "better-auth";
 import { deleteGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
+import { queueProjectFilePatch } from "@/lib/project-file-sync";
 import {
   createProject,
   createProjectFile,
@@ -86,6 +87,18 @@ export function useGuestDraftPromotion(options: PromotionOptions) {
       const activeFile =
         files.find((item) => item.draftId === currentFile.id)?.file ?? files[0]?.file;
       if (!activeFile) return setSaveError("No file to save.");
+      // Edits keep landing in the draft while this runs, and the draft is deleted
+      // below. Carry the open file's newest copy over first.
+      // ponytail: an edit made during this one PATCH is still lost; the window is
+      // one request, and closing it means retrying until the draft stops changing.
+      const latest = draftRef.current?.files.find((file) => file.id === currentFile.id);
+      if (latest && latest !== currentFile) {
+        await queueProjectFilePatch(
+          project.id,
+          activeFile.id,
+          latest.type === "doc" ? { content: latest.content } : { scene: latest.scene },
+        );
+      }
       deleteGuestProjectDraft(currentDraft.id);
       draftRef.current = null;
       setDraft(null);
