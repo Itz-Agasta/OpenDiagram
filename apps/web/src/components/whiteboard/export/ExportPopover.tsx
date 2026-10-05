@@ -78,7 +78,9 @@ export function ExportPopover({
   const [target, setTarget] = useState<ExportTarget>({ kind: "canvas" });
   const [frames, setFrames] = useState<{ id: string; name: string }[]>([]);
   const [selection, setSelection] = useState(0);
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  // undefined while measuring: Download waits, so a stale size cannot wave
+  // through an export that just became too large.
+  const [size, setSize] = useState<{ width: number; height: number } | null | undefined>(null);
   const [busy, setBusy] = useState(false);
 
   // The scene changes while the panel is closed, so re-read it on every open.
@@ -103,6 +105,7 @@ export function ExportPopover({
 
   useEffect(() => {
     if (!open || !isRaster) return setSize(null);
+    setSize(undefined);
     let cancelled = false;
     // transparent left out: it never changes the size, and each run is a render.
     exportSize(api, { format, target, scale, transparent: false })
@@ -181,7 +184,7 @@ export function ExportPopover({
                 aside={
                   tooLarge ? (
                     <span className="text-red-600">Too large, pick a smaller size</span>
-                  ) : size ? (
+                  ) : size && fileCount === 1 ? (
                     `${size.width.toLocaleString()} × ${size.height.toLocaleString()} px`
                   ) : null
                 }
@@ -221,7 +224,7 @@ export function ExportPopover({
             <button
               type="button"
               onClick={() => void handleDownload()}
-              disabled={busy || tooLarge}
+              disabled={busy || tooLarge || size === undefined}
               className={`flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-od-ink text-[13px] font-medium text-white transition hover:bg-od-ink/90 disabled:opacity-70 ${busy ? "disabled:cursor-wait" : "disabled:cursor-not-allowed"}`}
             >
               {busy ? (

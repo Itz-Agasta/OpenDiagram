@@ -77,30 +77,36 @@ function parts(api: ExcalidrawImperativeAPI, target: ExportTarget, fileName: str
     }));
 }
 
-/** Output size in px of a single-file export, for the "2400 x 1600 px" hint. */
+/**
+ * Output size in px of the largest file this export writes: the
+ * "2400 x 1600 px" hint for one file, and the canvas-limit check for a zip.
+ */
 export async function exportSize(api: ExcalidrawImperativeAPI, options: ExportOptions) {
-  const [part, ...rest] = parts(api, options.target, "");
-  if (!part?.elements.length || rest.length) return null;
+  const picked = parts(api, options.target, "").filter((part) => part.elements.length);
+  if (!picked.length) return null;
   const { exportToCanvas } = await import("@excalidraw/excalidraw");
-  // Excalidraw's own measurement, read off getDimensions. Computing bounds here
-  // misses the frame title label it draws above a frame. The 1px canvas keeps
-  // the render it does afterwards free.
-  let size = { width: 0, height: 0 };
-  await exportToCanvas({
-    elements: part.elements,
-    appState: api.getAppState(),
-    files: api.getFiles(),
-    exportingFrame: part.frame,
-    getDimensions: (width: number, height: number) => {
-      // floor, as assigning canvas.width truncates: round showed 280 for a 279 file.
-      size = {
-        width: Math.floor(width * options.scale),
-        height: Math.floor(height * options.scale),
-      };
-      return { width: 1, height: 1, scale: 1 / Math.max(width, height) };
-    },
-  });
-  return size;
+  let largest = { width: 0, height: 0 };
+  for (const part of picked) {
+    // Excalidraw's own measurement, read off getDimensions. Computing bounds here
+    // misses the frame title label it draws above a frame. The 1px canvas keeps
+    // the render it does afterwards free.
+    await exportToCanvas({
+      elements: part.elements,
+      appState: api.getAppState(),
+      files: api.getFiles(),
+      exportingFrame: part.frame,
+      getDimensions: (width: number, height: number) => {
+        // floor, as assigning canvas.width truncates: round showed 280 for a 279 file.
+        const size = {
+          width: Math.floor(width * options.scale),
+          height: Math.floor(height * options.scale),
+        };
+        if (size.width * size.height > largest.width * largest.height) largest = size;
+        return { width: 1, height: 1, scale: 1 / Math.max(width, height) };
+      },
+    });
+  }
+  return largest;
 }
 
 async function render(api: ExcalidrawImperativeAPI, part: Part, options: ExportOptions) {
