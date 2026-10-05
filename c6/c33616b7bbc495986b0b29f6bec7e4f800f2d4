@@ -1,0 +1,21 @@
+apps/web/src/components/whiteboard/workspace-layout/helpers.ts
+  s_26dd9e3bbed3db::t_7f77f650168885 94-109,112-116
+apps/web/src/components/whiteboard/WorkspaceLayout.tsx
+  s_26dd9e3bbed3db::t_244a941fd87b0e 35-38,42,44,47-55,75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c6c33616b7bbc495986b0b29f6bec7e4f800f2d4",
+  "prompts": {},
+  "sessions": {
+    "s_26dd9e3bbed3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f3d9da6-9961-4aca-bee5-2409ac1cf395",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
