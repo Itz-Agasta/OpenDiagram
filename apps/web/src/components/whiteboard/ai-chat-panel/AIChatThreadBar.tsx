@@ -61,7 +61,7 @@ export function AIChatThreadBar({
   }
 
   return (
-    <div className="flex items-center justify-between border-od-line border-b px-3 py-1.5">
+    <div className="flex min-w-0 flex-1 items-center justify-between">
       <DropdownMenu
         onOpenChange={(open) => {
           setIsOpen(open);

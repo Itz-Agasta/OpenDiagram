@@ -204,7 +204,10 @@ function ProviderCard({
             }
           >
             <SelectTrigger className="h-9 w-[200px]">
-              <SelectValue />
+              {/* Label only: the badge copied in from the item wrapped the name onto three lines. */}
+              <SelectValue>
+                {provider.models.find((m) => m.id === connected.modelId)?.label}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {provider.models.map((m) => (
@@ -282,7 +285,10 @@ function ConnectDialog({
   const [modelId, setModelId] = useState(
     (provider?.models.some((m) => m.id === connected?.modelId)
       ? connected?.modelId
-      : provider?.models[0]?.id) ?? "",
+      : // A recommended model, not simply the first: OpenRouter lists GPT-5.6 Sol first,
+        // and clicking straight through left new users on its prices.
+        (provider?.models.find((m) => isRecommendedModel(m.id, m.label)) ?? provider?.models[0])
+          ?.id) ?? "",
   );
   const [saving, setSaving] = useState(false);
 

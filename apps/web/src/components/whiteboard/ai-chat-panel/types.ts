@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec, RenderSkeleton } from "@OpenDiagram/harness";
 import { diagramTypeSchema } from "@OpenDiagram/harness/diagram-schema";
@@ -32,16 +33,9 @@ export interface AIChatPanelProps {
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
   onHistoryChange?: (history: StoredChatMessage[]) => void;
+  /** Rendered at the right end of the panel's top row (the close button). */
+  headerAction?: ReactNode;
 }
-
-export type AIChatProviderOption = {
-  id: string;
-  label: string;
-  providerId?: string;
-  modelId?: string;
-  providerLabel?: string;
-  modelLabel?: string;
-};
 
 export function isRepoGeneratedSpec(value: unknown) {
   return Boolean(

@@ -168,10 +168,10 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
 
 function workspaceUrl(path: string, providerId?: string, modelId?: string) {
   const params = new URLSearchParams();
-  if (providerId && modelId) {
-    params.set("providerId", providerId);
-    params.set("modelId", modelId);
-  }
+  // providerId alone is valid: Standard has no modelId, and dropping it would
+  // leave the workspace on the user's saved default key instead.
+  if (providerId) params.set("providerId", providerId);
+  if (modelId) params.set("modelId", modelId);
   const query = params.toString();
   return query ? `${path}?${query}` : path;
 }

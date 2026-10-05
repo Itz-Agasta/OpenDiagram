@@ -12,11 +12,15 @@ import {
   storedChatMessageToUIMessage,
   type StoredChatMessage,
 } from "@/lib/chat-history";
-import { getAiSettings, providerModelOptions } from "@/lib/settings-client";
+import {
+  getAiSettings,
+  pickerModelOptions,
+  STANDARD_MODEL_OPTION,
+  type ProviderModelOption,
+} from "@/lib/settings-client";
 import { isLikelyDiagramRequest } from "@/lib/workspace-agents";
-import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import type { AIChatPanelProps, AIChatProviderOption } from "./types";
+import type { AIChatPanelProps } from "./types";
 import { parseInitialDiagramSpec, shouldUseDiagramChatDirectly } from "./types";
 import { pendingAskUser } from "./utils";
 import { useDiagramCanvas } from "./use-diagram-canvas";
@@ -96,13 +100,14 @@ export function useAIChatPanelController({
     [fileId, projectId],
   );
   const [theme, setTheme] = useState<ThemeName>("sketch");
-  const [providerUsage, setProviderUsage] = useState<AiProviderUsage | null>(null);
   // Picking a model is local state only. It rides along on the next request as
   // `providerId`/`modelId`; the saved default is changed from Settings, not here.
   const [providerId, setProviderId] = useState(
-    initialProviderId && initialModelId ? `${initialProviderId}:${initialModelId}` : "platform",
+    initialProviderId && initialModelId
+      ? `${initialProviderId}:${initialModelId}`
+      : STANDARD_MODEL_OPTION.id,
   );
-  const [providerOptions, setProviderOptions] = useState<AIChatProviderOption[]>([]);
+  const [providerOptions, setProviderOptions] = useState<ProviderModelOption[]>([]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -110,17 +115,19 @@ export function useAIChatPanelController({
     void getAiSettings()
       .then((settings) => {
         if (!active) return;
-        const options = providerModelOptions(settings);
+        const options = pickerModelOptions(settings);
         setProviderOptions(options);
-        const initialOption =
-          initialProviderId && initialModelId
-            ? options.find(
-                (option) =>
-                  option.providerId === initialProviderId && option.modelId === initialModelId,
-              )
-            : undefined;
+        // Standard arrives with no modelId, so match on what the URL carries.
+        const initialOption = initialProviderId
+          ? options.find(
+              (option) =>
+                option.providerId === initialProviderId && option.modelId === initialModelId,
+            )
+          : undefined;
         setProviderId(
-          initialOption?.id ?? options.find((option) => option.isDefault)?.id ?? "platform",
+          initialOption?.id ??
+            options.find((option) => option.isDefault)?.id ??
+            STANDARD_MODEL_OPTION.id,
         );
       })
       .catch(() => undefined);
@@ -144,7 +151,6 @@ export function useAIChatPanelController({
     hasExistingScene,
     normalizedHistory,
     onHistoryChange,
-    onProviderUsage: setProviderUsage,
     onProviderError,
     onRateLimitError,
     onQuotaError,
@@ -187,7 +193,6 @@ export function useAIChatPanelController({
     fileId,
     normalizedHistory,
     onHistoryChange,
-    onProviderUsage: setProviderUsage,
     onProviderError,
     onRateLimitError,
     onQuotaError,
@@ -291,7 +296,6 @@ export function useAIChatPanelController({
     handleSubmit,
     projectError: projectChat.error,
     projectStatus: projectChat.status,
-    providerUsage,
     providerId,
     providerOptions,
     setProviderId,

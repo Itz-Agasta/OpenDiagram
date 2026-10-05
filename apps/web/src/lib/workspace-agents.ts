@@ -1,11 +1,9 @@
 import type { DiagramSpec } from "@OpenDiagram/harness";
-import type { AiProviderUsage } from "@/lib/ai-provider-usage";
 import { chatWithProject } from "@/lib/projects-client";
 
 export type WorkspaceAgentResult = {
   message: string;
   spec?: DiagramSpec;
-  aiProvider?: AiProviderUsage;
 };
 
 const DIAGRAM_NOUNS =
@@ -48,7 +46,7 @@ export async function runProjectChatAgent(input: {
     throw new Error("Project chat requires a saved project.");
   }
 
-  const { answer, sources, aiProvider } = await chatWithProject(
+  const { answer, sources } = await chatWithProject(
     input.projectId,
     input.text,
     input.providerId,
@@ -60,5 +58,5 @@ export async function runProjectChatAgent(input: {
     ? `\n\n*${sources.map((source) => source.title).join(", ")}*`
     : "";
 
-  return { message: `${answer}${sourceSummary}`, aiProvider };
+  return { message: `${answer}${sourceSummary}` };
 }

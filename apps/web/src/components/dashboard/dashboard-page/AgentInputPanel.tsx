@@ -1,23 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronsUpDown, FileText, PenTool, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronsUpDown, FileText, PenTool, Sparkles } from "lucide-react";
 import {
   getAiSettings,
-  providerModelOptions,
+  pickerModelOptions,
+  STANDARD_MODEL_OPTION,
   type ProviderModelOption,
 } from "@/lib/settings-client";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ModelPickerDialog } from "@/components/model-picker-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RecommendedBadge } from "@/components/ui/recommended-badge";
-import { isRecommendedModel } from "@/lib/settings-client";
 import type { AgentInputSubmit, FileKind } from "./types";
 
 const agentModes = [
@@ -55,7 +46,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
   const [selectedMode, setSelectedMode] = useState<FileKind>("diagram");
   const [prompt, setPrompt] = useState("");
   const [ctaIndex, setCtaIndex] = useState(0);
-  const [providerId, setProviderId] = useState("platform");
+  const [providerId, setProviderId] = useState(STANDARD_MODEL_OPTION.id);
   const [providerOptions, setProviderOptions] = useState<ProviderModelOption[]>([]);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [providerError, setProviderError] = useState<string | null>(null);
@@ -63,16 +54,16 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
   useEffect(() => {
     setProviderError(null);
     setProviderOptions([]);
-    setProviderId("platform");
+    setProviderId(STANDARD_MODEL_OPTION.id);
     if (!signedIn) return;
 
     let active = true;
     void getAiSettings()
       .then((settings) => {
         if (!active) return;
-        const options = providerModelOptions(settings);
+        const options = pickerModelOptions(settings);
         setProviderOptions(options);
-        setProviderId(options.find((option) => option.isDefault)?.id ?? "platform");
+        setProviderId(options.find((option) => option.isDefault)?.id ?? STANDARD_MODEL_OPTION.id);
       })
       .catch((cause) => {
         if (active) {
@@ -87,22 +78,6 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
   }, [signedIn]);
 
   const selectedProvider = providerOptions.find((option) => option.id === providerId);
-  const providerGroups = useMemo(() => {
-    const groups = new Map<string, ProviderModelOption[]>();
-    for (const option of providerOptions) {
-      const options = groups.get(option.providerLabel) ?? [];
-      options.push(option);
-      groups.set(option.providerLabel, options);
-    }
-    return [...groups.entries()];
-  }, [providerOptions]);
-
-  // No write: the pick reaches the workspace through the URL, and the workspace
-  // sends it on every chat request.
-  function handleProviderSelect(option: ProviderModelOption) {
-    setProviderId(option.id);
-    setProviderDialogOpen(false);
-  }
 
   return (
     <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-0 py-4 md:px-6 md:py-5">
@@ -168,55 +143,18 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
               onClick={() => setProviderDialogOpen(true)}
             >
               <Sparkles aria-hidden="true" />
-              <span className="truncate">{selectedProvider?.label ?? "Picasso"}</span>
+              <span className="truncate">{selectedProvider?.modelLabel ?? "Default model"}</span>
               {providerOptions.length > 0 && <ChevronsUpDown aria-hidden="true" />}
             </Button>
-            <Dialog
+            {/* No write: the pick reaches the workspace through the URL, and the
+                workspace sends it on every chat request. */}
+            <ModelPickerDialog
               open={providerDialogOpen}
-              onOpenChange={(open) => {
-                setProviderDialogOpen(open);
-              }}
-            >
-              <DialogContent className="max-w-2xl overflow-hidden p-0">
-                <DialogTitle className="sr-only">Choose an AI model</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Search and choose a model from your configured providers.
-                </DialogDescription>
-                <Command>
-                  <CommandInput placeholder="Search providers and models…" />
-                  <CommandList className="max-h-[min(60vh,30rem)]">
-                    <CommandEmpty>No matching models found.</CommandEmpty>
-                    {providerGroups.map(([group, options]) => (
-                      <CommandGroup key={group} heading={group}>
-                        {options.map((option) => (
-                          <CommandItem
-                            key={option.id}
-                            value={option.label}
-                            onSelect={() => handleProviderSelect(option)}
-                            className="items-start gap-3 px-3 py-3"
-                          >
-                            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
-                              {option.id === providerId && <Check aria-hidden="true" />}
-                            </span>
-                            <span className="min-w-0">
-                              <span className="flex min-w-0 items-center gap-2">
-                                <span className="truncate font-medium">{option.modelLabel}</span>
-                                {isRecommendedModel(option.modelId, option.modelLabel) ? (
-                                  <RecommendedBadge />
-                                ) : null}
-                              </span>
-                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                                {option.label}
-                              </span>
-                            </span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    ))}
-                  </CommandList>
-                </Command>
-              </DialogContent>
-            </Dialog>
+              onOpenChange={setProviderDialogOpen}
+              options={providerOptions}
+              selectedId={providerId}
+              onSelect={(option) => setProviderId(option.id)}
+            />
             <button
               type="submit"
               disabled={creating || prompt.trim().length === 0}

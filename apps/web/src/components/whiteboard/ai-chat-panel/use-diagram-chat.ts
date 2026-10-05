@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
@@ -10,7 +10,6 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ThemeName } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
 import { toPromptDiagrams, type CanvasDiagram } from "@/lib/canvas-diagrams";
-import { readAiProviderUsage, type AiProviderUsage } from "@/lib/ai-provider-usage";
 import {
   storedChatMessageToUIMessage,
   uiMessagesToStoredChatHistory,
@@ -38,7 +37,6 @@ interface UseDiagramChatOptions {
   persistTurn: (messages: UIMessage[], spec?: unknown) => Promise<void>;
   /** Part of the seed key: when a thread arrives it supersedes any legacy history. */
   threadId: string | null;
-  onProviderUsage: (usage: AiProviderUsage | null) => void;
   onProviderError?: (message: string) => void;
   onRateLimitError?: (message: string) => void;
   onQuotaError?: (error: CreationQuotaError) => void;
@@ -61,7 +59,6 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     onHistoryChange,
     persistTurn,
     threadId,
-    onProviderUsage,
     onProviderError,
     onRateLimitError,
     onQuotaError,
@@ -75,15 +72,6 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
   const themeRef = useRef(theme);
   themeRef.current = theme;
 
-  const chatFetch = useCallback(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-      onProviderUsage(null);
-      const response = await fetchDiagramChat(input, init);
-      onProviderUsage(readAiProviderUsage(response));
-      return response;
-    },
-    [onProviderUsage],
-  );
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -107,9 +95,9 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
         prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
           body: { ...body, id, messages: stripDrawDiagramOutput(messages), trigger, messageId },
         }),
-        fetch: chatFetch,
+        fetch: fetchDiagramChat,
       }),
-    [chatFetch, diagramsRef, modelId, providerId, threadId],
+    [diagramsRef, modelId, providerId, threadId],
   );
   const initialMessages =
     activeFileType === "diagram" ? normalizedHistory.map(storedChatMessageToUIMessage) : [];

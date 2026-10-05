@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { CreationQuotaError } from "@/lib/projects-client";
-import { SignedOutDialog } from "@/components/auth/signed-out-dialog";
 import { GuestWelcomeDialog } from "@/components/auth/guest-welcome-dialog";
 import {
   Dialog,
@@ -12,12 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ExportPopover, REOPEN_EXPORT_KEY } from "./export/ExportPopover";
 import { QuotaDialog } from "./workspace-layout/QuotaDialog";
 import { WorkspaceAgentSidebar } from "./workspace-layout/WorkspaceAgentSidebar";
 import { FirstFileDialog, LeavePromptDialog } from "./workspace-layout/WorkspaceDialogs";
 import { WorkspaceEditorPane } from "./workspace-layout/WorkspaceEditorPane";
 import { WorkspaceHeader } from "./workspace-layout/WorkspaceHeader";
-import { WorkspaceSidebar } from "./workspace-layout/WorkspaceSidebar";
 import { hasDiagramScene, hasDiagramSpec } from "./workspace-layout/helpers";
 import { useWorkspaceLayoutController } from "./workspace-layout/useWorkspaceLayoutController";
 
@@ -32,42 +31,43 @@ export function WorkspaceLayout() {
     const timeout = window.setTimeout(() => setProviderErrorMessage(null), 5000);
     return () => window.clearTimeout(timeout);
   }, [providerErrorMessage]);
-  const [signedOutDialogOpen, setSignedOutDialogOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  // A guest who signed in from the export panel lands back with it open. Waits out
+  // draft promotion, which replaces the URL and would close it again.
+  useEffect(() => {
+    if (!state.isSignedIn || !state.excalidrawAPI || state.draft) return;
+    try {
+      if (!sessionStorage.getItem(REOPEN_EXPORT_KEY)) return;
+      sessionStorage.removeItem(REOPEN_EXPORT_KEY);
+    } catch {
+      return;
+    }
+    setExportOpen(true);
+  }, [state.isSignedIn, state.excalidrawAPI, state.draft]);
   const byokSettingsHref = state.isSignedIn
     ? "/dashboard/settings"
     : "/login?redirect=%2Fdashboard%2Fsettings";
 
-  async function handleSignOut() {
-    await actions.signOut();
-    setSignedOutDialogOpen(true);
-  }
-
   return (
     <div className="flex h-full w-full overflow-hidden bg-od-surface text-od-ink">
-      {state.isSignedIn && state.isSidebarOpen && (
-        <WorkspaceSidebar
-          accountImage={state.accountImage}
-          accountName={state.accountName}
-          activeFileId={state.activeFileId}
-          files={state.sidebarFilesForProject}
-          onClose={actions.closeSidebar}
-          onCreateFile={(type) => void actions.createWorkspaceFile(type)}
-          onDeleteFile={(fileId) => void actions.deleteWorkspaceFile(fileId)}
-          onOpenFile={actions.openWorkspaceFile}
-          onBackToDashboard={actions.navigateToDashboard}
-          onResizeStart={actions.handleResizeStart}
-          onSignOut={() => void handleSignOut()}
-          projectName={state.sidebarProjectName}
-          width={state.sidebarWidth}
-        />
-      )}
-
       <main className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
         <WorkspaceHeader
           activeFileName={state.activeFileName}
+          exportControl={
+            state.excalidrawAPI &&
+            state.agentFileType !== "doc" && (
+              <ExportPopover
+                api={state.excalidrawAPI}
+                fileName={state.activeFileName}
+                isSignedIn={state.isSignedIn}
+                open={exportOpen}
+                onOpenChange={setExportOpen}
+                onSignIn={actions.signInToSave}
+              />
+            )
+          }
           hasWorkspace={Boolean(state.draft || state.isSignedIn)}
           isAgentOpen={state.isAgentOpen}
-          isSidebarOpen={state.isSidebarOpen}
           isEditingName={state.isEditingName}
           isSignedIn={state.isSignedIn}
           nameDraft={state.nameDraft}
@@ -76,7 +76,7 @@ export function WorkspaceLayout() {
           onCommitName={() => void actions.commitName()}
           onNameDraftChange={actions.setNameDraft}
           onOpenAgent={actions.openAgent}
-          onOpenSidebar={actions.openSidebar}
+          onBackToDashboard={() => void actions.navigateToDashboard()}
           onSave={() => void actions.saveActiveFile()}
           onSignIn={actions.signInToSave}
           projectName={state.sidebarProjectName}
@@ -90,6 +90,7 @@ export function WorkspaceLayout() {
           isLoading={state.fileLoading}
           onDocChange={actions.handleDocChange}
           onExcalidrawAPI={actions.handleExcalidrawAPI}
+          onExport={() => setExportOpen(true)}
           onSceneChange={actions.handleSceneChange}
         />
       </main>
@@ -132,11 +133,6 @@ export function WorkspaceLayout() {
         onLeave={actions.leaveWithoutSaving}
         onSignIn={actions.signInToSave}
         open={state.leavePromptOpen}
-      />
-      <SignedOutDialog
-        open={signedOutDialogOpen}
-        redirectTo="/dashboard"
-        onContinueAsGuest={actions.continueAsGuest}
       />
       <GuestWelcomeDialog />
       <Dialog
