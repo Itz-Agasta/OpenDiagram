@@ -61,6 +61,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   const saveSnapshot = useCallback(
     async (snapshot: SaveSnapshot) => {
       if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
+      if (snapshot.file.id === activeFileRef.current?.id) setSaveStatus("saving");
       try {
         // Through the shared queue, so this coalesces with the spec and chat
         // history writes the agent fires against the same row (three requests per
@@ -81,7 +82,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         if (snapshot.file.id === activeFileRef.current?.id) {
           lastSavedVersionRef.current = String(snapshot.version);
           if (snapshot.version === pendingVersionRef.current) dirtyRef.current = false;
-          setSaveStatus("saved");
+          setSaveStatus(dirtyRef.current ? "unsaved" : "saved");
         }
         // Clear the local dirty flag only once the server has taken the write,
         // and stamp the server's own updatedAt so the next open compares the
@@ -157,7 +158,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
 
   const scheduleAutosave = useCallback(() => {
     dirtyRef.current = true;
-    setSaveStatus("saving");
+    setSaveStatus("unsaved");
     const snapshot = snapshotCurrent();
     // Assigned before either guard below returns, so whichever save eventually runs
     // sends the newest state rather than the state that armed the timer.
@@ -210,6 +211,10 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         lastSavedVersionRef.current = version;
         updateGuestDraft(currentDraft, currentFileIdRef.current, { scene }, draftRef, setDraft);
       } else if (activeFileRef.current?.type === "diagram" && isSignedInRef.current) {
+        // Already queued. Excalidraw fires onChange on focus and pointer changes
+        // too; rescheduling on those flipped a manual save's "saving" straight
+        // back to "unsaved" in the same render, so the click looked ignored.
+        if (version === pendingVersionRef.current) return;
         pendingVersionRef.current = version;
         scheduleAutosave();
       }
@@ -334,8 +339,12 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   const restoreFileAutosave = useCallback((fileId: string) => {
     invalidatedFileIdsRef.current.delete(fileId);
   }, []);
+  // The version too, not only the flag: Excalidraw fires onChange on every pointer
+  // and selection change, and a stale version re-dirtied the scene right after a
+  // manual save and sent a redundant PATCH one interval later.
   const markClean = useCallback(() => {
     dirtyRef.current = false;
+    lastSavedVersionRef.current = pendingVersionRef.current;
   }, []);
 
   return {

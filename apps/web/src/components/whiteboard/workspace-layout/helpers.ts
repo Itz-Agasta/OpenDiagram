@@ -1,8 +1,6 @@
 import type { SavedProjectFile } from "@/lib/projects-client";
 import type { WorkspaceSidebarFile } from "@/lib/workspace-layout-store";
 
-export const SIDEBAR_MIN_WIDTH = 220;
-export const SIDEBAR_MAX_WIDTH = 360;
 export const AGENT_MIN_WIDTH = 300;
 export const AGENT_MAX_WIDTH = 560;
 export const CONTENT_MIN_WIDTH = 420;
@@ -18,7 +16,9 @@ export const CONTENT_MIN_WIDTH = 420;
 // and we additionally reconcile a dirty local copy on open.
 export const AUTOSAVE_THROTTLE_MS = 15000;
 
-export type SaveStatus = "idle" | "saving" | "saved" | "error";
+// `unsaved`: edits are on IndexedDB, waiting out the autosave throttle. Kept apart
+// from `saving` (request in flight) so manual Save stays clickable in that window.
+export type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
 
 type DiagramSceneFields = {
   appState?: unknown;
