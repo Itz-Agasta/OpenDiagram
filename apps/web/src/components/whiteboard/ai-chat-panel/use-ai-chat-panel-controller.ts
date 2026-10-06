@@ -272,6 +272,23 @@ export function useAIChatPanelController({
     ],
   );
 
+  // The latest diagram with that title: a redraw replaces its frame, so titles
+  // repeat only when the user asked for two diagrams of the same name.
+  const showDiagram = useCallback(
+    (title: string) => {
+      if (!excalidrawAPI) return;
+      const match = diagramsRef.current.findLast((diagram) => diagram.title === title);
+      if (!match?.id) return;
+      const elements = excalidrawAPI
+        .getSceneElements()
+        .filter((element) => element.id === match.id || element.frameId === match.id);
+      if (elements.length > 0) {
+        excalidrawAPI.scrollToContent(elements, { fitToContent: true, animate: true });
+      }
+    },
+    [excalidrawAPI],
+  );
+
   const submitStatus = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
   const stop = useCallback(() => {
     if (projectChat.status !== "ready") projectChat.stop();
@@ -300,6 +317,10 @@ export function useAIChatPanelController({
     applyError: canvas.applyError,
     conversationMessages,
     diagramError: diagramChat.error,
+    // `regenerate` resends the same user message id, so `turnIdFor` on the server
+    // keeps the retry on the credit the failed turn already took.
+    retry: () => void diagramChat.regenerate(),
+    showDiagram,
     diagramStatus: diagramChat.status,
     handleSubmit,
     projectError: projectChat.error,

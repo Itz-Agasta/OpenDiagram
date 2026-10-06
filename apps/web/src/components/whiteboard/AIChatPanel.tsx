@@ -43,11 +43,13 @@ export function AIChatPanel(props: AIChatPanelProps) {
         diagramError={controller.diagramError}
         diagramStatus={controller.diagramStatus}
         messages={controller.conversationMessages}
+        onRetry={props.activeFileType === "diagram" ? controller.retry : undefined}
         projectError={controller.projectError}
         projectId={props.projectId}
         projectStatus={controller.projectStatus}
         repoGenerationError={props.repoGenerationError ?? null}
         repoGenerationJob={props.repoGenerationJob ?? null}
+        showDiagram={controller.showDiagram}
       />
       <AIChatComposer
         onStop={controller.stop}
