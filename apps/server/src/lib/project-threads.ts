@@ -1,4 +1,5 @@
 import { and, db, desc, eq, exists, lt, sql } from "@OpenDiagram/db";
+import { messageText } from "./thread-title";
 import { project, projectFileMessage, projectFileThread } from "@OpenDiagram/db/schema/projects";
 
 /** Either the pooled `db` or an open transaction. */
@@ -212,11 +213,22 @@ export async function appendThreadMessages(
  */
 export async function lockOwnedThread(tx: Db, threadId: string, projectId: string, userId: string) {
   const [row] = await tx
-    .select({ id: projectFileThread.id })
+    .select({ id: projectFileThread.id, title: projectFileThread.title })
     .from(projectFileThread)
     .innerJoin(project, eq(project.id, projectFileThread.projectId))
     .where(ownsThread(threadId, projectId, userId))
     .for("update", { of: projectFileThread });
 
   return row ?? null;
+}
+
+/** Text of the thread's first user message, for telling an auto title from a rename. */
+export async function firstUserMessageText(tx: Db, threadId: string) {
+  const [row] = await tx
+    .select({ parts: projectFileMessage.parts })
+    .from(projectFileMessage)
+    .where(and(eq(projectFileMessage.threadId, threadId), eq(projectFileMessage.role, "user")))
+    .orderBy(projectFileMessage.seq)
+    .limit(1);
+  return row ? messageText(row.parts) : null;
 }

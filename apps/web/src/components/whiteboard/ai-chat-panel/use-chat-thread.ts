@@ -3,10 +3,12 @@ import type { UIMessage } from "ai";
 import {
   appendThreadMessages,
   createThread,
+  deleteThread,
   getActiveThread,
   listThreadMessages,
   listThreads,
   patchThreadTouched,
+  renameThread as renameThreadRequest,
   type ChatThreadSummary,
 } from "@/lib/projects-client";
 import { uiMessageToStoredChatMessage, type StoredChatMessage } from "@/lib/chat-history";
@@ -32,6 +34,8 @@ export function useChatThread(options: {
 }) {
   const { projectId, fileId, onMessagesLoaded } = options;
   const [threadId, setThreadId] = useState<string | null>(null);
+  /** The open thread's title; null before the first turn creates one. */
+  const [title, setTitle] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
   const [isSwitching, setIsSwitching] = useState(false);
   const [threadLoaded, setThreadLoaded] = useState(false);
@@ -64,6 +68,7 @@ export function useChatThread(options: {
     (
       thread: {
         id: string;
+        title: string;
         messages: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[];
       } | null,
       /**
@@ -79,6 +84,7 @@ export function useChatThread(options: {
       savedIdsRef.current = new Set(thread?.messages.map((message) => message.clientId) ?? []);
       threadIdRef.current = thread?.id ?? null;
       setThreadId(thread?.id ?? null);
+      setTitle(thread?.title ?? null);
       setThreadLoaded(true);
 
       // A null thread means the server has no conversation for this canvas at
@@ -173,6 +179,7 @@ export function useChatThread(options: {
             id = created.id;
             threadIdRef.current = id;
             setThreadId(id);
+            setTitle(created.title);
           }
 
           // Chunked to the server's cap. `unsaved` is not one turn, it is
@@ -181,7 +188,13 @@ export function useChatThread(options: {
           // the backlog only ever grows.
           for (let start = 0; start < unsaved.length; start += APPEND_BATCH_LIMIT) {
             const batch = unsaved.slice(start, start + APPEND_BATCH_LIMIT);
-            await appendThreadMessages(projectId, id, batch);
+            const next = await appendThreadMessages(projectId, id, batch);
+            // Only while this thread is still the open one: a slow append can
+            // land after the user has switched away.
+            if (threadIdRef.current === id) setTitle(next);
+            setThreads((current) =>
+              current.map((thread) => (thread.id === id ? { ...thread, title: next } : thread)),
+            );
             // Marked per batch, so a failure partway through does not re-send the
             // batches the server already took.
             for (const message of batch) savedIdsRef.current.add(message.clientId);
@@ -209,7 +222,7 @@ export function useChatThread(options: {
     try {
       const created = await createThread(projectId, fileId);
       if (switchRef.current !== generation) return;
-      adoptThread({ id: created.id, messages: [] }, true);
+      adoptThread({ id: created.id, title: created.title, messages: [] }, true);
       setThreads((current) => [created, ...current]);
       void writeLocalChat(fileId, projectId, []);
     } finally {
@@ -229,16 +242,58 @@ export function useChatThread(options: {
         // ID. Re-reading whichever thread was newest is a different question: any
         // write bumping another thread in between handed the user a conversation
         // they did not ask for.
-        await patchThreadTouched(projectId, id);
+        const title = await patchThreadTouched(projectId, id);
         const messages = await listThreadMessages(projectId, id);
         if (switchRef.current !== generation) return;
-        adoptThread({ id, messages }, true);
+        adoptThread({ id, title, messages }, true);
       } finally {
         setIsSwitching(false);
       }
     },
     [adoptThread, fileId, projectId],
   );
+
+  const renameThread = useCallback(
+    async (next: string) => {
+      const id = threadIdRef.current;
+      if (!projectId || !id) return;
+      const saved = await renameThreadRequest(projectId, id, next);
+      setTitle(saved);
+      setThreads((current) =>
+        current.map((thread) => (thread.id === id ? { ...thread, title: saved } : thread)),
+      );
+    },
+    [projectId],
+  );
+
+  /** Deletes the open thread, then opens whichever is newest, or an empty panel. */
+  const deleteCurrentThread = useCallback(async () => {
+    const id = threadIdRef.current;
+    if (!projectId || !fileId || !id) return;
+    setIsSwitching(true);
+    await persistChainRef.current;
+    const generation = ++switchRef.current;
+    try {
+      await deleteThread(projectId, id);
+      setThreads((current) => current.filter((thread) => thread.id !== id));
+      const next = await getActiveThread(projectId, fileId);
+      if (switchRef.current !== generation) return;
+      if (next) {
+        adoptThread(next, true);
+        return;
+      }
+      // Not `adoptThread(null)`: that deliberately leaves the panel alone (see
+      // there), and after deleting the last thread it has to go blank.
+      savedIdsRef.current = new Set();
+      threadIdRef.current = null;
+      setThreadId(null);
+      setTitle(null);
+      onMessagesLoadedRef.current([]);
+      void writeLocalChat(fileId, projectId, []);
+    } finally {
+      setIsSwitching(false);
+    }
+  }, [adoptThread, fileId, projectId]);
 
   /** Lazy: the history list is only fetched when the user opens it. */
   const loadThreadList = useCallback(async () => {
@@ -252,8 +307,11 @@ export function useChatThread(options: {
     threadLoaded,
     loadThreadList,
     persistTurn,
+    deleteCurrentThread,
+    renameThread,
     startNewThread,
     threadId,
     threads,
+    title,
   };
 }

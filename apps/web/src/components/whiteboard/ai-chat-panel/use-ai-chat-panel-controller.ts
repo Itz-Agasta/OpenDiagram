@@ -332,7 +332,21 @@ export function useAIChatPanelController({
       thread.startNewThread().catch((cause: unknown) => {
         onProviderError?.(cause instanceof Error ? cause.message : "Could not start a new chat.");
       }),
+    // Rethrown, unlike the two above: the rename and delete dialogs stay open
+    // on failure so the user can retry, which needs the rejection.
+    renameThread: (title: string) =>
+      thread.renameThread(title).catch((cause: unknown) => {
+        onProviderError?.(cause instanceof Error ? cause.message : "Could not rename that chat.");
+        throw cause;
+      }),
+    deleteCurrentThread: () =>
+      thread.deleteCurrentThread().catch((cause: unknown) => {
+        onProviderError?.(cause instanceof Error ? cause.message : "Could not delete that chat.");
+        throw cause;
+      }),
+    threadId: thread.threadId,
     threadSwitching: thread.isSwitching,
+    threadTitle: thread.title,
     threads: thread.threads,
     applyError: canvas.applyError,
     conversationMessages,

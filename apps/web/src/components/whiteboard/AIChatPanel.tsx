@@ -27,8 +27,12 @@ export function AIChatPanel(props: AIChatPanelProps) {
               controller.submitStatus === "submitted" ||
               controller.submitStatus === "streaming"
             }
+            currentThreadId={controller.threadId}
+            currentTitle={controller.threadTitle}
+            deleteCurrentThread={controller.deleteCurrentThread}
             loadThreadList={controller.loadThreadList}
             onResumeThread={controller.resumeThread}
+            renameThread={controller.renameThread}
             startNewThread={controller.startNewThread}
             threads={controller.threads}
           />
