@@ -1,0 +1,19 @@
+apps/web/src/components/whiteboard/ai-chat-panel/message-parts.tsx
+  s_7fe6539dd8036c::t_ffbb45af0e5a33 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "61f9ce7909dbb960d5fefac5cd83b33a4ab4defb",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
