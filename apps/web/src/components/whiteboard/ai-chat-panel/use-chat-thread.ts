@@ -140,11 +140,16 @@ export function useChatThread(options: {
       // append wants the ones with no watermark yet.
       const stored: StoredChatMessage[] = [];
       const unsaved: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[] = [];
+      const last = messages.at(-1);
       for (const message of messages) {
         const entry = uiMessageToStoredChatMessage(message);
         if (!entry) continue;
         stored.push(entry);
-        if (!savedIdsRef.current.has(message.id) && entry.parts?.length) {
+        // A saved assistant message that ends the turn was continued, not left
+        // alone: answering `ask_user` streams the follow-up into the message that
+        // holds the question. Re-sent so the server overwrites its parts.
+        const continued = message === last && message.role === "assistant";
+        if ((continued || !savedIdsRef.current.has(message.id)) && entry.parts?.length) {
           unsaved.push({ clientId: entry.id, role: entry.role, parts: entry.parts as unknown[] });
         }
       }

@@ -145,6 +145,7 @@ diagramRoute.post("/chat", async (c) => {
         { role: "user" as const, content: buildCanvasContext(diagrams) },
         ...modelMessages,
       ],
+      originalMessages: messages as unknown as UIMessage[],
       tools,
       grant,
       runtimeContext: {

@@ -162,9 +162,11 @@ export async function listThreadMessages(
  * that key, so callers take `lockOwnedThread` first: the second writer then waits
  * and reads a MAX that includes the first. The lock is per conversation.
  *
- * `onConflictDoNothing` makes a re-sent turn a no-op -- see the unique index on
- * `(thread_id, client_id)` for why the client re-sends -- and `returning` then
- * reports only the rows this call actually inserted.
+ * A re-sent `clientId` overwrites its `parts` and keeps its `seq`. The client
+ * re-sends for two reasons: a retry after a failed append (same parts, so a
+ * no-op in effect; see the unique index on `(thread_id, client_id)`), and an
+ * assistant message that grew after it was saved, which is what answering
+ * `ask_user` does: the follow-up streams into the message holding the question.
  */
 export async function appendThreadMessages(
   tx: Db,
@@ -188,8 +190,9 @@ export async function appendThreadMessages(
         parts: message.parts,
       })),
     )
-    .onConflictDoNothing({
+    .onConflictDoUpdate({
       target: [projectFileMessage.threadId, projectFileMessage.clientId],
+      set: { parts: sql`excluded.parts` },
     })
     .returning({ seq: projectFileMessage.seq, clientId: projectFileMessage.clientId });
 }
