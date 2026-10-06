@@ -21,7 +21,7 @@ import {
   CreationQuotaError,
   UpstreamRateLimitError,
 } from "@/lib/projects-client";
-import { fetchDiagramChat, stripDrawDiagramOutput } from "./utils";
+import { fetchDiagramChat, recentMessages, stripDrawDiagramOutput } from "./utils";
 
 interface UseDiagramChatOptions {
   activeFileType?: "diagram" | "doc";
@@ -93,7 +93,13 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
         // server about why this request was made. `body` arrives already merged
         // with the callback above.
         prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
-          body: { ...body, id, messages: stripDrawDiagramOutput(messages), trigger, messageId },
+          body: {
+            ...body,
+            id,
+            messages: stripDrawDiagramOutput(recentMessages(messages)),
+            trigger,
+            messageId,
+          },
         }),
         fetch: fetchDiagramChat,
       }),

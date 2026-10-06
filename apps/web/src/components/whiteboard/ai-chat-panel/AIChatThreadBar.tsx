@@ -109,7 +109,7 @@ export function AIChatThreadBar({
         open={isOpen}
       >
         <DropdownMenuTrigger
-          className="flex items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           type="button"
         >
@@ -181,7 +181,7 @@ export function AIChatThreadBar({
       </DropdownMenu>
 
       <button
-        className="flex items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
         disabled={disabled}
         onClick={() => void startNewThread()}
         type="button"

@@ -84,6 +84,27 @@ export function stripDrawDiagramOutput(messages: UIMessage[]): UIMessage[] {
   return touchedAny ? next : messages;
 }
 
+/**
+ * How many messages of a conversation go up with each turn. The server rejects
+ * more than 50 (`routes/diagram.ts`), and the transport used to send the whole
+ * transcript, so a thread past 50 UI messages failed every turn with a 400
+ * forever. 40 leaves room for the turn's own tool continuations.
+ */
+const MAX_SENT_MESSAGES = 40;
+
+/**
+ * The tail of the conversation, starting at a user message so the model never
+ * sees an answer whose question was cut off. Older turns are safe to drop: the
+ * CANVAS block sent with every request carries each diagram on the canvas,
+ * which is what a modify request needs.
+ */
+export function recentMessages(messages: UIMessage[]): UIMessage[] {
+  if (messages.length <= MAX_SENT_MESSAGES) return messages;
+  const tail = messages.slice(-MAX_SENT_MESSAGES);
+  const firstUser = tail.findIndex((message) => message.role === "user");
+  return firstUser > 0 ? tail.slice(firstUser) : tail;
+}
+
 export async function fetchDiagramChat(input: RequestInfo | URL, init?: RequestInit) {
   const response = await fetch(input, { ...init, credentials: "include" });
   if (response.ok) return response;
