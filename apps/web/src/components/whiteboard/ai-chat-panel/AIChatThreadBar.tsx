@@ -209,6 +209,7 @@ export function AIChatThreadBar({
             }}
           >
             <Input
+              aria-label="Chat name"
               autoFocus
               maxLength={200}
               value={renaming ?? ""}

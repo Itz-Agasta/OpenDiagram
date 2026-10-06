@@ -58,6 +58,8 @@ export function useChatThread(options: {
   // `threadIdRef.current` null and create two threads for one canvas, and their
   // appends would race for the same sequence number on the server.
   const persistChainRef = useRef<Promise<void>>(Promise.resolve());
+  /** Bumped by rename and delete; see `loadThreadList`. */
+  const listGenerationRef = useRef(0);
 
   const onMessagesLoadedRef = useRef(onMessagesLoaded);
   useEffect(() => {
@@ -180,6 +182,10 @@ export function useChatThread(options: {
             threadIdRef.current = id;
             setThreadId(id);
             setTitle(created.title);
+            // The panel re-seeds when `threadId` changes (use-diagram-chat). Without
+            // this it re-seeds from the empty transcript "New chat" left behind and
+            // wipes the turn that just finished.
+            onMessagesLoadedRef.current(stored);
           }
 
           // Chunked to the server's cap. `unsaved` is not one turn, it is
@@ -212,23 +218,35 @@ export function useChatThread(options: {
   );
 
   /** "New chat": a fresh transcript. The canvas and its diagrams are untouched. */
+  /**
+   * An empty, unbound panel. Not `adoptThread(null)`: that deliberately leaves
+   * the panel alone (see there). The next turn creates the thread in `persistTurn`.
+   */
+  const unbind = useCallback(() => {
+    if (!projectId || !fileId) return;
+    savedIdsRef.current = new Set();
+    threadIdRef.current = null;
+    setThreadId(null);
+    setTitle(null);
+    onMessagesLoadedRef.current([]);
+    void writeLocalChat(fileId, projectId, []);
+  }, [fileId, projectId]);
+
+  /**
+   * "New chat". Creates nothing: the row appears with the first turn, so a
+   * click that is never followed by a message leaves no empty "New chat" in
+   * history. A reload before that first turn reopens the previous chat.
+   */
   const startNewThread = useCallback(async () => {
     if (!projectId || !fileId) return;
     setIsSwitching(true);
     // Anything still saving belongs to the conversation being left, so it is
     // flushed before the switch rather than landing in the new thread.
     await persistChainRef.current;
-    const generation = ++switchRef.current;
-    try {
-      const created = await createThread(projectId, fileId);
-      if (switchRef.current !== generation) return;
-      adoptThread({ id: created.id, title: created.title, messages: [] }, true);
-      setThreads((current) => [created, ...current]);
-      void writeLocalChat(fileId, projectId, []);
-    } finally {
-      setIsSwitching(false);
-    }
-  }, [adoptThread, fileId, projectId]);
+    ++switchRef.current;
+    unbind();
+    setIsSwitching(false);
+  }, [fileId, projectId, unbind]);
 
   /** Reopen an earlier conversation, by id. */
   const resumeThread = useCallback(
@@ -257,8 +275,12 @@ export function useChatThread(options: {
     async (next: string) => {
       const id = threadIdRef.current;
       if (!projectId || !id) return;
+      // Behind any append still in flight: its response carries the title from
+      // before the rename and would otherwise put it back.
+      await persistChainRef.current;
       const saved = await renameThreadRequest(projectId, id, next);
-      setTitle(saved);
+      listGenerationRef.current++;
+      if (threadIdRef.current === id) setTitle(saved);
       setThreads((current) =>
         current.map((thread) => (thread.id === id ? { ...thread, title: saved } : thread)),
       );
@@ -275,30 +297,26 @@ export function useChatThread(options: {
     const generation = ++switchRef.current;
     try {
       await deleteThread(projectId, id);
+      listGenerationRef.current++;
       setThreads((current) => current.filter((thread) => thread.id !== id));
+      // Unbound first, so a failed read below leaves an empty panel whose next
+      // turn creates a thread, never one still pointing at the deleted id.
+      unbind();
       const next = await getActiveThread(projectId, fileId);
-      if (switchRef.current !== generation) return;
-      if (next) {
-        adoptThread(next, true);
-        return;
-      }
-      // Not `adoptThread(null)`: that deliberately leaves the panel alone (see
-      // there), and after deleting the last thread it has to go blank.
-      savedIdsRef.current = new Set();
-      threadIdRef.current = null;
-      setThreadId(null);
-      setTitle(null);
-      onMessagesLoadedRef.current([]);
-      void writeLocalChat(fileId, projectId, []);
+      if (next && switchRef.current === generation) adoptThread(next, true);
     } finally {
       setIsSwitching(false);
     }
-  }, [adoptThread, fileId, projectId]);
+  }, [adoptThread, fileId, projectId, unbind]);
 
   /** Lazy: the history list is only fetched when the user opens it. */
   const loadThreadList = useCallback(async () => {
     if (!projectId || !fileId) return;
-    setThreads(await listThreads(projectId, fileId));
+    // A list fetched before a rename or delete landed is stale; dropped, so it
+    // cannot bring back a deleted chat or an old title.
+    const generation = ++listGenerationRef.current;
+    const list = await listThreads(projectId, fileId);
+    if (generation === listGenerationRef.current) setThreads(list);
   }, [fileId, projectId]);
 
   return {

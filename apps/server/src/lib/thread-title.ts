@@ -25,7 +25,7 @@ export function titleFromText(text: string) {
   if (line.length <= MAX_TITLE_CHARS) return line;
   const cut = line.slice(0, MAX_TITLE_CHARS);
   const space = cut.lastIndexOf(" ");
-  return `${space > 20 ? cut.slice(0, space) : cut}…`;
+  return `${space > 20 ? cut.slice(0, space) : cut.slice(0, MAX_TITLE_CHARS - 1)}…`;
 }
 
 /** Joined text parts of a stored message; file parts (pastes) are not a title. */
@@ -48,8 +48,11 @@ function firstDrawnTitle(messages: AppendedMessage[]) {
 /**
  * The title an append should set, or null to leave it.
  *
- * `firstUserText` is read lazily: it costs a query, and is only needed to
- * tell a message-derived title from a rename when a diagram arrives later.
+ * `firstUserText` reads the thread's first stored user message, this append
+ * included. It is read lazily because it costs a query: an untitled thread
+ * needs it (a thread from before auto-titles may already hold messages, and
+ * is named from its first one, not from this batch), and a diagram arriving
+ * later needs it to tell a message-derived title from a rename.
  */
 export async function nextThreadTitle(
   current: string,
@@ -59,8 +62,8 @@ export async function nextThreadTitle(
   const drawn = firstDrawnTitle(appended);
   if (current === DEFAULT_THREAD_TITLE) {
     if (drawn) return drawn;
-    const text = messageText(appended.find((message) => message.role === "user")?.parts);
-    return text.trim() ? titleFromText(text) : null;
+    const first = await firstUserText();
+    return first?.trim() ? titleFromText(first) : null;
   }
   if (!drawn || drawn === current) return null;
   const first = await firstUserText();

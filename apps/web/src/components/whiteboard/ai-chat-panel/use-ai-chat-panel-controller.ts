@@ -323,25 +323,26 @@ export function useAIChatPanelController({
     answerAskUser,
     loadThreadList: thread.loadThreadList,
     // Surfaced, not swallowed: `isSwitching` clears either way, so a failed
-    // switch looked like a finished one that had simply changed nothing.
+    // switch looked like a finished one that had simply changed nothing. A
+    // toast, not `onProviderError`: that opens "Provider credits exhausted".
     resumeThread: (id: string) =>
       thread.resumeThread(id).catch((cause: unknown) => {
-        onProviderError?.(cause instanceof Error ? cause.message : "Could not open that chat.");
+        toast.error(cause instanceof Error ? cause.message : "Could not open that chat.");
       }),
     startNewThread: () =>
       thread.startNewThread().catch((cause: unknown) => {
-        onProviderError?.(cause instanceof Error ? cause.message : "Could not start a new chat.");
+        toast.error(cause instanceof Error ? cause.message : "Could not start a new chat.");
       }),
     // Rethrown, unlike the two above: the rename and delete dialogs stay open
     // on failure so the user can retry, which needs the rejection.
     renameThread: (title: string) =>
       thread.renameThread(title).catch((cause: unknown) => {
-        onProviderError?.(cause instanceof Error ? cause.message : "Could not rename that chat.");
+        toast.error(cause instanceof Error ? cause.message : "Could not rename that chat.");
         throw cause;
       }),
     deleteCurrentThread: () =>
       thread.deleteCurrentThread().catch((cause: unknown) => {
-        onProviderError?.(cause instanceof Error ? cause.message : "Could not delete that chat.");
+        toast.error(cause instanceof Error ? cause.message : "Could not delete that chat.");
         throw cause;
       }),
     threadId: thread.threadId,
