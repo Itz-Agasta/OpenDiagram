@@ -79,8 +79,41 @@ export function MessageParts({
   });
   flush();
 
-  if (blocks.length > 0) return blocks;
-  return isStreaming ? <Activity label="Thinking…" /> : null;
+  if (!isStreaming) return blocks.length > 0 ? blocks : null;
+  if (blocks.length === 0) return <Activity label="Thinking…" />;
+  const pending = pendingLabel(message.parts);
+  if (pending) blocks.push(<Activity key={`${message.id}-pending`} label={pending} />);
+  return blocks;
+}
+
+/**
+ * What to show at the end of a streaming message whose last part is not
+ * already showing progress. Gemini sends a tool call's arguments in one piece,
+ * so while it writes a large draw_system spec the message has no new part at
+ * all, and without this the panel sat still for 10-30s and read as stalled.
+ *
+ * A rejected call (invalid input) comes back as a `dynamic-tool` part, which
+ * renders as nothing: the SDK re-tags invalid calls `dynamic: true`
+ * (ai 7.0.40, dist/index.js 3855). The model retries after it, so it is named
+ * here rather than shown as a failure.
+ */
+function pendingLabel(parts: Part[]) {
+  const last = parts.findLast((part) => part.type !== "step-start");
+  if (!last) return "Thinking…";
+  // Shown under text even while it is "streaming": with Gemini a text part
+  // stays in that state until the step ends, through the whole wait for the
+  // tool call, so the state cannot tell typing from a stall (measured: 18s at
+  // a fixed length with the part still "streaming").
+  if (last.type === "dynamic-tool" && last.state === "output-error") return "Fixing the diagram…";
+  if (
+    isStaticToolUIPart(last) &&
+    last.state !== "output-available" &&
+    last.state !== "output-error"
+  ) {
+    // Draw steps and ask_user render their own shimmer while in flight.
+    return null;
+  }
+  return "Working…";
 }
 
 function renderPart(part: Part, key: string, isStreaming: boolean, handlers: MessagePartHandlers) {
