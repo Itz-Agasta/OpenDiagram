@@ -1,0 +1,55 @@
+apps/web/src/components/whiteboard/ai-chat-panel/message-parts.tsx
+  s_7fe6539dd8036c::t_d58b71ca661269 1,3,6-7,19,63-65,67-71,209-258
+  s_7fe6539dd8036c::t_14f62927f9c569 259
+apps/web/src/components/ai-elements/prompt-input/buttons.tsx
+  s_7fe6539dd8036c::t_a1a11ad1ec4043 14,128-129
+apps/web/src/components/whiteboard/ai-chat-panel/AIChatComposer.tsx
+  s_7fe6539dd8036c::t_80dc10e92a8a57 16,30,118-119,121,126-132,136-138,141-150
+  s_7fe6539dd8036c::t_fff85c7e244c06 60-62
+  s_7fe6539dd8036c::t_d58b71ca661269 133-135
+  s_7fe6539dd8036c::t_855dc83344b815 1,3,6,11,15,28,71,73,114-117,120,122-125,139-140,151-184
+  s_7fe6539dd8036c::t_63e2f741ce4d8c 63-67
+apps/web/src/lib/chat-history.ts
+  s_7fe6539dd8036c::t_2270b2fa7881e1 2,33-34,103-110,149,213-215
+apps/web/src/components/whiteboard/AIChatPanel.tsx
+  s_7fe6539dd8036c::t_a56e830e861ae2 47-51
+apps/web/src/lib/pasted-text.ts
+  s_7fe6539dd8036c::t_213ff68b6b8fab 1-2,9,11-13,16-35,37-42
+  s_7fe6539dd8036c::t_fff85c7e244c06 14-15
+  s_7fe6539dd8036c::t_c3af0f7ddd4092 3-8,10
+  s_7fe6539dd8036c::t_57bde572badf34 36
+apps/server/src/routes/diagram.ts
+  s_7fe6539dd8036c::t_ac8380ad1ccd0e 7
+  s_7fe6539dd8036c::t_c0921845872fdf 99-102
+apps/web/src/components/ai-elements/prompt-input/textarea.tsx
+  s_7fe6539dd8036c::t_4716708ef7a240 26,80-83,106
+apps/web/src/components/whiteboard/ai-chat-panel/AIChatConversation.tsx
+  s_7fe6539dd8036c::t_a56e830e861ae2 80-96
+  s_7fe6539dd8036c::t_ac8380ad1ccd0e 19,22-29,35-36,56,79,97
+apps/web/src/components/whiteboard/ai-chat-panel/PastedTextDialog.tsx
+  s_7fe6539dd8036c::t_05f6112ff7faac 1-37
+apps/server/src/lib/agent/inline-text-files.ts
+  s_7fe6539dd8036c::t_67fd96542baa02 1-48
+apps/web/src/components/ai-elements/attachments.tsx
+  s_7fe6539dd8036c::t_6bc49492cb9825 1-5,7-23,25,28,30-31,33-34,43-44,46,48-51,63,69,72,74-75
+  s_7fe6539dd8036c::t_7ca75ae67bf70e 6,24,26-27,29,32,35-42,45,47,52-62,64-68,70-71,73
+apps/web/src/components/whiteboard/ai-chat-panel/use-ai-chat-panel-controller.ts
+  s_7fe6539dd8036c::t_a1a11ad1ec4043 22,24,33-34,227,229-232,243,247,250,258,261-265,268-269,272,275
+  s_7fe6539dd8036c::t_c3af0f7ddd4092 266-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f87f20f077efd46f7be4684edcb02270853faa8",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
