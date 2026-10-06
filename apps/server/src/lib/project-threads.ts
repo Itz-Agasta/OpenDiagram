@@ -193,6 +193,9 @@ export async function appendThreadMessages(
     .onConflictDoUpdate({
       target: [projectFileMessage.threadId, projectFileMessage.clientId],
       set: { parts: sql`excluded.parts` },
+      // A continued message only grows, so a shorter copy is a stale one (a
+      // second tab, a replayed backlog) and must not overwrite the longer.
+      setWhere: sql`jsonb_array_length(excluded.parts) >= jsonb_array_length(${projectFileMessage.parts})`,
     })
     .returning({ seq: projectFileMessage.seq, clientId: projectFileMessage.clientId });
 }

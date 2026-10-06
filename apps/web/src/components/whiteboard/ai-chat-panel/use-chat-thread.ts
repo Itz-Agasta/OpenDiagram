@@ -147,9 +147,12 @@ export function useChatThread(options: {
         stored.push(entry);
         // A saved assistant message that ends the turn was continued, not left
         // alone: answering `ask_user` streams the follow-up into the message that
-        // holds the question. Re-sent so the server overwrites its parts.
-        const continued = message === last && message.role === "assistant";
-        if ((continued || !savedIdsRef.current.has(message.id)) && entry.parts?.length) {
+        // holds the question. Unmarked so it is re-sent, and re-sent again on a
+        // later turn if this write fails, like any other unsaved message.
+        if (message === last && message.role === "assistant") {
+          savedIdsRef.current.delete(message.id);
+        }
+        if (!savedIdsRef.current.has(message.id) && entry.parts?.length) {
           unsaved.push({ clientId: entry.id, role: entry.role, parts: entry.parts as unknown[] });
         }
       }
