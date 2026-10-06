@@ -21,7 +21,10 @@ export function PastedTextDialog({ paste, onClose, onInsertAsText }: PastedTextD
       <DialogContent className="flex max-h-[80vh] max-w-2xl flex-col gap-3">
         <DialogTitle className="text-sm">{paste?.name}</DialogTitle>
         <DialogDescription className="sr-only">The full pasted text, read-only.</DialogDescription>
-        <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-md border border-od-border-soft bg-od-surface p-3 font-mono text-xs">
+        <pre
+          tabIndex={0}
+          className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-md border border-od-border-soft bg-od-surface p-3 font-mono text-xs"
+        >
           {paste?.text}
         </pre>
         {onInsertAsText && (

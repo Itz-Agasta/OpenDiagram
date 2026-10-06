@@ -255,7 +255,9 @@ export function useAIChatPanelController({
       // await `POST /api/orchestrate` here, which put a Groq call in front of
       // every message on a doc file or a GitHub-imported diagram before the
       // user's text was sent anywhere.
-      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(inlined);
+      // Routed on what the user typed: a pasted document that mentions
+      // "diagram" is context, not a request. A paste sent alone routes on itself.
+      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(text || inlined);
 
       if (useProjectChat || !excalidrawAPI) {
         // The doc chat route caps a message at 4,000 characters (routes/projects/chat.ts).
@@ -338,6 +340,9 @@ export function useAIChatPanelController({
     // `regenerate` resends the same user message id, so `turnIdFor` on the server
     // keeps the retry on the credit the failed turn already took.
     retry: () => void diagramChat.regenerate(),
+    // Straight to diagram chat: on a repo-generated canvas `handleSubmit` routes
+    // by regex, and two of the starters do not read as diagram requests to it.
+    sendStarter: (text: string) => void diagramChat.sendMessage({ text }),
     showDiagram,
     diagramStatus: diagramChat.status,
     handleSubmit,

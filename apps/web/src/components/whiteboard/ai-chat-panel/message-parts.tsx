@@ -248,6 +248,7 @@ function UserText({ text }: { text: string }) {
       </div>
       <button
         type="button"
+        aria-expanded={expanded}
         className="mt-1 text-muted-foreground text-xs hover:text-foreground"
         onClick={() => setExpanded((value) => !value)}
       >

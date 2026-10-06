@@ -21,7 +21,9 @@ export function inlineTextFiles<T extends { parts?: unknown }>(messages: T[]): T
         isTextFile(part)
           ? {
               type: "text",
-              text: `<pasted_text name="${(part.filename ?? "Pasted text").replaceAll('"', "'")}">\n${decodeDataUrl(part.url)}\n</pasted_text>`,
+              // The closing tag is escaped in the body so a paste cannot end the
+              // element early (an HTML log, or that literal string).
+              text: `<pasted_text name="${(part.filename ?? "Pasted text").replaceAll('"', "'")}">\n${decodeDataUrl(part.url).replaceAll("</pasted_text>", "<\\/pasted_text>")}\n</pasted_text>`,
             }
           : part,
       ),
@@ -44,5 +46,10 @@ function decodeDataUrl(url: unknown) {
   const match = typeof url === "string" ? /^data:[^,]*?(;base64)?,(.*)$/.exec(url) : null;
   if (!match) throw new Error("A pasted-text attachment is not a data URL.");
   const [, base64, payload = ""] = match;
-  return base64 ? Buffer.from(payload, "base64").toString("utf8") : decodeURIComponent(payload);
+  if (!base64) return decodeURIComponent(payload);
+  // Strict on both counts: Buffer.from skips bad base64 characters and the
+  // default decoder swaps bad bytes for U+FFFD, either of which would hand
+  // the model a quietly corrupted paste.
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) throw new Error("Malformed pasted-text attachment.");
+  return new TextDecoder("utf-8", { fatal: true }).decode(Buffer.from(payload, "base64"));
 }

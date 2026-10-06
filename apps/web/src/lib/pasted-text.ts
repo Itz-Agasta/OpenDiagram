@@ -30,13 +30,17 @@ export const isTextFilePart = (part: { type: string; mediaType?: string }): part
 
 /**
  * The text inside a `text/*` file part. The composer turns blob URLs into data
- * URLs on submit, so a sent part is always a data URL; anything else reads as "".
+ * URLs on submit, so a sent part is always a data URL; anything else, or a
+ * payload that does not decode, reads as "".
  */
 export function fileUIPartText(part: FileUIPart) {
   const match = /^data:[^,]*?(;base64)?,(.*)$/.exec(part.url);
   if (!match) return "";
   const [, base64, payload = ""] = match;
-  if (!base64) return decodeURIComponent(payload);
-  const bytes = Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+  try {
+    if (!base64) return decodeURIComponent(payload);
+    return new TextDecoder().decode(Uint8Array.from(atob(payload), (char) => char.charCodeAt(0)));
+  } catch {
+    return "";
+  }
 }

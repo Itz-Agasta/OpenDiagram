@@ -62,6 +62,9 @@ export function AIChatConversation(props: AIChatConversationProps) {
     showDiagram,
   } = props;
   const messagesEmpty = messages.length === 0;
+  const emptyDescription = projectId
+    ? "Ask about this project's diagrams, docs, and workspace context."
+    : "Describe your architecture and I'll generate a diagram for you.";
 
   return (
     <Conversation className="min-h-0 flex-1">
@@ -70,11 +73,7 @@ export function AIChatConversation(props: AIChatConversationProps) {
         {messagesEmpty ? (
           <ConversationEmptyState
             title="Start a conversation"
-            description={
-              projectId
-                ? "Ask about this project's diagrams, docs, and workspace context."
-                : "Describe your architecture and I'll generate a diagram for you."
-            }
+            description={emptyDescription}
             icon={<Sparkles className="size-6 text-muted-foreground" />}
           >
             {/* Children replace the default body, so it is repeated here in full. */}
@@ -83,9 +82,7 @@ export function AIChatConversation(props: AIChatConversationProps) {
                 <Sparkles className="size-6 text-muted-foreground" />
                 <div className="space-y-1">
                   <h3 className="font-medium text-sm">Start a conversation</h3>
-                  <p className="text-muted-foreground text-sm">
-                    Describe your architecture and I&apos;ll generate a diagram for you.
-                  </p>
+                  <p className="text-muted-foreground text-sm">{emptyDescription}</p>
                 </div>
                 <Suggestions className="mt-2 justify-center">
                   {STARTER_PROMPTS.map((prompt) => (

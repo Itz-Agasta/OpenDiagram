@@ -60,6 +60,8 @@ export function AIChatComposer({
           // Text only for now: an image would be added as a chip and then
           // dropped on send, since no route takes image parts yet.
           accept="text/plain"
+          // Each chip is re-sent with every later turn, so a few at most.
+          maxFiles={3}
           onError={(error) =>
             toast.error(
               error.code === "accept" ? "Only pasted text can be attached for now." : error.message,
@@ -129,10 +131,14 @@ function ComposerAttachments() {
             // Still a blob URL here; the composer turns it into a data URL on submit.
             onOpen={() =>
               void fetch(file.url)
-                .then((response) => response.text())
+                .then((response) => {
+                  if (!response.ok) throw new Error(String(response.status));
+                  return response.text();
+                })
                 .then((text) =>
                   setOpen({ id: file.id, name: file.filename ?? "Pasted text", text }),
                 )
+                .catch(() => toast.error("Could not open that paste."))
             }
             onRemove={() => attachments.remove(file.id)}
           />
