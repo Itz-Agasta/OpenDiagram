@@ -16,13 +16,24 @@ import {
   MessageActions,
   MessageContent,
 } from "@/components/ai-elements/message";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { MessageParts } from "./message-parts";
+
+// One per diagram kind the harness lays out, so a first click shows the range.
+const STARTER_PROMPTS = [
+  "URL shortener architecture",
+  "Netflix system design",
+  "OAuth login sequence diagram",
+  "E-commerce database ERD",
+];
 
 interface AIChatConversationProps {
   answerAskUser: (toolCallId: string, answer: string) => void;
   applyError: string | null;
   /** Re-runs a failed diagram turn. Absent where a turn cannot be retried (doc chat). */
   onRetry?: () => void;
+  /** Sends a starter prompt. Absent where starters do not apply (doc files). */
+  onStarter?: (prompt: string) => void;
   diagramError?: Error;
   diagramStatus: ChatStatus;
   messages: UIMessage[];
@@ -42,6 +53,7 @@ export function AIChatConversation(props: AIChatConversationProps) {
     diagramStatus,
     messages,
     onRetry,
+    onStarter,
     projectError,
     projectId,
     projectStatus,
@@ -64,7 +76,25 @@ export function AIChatConversation(props: AIChatConversationProps) {
                 : "Describe your architecture and I'll generate a diagram for you."
             }
             icon={<Sparkles className="size-6 text-muted-foreground" />}
-          />
+          >
+            {/* Children replace the default body, so it is repeated here in full. */}
+            {onStarter ? (
+              <>
+                <Sparkles className="size-6 text-muted-foreground" />
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm">Start a conversation</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Describe your architecture and I&apos;ll generate a diagram for you.
+                  </p>
+                </div>
+                <Suggestions className="mt-2 justify-center">
+                  {STARTER_PROMPTS.map((prompt) => (
+                    <Suggestion key={prompt} suggestion={prompt} onClick={onStarter} />
+                  ))}
+                </Suggestions>
+              </>
+            ) : undefined}
+          </ConversationEmptyState>
         ) : (
           messages.map((message, index) => {
             const isCurrentAgentOutput =

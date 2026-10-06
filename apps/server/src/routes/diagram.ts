@@ -4,6 +4,7 @@ import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import { streamDiagramChat } from "../lib/agent/chat-stream";
+import { inlineTextFiles } from "../lib/agent/inline-text-files";
 import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
 import { askUserTool, createDrawDiagramTool, createDrawSystemTool } from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
@@ -95,7 +96,10 @@ diagramRoute.post("/chat", async (c) => {
     //
     // With `tools` passed, history collapses to the compact summary the tool
     // already declares, which is all the model ever needed to read back.
-    modelMessages = await convertToModelMessages(messages as unknown as UIMessage[], { tools });
+    modelMessages = await convertToModelMessages(
+      inlineTextFiles(messages) as unknown as UIMessage[],
+      { tools },
+    );
   } catch (err) {
     return c.json(
       { error: "Invalid messages", detail: err instanceof Error ? err.message : String(err) },

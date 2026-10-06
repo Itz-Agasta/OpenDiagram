@@ -1,8 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CheckCircle2, CircleAlert, Crosshair, Shapes } from "lucide-react";
-import { isStaticToolUIPart, type ToolUIPart, type UIMessage } from "ai";
+import { isStaticToolUIPart, type FileUIPart, type ToolUIPart, type UIMessage } from "ai";
 import type { DiagramSpec } from "@OpenDiagram/harness";
 import { drawnViews, type StoredAskUserInput } from "@/lib/chat-history";
+import { fileUIPartText, isTextFilePart } from "@/lib/pasted-text";
+import { Attachment, Attachments } from "@/components/ai-elements/attachments";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -14,6 +16,7 @@ import { Reasoning } from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { DotMatrixLoader } from "./DotMatrixLoader";
+import { PastedTextDialog } from "./PastedTextDialog";
 
 type Part = UIMessage["parts"][number];
 
@@ -57,8 +60,15 @@ export function MessageParts({
     run = [];
   };
 
+  const files = message.parts.filter(isTextFilePart);
+  if (files.length > 0) blocks.push(<PastedFiles key={`${message.id}-files`} files={files} />);
+
   message.parts.forEach((part, index) => {
-    if (part.type === "step-start") return;
+    if (part.type === "step-start" || part.type === "file") return;
+    if (part.type === "text" && message.role === "user") {
+      if (part.text) blocks.push(<UserText key={`${message.id}-${index}`} text={part.text} />);
+      return;
+    }
     if (isDrawPart(part)) {
       run.push(part);
       return;
@@ -193,6 +203,57 @@ function DrawSteps({
         ))}
       </ChainOfThoughtContent>
     </ChainOfThought>
+  );
+}
+
+/** A sent paste as a chip; the full text opens read-only. */
+function PastedFiles({ files }: { files: FileUIPart[] }) {
+  const [open, setOpen] = useState<{ name: string; text: string } | null>(null);
+  return (
+    <>
+      <Attachments className="justify-end">
+        {files.map((file, index) => (
+          <Attachment
+            key={`${file.filename}-${index}`}
+            data={file}
+            onOpen={() =>
+              setOpen({ name: file.filename ?? "Pasted text", text: fileUIPartText(file) })
+            }
+          />
+        ))}
+      </Attachments>
+      <PastedTextDialog paste={open} onClose={() => setOpen(null)} />
+    </>
+  );
+}
+
+const COLLAPSE_OVER_LINES = 12;
+const COLLAPSE_OVER_CHARS = 900;
+
+/** A long typed message collapses to a few lines in its bubble, with Show more. */
+function UserText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > COLLAPSE_OVER_CHARS || text.split("\n").length > COLLAPSE_OVER_LINES;
+  if (!long) return <MessageResponse>{text}</MessageResponse>;
+  return (
+    <div>
+      <div
+        className={
+          expanded
+            ? undefined
+            : "max-h-48 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]"
+        }
+      >
+        <MessageResponse>{text}</MessageResponse>
+      </div>
+      <button
+        type="button"
+        className="mt-1 text-muted-foreground text-xs hover:text-foreground"
+        onClick={() => setExpanded((value) => !value)}
+      >
+        {expanded ? "Show less" : "Show more"}
+      </button>
+    </div>
   );
 }
 

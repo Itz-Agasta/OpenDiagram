@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { isTextFilePart } from "./pasted-text";
 
 export type StoredAskUserInput = {
   question: string;
@@ -29,6 +30,8 @@ export type StoredChatPart =
    * look undrawn to `use-diagram-canvas`, which would try to draw it again.
    */
   | { type: "data-drawn"; data: { views: DrawnView[] } }
+  /** A pasted-text attachment: `text/*`, its content inline as a data URL. */
+  | { type: "file"; mediaType: string; filename?: string; url: string }
   | {
       type: "tool-ask_user";
       toolCallId: string;
@@ -97,6 +100,14 @@ function isStoredChatPart(value: unknown): value is StoredChatPart {
     const views = (part.data as { views?: unknown } | undefined)?.views;
     return Array.isArray(views) && views.every(isDrawnView);
   }
+  if (part.type === "file") {
+    return (
+      typeof part.mediaType === "string" &&
+      part.mediaType.startsWith("text/") &&
+      typeof part.url === "string" &&
+      part.url.startsWith("data:")
+    );
+  }
   if (part.type !== "tool-ask_user" || typeof part.toolCallId !== "string") return false;
   if (part.state === "output-error") {
     return (
@@ -135,7 +146,7 @@ export function uiMessageText(message: UIMessage) {
 }
 
 function storedPartToUIMessagePart(part: StoredChatPart): UIMessage["parts"][number] {
-  if (part.type === "text" || part.type === "data-drawn") return part;
+  if (part.type === "text" || part.type === "data-drawn" || part.type === "file") return part;
   if (part.state === "input-available") return part;
   if (part.state === "output-available") return part;
   return {
@@ -199,6 +210,9 @@ export function drawnViews(part: UIMessage["parts"][number]): DrawnView[] {
 
 function uiPartToStoredPart(part: UIMessage["parts"][number]): StoredChatPart | null {
   if (part.type === "text") return { type: "text", text: part.text };
+  if (isTextFilePart(part) && part.url.startsWith("data:")) {
+    return { type: "file", mediaType: part.mediaType, filename: part.filename, url: part.url };
+  }
   const views = drawnViews(part);
   if (views.length > 0) return { type: "data-drawn", data: { views } };
   if (part.type !== "tool-ask_user") return null;

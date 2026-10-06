@@ -19,7 +19,9 @@ import {
   type ProviderModelOption,
 } from "@/lib/settings-client";
 import { isLikelyDiagramRequest } from "@/lib/workspace-agents";
+import { toast } from "sonner";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { fileUIPartText, isTextFilePart } from "@/lib/pasted-text";
 import type { AIChatPanelProps } from "./types";
 import { parseInitialDiagramSpec, shouldUseDiagramChatDirectly } from "./types";
 import { pendingAskUser } from "./utils";
@@ -27,6 +29,8 @@ import { useDiagramCanvas } from "./use-diagram-canvas";
 import { useChatThread } from "./use-chat-thread";
 import { useDiagramChat } from "./use-diagram-chat";
 import { useProjectChat } from "./use-project-chat";
+
+const PROJECT_CHAT_MAX_CHARS = 4_000;
 
 export function useAIChatPanelController({
   activeFileType,
@@ -220,8 +224,12 @@ export function useAIChatPanelController({
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
       const text = message.text.trim();
+      const files = message.files.filter(isTextFilePart);
       const status = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
-      if (!text || (status !== "ready" && status !== "error")) return;
+      if ((!text && files.length === 0) || (status !== "ready" && status !== "error")) return;
+      // For the paths that take a plain string, not file parts: `ask_user`
+      // answers, the doc chat route, and the diagram-or-doc routing regex.
+      const inlined = [text, ...files.map(fileUIPartText)].filter(Boolean).join("\n\n");
 
       canvas.setApplyError(null);
       const track = (chatRoute: "diagram" | "project") =>
@@ -232,13 +240,14 @@ export function useAIChatPanelController({
       const pending = pendingAskUser(diagramChat.messages);
       if (pending) {
         track("diagram");
-        answerAskUser(pending.toolCallId, text);
+        answerAskUser(pending.toolCallId, inlined);
         return;
       }
 
+      const send = () => void diagramChat.sendMessage(text ? { text, files } : { files });
       if (useDiagramChatDirectly) {
         track("diagram");
-        void diagramChat.sendMessage({ text });
+        send();
         return;
       }
 
@@ -246,15 +255,24 @@ export function useAIChatPanelController({
       // await `POST /api/orchestrate` here, which put a Groq call in front of
       // every message on a doc file or a GitHub-imported diagram before the
       // user's text was sent anywhere.
-      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(text);
+      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(inlined);
 
       if (useProjectChat || !excalidrawAPI) {
+        // The doc chat route caps a message at 4,000 characters (routes/projects/chat.ts).
+        if (inlined.length > PROJECT_CHAT_MAX_CHARS) {
+          toast.error(
+            `Doc chat takes up to ${PROJECT_CHAT_MAX_CHARS.toLocaleString()} characters; this message is ${inlined.length.toLocaleString()}.`,
+          );
+          // Thrown, not returned: PromptInput keeps the composer's text and chips
+          // when onSubmit rejects, so the message is not lost.
+          throw new Error("message too long");
+        }
         // `run` is a no-op without a project, so that path is not a submission.
         if (projectId) track("project");
-        await projectChat.run(text);
+        await projectChat.run(inlined);
       } else {
         track("diagram");
-        void diagramChat.sendMessage({ text });
+        send();
       }
     },
     [

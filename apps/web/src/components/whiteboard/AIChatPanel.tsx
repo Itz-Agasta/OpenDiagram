@@ -44,6 +44,11 @@ export function AIChatPanel(props: AIChatPanelProps) {
         diagramStatus={controller.diagramStatus}
         messages={controller.conversationMessages}
         onRetry={props.activeFileType === "diagram" ? controller.retry : undefined}
+        onStarter={
+          props.activeFileType === "diagram"
+            ? (text) => void controller.handleSubmit({ text, files: [] })
+            : undefined
+        }
         projectError={controller.projectError}
         projectId={props.projectId}
         projectStatus={controller.projectStatus}
