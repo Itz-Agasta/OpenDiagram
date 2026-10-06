@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { CheckCircle2, CircleAlert, Crosshair, Shapes } from "lucide-react";
 import { isStaticToolUIPart, type FileUIPart, type ToolUIPart, type UIMessage } from "ai";
 import type { DiagramSpec } from "@OpenDiagram/harness";
@@ -79,11 +79,38 @@ export function MessageParts({
   });
   flush();
 
+  // Changes on every streamed character and every new part.
+  const progress = `${message.parts.length}:${message.parts.reduce(
+    (total, part) => total + ("text" in part ? part.text.length : 0),
+    0,
+  )}`;
+  const stalled = useStalled(progress, isStreaming);
+
   if (!isStreaming) return blocks.length > 0 ? blocks : null;
   const pending = pendingLabel(message.parts);
   if (blocks.length === 0) return <Activity label={pending ?? "Thinking…"} />;
-  if (pending) blocks.push(<Activity key={`${message.id}-pending`} label={pending} />);
+  const last = message.parts.findLast((part) => part.type !== "step-start");
+  // Under text it waits for a stall: while words are still arriving they are
+  // the progress, and a line under them reads as a second, competing loader.
+  const textIsLast = last?.type === "text" || last?.type === "reasoning";
+  if (pending && (stalled || !textIsLast)) {
+    blocks.push(<Activity key={`${message.id}-pending`} label={pending} />);
+  }
   return blocks;
+}
+
+/** Below this, a pause between streamed chunks is just network jitter. */
+const STALL_MS = 1_200;
+
+/** True once `progress` has not changed for STALL_MS while `active`. */
+function useStalled(progress: string, active: boolean) {
+  const [stalledAt, setStalledAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => setStalledAt(progress), STALL_MS);
+    return () => clearTimeout(timer);
+  }, [progress, active]);
+  return active && stalledAt === progress;
 }
 
 /**
@@ -100,10 +127,9 @@ export function MessageParts({
 function pendingLabel(parts: Part[]) {
   const last = parts.findLast((part) => part.type !== "step-start");
   if (!last) return "Thinking…";
-  // Shown under text even while it is "streaming": with Gemini a text part
-  // stays in that state until the step ends, through the whole wait for the
-  // tool call, so the state cannot tell typing from a stall (measured: 18s at
-  // a fixed length with the part still "streaming").
+  // Not keyed on a text part's `state`: with Gemini it stays "streaming" until
+  // the step ends, through the whole wait for the tool call (measured: 18s at a
+  // fixed length), so the caller times the stall instead (`useStalled`).
   if (last.type === "dynamic-tool" && last.state === "output-error") return "Fixing the diagram…";
   if (
     isStaticToolUIPart(last) &&
