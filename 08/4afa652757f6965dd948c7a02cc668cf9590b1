@@ -1,0 +1,22 @@
+apps/server/src/lib/agent/prompt.ts
+  s_7fe6539dd8036c::t_6278a71802865b 15
+apps/web/src/components/whiteboard/ai-chat-panel/message-parts.tsx
+  s_7fe6539dd8036c::t_6278a71802865b 82-102,107-116
+  s_7fe6539dd8036c::t_b52709feb45513 103-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "084afa652757f6965dd948c7a02cc668cf9590b1",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
