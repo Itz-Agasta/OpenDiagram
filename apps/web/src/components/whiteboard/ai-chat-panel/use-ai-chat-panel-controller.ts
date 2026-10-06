@@ -342,7 +342,10 @@ export function useAIChatPanelController({
     retry: () => void diagramChat.regenerate(),
     // Straight to diagram chat: on a repo-generated canvas `handleSubmit` routes
     // by regex, and two of the starters do not read as diagram requests to it.
-    sendStarter: (text: string) => void diagramChat.sendMessage({ text }),
+    sendStarter: (text: string) => {
+      canvas.setApplyError(null);
+      void diagramChat.sendMessage({ text });
+    },
     showDiagram,
     diagramStatus: diagramChat.status,
     handleSubmit,
