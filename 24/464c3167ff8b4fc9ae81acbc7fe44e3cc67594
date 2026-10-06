@@ -1,0 +1,23 @@
+apps/web/src/components/whiteboard/ai-chat-panel/AIChatThreadBar.tsx
+  s_7fe6539dd8036c::t_4748d65901ef6e 112,184
+apps/web/src/components/whiteboard/ai-chat-panel/use-diagram-chat.ts
+  s_7fe6539dd8036c::t_f12bd4ae4d117c 24,96-102
+apps/web/src/components/whiteboard/ai-chat-panel/utils.ts
+  s_7fe6539dd8036c::t_f12bd4ae4d117c 87-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24464c3167ff8b4fc9ae81acbc7fe44e3cc67594",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
