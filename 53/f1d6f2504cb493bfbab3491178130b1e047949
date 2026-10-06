@@ -1,0 +1,43 @@
+apps/web/src/components/ai-elements/chain-of-thought.tsx
+  s_7fe6539dd8036c::t_4319d58b723721 1-94
+apps/web/src/lib/chat-history.ts
+  s_7fe6539dd8036c::t_3c6d59b2c4b935 21-23,26-31,82-91,96-99,138,182-196,199-200
+apps/web/src/components/whiteboard/AIChatPanel.tsx
+  s_7fe6539dd8036c::t_5de8cb82182b75 46,52
+apps/web/package.json
+  s_7fe6539dd8036c::t_0c095123b74eef 19,28
+apps/web/src/components/ui/collapsible.tsx
+  s_7fe6539dd8036c::t_b768ff34740091 1-11
+apps/web/src/components/ai-elements/shimmer.tsx
+  s_7fe6539dd8036c::t_6e4e46fd916d7e 1-38
+apps/web/src/components/whiteboard/ai-chat-panel/message-parts.tsx
+  s_7fe6539dd8036c::t_59fe8e7ccac065 3,86-88,96,133-135,137
+  s_7fe6539dd8036c::t_f3eef59a0b9a62 1-2,4-85,89-95,97-132,136,138-206
+apps/web/src/components/whiteboard/ai-chat-panel/AIChatConversation.tsx
+  s_7fe6539dd8036c::t_ba13a832ef53ba 1-2,4,13-19,25,34,44,50,74,89-93,96,98-99,111-121,188-189,191-199,201-202
+  s_7fe6539dd8036c::t_5de8cb82182b75 24,95,97
+apps/web/src/components/whiteboard/ai-chat-panel/use-ai-chat-panel-controller.ts
+  s_7fe6539dd8036c::t_5de8cb82182b75 275-291,320-323
+apps/web/src/components/ai-elements/suggestion.tsx
+  s_7fe6539dd8036c::t_608ba3faa3bdea 1-39
+apps/web/src/components/ai-elements/reasoning.tsx
+  s_7fe6539dd8036c::t_826a6bbc4109c9 1-42
+bun.lock
+  s_7fe6539dd8036c::t_fc50bb993455a8 111,120,865,901,2867-2910,2913-2914,2955-2956,2983-2984,3303-3304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "53f1d6f2504cb493bfbab3491178130b1e047949",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
