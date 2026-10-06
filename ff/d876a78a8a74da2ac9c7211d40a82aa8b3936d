@@ -1,0 +1,19 @@
+apps/web/src/components/whiteboard/ai-chat-panel/use-ai-chat-panel-controller.ts
+  s_7fe6539dd8036c::t_4e957994f9fc60 345-348
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ffd876a78a8a74da2ac9c7211d40a82aa8b3936d",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
