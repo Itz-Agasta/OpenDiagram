@@ -10,6 +10,7 @@ import {
   type ModelMessage,
   type StepResult,
   type ToolSet,
+  type UIMessage,
   type UIMessageChunk,
 } from "ai";
 import type { RequestLogger } from "evlog";
@@ -96,6 +97,12 @@ export type DiagramChatOptions = {
   log: RequestLogger;
   model: LanguageModel;
   messages: ModelMessage[];
+  /**
+   * The request's UI messages. When the last one is an assistant message (an
+   * `ask_user` answer resubmitting), the stream continues it under its own id;
+   * without this the SDK stamps a fresh id and the client appends a copy (#70).
+   */
+  originalMessages: UIMessage[];
   tools: ToolSet;
   grant: AiQuotaGrant;
   meta: { canvasDiagrams: number; theme: string; messageCount: number };
@@ -113,7 +120,17 @@ export type DiagramChatOptions = {
  * second call would overwrite the first attempt's spend rather than add to it.
  */
 export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<UIMessageChunk> {
-  const { log, model, messages, tools, grant, meta, instructions, runtimeContext } = options;
+  const {
+    log,
+    model,
+    messages,
+    originalMessages,
+    tools,
+    grant,
+    meta,
+    instructions,
+    runtimeContext,
+  } = options;
   // Accumulated per step because `onError` reports no usage. A stream that dies on
   // step four already spent the tokens of the first three, and releasing the whole
   // reservation to zero made that real spend invisible to the cost ceiling.
@@ -176,6 +193,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
     });
 
   return createUIMessageStream({
+    originalMessages,
     execute: async ({ writer }) => {
       for (let run = 0; run < 2; run++) {
         const result = attempt();

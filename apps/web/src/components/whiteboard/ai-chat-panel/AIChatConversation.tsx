@@ -1,7 +1,7 @@
-import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Check, CheckCircle2, Copy, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import type { ChatStatus, UIMessage } from "ai";
-import type { DiagramSpec } from "@OpenDiagram/harness";
-import type { StoredAskUserInput } from "@/lib/chat-history";
+import { uiMessageText } from "@/lib/chat-history";
 import type { RepoGenerationJob } from "@/lib/projects-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,13 +10,30 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
-import type { DrawDiagramOutput, DrawSystemOutput } from "./types";
-import { DotMatrixLoader } from "./DotMatrixLoader";
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+} from "@/components/ai-elements/message";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { MessageParts } from "./message-parts";
+
+// One per diagram kind the harness lays out, so a first click shows the range.
+const STARTER_PROMPTS = [
+  "URL shortener architecture",
+  "Netflix system design",
+  "OAuth login sequence diagram",
+  "E-commerce database ERD",
+];
 
 interface AIChatConversationProps {
   answerAskUser: (toolCallId: string, answer: string) => void;
   applyError: string | null;
+  /** Re-runs a failed diagram turn. Absent where a turn cannot be retried (doc chat). */
+  onRetry?: () => void;
+  /** Sends a starter prompt. Absent where starters do not apply (doc files). */
+  onStarter?: (prompt: string) => void;
   diagramError?: Error;
   diagramStatus: ChatStatus;
   messages: UIMessage[];
@@ -25,6 +42,7 @@ interface AIChatConversationProps {
   projectStatus: ChatStatus;
   repoGenerationError: string | null;
   repoGenerationJob: RepoGenerationJob | null;
+  showDiagram: (title: string) => void;
 }
 
 export function AIChatConversation(props: AIChatConversationProps) {
@@ -34,13 +52,19 @@ export function AIChatConversation(props: AIChatConversationProps) {
     diagramError,
     diagramStatus,
     messages,
+    onRetry,
+    onStarter,
     projectError,
     projectId,
     projectStatus,
     repoGenerationError,
     repoGenerationJob,
+    showDiagram,
   } = props;
   const messagesEmpty = messages.length === 0;
+  const emptyDescription = projectId
+    ? "Ask about this project's diagrams, docs, and workspace context."
+    : "Describe your architecture and I'll generate a diagram for you.";
 
   return (
     <Conversation className="min-h-0 flex-1">
@@ -49,19 +73,32 @@ export function AIChatConversation(props: AIChatConversationProps) {
         {messagesEmpty ? (
           <ConversationEmptyState
             title="Start a conversation"
-            description={
-              projectId
-                ? "Ask about this project's diagrams, docs, and workspace context."
-                : "Describe your architecture and I'll generate a diagram for you."
-            }
+            description={emptyDescription}
             icon={<Sparkles className="size-6 text-muted-foreground" />}
-          />
+          >
+            {/* Children replace the default body, so it is repeated here in full. */}
+            {onStarter ? (
+              <>
+                <Sparkles className="size-6 text-muted-foreground" />
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm">Start a conversation</h3>
+                  <p className="text-muted-foreground text-sm">{emptyDescription}</p>
+                </div>
+                <Suggestions className="mt-2 justify-center">
+                  {STARTER_PROMPTS.map((prompt) => (
+                    <Suggestion key={prompt} suggestion={prompt} onClick={onStarter} />
+                  ))}
+                </Suggestions>
+              </>
+            ) : undefined}
+          </ConversationEmptyState>
         ) : (
           messages.map((message, index) => {
             const isCurrentAgentOutput =
               message.role === "assistant" &&
               index === messages.length - 1 &&
               (diagramStatus === "streaming" || projectStatus === "streaming");
+            const text = message.role === "assistant" ? uiMessageText(message) : "";
 
             return (
               <Message
@@ -76,8 +113,17 @@ export function AIChatConversation(props: AIChatConversationProps) {
                 }
               >
                 <MessageContent>
-                  {renderMessageParts(message, answerAskUser, isCurrentAgentOutput)}
+                  <MessageParts
+                    handlers={{ answerAskUser, showDiagram }}
+                    isStreaming={isCurrentAgentOutput}
+                    message={message}
+                  />
                 </MessageContent>
+                {text && !isCurrentAgentOutput && (
+                  <MessageActions className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <CopyAction text={text} />
+                  </MessageActions>
+                )}
               </Message>
             );
           })
@@ -89,9 +135,17 @@ export function AIChatConversation(props: AIChatConversationProps) {
           </div>
         )}
         {diagramStatus === "error" && (
-          <p className="text-xs text-destructive">
-            {diagramError?.message ?? "Something went wrong. Try again."}
-          </p>
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            <span className="min-w-0 flex-1">
+              {diagramError?.message ?? "Something went wrong. Try again."}
+            </span>
+            {onRetry && (
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onRetry}>
+                <RotateCcw className="size-3.5" />
+                Retry
+              </Button>
+            )}
+          </div>
         )}
         {projectError && <p className="text-xs text-destructive">{projectError}</p>}
         {applyError && (
@@ -158,114 +212,25 @@ function taskDotColor(status: RepoGenerationJob["tasks"][number]["status"]) {
   return "bg-od-border-soft";
 }
 
-/**
- * The `submitted` loader above disappears on the stream's opening chunk, which
- * arrives before the model has produced a word, and reasoning parts render as
- * nothing. Without a loader here the assistant bubble sits visibly empty.
- */
-function renderMessageParts(
-  message: UIMessage,
-  answerAskUser: (toolCallId: string, answer: string) => void,
-  isStreaming: boolean,
-) {
-  const parts = message.parts
-    .map((part, partIndex) => renderMessagePart(message, part, partIndex, answerAskUser))
-    .filter(Boolean);
-  if (parts.length > 0) return parts;
-  return isStreaming ? <ToolActivity label="Thinking…" /> : null;
-}
-
-function renderMessagePart(
-  message: UIMessage,
-  part: UIMessage["parts"][number],
-  index: number,
-  answerAskUser: (toolCallId: string, answer: string) => void,
-) {
-  const key = `${message.id}-${index}`;
-  if (part.type === "text") {
-    return part.text ? <MessageResponse key={key}>{part.text}</MessageResponse> : null;
-  }
-
-  if (part.type === "reasoning") {
-    return null;
-  }
-
-  if (part.type === "tool-ask_user") {
-    if (part.state === "input-streaming") {
-      return <ToolActivity key={key} label="Preparing a question…" />;
-    }
-    if (part.state === "output-error") {
-      return (
-        <p key={key} className="text-xs text-destructive">
-          {part.errorText}
-        </p>
-      );
-    }
-    const input = part.input as StoredAskUserInput | undefined;
-    if (!input?.question) return null;
-    const answered = part.state === "output-available" ? (part.output as string) : null;
-    return (
-      <div key={key} className="space-y-2">
-        <p className="text-sm">{input.question}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {(input.options ?? []).map((option) => (
-            <Button
-              key={option}
-              size="sm"
-              variant={answered === option ? "default" : "outline"}
-              className="h-7 text-xs"
-              disabled={answered !== null}
-              onClick={() => answerAskUser(part.toolCallId, option)}
-            >
-              {option}
-            </Button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") return null;
-  if (part.state === "output-available") {
-    const summaries =
-      part.type === "tool-draw_system"
-        ? (part.output as DrawSystemOutput).views.map((view) => view.summary)
-        : [(part.output as DrawDiagramOutput).summary];
-    const [first] = summaries;
-    return (
-      <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
-        <CheckCircle2 className="size-3.5 text-primary" />
-        <span>
-          {summaries.length === 1 && first
-            ? `${first.title}: ${first.nodes} nodes, ${first.edges} edges`
-            : `Drew ${summaries.length} diagrams: ${summaries.map((s) => s.title).join(", ")}`}
-        </span>
-      </div>
-    );
-  }
-  if (part.state === "output-error") {
-    return (
-      <p key={key} className="text-xs text-destructive">
-        Drawing failed: {part.errorText}
-      </p>
-    );
-  }
-  if (part.type === "tool-draw_system") {
-    return <ToolActivity key={key} label="Modelling the system…" />;
-  }
-  const title = (part.input as Partial<DiagramSpec> | undefined)?.title;
-  return <ToolActivity key={key} label={title ? `Drawing “${title}”…` : "Drawing diagram…"} />;
-}
-
-function ToolActivity({ label }: { label: string }) {
+function CopyAction({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <div
-      className="flex items-center gap-2 text-xs text-muted-foreground"
-      role="status"
-      aria-live="polite"
+    <MessageAction
+      label="Copy"
+      tooltip={copied ? "Copied" : "Copy"}
+      onClick={() => {
+        // A denied clipboard leaves the icon unchanged, so a failed copy never
+        // shows the check.
+        navigator.clipboard.writeText(text).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          },
+          () => undefined,
+        );
+      }}
     >
-      <DotMatrixLoader />
-      <span>{label}</span>
-    </div>
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </MessageAction>
   );
 }

@@ -1,4 +1,5 @@
 import { and, db, desc, eq, exists, lt, sql } from "@OpenDiagram/db";
+import { messageText } from "./thread-title";
 import { project, projectFileMessage, projectFileThread } from "@OpenDiagram/db/schema/projects";
 
 /** Either the pooled `db` or an open transaction. */
@@ -162,9 +163,11 @@ export async function listThreadMessages(
  * that key, so callers take `lockOwnedThread` first: the second writer then waits
  * and reads a MAX that includes the first. The lock is per conversation.
  *
- * `onConflictDoNothing` makes a re-sent turn a no-op -- see the unique index on
- * `(thread_id, client_id)` for why the client re-sends -- and `returning` then
- * reports only the rows this call actually inserted.
+ * A re-sent `clientId` overwrites its `parts` and keeps its `seq`. The client
+ * re-sends for two reasons: a retry after a failed append (same parts, so a
+ * no-op in effect; see the unique index on `(thread_id, client_id)`), and an
+ * assistant message that grew after it was saved, which is what answering
+ * `ask_user` does: the follow-up streams into the message holding the question.
  */
 export async function appendThreadMessages(
   tx: Db,
@@ -188,8 +191,12 @@ export async function appendThreadMessages(
         parts: message.parts,
       })),
     )
-    .onConflictDoNothing({
+    .onConflictDoUpdate({
       target: [projectFileMessage.threadId, projectFileMessage.clientId],
+      set: { parts: sql`excluded.parts` },
+      // A continued message only grows, so a shorter copy is a stale one (a
+      // second tab, a replayed backlog) and must not overwrite the longer.
+      setWhere: sql`jsonb_array_length(excluded.parts) >= jsonb_array_length(${projectFileMessage.parts})`,
     })
     .returning({ seq: projectFileMessage.seq, clientId: projectFileMessage.clientId });
 }
@@ -206,11 +213,22 @@ export async function appendThreadMessages(
  */
 export async function lockOwnedThread(tx: Db, threadId: string, projectId: string, userId: string) {
   const [row] = await tx
-    .select({ id: projectFileThread.id })
+    .select({ id: projectFileThread.id, title: projectFileThread.title })
     .from(projectFileThread)
     .innerJoin(project, eq(project.id, projectFileThread.projectId))
     .where(ownsThread(threadId, projectId, userId))
     .for("update", { of: projectFileThread });
 
   return row ?? null;
+}
+
+/** Text of the thread's first user message, for telling an auto title from a rename. */
+export async function firstUserMessageText(tx: Db, threadId: string) {
+  const [row] = await tx
+    .select({ parts: projectFileMessage.parts })
+    .from(projectFileMessage)
+    .where(and(eq(projectFileMessage.threadId, threadId), eq(projectFileMessage.role, "user")))
+    .orderBy(projectFileMessage.seq)
+    .limit(1);
+  return row ? messageText(row.parts) : null;
 }

@@ -16,6 +16,7 @@
     "@milkdown/crepe": "catalog:",
     "@milkdown/kit": "catalog:",
     "@paper-design/shaders": "0.0.81",
+    "@radix-ui/react-collapsible": "^1.1.21",
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-dropdown-menu": "^2.1.18",
     "@radix-ui/react-hover-card": "^1.1.17",

@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { isTextFilePart } from "./pasted-text";
 
 export type StoredAskUserInput = {
   question: string;
@@ -18,8 +19,19 @@ export type StoredAskUserCall =
       output: string;
     };
 
+/** One diagram a draw tool produced, as the chat panel lists it. */
+export type DrawnView = { title: string; nodes: number; edges: number };
+
 export type StoredChatPart =
   | { type: "text"; text: string }
+  /**
+   * What `draw_diagram` / `draw_system` drew, minus the element JSON. A data
+   * part, not the tool part: a stored tool part in `output-available` would
+   * look undrawn to `use-diagram-canvas`, which would try to draw it again.
+   */
+  | { type: "data-drawn"; data: { views: DrawnView[] } }
+  /** A pasted-text attachment: `text/*`, its content inline as a data URL. */
+  | { type: "file"; mediaType: string; filename?: string; url: string }
   | {
       type: "tool-ask_user";
       toolCallId: string;
@@ -70,10 +82,32 @@ function isStoredAskUserCall(value: unknown): value is StoredAskUserCall {
   );
 }
 
+function isDrawnView(value: unknown): value is DrawnView {
+  if (!value || typeof value !== "object") return false;
+  const view = value as Partial<DrawnView>;
+  return (
+    typeof view.title === "string" &&
+    typeof view.nodes === "number" &&
+    typeof view.edges === "number"
+  );
+}
+
 function isStoredChatPart(value: unknown): value is StoredChatPart {
   if (!value || typeof value !== "object") return false;
   const part = value as Partial<StoredChatPart>;
   if (part.type === "text") return typeof part.text === "string";
+  if (part.type === "data-drawn") {
+    const views = (part.data as { views?: unknown } | undefined)?.views;
+    return Array.isArray(views) && views.every(isDrawnView);
+  }
+  if (part.type === "file") {
+    return (
+      typeof part.mediaType === "string" &&
+      part.mediaType.startsWith("text/") &&
+      typeof part.url === "string" &&
+      part.url.startsWith("data:")
+    );
+  }
   if (part.type !== "tool-ask_user" || typeof part.toolCallId !== "string") return false;
   if (part.state === "output-error") {
     return (
@@ -112,7 +146,7 @@ export function uiMessageText(message: UIMessage) {
 }
 
 function storedPartToUIMessagePart(part: StoredChatPart): UIMessage["parts"][number] {
-  if (part.type === "text") return part;
+  if (part.type === "text" || part.type === "data-drawn" || part.type === "file") return part;
   if (part.state === "input-available") return part;
   if (part.state === "output-available") return part;
   return {
@@ -156,8 +190,31 @@ export function storedChatMessageToUIMessage(message: StoredChatMessage): UIMess
   return { id: message.id, role: message.role, parts };
 }
 
+/**
+ * The diagrams a live draw tool part or a stored `data-drawn` part stands for.
+ * Empty for anything else, including a draw still running or one that failed.
+ */
+export function drawnViews(part: UIMessage["parts"][number]): DrawnView[] {
+  if (part.type === "data-drawn") {
+    const views = (part.data as { views?: unknown } | undefined)?.views;
+    return Array.isArray(views) ? views.filter(isDrawnView) : [];
+  }
+  if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") return [];
+  if (part.state !== "output-available") return [];
+  const output = part.output as { summary?: DrawnView; views?: { summary: DrawnView }[] };
+  const summaries = output.views ? output.views.map((view) => view.summary) : [output.summary];
+  return summaries.flatMap((summary) =>
+    summary ? [{ title: summary.title, nodes: summary.nodes, edges: summary.edges }] : [],
+  );
+}
+
 function uiPartToStoredPart(part: UIMessage["parts"][number]): StoredChatPart | null {
   if (part.type === "text") return { type: "text", text: part.text };
+  if (isTextFilePart(part) && part.url.startsWith("data:")) {
+    return { type: "file", mediaType: part.mediaType, filename: part.filename, url: part.url };
+  }
+  const views = drawnViews(part);
+  if (views.length > 0) return { type: "data-drawn", data: { views } };
   if (part.type !== "tool-ask_user") return null;
 
   if (part.state === "input-streaming") {

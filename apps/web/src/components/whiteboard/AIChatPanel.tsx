@@ -27,8 +27,12 @@ export function AIChatPanel(props: AIChatPanelProps) {
               controller.submitStatus === "submitted" ||
               controller.submitStatus === "streaming"
             }
+            currentThreadId={controller.threadId}
+            currentTitle={controller.threadTitle}
+            deleteCurrentThread={controller.deleteCurrentThread}
             loadThreadList={controller.loadThreadList}
             onResumeThread={controller.resumeThread}
+            renameThread={controller.renameThread}
             startNewThread={controller.startNewThread}
             threads={controller.threads}
           />
@@ -43,11 +47,14 @@ export function AIChatPanel(props: AIChatPanelProps) {
         diagramError={controller.diagramError}
         diagramStatus={controller.diagramStatus}
         messages={controller.conversationMessages}
+        onRetry={props.activeFileType === "diagram" ? controller.retry : undefined}
+        onStarter={props.activeFileType === "diagram" ? controller.sendStarter : undefined}
         projectError={controller.projectError}
         projectId={props.projectId}
         projectStatus={controller.projectStatus}
         repoGenerationError={props.repoGenerationError ?? null}
         repoGenerationJob={props.repoGenerationJob ?? null}
+        showDiagram={controller.showDiagram}
       />
       <AIChatComposer
         onStop={controller.stop}

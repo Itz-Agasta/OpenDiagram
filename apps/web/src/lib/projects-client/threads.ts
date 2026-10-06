@@ -65,7 +65,8 @@ export async function listThreadMessages(
 }
 
 /**
- * Append a completed turn.
+ * Append a completed turn. Resolves to the thread's title afterwards, which the
+ * server may have just set (automatic titles are written on append).
  *
  * Only the messages this turn produced, never the whole transcript -- that shape
  * is what made byte cost grow with the square of conversation length.
@@ -74,7 +75,7 @@ export async function appendThreadMessages(
   projectId: string,
   threadId: string,
   messages: { clientId: string; role: "user" | "assistant"; parts: unknown[] }[],
-): Promise<{ seq: number; clientId: string }[]> {
+): Promise<string> {
   const response = await fetch(`${base(projectId)}/threads/${threadId}/messages`, {
     method: "POST",
     credentials: "include",
@@ -83,7 +84,7 @@ export async function appendThreadMessages(
   });
   const data = await readProjectResponse(response);
   if (!response.ok) throw new Error(data?.error ?? "Could not save chat.");
-  return data.messages;
+  return data.title;
 }
 
 export async function deleteThread(projectId: string, threadId: string): Promise<void> {
@@ -102,7 +103,7 @@ export async function deleteThread(projectId: string, threadId: string): Promise
  * conversation is a touch and then a re-read -- no extra endpoint, and no
  * `active_thread_id` column to keep consistent.
  */
-export async function patchThreadTouched(projectId: string, threadId: string): Promise<void> {
+export async function patchThreadTouched(projectId: string, threadId: string): Promise<string> {
   const response = await fetch(`${base(projectId)}/threads/${threadId}`, {
     method: "PATCH",
     credentials: "include",
@@ -111,4 +112,22 @@ export async function patchThreadTouched(projectId: string, threadId: string): P
   });
   const data = await readProjectResponse(response);
   if (!response.ok) throw new Error(data?.error ?? "Could not open that chat.");
+  return data.thread.title;
+}
+
+/** Rename a thread. An explicit title is never overwritten by automatic titling. */
+export async function renameThread(
+  projectId: string,
+  threadId: string,
+  title: string,
+): Promise<string> {
+  const response = await fetch(`${base(projectId)}/threads/${threadId}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  const data = await readProjectResponse(response);
+  if (!response.ok) throw new Error(data?.error ?? "Could not rename that chat.");
+  return data.thread.title;
 }

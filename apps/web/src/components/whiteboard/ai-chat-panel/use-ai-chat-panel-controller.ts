@@ -19,7 +19,9 @@ import {
   type ProviderModelOption,
 } from "@/lib/settings-client";
 import { isLikelyDiagramRequest } from "@/lib/workspace-agents";
+import { toast } from "sonner";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { fileUIPartText, isTextFilePart } from "@/lib/pasted-text";
 import type { AIChatPanelProps } from "./types";
 import { parseInitialDiagramSpec, shouldUseDiagramChatDirectly } from "./types";
 import { pendingAskUser } from "./utils";
@@ -27,6 +29,8 @@ import { useDiagramCanvas } from "./use-diagram-canvas";
 import { useChatThread } from "./use-chat-thread";
 import { useDiagramChat } from "./use-diagram-chat";
 import { useProjectChat } from "./use-project-chat";
+
+const PROJECT_CHAT_MAX_CHARS = 4_000;
 
 export function useAIChatPanelController({
   activeFileType,
@@ -220,8 +224,12 @@ export function useAIChatPanelController({
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
       const text = message.text.trim();
+      const files = message.files.filter(isTextFilePart);
       const status = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
-      if (!text || (status !== "ready" && status !== "error")) return;
+      if ((!text && files.length === 0) || (status !== "ready" && status !== "error")) return;
+      // For the paths that take a plain string, not file parts: `ask_user`
+      // answers, the doc chat route, and the diagram-or-doc routing regex.
+      const inlined = [text, ...files.map(fileUIPartText)].filter(Boolean).join("\n\n");
 
       canvas.setApplyError(null);
       const track = (chatRoute: "diagram" | "project") =>
@@ -232,13 +240,14 @@ export function useAIChatPanelController({
       const pending = pendingAskUser(diagramChat.messages);
       if (pending) {
         track("diagram");
-        answerAskUser(pending.toolCallId, text);
+        answerAskUser(pending.toolCallId, inlined);
         return;
       }
 
+      const send = () => void diagramChat.sendMessage(text ? { text, files } : { files });
       if (useDiagramChatDirectly) {
         track("diagram");
-        void diagramChat.sendMessage({ text });
+        send();
         return;
       }
 
@@ -246,15 +255,26 @@ export function useAIChatPanelController({
       // await `POST /api/orchestrate` here, which put a Groq call in front of
       // every message on a doc file or a GitHub-imported diagram before the
       // user's text was sent anywhere.
-      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(text);
+      // Routed on what the user typed: a pasted document that mentions
+      // "diagram" is context, not a request. A paste sent alone routes on itself.
+      const useProjectChat = Boolean(projectId) && !isLikelyDiagramRequest(text || inlined);
 
       if (useProjectChat || !excalidrawAPI) {
+        // The doc chat route caps a message at 4,000 characters (routes/projects/chat.ts).
+        if (inlined.length > PROJECT_CHAT_MAX_CHARS) {
+          toast.error(
+            `Doc chat takes up to ${PROJECT_CHAT_MAX_CHARS.toLocaleString()} characters; this message is ${inlined.length.toLocaleString()}.`,
+          );
+          // Thrown, not returned: PromptInput keeps the composer's text and chips
+          // when onSubmit rejects, so the message is not lost.
+          throw new Error("message too long");
+        }
         // `run` is a no-op without a project, so that path is not a submission.
         if (projectId) track("project");
-        await projectChat.run(text);
+        await projectChat.run(inlined);
       } else {
         track("diagram");
-        void diagramChat.sendMessage({ text });
+        send();
       }
     },
     [
@@ -272,6 +292,23 @@ export function useAIChatPanelController({
     ],
   );
 
+  // The latest diagram with that title: a redraw replaces its frame, so titles
+  // repeat only when the user asked for two diagrams of the same name.
+  const showDiagram = useCallback(
+    (title: string) => {
+      if (!excalidrawAPI) return;
+      const match = diagramsRef.current.findLast((diagram) => diagram.title === title);
+      if (!match?.id) return;
+      const elements = excalidrawAPI
+        .getSceneElements()
+        .filter((element) => element.id === match.id || element.frameId === match.id);
+      if (elements.length > 0) {
+        excalidrawAPI.scrollToContent(elements, { fitToContent: true, animate: true });
+      }
+    },
+    [excalidrawAPI],
+  );
+
   const submitStatus = projectChat.status !== "ready" ? projectChat.status : diagramChat.status;
   const stop = useCallback(() => {
     if (projectChat.status !== "ready") projectChat.stop();
@@ -286,20 +323,45 @@ export function useAIChatPanelController({
     answerAskUser,
     loadThreadList: thread.loadThreadList,
     // Surfaced, not swallowed: `isSwitching` clears either way, so a failed
-    // switch looked like a finished one that had simply changed nothing.
+    // switch looked like a finished one that had simply changed nothing. A
+    // toast, not `onProviderError`: that opens "Provider credits exhausted".
     resumeThread: (id: string) =>
       thread.resumeThread(id).catch((cause: unknown) => {
-        onProviderError?.(cause instanceof Error ? cause.message : "Could not open that chat.");
+        toast.error(cause instanceof Error ? cause.message : "Could not open that chat.");
       }),
     startNewThread: () =>
       thread.startNewThread().catch((cause: unknown) => {
-        onProviderError?.(cause instanceof Error ? cause.message : "Could not start a new chat.");
+        toast.error(cause instanceof Error ? cause.message : "Could not start a new chat.");
       }),
+    // Rethrown, unlike the two above: the rename and delete dialogs stay open
+    // on failure so the user can retry, which needs the rejection.
+    renameThread: (title: string) =>
+      thread.renameThread(title).catch((cause: unknown) => {
+        toast.error(cause instanceof Error ? cause.message : "Could not rename that chat.");
+        throw cause;
+      }),
+    deleteCurrentThread: () =>
+      thread.deleteCurrentThread().catch((cause: unknown) => {
+        toast.error(cause instanceof Error ? cause.message : "Could not delete that chat.");
+        throw cause;
+      }),
+    threadId: thread.threadId,
     threadSwitching: thread.isSwitching,
+    threadTitle: thread.title,
     threads: thread.threads,
     applyError: canvas.applyError,
     conversationMessages,
     diagramError: diagramChat.error,
+    // `regenerate` resends the same user message id, so `turnIdFor` on the server
+    // keeps the retry on the credit the failed turn already took.
+    retry: () => void diagramChat.regenerate(),
+    // Straight to diagram chat: on a repo-generated canvas `handleSubmit` routes
+    // by regex, and two of the starters do not read as diagram requests to it.
+    sendStarter: (text: string) => {
+      canvas.setApplyError(null);
+      void diagramChat.sendMessage({ text });
+    },
+    showDiagram,
     diagramStatus: diagramChat.status,
     handleSubmit,
     projectError: projectChat.error,

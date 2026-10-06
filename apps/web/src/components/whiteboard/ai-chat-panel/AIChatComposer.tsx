@@ -1,14 +1,19 @@
-import { useState } from "react";
+import { useState, type ClipboardEvent } from "react";
 import { ChevronsUpDown } from "lucide-react";
+import { toast } from "sonner";
 import type { ChatStatus } from "ai";
 import type { ThemeName } from "@OpenDiagram/harness";
+import { Attachment, Attachments } from "@/components/ai-elements/attachments";
 import {
   PromptInput,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
+  usePromptInputAttachments,
+  usePromptInputController,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { ModelPickerDialog } from "@/components/model-picker-dialog";
@@ -20,7 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MAX_PASTE_CHARS, pastedTextFile, shouldAttachPaste } from "@/lib/pasted-text";
 import type { ProviderModelOption } from "@/lib/settings-client";
+import { PastedTextDialog } from "./PastedTextDialog";
 
 interface AIChatComposerProps {
   onStop?: () => void;
@@ -50,14 +57,22 @@ export function AIChatComposer({
     <div className="shrink-0 border-t border-od-border-soft bg-od-surface p-3">
       <PromptInputProvider>
         <PromptInput
+          // Text only for now: an image would be added as a chip and then
+          // dropped on send, since no route takes image parts yet.
+          accept="text/plain"
+          // Each chip is re-sent with every later turn, so a few at most.
+          maxFiles={3}
+          onError={(error) =>
+            toast.error(
+              error.code === "accept" ? "Only pasted text can be attached for now." : error.message,
+            )
+          }
           onSubmit={onSubmit}
           className="w-full border-od-border-soft bg-white text-od-ink shadow-[0_18px_80px_-56px_rgba(24,24,21,0.35)]"
         >
+          <ComposerAttachments />
           <PromptInputBody>
-            <PromptInputTextarea
-              placeholder="Ask, plan, or generate a diagram…"
-              className="min-h-32 max-h-40 resize-none text-od-ink placeholder:text-od-ink-faint"
-            />
+            <ComposerTextarea />
           </PromptInputBody>
           <PromptInputFooter>
             <Button
@@ -96,5 +111,80 @@ export function AIChatComposer({
         </PromptInput>
       </PromptInputProvider>
     </div>
+  );
+}
+
+/** Pasted-text chips above the input. Renders nothing until there is one. */
+function ComposerAttachments() {
+  const attachments = usePromptInputAttachments();
+  const { textInput } = usePromptInputController();
+  const [open, setOpen] = useState<{ id: string; name: string; text: string } | null>(null);
+  if (attachments.files.length === 0) return null;
+
+  return (
+    <PromptInputHeader className="px-3 pt-3">
+      <Attachments>
+        {attachments.files.map((file) => (
+          <Attachment
+            key={file.id}
+            data={file}
+            // Still a blob URL here; the composer turns it into a data URL on submit.
+            onOpen={() =>
+              void fetch(file.url)
+                .then((response) => {
+                  if (!response.ok) throw new Error(String(response.status));
+                  return response.text();
+                })
+                .then((text) =>
+                  setOpen({ id: file.id, name: file.filename ?? "Pasted text", text }),
+                )
+                .catch(() => toast.error("Could not open that paste."))
+            }
+            onRemove={() => attachments.remove(file.id)}
+          />
+        ))}
+      </Attachments>
+      <PastedTextDialog
+        paste={open}
+        onClose={() => setOpen(null)}
+        onInsertAsText={() => {
+          if (!open) return;
+          textInput.setInput(textInput.value ? `${textInput.value}\n\n${open.text}` : open.text);
+          attachments.remove(open.id);
+          setOpen(null);
+        }}
+      />
+    </PromptInputHeader>
+  );
+}
+
+/**
+ * A big paste becomes an attachment chip instead of a wall of composer text,
+ * the way Claude and ChatGPT handle it. It is sent as a `text/plain` file part;
+ * the server turns that back into text for the model (see `inlineTextFiles`).
+ */
+function ComposerTextarea() {
+  const attachments = usePromptInputAttachments();
+
+  const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = event.clipboardData.getData("text/plain");
+    if (!shouldAttachPaste(text)) return;
+    event.preventDefault();
+    if (text.length > MAX_PASTE_CHARS) {
+      toast.error(
+        `That paste is ${text.length.toLocaleString()} characters. The limit is ${MAX_PASTE_CHARS.toLocaleString()}.`,
+      );
+      return;
+    }
+    attachments.add([pastedTextFile(text)]);
+  };
+
+  return (
+    <PromptInputTextarea
+      placeholder="Ask, plan, or generate a diagram…"
+      // Grows with the text from two lines; capped so the transcript keeps the panel.
+      className="max-h-[40vh] min-h-16 resize-none text-od-ink placeholder:text-od-ink-faint"
+      onPaste={handlePaste}
+    />
   );
 }

@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
-import { CornerDownLeftIcon, PlusIcon, SquareIcon, XIcon } from "lucide-react";
+import { CornerDownLeftIcon, PlusIcon, SquareIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { Children, useCallback } from "react";
 
@@ -124,9 +124,9 @@ export const PromptInputSubmit = ({
     Icon = <Spinner />;
   } else if (status === "streaming") {
     Icon = <SquareIcon className="size-4" />;
-  } else if (status === "error") {
-    Icon = <XIcon className="size-4" />;
   }
+  // No icon for `error`: upstream showed an X, which reads as "cancel", but a
+  // failed turn is a resting state and this button still sends.
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {

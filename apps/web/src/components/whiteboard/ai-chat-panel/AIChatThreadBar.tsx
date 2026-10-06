@@ -1,20 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { History, Plus } from "lucide-react";
+import { Check, History, Pencil, Plus, Trash2 } from "lucide-react";
 import type { ChatThreadSummary } from "@/lib/projects-client";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 interface AIChatThreadBarProps {
+  currentThreadId: string | null;
+  currentTitle: string | null;
+  deleteCurrentThread: () => Promise<void>;
   disabled?: boolean;
   loadThreadList: () => Promise<void>;
   onResumeThread: (threadId: string) => void;
+  renameThread: (title: string) => Promise<void>;
   startNewThread: () => Promise<void>;
   threads: ChatThreadSummary[];
 }
@@ -27,12 +42,33 @@ interface AIChatThreadBarProps {
  * put a request in front of a canvas that just wants to draw.
  */
 export function AIChatThreadBar({
+  currentThreadId,
+  currentTitle,
+  deleteCurrentThread,
   disabled,
   loadThreadList,
   onResumeThread,
+  renameThread,
   startNewThread,
   threads,
 }: AIChatThreadBarProps) {
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  // Dialogs stay open on failure (the controller toasts the error) so a retry
+  // is one click; they close only once the request lands.
+  async function run(action: () => Promise<void>, close: () => void) {
+    setPending(true);
+    try {
+      await action();
+      close();
+    } catch {
+      // Reported by the controller.
+    } finally {
+      setPending(false);
+    }
+  }
   const [isLoading, setIsLoading] = useState(false);
   // A dropped history request used to leave the menu reading "No previous
   // chats", which is a claim about the data rather than about the request.
@@ -63,6 +99,9 @@ export function AIChatThreadBar({
   return (
     <div className="flex min-w-0 flex-1 items-center justify-between">
       <DropdownMenu
+        // Non-modal so the rename and delete dialogs opened from it do not
+        // inherit Radix's body pointer-events lock while the menu animates out.
+        modal={false}
         onOpenChange={(open) => {
           setIsOpen(open);
           void handleOpenChange(open);
@@ -70,14 +109,39 @@ export function AIChatThreadBar({
         open={isOpen}
       >
         <DropdownMenuTrigger
-          className="flex items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           type="button"
         >
-          <History aria-hidden="true" className="size-3.5" />
-          History
+          <History aria-hidden="true" className="size-3.5 shrink-0" />
+          {/* "New chat" is the server's untitled default; next to the New chat
+              button it reads as a second copy of it. */}
+          <span className="max-w-48 truncate">
+            {currentTitle && currentTitle !== "New chat" ? currentTitle : "History"}
+          </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-h-80 w-64 overflow-y-auto">
+          {currentThreadId && (
+            <>
+              <DropdownMenuItem
+                className="text-xs"
+                disabled={disabled}
+                onSelect={() => setRenaming(currentTitle ?? "")}
+              >
+                <Pencil aria-hidden="true" className="size-3.5" />
+                Rename chat
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive text-xs focus:text-destructive"
+                disabled={disabled}
+                onSelect={() => setConfirmDelete(true)}
+              >
+                <Trash2 aria-hidden="true" className="size-3.5" />
+                Delete chat
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuLabel className="text-xs">Previous chats</DropdownMenuLabel>
           {isLoading && <div className="px-2 py-1.5 text-od-ink/50 text-xs">Loading…</div>}
           {!isLoading && loadError && (
@@ -102,7 +166,12 @@ export function AIChatThreadBar({
               key={thread.id}
               onSelect={() => onResumeThread(thread.id)}
             >
-              <span className="w-full truncate">{thread.title}</span>
+              <span className="flex w-full items-center gap-1">
+                <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+                {thread.id === currentThreadId && (
+                  <Check aria-label="Open" className="size-3 shrink-0" />
+                )}
+              </span>
               <span className="text-od-ink/45 text-[10px]">
                 {new Date(thread.updatedAt).toLocaleString()}
               </span>
@@ -112,7 +181,7 @@ export function AIChatThreadBar({
       </DropdownMenu>
 
       <button
-        className="flex items-center gap-1.5 rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-1 text-od-ink/60 text-xs hover:bg-od-surface hover:text-od-ink disabled:cursor-not-allowed disabled:opacity-50"
         disabled={disabled}
         onClick={() => void startNewThread()}
         type="button"
@@ -120,6 +189,49 @@ export function AIChatThreadBar({
         <Plus aria-hidden="true" className="size-3.5" />
         New chat
       </button>
+
+      <Dialog open={renaming !== null} onOpenChange={(open) => !open && setRenaming(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle className="text-sm">Rename chat</DialogTitle>
+          <DialogDescription className="sr-only">
+            A new name for this conversation.
+          </DialogDescription>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const next = renaming?.trim();
+              if (next)
+                void run(
+                  () => renameThread(next.slice(0, 200)),
+                  () => setRenaming(null),
+                );
+            }}
+          >
+            <Input
+              aria-label="Chat name"
+              autoFocus
+              maxLength={200}
+              value={renaming ?? ""}
+              onChange={(event) => setRenaming(event.target.value)}
+            />
+            <DialogFooter>
+              <Button disabled={pending || !renaming?.trim()} size="sm" type="submit">
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDeleteDialog
+        open={confirmDelete}
+        title="Delete this chat?"
+        description="The conversation is deleted for good. Diagrams on the canvas stay."
+        confirmLabel="Delete chat"
+        pending={pending}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => void run(deleteCurrentThread, () => setConfirmDelete(false))}
+      />
     </div>
   );
 }

@@ -4,12 +4,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import {
   appendThreadMessages,
+  firstUserMessageText,
   listThreadMessages,
   listThreads,
   loadActiveThread,
   lockOwnedThread,
   ownsThreadSubquery,
 } from "../../lib/project-threads";
+import { DEFAULT_THREAD_TITLE, nextThreadTitle } from "../../lib/thread-title";
 import type { AuthVariables } from "../../lib/require-auth";
 
 const messageSchema = z.object({
@@ -97,7 +99,7 @@ threadsRoute.post("/:projectId/files/:fileId/threads", async (c) => {
 
   const [thread] = await db
     .insert(projectFileThread)
-    .values({ projectId, fileId, title: parsed.data.title ?? "New chat" })
+    .values({ projectId, fileId, title: parsed.data.title ?? DEFAULT_THREAD_TITLE })
     .returning({
       id: projectFileThread.id,
       title: projectFileThread.title,
@@ -129,7 +131,9 @@ threadsRoute.get("/:projectId/threads/:threadId/messages", async (c) => {
 
 /**
  * Append a completed turn. Replaces rewriting the whole transcript per turn -- the
- * shape that made byte cost grow with the square of conversation length.
+ * shape that made byte cost grow with the square of conversation length. Also the
+ * only writer of automatic titles (see `lib/thread-title.ts`); `title` in the
+ * response is the thread's title after this append.
  */
 threadsRoute.post("/:projectId/threads/:threadId/messages", async (c) => {
   const userId = c.get("userId");
@@ -154,15 +158,18 @@ threadsRoute.post("/:projectId/threads/:threadId/messages", async (c) => {
     if (!owned) return null;
 
     const rows = await appendThreadMessages(tx, threadId, messages);
+    const title = await nextThreadTitle(owned.title, messages, () =>
+      firstUserMessageText(tx, threadId),
+    );
     await tx
       .update(projectFileThread)
-      .set({ updatedAt: new Date() })
+      .set({ updatedAt: new Date(), ...(title ? { title } : {}) })
       .where(eq(projectFileThread.id, threadId));
-    return rows;
+    return { rows, title: title ?? owned.title };
   });
 
   if (!written) return c.json({ error: "Not found" }, 404);
-  return c.json({ messages: written }, 201);
+  return c.json({ messages: written.rows, title: written.title }, 201);
 });
 
 /** Rename a thread, or touch it so it becomes the one this canvas reopens on. */
