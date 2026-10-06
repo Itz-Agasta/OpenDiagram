@@ -184,7 +184,10 @@ export function storedChatMessageToUIMessage(message: StoredChatMessage): UIMess
  * Empty for anything else, including a draw still running or one that failed.
  */
 export function drawnViews(part: UIMessage["parts"][number]): DrawnView[] {
-  if (part.type === "data-drawn") return (part.data as { views: DrawnView[] }).views;
+  if (part.type === "data-drawn") {
+    const views = (part.data as { views?: unknown } | undefined)?.views;
+    return Array.isArray(views) ? views.filter(isDrawnView) : [];
+  }
   if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") return [];
   if (part.state !== "output-available") return [];
   const output = part.output as { summary?: DrawnView; views?: { summary: DrawnView }[] };

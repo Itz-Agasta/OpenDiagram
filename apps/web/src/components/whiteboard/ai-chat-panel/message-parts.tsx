@@ -154,6 +154,8 @@ function DrawSteps({
       <ChainOfThoughtHeader icon={Shapes}>
         {activeLabel ? (
           <Shimmer duration={1.5}>{activeLabel}</Shimmer>
+        ) : drawn.length === 0 && failed.length > 0 ? (
+          "Drawing failed"
         ) : drawn.length === 1 ? (
           "Drew 1 diagram"
         ) : (

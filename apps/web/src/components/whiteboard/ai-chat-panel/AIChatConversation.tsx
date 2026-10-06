@@ -192,10 +192,15 @@ function CopyAction({ text }: { text: string }) {
       label="Copy"
       tooltip={copied ? "Copied" : "Copy"}
       onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        });
+        // A denied clipboard leaves the icon unchanged, so a failed copy never
+        // shows the check.
+        navigator.clipboard.writeText(text).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          },
+          () => undefined,
+        );
       }}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
