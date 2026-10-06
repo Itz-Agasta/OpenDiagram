@@ -80,8 +80,8 @@ export function MessageParts({
   flush();
 
   if (!isStreaming) return blocks.length > 0 ? blocks : null;
-  if (blocks.length === 0) return <Activity label="Thinking…" />;
   const pending = pendingLabel(message.parts);
+  if (blocks.length === 0) return <Activity label={pending ?? "Thinking…"} />;
   if (pending) blocks.push(<Activity key={`${message.id}-pending`} label={pending} />);
   return blocks;
 }
