@@ -3,17 +3,6 @@ import { consumeSSE, pollUntilTerminal } from "../sse";
 import { projectResponseError, readProjectResponse } from "./http";
 import type { RepoGenerationJob } from "./types";
 
-export async function startRepoGeneration(projectId: string): Promise<RepoGenerationJob> {
-  const response = await fetch(
-    `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/repo-generation`,
-    { method: "POST", credentials: "include" },
-  );
-  const data = await readProjectResponse(response);
-  if (!response.ok)
-    throw projectResponseError(data, "Could not start repository generation.", response.status);
-  return data.job;
-}
-
 export async function streamRepoGeneration(
   projectId: string,
   onJob: (job: RepoGenerationJob) => void,
@@ -45,10 +34,7 @@ export async function streamRepoGeneration(
   return last;
 }
 
-export async function getRepoGenerationJob(
-  projectId: string,
-  jobId: string,
-): Promise<RepoGenerationJob> {
+async function getRepoGenerationJob(projectId: string, jobId: string): Promise<RepoGenerationJob> {
   const response = await fetch(
     `${env.NEXT_PUBLIC_SERVER_URL}/api/projects/${projectId}/repo-generation/${jobId}`,
     { credentials: "include" },

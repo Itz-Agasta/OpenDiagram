@@ -44,7 +44,7 @@ const MAX_CONTEXT_CHARS = 16_000;
  */
 const MAX_CONTEXT_FILES = 12;
 
-export type ProjectContextSource = {
+type ProjectContextSource = {
   id: string;
   title: string;
   sourceType: string;

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "apps/web": {
+      "entry": ["src/**/*.test.ts"],
+      // Vendored shadcn and ai-elements export more than we use, by design.
+      "ignore": ["src/components/ui/**", "src/components/ai-elements/**"],
+    },
+    "apps/server": {
+      "entry": ["scripts/eval/run.ts", "scripts/eval/summary.ts"],
+      // Imported only by bundled @OpenDiagram/* packages. tsdown externalizes
+      // package.json deps, so the server must list them to resolve at runtime.
+      "ignoreDependencies": ["better-auth", "dotenv", "elkjs"],
+    },
+  },
+}

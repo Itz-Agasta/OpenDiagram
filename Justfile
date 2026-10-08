@@ -57,6 +57,10 @@ check-ci:
 types:
     bun run check-types
 
+# Unused files, exports and dependencies across all workspaces
+knip:
+    bunx knip
+
 # Harness geometry tests
 test:
     cd packages/harness && bun test

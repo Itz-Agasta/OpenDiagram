@@ -29,7 +29,7 @@ const chatStore = createStore("opendiagram-chat-db", "chat-store");
  * Messages kept per file. Comfortably more than a panel shows before the user
  * scrolls, and small enough that the whole entry is a cheap single write.
  */
-export const LOCAL_CHAT_MESSAGE_LIMIT = 50;
+const LOCAL_CHAT_MESSAGE_LIMIT = 50;
 
 export type LocalChat = {
   fileId: string;

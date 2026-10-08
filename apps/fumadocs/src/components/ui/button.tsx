@@ -1,4 +1,4 @@
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
 
 const variants = {
   primary:
@@ -25,5 +25,3 @@ export const buttonVariants = cva(
     },
   },
 );
-
-export type ButtonProps = VariantProps<typeof buttonVariants>;

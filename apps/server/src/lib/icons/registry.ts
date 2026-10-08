@@ -1,6 +1,6 @@
 import registryJson from "./registry.json";
 
-export interface IconEntry {
+interface IconEntry {
   id: string;
   name: string;
   category: string;

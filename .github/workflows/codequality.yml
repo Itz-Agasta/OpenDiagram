@@ -40,6 +40,9 @@ jobs:
       - name: Harness tests
         run: just test
 
+      - name: Unused code and dependencies
+        run: just knip
+
   build:
     name: Build
     runs-on: ubuntu-latest

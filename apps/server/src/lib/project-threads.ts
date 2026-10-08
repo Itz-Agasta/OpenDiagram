@@ -9,7 +9,7 @@ type Db = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
  * How much of a thread the panel opens on. Older messages are still in Postgres
  * and paginate in behind `before`; this is only what arrives unasked.
  */
-export const THREAD_PAGE_SIZE = 50;
+const THREAD_PAGE_SIZE = 50;
 
 export type ThreadMessage = {
   seq: number;

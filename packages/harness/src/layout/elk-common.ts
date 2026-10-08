@@ -27,7 +27,7 @@ const SPACING: Record<string, string> = {
 // from the compound node itself, not the root, even with INCLUDE_CHILDREN.
 // Without it every group fell back to the 20px default (measured: layers
 // 120px apart instead of 210 on a 100px-wide node).
-export const CONTAINER_OPTIONS = {
+const CONTAINER_OPTIONS = {
   "elk.padding": "[top=56,left=24,bottom=24,right=24]",
   ...SPACING,
 };

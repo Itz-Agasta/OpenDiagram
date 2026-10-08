@@ -25,10 +25,7 @@ export function inflate(box: Box, by: number): Box {
   return { x: box.x - by, y: box.y - by, width: box.width + by * 2, height: box.height + by * 2 };
 }
 
-export function ancestors(
-  id: string | undefined,
-  containers: Map<string, RouterContainer>,
-): Set<string> {
+function ancestors(id: string | undefined, containers: Map<string, RouterContainer>): Set<string> {
   const out = new Set<string>();
   for (let c = id; c && !out.has(c); c = containers.get(c)?.parent) out.add(c);
   return out;

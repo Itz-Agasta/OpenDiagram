@@ -57,7 +57,7 @@ export function labelWrapWidth(iconSize: number): number {
 }
 
 /** Width of the longest wrapped line; 0 for no lines. */
-export function widestLine(lines: string[], fontSize: number, fontFamily?: number): number {
+function widestLine(lines: string[], fontSize: number, fontFamily?: number): number {
   let widest = 0;
   for (const line of lines)
     widest = Math.max(widest, estimateTextWidth(line, fontSize, fontFamily));

@@ -10,7 +10,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { UserAiProviderKind } from "@OpenDiagram/db/schema/ai";
 import type { LanguageModel } from "ai";
 
-export type ProviderModel = { id: string; label: string };
+type ProviderModel = { id: string; label: string };
 
 export type ProviderDefinition = {
   id: UserAiProviderKind;

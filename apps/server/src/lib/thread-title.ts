@@ -20,7 +20,7 @@ const partsOf = (parts: unknown): LoosePart[] =>
     : [];
 
 /** The first user message as a title: first line, whitespace collapsed, cut at a word. */
-export function titleFromText(text: string) {
+function titleFromText(text: string) {
   const line = (text.trim().split("\n")[0] ?? "").replace(/\s+/g, " ");
   if (line.length <= MAX_TITLE_CHARS) return line;
   const cut = line.slice(0, MAX_TITLE_CHARS);

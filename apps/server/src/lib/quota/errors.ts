@@ -44,14 +44,6 @@ export function applyCreationQuotaHeaders(c: Context, snapshot: CreationQuotaSna
   c.header("X-CreationQuota-Remaining", String(snapshot.remaining));
 }
 
-export function isQuotaError(error: unknown): boolean {
-  return (
-    error instanceof CreationQuotaExceededError ||
-    error instanceof CostCeilingExceededError ||
-    error instanceof AiRateLimitError
-  );
-}
-
 /**
  * Maps any quota failure onto the 429 shape the web client already handles.
  * Returns null for anything that isn't a quota error, so callers can rethrow.

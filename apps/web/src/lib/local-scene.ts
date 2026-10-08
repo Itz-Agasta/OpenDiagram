@@ -9,15 +9,8 @@ import type { ProjectFileType } from "@/lib/projects-client";
  * first pixel cost seconds. Here IndexedDB answers first and the network only
  * ever revalidates, which is the same shape Excalidraw uses in
  * `excalidraw-app/data/LocalData.ts`.
- *
- * Two stores, not one, and for the reason Excalidraw splits them: scene JSON is
- * small and rewritten on every edit, while image blobs are large and immutable
- * once written. Keying blobs separately by their own id keeps a 800 kB image
- * from being re-serialised every time an arrow moves, and matches how they will
- * be keyed in object storage when they move off the row entirely.
  */
 const sceneStore = createStore("opendiagram-scene-db", "scene-store");
-const blobStore = createStore("opendiagram-blob-db", "blob-store");
 
 export type LocalScene = {
   fileId: string;
@@ -53,23 +46,6 @@ export async function writeLocalScene(entry: LocalScene): Promise<void> {
 export async function deleteLocalScene(fileId: string): Promise<void> {
   try {
     await del(fileId, sceneStore);
-  } catch {
-    /* nothing useful to do */
-  }
-}
-
-/** Excalidraw `BinaryFileData` keyed by its own file id. */
-export async function readLocalBlob<T>(id: string): Promise<T | null> {
-  try {
-    return (await get<T>(id, blobStore)) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function writeLocalBlob<T>(id: string, value: T): Promise<void> {
-  try {
-    await set(id, value, blobStore);
   } catch {
     /* nothing useful to do */
   }

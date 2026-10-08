@@ -20,7 +20,7 @@ import type { SQL } from "drizzle-orm";
  * which is worse than the problem being solved.
  */
 
-export type ProjectFileRow = {
+type ProjectFileRow = {
   id: string;
   projectId: string;
   type: "diagram" | "doc";
@@ -29,7 +29,7 @@ export type ProjectFileRow = {
   updatedAt: Date;
 };
 
-export type ProjectFileContentRow = {
+type ProjectFileContentRow = {
   scene: unknown;
   spec: unknown;
   content: unknown;

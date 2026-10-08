@@ -46,7 +46,7 @@ const INCLUDED_EXTENSIONS = new Set([
   ".yml",
 ]);
 
-export type RepositoryDocProvenance = {
+type RepositoryDocProvenance = {
   kind: "repo_documentation";
   generated: true;
   generatorVersion: "repo-doc-stub-v1";
@@ -66,7 +66,7 @@ export type RepositoryDocumentationResult = {
   sourceDocuments: RepositorySourceDocument[];
 };
 
-export type RepositorySourceDocument = {
+type RepositorySourceDocument = {
   name: string;
   path: string;
   content: string;

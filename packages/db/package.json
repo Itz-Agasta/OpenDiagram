@@ -26,8 +26,7 @@
     "@OpenDiagram/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
-    "pg": "catalog:",
-    "zod": "catalog:"
+    "pg": "catalog:"
   },
   "devDependencies": {
     "@OpenDiagram/config": "workspace:*",

@@ -33,7 +33,7 @@ export type BlogTag = {
   description: string;
 };
 
-export type BlogImage = {
+type BlogImage = {
   alt: string;
   height: number;
   src: string;
@@ -200,7 +200,7 @@ function parsePost(
   };
 }
 
-export const getBlogData = cache(() => {
+const getBlogData = cache(() => {
   if (!fs.existsSync(BLOG_CONTENT_DIRECTORY)) {
     throw new Error(`Blog content directory not found: ${BLOG_CONTENT_DIRECTORY}`);
   }

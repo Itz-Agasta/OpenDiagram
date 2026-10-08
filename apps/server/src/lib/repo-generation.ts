@@ -41,7 +41,7 @@ type RepoGenerationPlanItem = {
   goal: string;
 };
 
-export type RepoGenerationTask = RepoGenerationPlanItem & {
+type RepoGenerationTask = RepoGenerationPlanItem & {
   status: RepoGenerationTaskStatus;
   message: string;
   fileId: string | null;

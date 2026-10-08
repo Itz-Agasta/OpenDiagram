@@ -31,7 +31,7 @@ export type GitHubImportJob = {
   updatedAt: string;
 };
 
-export class GitHubImportRequestError extends Error {
+class GitHubImportRequestError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -55,22 +55,6 @@ export async function listGitHubRepositories(): Promise<GitHubRepository[]> {
   }
 
   return data.repositories;
-}
-
-export async function importGitHubRepository(repoFullName: string): Promise<GitHubImportJob> {
-  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/import/github`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ repoFullName }),
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.error ?? "Could not import GitHub repository.");
-  }
-
-  return data.job;
 }
 
 // Streams the import: the POST runs the whole job server-side and pushes a
@@ -113,10 +97,7 @@ export async function importGitHubRepositoryStream(
   return last;
 }
 
-export async function getGitHubImportJob(
-  jobId: string,
-  signal?: AbortSignal,
-): Promise<GitHubImportJob> {
+async function getGitHubImportJob(jobId: string, signal?: AbortSignal): Promise<GitHubImportJob> {
   const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/import/github/${jobId}`, {
     credentials: "include",
     signal,

@@ -36,7 +36,7 @@ export type ResolvedModel = {
  * `user_ai_provider` ROW id, NOT the provider kind ("openai"), or
  * `PLATFORM_PROVIDER_ID` to skip BYOK even when a default key is saved.
  */
-export const PLATFORM_PROVIDER_ID = "platform";
+const PLATFORM_PROVIDER_ID = "platform";
 
 export type ModelSelection = { providerId?: string | null; modelId?: string | null };
 

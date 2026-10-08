@@ -11,7 +11,7 @@ export type SavedProject = {
 
 export type ProjectFileType = "diagram" | "doc";
 
-export type RepositoryDocProvenance = {
+type RepositoryDocProvenance = {
   kind: "repo_documentation";
   generated: true;
   generatorVersion: "repo-doc-stub-v1";
@@ -56,7 +56,7 @@ export type CreateProjectFileInput = {
 
 export type UpdateProjectFileInput = Partial<CreateProjectFileInput>;
 
-export type ProjectChatSource = {
+type ProjectChatSource = {
   id: string;
   title: string;
   sourceType: string;
@@ -71,7 +71,7 @@ export type ProjectChatResult = {
   provider?: "local";
 };
 
-export type RepoGenerationTask = {
+type RepoGenerationTask = {
   id: string;
   type: ProjectFileType;
   name: string;
