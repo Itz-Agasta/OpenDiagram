@@ -1,0 +1,23 @@
+knip.jsonc
+  s_8ce23a9fadc342::t_87350b14c15630 2
+package.json
+  s_8ce23a9fadc342::t_87350b14c15630 55
+bun.lock
+  s_8ce23a9fadc342::t_e0d8c27bcaaaf6 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3c69fde529d7d373919ee9bdf4596f7a3be9b2e",
+  "prompts": {},
+  "sessions": {
+    "s_8ce23a9fadc342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "377a8002-b67e-4d71-8ce9-328bbc9d2b7c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
