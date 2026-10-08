@@ -1,0 +1,20 @@
+.claude/skills/gh-stack/SKILL.md
+  h_4b7d6207874de7 1-194
+.claude/skills/gh-stack/references/commands.md
+  h_4b7d6207874de7 1-212
+.claude/skills/gh-stack/references/stack-design.md
+  h_4b7d6207874de7 1-97
+.claude/skills/gh-stack/references/troubleshooting.md
+  h_4b7d6207874de7 1-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "adf535dc70ea5abb5b24b47b7c34b83df2c61f94",
+  "prompts": {},
+  "humans": {
+    "h_4b7d6207874de7": {
+      "author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
