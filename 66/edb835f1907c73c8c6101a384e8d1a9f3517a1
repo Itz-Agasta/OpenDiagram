@@ -1,0 +1,21 @@
+apps/web/package.json
+  s_8ce23a9fadc342::t_f58fc397ce8e81 19
+bun.lock
+  s_8ce23a9fadc342::t_520c9474fe22c6 103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66edb835f1907c73c8c6101a384e8d1a9f3517a1",
+  "prompts": {},
+  "sessions": {
+    "s_8ce23a9fadc342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "377a8002-b67e-4d71-8ce9-328bbc9d2b7c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
