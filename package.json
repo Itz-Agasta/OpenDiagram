@@ -52,7 +52,7 @@
     "@OpenDiagram/config": "workspace:*",
     "@types/bun": "catalog:",
     "@typescript/native-preview": "latest",
-    "knip": "^6.40.0",
+    "knip": "latest",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
     "turbo": "^2.9.16",
