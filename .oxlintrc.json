@@ -4,7 +4,13 @@
   "categories": {
     "correctness": "error"
   },
-  "rules": {},
+  "rules": {
+    // Since 1.79 a bare `_` param is reported unless argsIgnorePattern is set
+    // explicitly, and setting options drops the `^_` vars default. We use
+    // `{ key: _, ...rest }` to drop a key from a copy.
+    // https://github.com/oxc-project/oxc/pull/25663
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
+  },
   "env": {
     "builtin": true
   },
