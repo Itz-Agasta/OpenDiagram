@@ -1,0 +1,31 @@
+AGENTS.md
+  s_7fe6539dd8036c::t_9b11030bca5c1d 28,47
+  s_8ce23a9fadc342::t_5386eab7600d20 46
+  s_8ce23a9fadc342::t_e07a013111e87b 19,22
+  s_8ce23a9fadc342::t_312458928ca6d6 5,10-16,26-27,29,32-33,36-45,48-56
+  s_8ce23a9fadc342::t_fbe3ced5ea7150 34-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "77dd955ade6cee7363efa3d2d8e0f1fe778ca63b",
+  "prompts": {},
+  "sessions": {
+    "s_7fe6539dd8036c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93ff2deb-c72a-43b2-9c51-1994a79f0217",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    },
+    "s_8ce23a9fadc342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "377a8002-b67e-4d71-8ce9-328bbc9d2b7c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
