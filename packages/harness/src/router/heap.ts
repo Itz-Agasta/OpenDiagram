@@ -9,7 +9,7 @@ export class Heap {
   push(priority: number, value: number): void {
     const a = this.items;
     a.push([priority, value]);
-    for (let i = a.length - 1; i > 0; ) {
+    for (let i = a.length - 1; i > 0;) {
       const p = (i - 1) >> 1;
       if (a[p]![0] <= a[i]![0]) break;
       [a[p], a[i]] = [a[i]!, a[p]!];
@@ -22,7 +22,7 @@ export class Heap {
     const last = a.pop()!;
     if (a.length > 0) {
       a[0] = last;
-      for (let i = 0; ; ) {
+      for (let i = 0; ;) {
         const l = i * 2 + 1;
         const r = l + 1;
         let m = i;
