@@ -1,0 +1,25 @@
+bun.lock
+  s_b2724da66f517c::t_cef0b36613c19f 34,139,242,693,695,697,699,701,703,705,707,709,2275
+apps/fumadocs/package.json
+  s_b2724da66f517c::t_7b10180501de84 26
+apps/web/package.json
+  s_b2724da66f517c::t_7b10180501de84 55
+package.json
+  s_b2724da66f517c::t_7b10180501de84 32-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16ec17a00b39043a4f2662dfbe077379618a4d93",
+  "prompts": {},
+  "sessions": {
+    "s_b2724da66f517c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f355f25-6937-48b7-a875-e7284e81b0a2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": null
+    }
+  }
+}
