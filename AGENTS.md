@@ -2,87 +2,55 @@
 
 OpenDiagram - AI diagram generator for software architecture. Describe your system in plain English, get editable diagrams on an Excalidraw canvas.
 
-Bun 1.3 monorepo. `apps/web` Next.js 16 (:3001), `apps/server` Hono (:3000), `apps/fumadocs` (:4000), `packages/{auth,config,db,env,harness}`.
+Bun 1.3 monorepo. `apps/web` Next.js 16 (:3001), `apps/server` Hono (:3000), `apps/fumadocs` (:4000), `packages/{auth,config,db,env,harness}`. Setup (`.env.sample` into `apps/server/.env` and `apps/web/.env`) is in `CONTRIBUTING.md`.
 
 ## Commands
 
 ```bash
-just web               # For injecting infisical dev secrets
-just server            # If you wnat fast + .env based secret rotate use below bun run cmds:
-bun run dev:web        # one process each, both backgrounded, started separately:
-bun run dev:server     # the turbo TUI (`bun run dev`) segfaults on this machine
-just check             # oxlint + oxfmt --write
-just types             # tsgo across the workspace
+bun run dev:server       # API; run web and server as two separate processes
+bun run dev:web          # web
+just check               # oxlint + oxfmt --write
+just check-ci            # what CI runs: oxlint --deny-warnings + oxfmt --check
+just types               # tsgo (web + server; the harness is checked through its importers)
+just test                # bun test in packages/harness
+just knip                # unused files, exports and dependencies
 just db-generate <name>  # migration from schema changes
 just db-migrate          # apply pending migrations
-just db-seed             # plan limits from packages/db/src/seed.ts (--dry-run to preview)
-just db-setup            # migrate + seed, in that order; a fresh DB needs both
-just clean | just reinstall
+just db-seed             # plan limits; a fresh DB needs migrate, then seed
 ```
 
-Run `just check` and `just types` before calling a coding session done.
+Before pushing: `just check-ci`, `just types`, `just test`, `just knip`. CI runs these plus `bun run build` (`.github/workflows/codequality.yml`).
 
 ## Repo conventions
 
-- **Next.js 16 is not the Next.js you know.** Breaking changes to APIs, conventions, and file structure. Read `node_modules/next/dist/docs/` before writing app-router or config code, and heed deprecation notices.
-- Install with `bun add`, never by hand-editing package.json. Workspace deps are `workspace:*`. `catalog:` is only for deps used by **two or more** packages.
-- `@/` aliases `apps/web/src/`. Shared components live in `components/`, page-specific ones in `components/<feature>/`.
-- **`apps/server` and `packages/*` files stay under 300-350 LOC, comments included.** Past that, split. Give the pieces a real structure - a directory with a narrow entry point, the way `lib/quota/` and `lib/dodo/` already do - rather than cutting wherever line 300 lands. Does not apply to `apps/web`, where vendored shadcn components skew the count.
+- **Next.js 16 is not the Next.js you know.** APIs, conventions and file structure changed. Read `node_modules/next/dist/docs/` before writing app-router or config code.
+- Add deps with `bun add`, not by hand-editing package.json. Workspace deps are `workspace:*`; `catalog:` only for deps used by two or more packages.
+- Web: shared components in `components/`, page-specific ones in `components/<feature>/`.
+- **`apps/server` and `packages/*` files stay under 300-350 LOC, comments included.** Past that, split into a directory with a narrow entry point, like `lib/quota/` and `lib/dodo/`. Not enforced in `apps/web` (vendored shadcn skews it).
 - Typed env: import from `@OpenDiagram/env/web` or `@OpenDiagram/env/server`.
 - `packages/db`: never acquire nested DB connections.
-- Interactive controls must look interactive: `cursor: pointer` from the global stylesheet. Only override for disabled/loading (`cursor-wait`, `cursor-not-allowed`).
-- No em dashes and no `--`. Prose, comments, commit messages.
-- Never guess an API. context7 MCP for known libraries, Exa for obscure packages / platform APIs / specific URLs, ask the user if neither settles it.
-- **Upstream defects get reported, not absorbed.** A bug, regression, or hard limitation in a dependency or tool is a finding to hand over, not a footnote. Say so in chat with the installed version, the `node_modules` file and line that proves it, and the upstream issue or commit if one exists. The user maintains open source and files these upstream. Never bury it in a code comment and move on, and never work around it silently: the workaround still ships, it just gets named as one.
+- Interactive controls get `cursor: pointer` from the global stylesheet; override only for disabled/loading.
+- Never guess a library API: read the installed version's docs or source.
+- **Upstream bugs get reported** If a dependency is wrong, say so in the PR with the installed version and the `node_modules` file and line that proves it. A workaround still ships, but named as one, with a `FIXME(tag):` saying what unblocks its removal.
 
-## Harness (packages/harness) - read before touching diagram code
+## Harness (packages/harness): read before touching diagram code
 
-The diagram engine. Full docs: `packages/harness/README.md`. Non-negotiables:
+The diagram engine. Full docs: `packages/harness/README.md`.
 
-- **LLM never chooses pixels/colors/fonts.** It emits a semantic `DiagramSpec`; layout (ELK / sequence grid) + themed renderer own all geometry and styling. Don't add visual fields to the spec.
-- **Sizing and rendering must agree:** `measure.ts#nodeSize` reserves the box the renderer draws into. Change both branches together.
-- **Route last, draw verbatim.** ELK only places; `src/router/` routes every edge and places every label against the final boxes, and the renderer draws those polylines exactly (sequence diagrams are the exception: `layout/sequence.ts` builds its own grid and routes). Any pass that moves nodes must run before `routeGeometry`. Excalidraw `elbowed` arrows don't work via programmatic insert.
-- **Judge layout by screenshot, not only the report.** The report has had blind spots (flow inversion, stair-steps, oversize ribbons); a score change without a look at the render is not a result.
-- **No `@excalidraw/excalidraw` imports inside the harness** (browser-only package). Skeleton to element conversion lives in `apps/web/src/lib/excalidraw-utils.ts`, which must pass fresh elements through `restoreElements` (paint-skip bug otherwise).
-- **`bun --hot` does NOT reload harness edits.** Restart `dev:server` or you verify stale code.
-- **Zod spec schema stays Gemini-safe:** no `.refine()/.default()/.transform()`. Gemini reliably typos `from1` for `from` in edges. `experimental_repairToolCall` in `routes/diagram.ts` fixes it deterministically; don't remove it.
-- Measured negative result: `elk.layered.nodePlacement.strategy: NETWORK_SIMPLEX` makes routing worse. Don't re-add. See `future.md` for the roadmap.
-- **After ANY harness change run `bun test` in `packages/harness`** (`test/harness.test.ts` - geometry smoke suite: sequence fragments, ERD crow-feet, orthogonal routes, column alignment). Extend it when you add pipeline features.
+- **The LLM never chooses pixels, colors or fonts.** It emits a semantic `DiagramSpec`; layout (ELK / sequence grid) and the themed renderer own all geometry and styling. Don't add visual fields to the spec.
+- **Sizing and rendering must agree:** `measure.ts#nodeSize` reserves the box the renderer draws into. Change both together.
+- **Route last, draw verbatim.** ELK only places; `src/router/` routes every edge and places every label against the final boxes, and the renderer draws those polylines exactly. Sequence diagrams are the exception (`layout/sequence.ts` builds its own grid and routes). Any pass that moves nodes runs before `routeGeometry`. Excalidraw `elbowed` arrows don't work via programmatic insert.
+- **Judge layout by the render, not only the score.** The report has had blind spots (flow inversion, stair-steps, oversize ribbons). Real model output for replaying is produced by `apps/server/scripts/eval/`.
+- **No `@excalidraw/excalidraw` imports inside the harness** (browser-only). Skeleton to element conversion lives in `apps/web/src/lib/excalidraw-utils.ts`, which must pass fresh elements through `restoreElements` (paint-skip bug otherwise).
+- **`bun --hot` does not reload harness edits.** Restart `dev:server` or you are testing stale code.
+- **The Zod spec schema stays Gemini-safe:** no `.refine()`, `.default()` or `.transform()`. Gemini typos `from1` for `from` in edges; `experimental_repairToolCall` in `apps/server/src/lib/agent/chat-stream.ts` fixes it, don't remove it.
+- **elkjs 0.11.1 swaps axes on compound nodes in DOWN/UP layouts** with `INCLUDE_CHILDREN` (eclipse/elk#1033): `nodeSize.minimum` and `contentAlignment` apply to the other axis. `containerOptions` in `layout/elk-common.ts` swaps them back; any new per-container ELK option with an axis needs the same. `layered.wrapping.strategy: SINGLE_EDGE` throws inside elkjs; use `MULTI_EDGE`.
+- Measured negative results, don't re-add: `elk.layered.nodePlacement.strategy: NETWORK_SIMPLEX` (worse routing), `elk.layered.mergeEdges` (crossings). More for the view planner in `src/model/views.ts`.
+- **After any harness change run `just test`.** Extend it when you add pipeline features, and check the new test fails without your fix.
+- A script that imports the harness never exits on its own (the elkjs worker keeps it alive); end it with `process.exit(0)`.
 
-## Verifying a change against the running app
+## Server
 
-`next-server` exiting **143 is earlyoom**, not your bug.
-
-Server Sentry needs `--preload @sentry/node/preload` (dev script, start script, Dockerfile `CMD`). The Hono middleware inits after `pg` is already imported, so without the flag every `db` span silently vanishes. Same reason `bun build --compile` cannot be used.
-
-Load **`/analyze-logs`** whenever you touch a route, the agent loop, or anything you then exercise in a browser. The `.evlog/logs/` wide events carry context no UI shows: `chat.targetedIds` (an id matching no known frame means the model garbled it), `chat.canvasDiagrams`, `chat.messageCount`, `chat.cacheReadTokens`. Route _order_ is an assertion too: resuming a thread must read `GET /threads` -> `PATCH /threads/:id` -> `GET /threads/:id/messages`, and a `threads/active` re-read means the by-id fetch regressed.
-
-Two browser drivers, not interchangeable: **Chrome DevTools MCP proves, browser-use drives.** DevTools MCP for request bodies, payload sizes, console errors, and `take_snapshot` (it surfaces `disabled`, which screenshots don't). browser-use for multi-step flows and scripted fixtures.
-
-- **Radix menus ignore `element.click()`.** Read the bounding box, then `click_at_xy`.
-- **browser-use `js()` can time out on a `fetch` that actually succeeded.** The CDP reply timed out, not the HTTP call. Confirm via DB/evlog before calling it a failure.
-- They drive **separate Chrome instances** and neither lists the other's tabs, so log in twice or hand off by URL. Fixable: the plugin ships as bare `chrome-devtools-mcp@<version>`, and `--autoConnect` (Chrome 144+) points it at the same `chrome://inspect` browser browser-use uses.
-
-## Comments
-
-Bar: a comment carries what the code cannot, at a different level of detail. Same level as the code = delete it. Docstrings on exported API only.
-
-- Inline 1-3 lines, exported fn/module header 6. Dont make longer design note unless its important.
-- Write: why this and not the obvious alternative (name it); "we deliberately do NOT X, because Y"; landmines (required call order, cache windows, upstream bugs being worked around); preconditions and side effects on exported API; measured numbers ("2 statements -> 1", never "faster").
-- Don't write: restatements, stack tutorials, banners inside a function, changelogs/dates/author tags, commented-out code, "Note that" / "Basically" / "Obviously". A long comment propping up confusing code means fix the code.
-- **A review finding is not a comment prompt.** Fixed it? The fix is the answer, say nothing. Declined it? That is a reply in chat, not a block above the line. Only the durable half earns ink: the landmine that made it a real risk, or the cheaper approach that is wrong and will be proposed again. Left unchecked this compounds - each review round adds a paragraph, and one call ends up under three blocks restating each other. Tell: the same fact written twice inside one function.
-- **Route handlers:** every route gets an interface comment; a bare `.get(...)` leaves its contract undefined. Write what a caller needs that the route string and the Zod schema beside it don't already carry: who calls this and what for, in the caller's own words (`/** The history dropdown. Metadata only, no message bodies, no 'spec'. */`), then any contract they could get wrong - a status code that isn't self-evident, an ordering or idempotency guarantee, "the only writer of table X". Never restate method, path, params, or response shape; those already have copies that stay honest, and prose would be one more that nothing checks. Per line, ask whether someone could have written it from the code beside it, and cut it if so. `routes/projects/threads.ts` is the pattern. The 6-line header cap still applies: past it, it is a README section.
-- Cite sources; our Exa/context7 research is gone next session. Bare URL, own line, last, pinned to an anchor/tag/SHA (`main` links rot). One link, not three. Link upstream gotchas, the spec behind a literal, platform limits (Cloud Run throttling, Supavisor ceilings). Don't link routine React/Hono/Tailwind/shadcn usage.
-
-```ts
-// Lax, not `none`: `none` let any site's no-preflight POST ride the session cookie.
-// Our web and API are same-site, so our own cross-origin fetches still work.
-// https://better-auth.com/docs/integrations/hono
-sameSite: "lax",
-```
-
-## Session
-
-- **`/caveman`** at the start of every conversation, to compress output.
-- **Ask before building.** Planning anything non-trivial, put the fork to the user with `AskUserQuestion` and a recommendation instead of guessing. The usual bias is to make the call silently and keep moving; invert it here. This repo has a vision in one person's head, and being interviewed about it costs less than reviewing the wrong build.
-- **`/ponytail`** whenever you review code, including your own. A reviewer asked to find gaps will find them, and the result is over-engineering: extra layers, defensive branches, tests for cases that can't happen. Ponytail biases the pass toward deleting rather than adding.
+- Sentry needs `--preload @sentry/node/preload` (dev script, start script, Dockerfile `CMD`). The Hono middleware inits after `pg` is imported, so without it every `db` span silently vanishes. Same reason `bun build --compile` can't be used.
+- `tsdown` bundles `@OpenDiagram/*` but keeps package.json deps external, so `apps/server` lists deps it never imports itself (`pg`, `better-auth`, `elkjs`, `dotenv`). Don't remove them.
+- Every request writes a wide event to `apps/server/.evlog/logs/`. It carries what no UI shows, e.g. `chat.targetedIds` (an id matching no frame means the model garbled it), `chat.messageCount`, `chat.cacheReadTokens`. Request order is an assertion too: resuming a thread reads `GET /threads`, then `PATCH /threads/:id`, then `GET /threads/:id/messages`.
