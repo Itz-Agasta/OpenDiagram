@@ -48,9 +48,6 @@
     "check": "oxlint && oxfmt --write",
     "doctor": "npx react-doctor@latest"
   },
-  "dependencies": {
-    "@phosphor-icons/react": "^2.1.10"
-  },
   "devDependencies": {
     "@OpenDiagram/config": "workspace:*",
     "@types/bun": "catalog:",
