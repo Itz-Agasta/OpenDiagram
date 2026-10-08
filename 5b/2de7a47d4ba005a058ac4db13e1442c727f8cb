@@ -1,0 +1,19 @@
+AGENTS.md
+  s_8ce23a9fadc342::t_b496ef27f1aeee 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b2de7a47d4ba005a058ac4db13e1442c727f8cb",
+  "prompts": {},
+  "sessions": {
+    "s_8ce23a9fadc342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "377a8002-b67e-4d71-8ce9-328bbc9d2b7c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
