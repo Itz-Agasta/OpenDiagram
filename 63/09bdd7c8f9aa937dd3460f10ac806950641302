@@ -1,0 +1,28 @@
+packages/harness/src/router/heap.ts
+  s_8ce23a9fadc342::t_cc122c230a5086 12,25
+package.json
+  s_8ce23a9fadc342::t_ce2706171b20ac 56-58
+.oxlintrc.json
+  s_8ce23a9fadc342::t_6e4fcc63027caa 8-10,12
+  s_8ce23a9fadc342::t_cc122c230a5086 7,11,13
+apps/fumadocs/package.json
+  s_8ce23a9fadc342::t_ce2706171b20ac 42
+bun.lock
+  s_8ce23a9fadc342::t_5a11656afad169 12-14,50,830,832,834,836,838,840,842,844,846,848,850,852,854,856,858,860,862,864,866,868,870,872,874,876,878,880,882,884,886,888,890,892,894,896,898,900,902,904,1224,1226,1228,1230,1232,1234,2316,2318,2696,2724
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6309bdd7c8f9aa937dd3460f10ac806950641302",
+  "prompts": {},
+  "sessions": {
+    "s_8ce23a9fadc342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "377a8002-b67e-4d71-8ce9-328bbc9d2b7c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
