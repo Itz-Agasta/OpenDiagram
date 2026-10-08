@@ -37,7 +37,7 @@ const Context = createContext<{
   chat: UseChatHelpers<ChatUIMessage>;
 } | null>(null);
 
-export function AISearchPanelHeader({ className, ...props }: ComponentProps<"div">) {
+function AISearchPanelHeader({ className, ...props }: ComponentProps<"div">) {
   const { setOpen } = useAISearchContext();
 
   return (
@@ -73,7 +73,7 @@ export function AISearchPanelHeader({ className, ...props }: ComponentProps<"div
   );
 }
 
-export function AISearchInputActions() {
+function AISearchInputActions() {
   const { messages, status, setMessages, regenerate } = useChatContext();
   const isLoading = status === "streaming";
 
@@ -115,7 +115,7 @@ export function AISearchInputActions() {
 }
 
 const StorageKeyInput = "__ai_search_input";
-export function AISearchInput(props: ComponentProps<"form">) {
+function AISearchInput(props: ComponentProps<"form">) {
   const { status, sendMessage, stop } = useChatContext();
   const [input, setInput] = useState(() => localStorage.getItem(StorageKeyInput) ?? "");
   const isLoading = status === "streaming" || status === "submitted";
@@ -417,7 +417,7 @@ export function AISearchPanel() {
   );
 }
 
-export function AISearchPanelList({ className, style, ...props }: ComponentProps<"div">) {
+function AISearchPanelList({ className, style, ...props }: ComponentProps<"div">) {
   const chat = useChatContext();
   const messages = chat.messages.filter((msg) => msg.role !== "system");
 
@@ -455,7 +455,7 @@ export function AISearchPanelList({ className, style, ...props }: ComponentProps
   );
 }
 
-export function useHotKey() {
+function useHotKey() {
   const { open, setOpen } = useAISearchContext();
 
   const onKeyPress = useEffectEvent((e: KeyboardEvent) => {
@@ -476,7 +476,7 @@ export function useHotKey() {
   }, []);
 }
 
-export function useAISearchContext() {
+function useAISearchContext() {
   return use(Context)!;
 }
 

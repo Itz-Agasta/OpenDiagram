@@ -52,10 +52,3 @@ export interface RouterInput {
   /** Main flow axis; biases which faces edges prefer. */
   direction: "LR" | "RL" | "TB" | "BT";
 }
-
-/** One endpoint pinned to a face; `at` is the coordinate along the face. */
-export interface Port {
-  node: string;
-  face: Face;
-  at: number;
-}

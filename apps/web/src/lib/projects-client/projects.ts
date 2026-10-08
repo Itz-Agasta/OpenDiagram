@@ -7,15 +7,6 @@ export type DashboardProjects = {
   filesByProject: Record<string, SavedProjectFile[]>;
 };
 
-export async function listProjects(): Promise<SavedProject[]> {
-  const response = await fetch(`${env.NEXT_PUBLIC_SERVER_URL}/api/projects`, {
-    credentials: "include",
-  });
-  const data = await readProjectResponse(response);
-  if (!response.ok) throw new Error(data?.error ?? "Could not load projects.");
-  return data.projects;
-}
-
 /**
  * The whole dashboard tree in one request.
  *

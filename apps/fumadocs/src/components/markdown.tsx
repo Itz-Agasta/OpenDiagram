@@ -17,11 +17,11 @@ import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import { visit } from "unist-util-visit";
 
-export interface Processor {
+interface Processor {
   process: (content: string) => Promise<ReactNode>;
 }
 
-export function rehypeWrapWords() {
+function rehypeWrapWords() {
   return (tree: Root) => {
     visit(tree, ["text", "element"], (node, index, parent) => {
       if (node.type === "element" && node.tagName === "pre") return "skip";

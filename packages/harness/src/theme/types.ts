@@ -6,12 +6,12 @@
  * folder.
  */
 
-export interface ThemeText {
+interface ThemeText {
   size: number;
   color: string;
 }
 
-export interface CategoryStyle {
+interface CategoryStyle {
   stroke: string;
   fill: string;
 }

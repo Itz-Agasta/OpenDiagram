@@ -1,6 +1,6 @@
 import { env } from "@OpenDiagram/env/web";
 
-export type CatalogModel = { id: string; label: string };
+type CatalogModel = { id: string; label: string };
 
 /** Frontend-only: badge Gemini + DeepSeek models in pickers. */
 export function isRecommendedModel(modelId: string, label?: string): boolean {
@@ -144,7 +144,7 @@ export async function updateProvider(
   clearAiSettingsCache();
 }
 
-export function providerModelOptions(settings: AiSettings): ProviderModelOption[] {
+function providerModelOptions(settings: AiSettings): ProviderModelOption[] {
   const catalog = new Map(settings.catalog.map((provider) => [provider.id, provider]));
 
   return settings.providers.flatMap((provider) => {

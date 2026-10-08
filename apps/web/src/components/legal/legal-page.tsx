@@ -1,7 +1,7 @@
 import { MarketingPage } from "@/components/marketing/marketing-page";
 
 export const LEGAL_CONTACT_EMAIL = "admin@opendiagram.ink";
-export const LEGAL_UPDATED = "September 27, 2026";
+const LEGAL_UPDATED = "September 27, 2026";
 
 export function LegalPage({ title, children }: { title: string; children: React.ReactNode }) {
   return (

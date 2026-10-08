@@ -6,7 +6,7 @@ export type StoredAskUserInput = {
   options: string[];
 };
 
-export type StoredAskUserCall =
+type StoredAskUserCall =
   | {
       toolCallId: string;
       state: "input-available";
@@ -22,7 +22,7 @@ export type StoredAskUserCall =
 /** One diagram a draw tool produced, as the chat panel lists it. */
 export type DrawnView = { title: string; nodes: number; edges: number };
 
-export type StoredChatPart =
+type StoredChatPart =
   | { type: "text"; text: string }
   /**
    * What `draw_diagram` / `draw_system` drew, minus the element JSON. A data

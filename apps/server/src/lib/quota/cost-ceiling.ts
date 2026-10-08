@@ -95,7 +95,7 @@ const MAX_REQUESTS_PER_TURN = 5;
  * over-reported gemini-3.8-flash turns about 2x (89% of input is cached), enough
  * to cut an honest Pro user off before 150 diagrams.
  */
-export function costMicros(
+function costMicros(
   modelId: string,
   inputTokens: number,
   outputTokens: number,

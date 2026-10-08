@@ -2,7 +2,7 @@ import { createStore, del, entries, set } from "idb-keyval";
 import type { ProjectFileType } from "@/lib/projects-client";
 import type { StoredChatMessage } from "@/lib/chat-history";
 
-export type GuestDraftFile = {
+type GuestDraftFile = {
   id: string;
   name: string;
   type?: ProjectFileType;

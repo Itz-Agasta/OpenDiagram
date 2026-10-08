@@ -1,7 +1,7 @@
 import { classicTheme } from "./classic.js";
 import { sketchTheme } from "./sketch.js";
 
-export type { CategoryStyle, ContainerStyle, Theme, ThemeText } from "./types.js";
+export type { ContainerStyle, Theme } from "./types.js";
 export { classicTheme } from "./classic.js";
 export { sketchTheme } from "./sketch.js";
 

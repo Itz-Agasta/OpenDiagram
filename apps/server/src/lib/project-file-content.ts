@@ -13,7 +13,7 @@ export type ProjectFileContentPatch = {
 };
 
 /** Selected alongside project_file wherever a caller wants the whole file. */
-export const projectFileContentColumns = {
+const projectFileContentColumns = {
   scene: projectFileContent.scene,
   spec: projectFileContent.spec,
   content: projectFileContent.content,
@@ -109,21 +109,6 @@ export function selectProjectFileColumns() {
     ...projectFileContentColumns,
   };
 }
-
-/** A file row joined to its content: what selectProjectFileColumns produces. */
-export type ProjectFileWithContent = {
-  id: string;
-  projectId: string;
-  type: (typeof projectFile.$inferSelect)["type"];
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-  scene: unknown;
-  spec: unknown;
-  content: unknown;
-  history: unknown;
-  sceneRev: number | null;
-};
 
 /** Normalise a left-joined row so a missing content row reads as an empty file. */
 export function withContentDefaults<T extends { history?: unknown }>(row: T) {

@@ -317,7 +317,7 @@ function UserText({ text }: { text: string }) {
   );
 }
 
-export function Activity({ label }: { label: string }) {
+function Activity({ label }: { label: string }) {
   return (
     <div
       className="flex items-center gap-2 text-muted-foreground text-xs"

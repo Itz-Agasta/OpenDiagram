@@ -40,7 +40,7 @@ type StoredCanvasDiagrams = { diagrams: CanvasDiagram[] };
  * `serializeCanvasDiagrams` persists, so the ninth diagram deleted the first
  * one's spec while its frame stayed on screen -- a drawing nothing could edit.
  */
-export const MAX_PROMPT_DIAGRAMS = 8;
+const MAX_PROMPT_DIAGRAMS = 8;
 
 function isDiagramSpec(value: unknown): value is DiagramSpec {
   return (

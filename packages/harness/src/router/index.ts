@@ -17,7 +17,7 @@ import {
   type RouterNode,
 } from "./types.js";
 
-export type { RouterContainer, RouterEdge, RouterInput, RouterNode } from "./types.js";
+export type { RouterContainer, RouterInput } from "./types.js";
 
 // Port-order rounds. Each re-derives port order from the previous round's
 // routes and reroutes every edge against all the others.

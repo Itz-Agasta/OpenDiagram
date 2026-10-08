@@ -10,7 +10,7 @@ const meets = (a: Point, b: Point) => Math.abs(a.x - b.x) < 2 && Math.abs(a.y - 
  * connection that is not there, unless the two routes share their first or
  * last point (a real trunk splitting). Segments meeting end to end do not.
  */
-export function crossings(p: Point[], q: Point[]): number {
+function crossings(p: Point[], q: Point[]): number {
   const trunk = same(p[0]!, q[0]!) || same(p[p.length - 1]!, q[q.length - 1]!);
   let n = 0;
   for (let i = 0; i < p.length - 1; i++) {
