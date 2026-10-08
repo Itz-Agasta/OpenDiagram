@@ -1,0 +1,104 @@
+Justfile
+  s_8ce23a9fadc342::t_1cdab822837cbd 60-63
+apps/web/src/lib/settings-client.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 3,147
+knip.jsonc
+  s_8ce23a9fadc342::t_1f6f4181a73131 7,13-15
+  s_8ce23a9fadc342::t_fe2d142217d9f6 1-6,8-12,16
+apps/server/src/lib/dodo/index.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 14
+apps/server/src/lib/repo-documentation.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 49,69
+apps/server/src/lib/thread-title.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 23
+apps/web/package.json
+  s_8ce23a9fadc342::t_e3c14d64401e7e 61
+packages/db/package.json
+  s_8ce23a9fadc342::t_e3c14d64401e7e 29
+apps/server/src/lib/project-context.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 47
+apps/web/src/lib/chat-history.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 9,25
+apps/server/src/lib/icons/registry.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 3
+packages/harness/src/measure.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 60
+packages/harness/src/layout/elk-common.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 30
+apps/fumadocs/src/components/ai/search.tsx
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 40,76,118,420,458,479
+apps/web/src/lib/projects-client/types.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 14,59,74
+packages/harness/src/router/index.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 20
+packages/auth/package.json
+  s_8ce23a9fadc342::t_e3c14d64401e7e 18
+apps/server/src/lib/project-file-content.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 16
+apps/web/src/lib/github-import-client.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 100
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 34
+packages/harness/src/router/grid.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 28
+apps/fumadocs/src/components/markdown.tsx
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 20,24
+apps/server/src/lib/project-threads.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 12
+apps/web/src/lib/canvas-diagrams.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 43
+packages/harness/src/theme/types.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 9,14
+apps/web/src/components/whiteboard/ai-chat-panel/message-parts.tsx
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 320
+apps/web/src/lib/guest-drafts.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 5
+packages/harness/src/theme/index.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 4
+package.json
+  s_8ce23a9fadc342::t_e3c14d64401e7e 52
+  s_8ce23a9fadc342::t_8bcbcf14922ec6 58
+apps/web/src/lib/projects-client/generation.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 37
+apps/server/src/lib/ai-provider/registry.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 13
+apps/server/src/lib/quota/cost-ceiling.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 98
+apps/server/src/lib/project-file-write.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 23,32
+apps/server/src/lib/repo-generation.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 44
+apps/web/src/lib/blog.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 36,203
+apps/fumadocs/src/components/ui/button.tsx
+  s_8ce23a9fadc342::t_5ee9d1f1586e07 1
+apps/server/src/lib/ai-provider/resolve.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 39
+apps/web/src/components/legal/legal-page.tsx
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 4
+apps/web/src/lib/local-chat.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 32
+apps/server/src/lib/quota/index.ts
+  s_8ce23a9fadc342::t_f86e4932b2369f 14,20-22
+packages/harness/src/router/quality.ts
+  s_8ce23a9fadc342::t_7fa9aa8137ae88 13
+.github/workflows/codequality.yml
+  s_8ce23a9fadc342::t_1cdab822837cbd 43-45
+bun.lock
+  s_8ce23a9fadc342::t_48ed1f0c6fb154 14,148,448,450,452,754-830,1812-1813,1828-1829,1870,2048-2049,2314-2317,2380,2594-2595,2624-2625,2664-2665,2736-2737,2810-2811,2842-2843,2930-2931,2934-2935,3028-3031,3034-3035,3038-3039,3104-3105,3166-3167,3170-3173,3190-3193,3384-3385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b2bc1934d3f06059e93068684bf4d1826164d74f",
+  "prompts": {},
+  "sessions": {
+    "s_8ce23a9fadc342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "377a8002-b67e-4d71-8ce9-328bbc9d2b7c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
