@@ -1,6 +1,6 @@
 name: Bug report
 description: Something is broken or a diagram came out wrong
-labels: ["bug"]
+labels: ["bug", "needs-triage"]
 body:
   - type: textarea
     id: what-happened

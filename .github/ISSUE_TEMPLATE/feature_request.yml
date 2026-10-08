@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest a diagram type, integration or improvement
-labels: ["enhancement"]
+labels: ["Feature", "needs-triage"]
 body:
   - type: textarea
     id: problem
