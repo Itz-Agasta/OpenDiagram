@@ -14,8 +14,7 @@ import {
   deleteObject,
   deletePrefix,
   filePrefix,
-  isMissingObject,
-  loadScene,
+  sceneUrl,
   uploadScene,
 } from "../../lib/scene-store";
 
@@ -132,7 +131,8 @@ filesRoute.post("/:projectId/files", async (c) => {
         history,
       });
 
-      return { ...file, ...written.content, scene: initialScene ?? null };
+      const { sceneKey: _key, ...stored } = written.content ?? {};
+      return { ...file, ...stored, scene: initialScene ?? null };
     })
     .catch(async (error: unknown) => {
       const cleanup = uploaded ? await deleteObject(uploaded.key) : null;
@@ -151,44 +151,27 @@ filesRoute.get("/:projectId/files/:fileId", async (c) => {
   // The one route that wants the large columns, so the only one that joins to
   // project_file_content. Left-joined: a missing content row reads as an empty
   // file rather than a 404 on a file the list just showed.
-  const readRow = async () => {
-    const [found] = await db
-      .select(selectProjectFileColumns())
-      .from(projectFile)
-      .innerJoin(project, eq(projectFile.projectId, project.id))
-      .leftJoin(projectFileContent, projectFileContentJoin)
-      .where(
-        and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)),
-      );
-    return found;
-  };
+  const [row] = await db
+    .select(selectProjectFileColumns())
+    .from(projectFile)
+    .innerJoin(project, eq(projectFile.projectId, project.id))
+    .leftJoin(projectFileContent, projectFileContentJoin)
+    .where(and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)));
 
-  let row = await readRow();
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
 
-  const started = performance.now();
-  let scene: unknown;
-  try {
-    scene = await loadScene(row);
-  } catch (error) {
-    if (!isMissingObject(error)) throw error;
-    // A save retired this object between the row read and the fetch. Once is
-    // enough: the row now names the newer object, and its sceneRev goes back
-    // with it so the client's delta baseline matches the scene it gets.
-    row = await readRow();
-    if (!row) return c.json({ error: "Not found" }, 404);
-    scene = await loadScene(row);
-  }
-  c.get("log").set({
-    scene: {
-      store: row.sceneKey ? "s3" : "jsonb",
-      readMs: Math.round(performance.now() - started),
-    },
+  // A stored scene is not inlined: the browser compares sceneRev with its
+  // IndexedDB copy and downloads from R2 only on a miss, so the server never
+  // streams scene bytes. The key itself stays server-side (it names the user).
+  const { sceneKey, ...file } = row;
+  c.get("log").set({ scene: { store: sceneKey ? "s3" : "jsonb" } });
+  return c.json({
+    file: withContentDefaults(
+      sceneKey ? { ...file, scene: undefined, sceneUrl: sceneUrl(sceneKey) } : file,
+    ),
   });
-
-  return c.json({ file: withContentDefaults({ ...row, scene }) });
 });
 
 /**

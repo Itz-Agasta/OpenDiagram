@@ -4,6 +4,8 @@ import { getGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts
 import type { StoredChatMessage } from "@/lib/chat-history";
 import { readLocalChat } from "@/lib/local-chat";
 import { readLocalScene, writeLocalScene } from "@/lib/local-scene";
+import { seedSceneDelta } from "@/lib/scene-delta";
+import { downloadServerScene } from "@/lib/scene-download";
 import {
   getProject,
   getProjectFile,
@@ -245,7 +247,24 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
         if (!active) return;
         const keepLocal = local?.dirty === true;
 
-        const serverScene = result.type === "diagram" ? (result.scene ?? null) : null;
+        // A clean local copy recorded at the server's revision is that scene, so
+        // it paints with no download at all. Unsaved local work still downloads:
+        // the server scene is its delta baseline, and a delta merges onto the
+        // server copy, keeping elements another device added since.
+        const cached =
+          local != null &&
+          !keepLocal &&
+          result.sceneRev != null &&
+          local.sceneRev === result.sceneRev;
+        const server =
+          result.type !== "diagram"
+            ? { scene: null, sceneRev: null }
+            : cached
+              ? { scene: local.scene ?? null, sceneRev: result.sceneRev ?? null }
+              : await downloadServerScene(projectId, result);
+        if (!active) return;
+        const serverScene = server.scene;
+        seedSceneDelta(result.id, serverScene, server.sceneRev);
         const serverContent = result.type === "doc" ? fileContentToText(result.content) : "";
         const scene = keepLocal
           ? local.type === "diagram"
@@ -269,6 +288,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
             content: serverContent,
             updatedAt: result.updatedAt,
             dirty: false,
+            sceneRev: server.sceneRev,
           });
         }
       } catch (error) {

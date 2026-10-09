@@ -79,9 +79,11 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           "meta",
         );
         if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
-        if (snapshot.file.id === activeFileRef.current?.id) {
+        const isActive = snapshot.file.id === activeFileRef.current?.id;
+        const isLatest = isActive && snapshot.version === pendingVersionRef.current;
+        if (isActive) {
           lastSavedVersionRef.current = String(snapshot.version);
-          if (snapshot.version === pendingVersionRef.current) dirtyRef.current = false;
+          if (isLatest) dirtyRef.current = false;
           setSaveStatus(dirtyRef.current ? "unsaved" : "saved");
         }
         // Clear the local dirty flag only once the server has taken the write,
@@ -95,6 +97,12 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           content: snapshot.content,
           updatedAt: updated.updatedAt,
           dirty: false,
+          // Lets the next open skip the download, so it must only be claimed when
+          // this snapshot is what the server holds at that revision. The queue
+          // can merge a newer scene (manual Save) into this request, and then the
+          // revision belongs to that scene, not this one: only the newest local
+          // state may carry it.
+          sceneRev: isLatest ? (updated.sceneRev ?? null) : null,
         });
         upsertStoredFile(toSidebarFile(updated));
       } catch {
@@ -177,6 +185,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         content: snapshot.content,
         updatedAt: new Date().toISOString(),
         dirty: true,
+        sceneRev: null,
       });
     }
 

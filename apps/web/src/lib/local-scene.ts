@@ -22,6 +22,12 @@ export type LocalScene = {
   updatedAt: string;
   /** True while local holds edits the server has not acknowledged. */
   dirty: boolean;
+  /**
+   * Server revision this copy is known to equal, so an open at that revision
+   * needs no download. Set only from an acknowledged save or a download; any
+   * other write leaves it unset and the next open fetches.
+   */
+  sceneRev?: number | null;
 };
 
 export async function readLocalScene(fileId: string): Promise<LocalScene | null> {

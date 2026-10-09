@@ -83,6 +83,15 @@ export async function readSceneExcerpt(key: string, maxChars: number): Promise<s
   return text.slice(0, maxChars);
 }
 
+// Long enough for the loader to use it at once, short enough that a leaked URL
+// soon stops working. Signing is local, so a fresh URL per request costs nothing.
+const SCENE_URL_TTL_SECONDS = 300;
+
+/** Presigned GET the browser downloads the scene from. No network call. */
+export function sceneUrl(key: string): string {
+  return store.presign(key, { expiresIn: SCENE_URL_TTL_SECONDS });
+}
+
 /**
  * A content row's scene: from object storage when it has a key, else the legacy
  * jsonb column. TODO: drop the fallback with the scene column, once the backfill

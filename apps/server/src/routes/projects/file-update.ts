@@ -204,5 +204,6 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
   // The row's scene column is NULL once the scene lives in storage, so the echo
   // is the scene just written, or the stored one when this write did not touch it.
   const echoed = prunedScene !== undefined ? prunedScene : await loadScene(result.content);
-  return c.json({ file: withContentDefaults({ ...row, ...result.content, scene: echoed }) });
+  const { sceneKey: _key, ...echoedContent } = result.content;
+  return c.json({ file: withContentDefaults({ ...row, ...echoedContent, scene: echoed }) });
 });

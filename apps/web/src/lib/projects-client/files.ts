@@ -1,5 +1,5 @@
 import { env } from "@OpenDiagram/env/web";
-import { encodeScene, resetSceneDelta, seedSceneDelta } from "@/lib/scene-delta";
+import { encodeScene, resetSceneDelta } from "@/lib/scene-delta";
 import { readProjectResponse } from "./http";
 import type { CreateProjectFileInput, SavedProjectFile, UpdateProjectFileInput } from "./types";
 
@@ -19,9 +19,8 @@ export async function getProjectFile(projectId: string, fileId: string): Promise
   );
   const data = await readProjectResponse(response);
   if (!response.ok) throw new Error(data?.error ?? "Could not load project file.");
-  // The one place that sees a whole server-side scene, so the one place that can
-  // seed the delta baseline for the next save.
-  seedSceneDelta(fileId, data.file?.scene, data.file?.sceneRev);
+  // The delta baseline is seeded by the loader, once it knows which scene it
+  // used: the response may carry only a URL, or IndexedDB may already hold it.
   return data.file;
 }
 
