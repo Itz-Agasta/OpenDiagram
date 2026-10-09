@@ -1,7 +1,7 @@
 import { and, db, desc, eq, sql } from "@OpenDiagram/db";
 import { project, projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
 import { projectFileContentJoin } from "./project-file-content";
-import { readScene } from "./scene-store";
+import { readSceneExcerpt } from "./scene-store";
 
 /**
  * Grounding context for project-scoped AI answers, read straight from the
@@ -58,6 +58,8 @@ export type ProjectContext = {
   context: string;
   sources: ProjectContextSource[];
   provider: "local";
+  /** Stored scenes that could not be read and were left out of the context. */
+  sceneReadErrors: number;
 };
 
 /** Null when the project does not exist or does not belong to this user. */
@@ -93,14 +95,19 @@ export async function getProjectContext(
     .orderBy(desc(projectFile.updatedAt))
     .limit(MAX_CONTEXT_FILES);
 
-  // Scenes in object storage arrive whole, so they are cut here instead. One
-  // parallel round of at most MAX_CONTEXT_FILES reads.
+  // A bounded excerpt per stored scene. Grounding is best effort: a scene that
+  // cannot be read (a save just retired its object, or storage errored) is
+  // left out and counted, rather than failing the whole chat.
+  let sceneReadErrors = 0;
   const files: ContextFile[] = await Promise.all(
-    rows.map(async ({ sceneKey, ...file }) =>
-      sceneKey
-        ? { ...file, scene: JSON.stringify(await readScene(sceneKey)).slice(0, MAX_DOCUMENT_CHARS) }
-        : file,
-    ),
+    rows.map(async ({ sceneKey, ...file }) => {
+      if (!sceneKey) return file;
+      const scene = await readSceneExcerpt(sceneKey, MAX_DOCUMENT_CHARS).catch(() => {
+        sceneReadErrors++;
+        return null;
+      });
+      return { ...file, scene };
+    }),
   );
 
   const sources: ProjectContextSource[] = [
@@ -129,6 +136,7 @@ export async function getProjectContext(
     ),
     sources,
     provider: "local",
+    sceneReadErrors,
   };
 }
 

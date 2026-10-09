@@ -14,6 +14,7 @@ import {
   deleteObject,
   deletePrefix,
   filePrefix,
+  isMissingObject,
   loadScene,
   uploadScene,
 } from "../../lib/scene-store";
@@ -134,7 +135,9 @@ filesRoute.post("/:projectId/files", async (c) => {
       return { ...file, ...written.content, scene: initialScene ?? null };
     })
     .catch(async (error: unknown) => {
-      if (uploaded) await deleteObject(uploaded.key);
+      const cleanup = uploaded ? await deleteObject(uploaded.key) : null;
+      if (cleanup)
+        c.get("log").set({ scene: { orphan: uploaded?.key, deleteError: String(cleanup) } });
       throw error;
     });
 
@@ -148,19 +151,36 @@ filesRoute.get("/:projectId/files/:fileId", async (c) => {
   // The one route that wants the large columns, so the only one that joins to
   // project_file_content. Left-joined: a missing content row reads as an empty
   // file rather than a 404 on a file the list just showed.
-  const [row] = await db
-    .select(selectProjectFileColumns())
-    .from(projectFile)
-    .innerJoin(project, eq(projectFile.projectId, project.id))
-    .leftJoin(projectFileContent, projectFileContentJoin)
-    .where(and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)));
+  const readRow = async () => {
+    const [found] = await db
+      .select(selectProjectFileColumns())
+      .from(projectFile)
+      .innerJoin(project, eq(projectFile.projectId, project.id))
+      .leftJoin(projectFileContent, projectFileContentJoin)
+      .where(
+        and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)),
+      );
+    return found;
+  };
 
+  let row = await readRow();
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
 
   const started = performance.now();
-  const scene = await loadScene(row);
+  let scene: unknown;
+  try {
+    scene = await loadScene(row);
+  } catch (error) {
+    if (!isMissingObject(error)) throw error;
+    // A save retired this object between the row read and the fetch. Once is
+    // enough: the row now names the newer object, and its sceneRev goes back
+    // with it so the client's delta baseline matches the scene it gets.
+    row = await readRow();
+    if (!row) return c.json({ error: "Not found" }, 404);
+    scene = await loadScene(row);
+  }
   c.get("log").set({
     scene: {
       store: row.sceneKey ? "s3" : "jsonb",

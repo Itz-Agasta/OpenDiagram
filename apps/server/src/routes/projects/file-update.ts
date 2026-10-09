@@ -11,7 +11,13 @@ import {
   pruneTombstones,
   sceneDeltaSchema,
 } from "../../lib/scene-delta";
-import { deleteObject, loadScene, settleScene, uploadScene } from "../../lib/scene-store";
+import {
+  deleteObject,
+  isMissingObject,
+  loadScene,
+  settleScene,
+  uploadScene,
+} from "../../lib/scene-store";
 import { fileTypeSchema } from "./files";
 
 const updateFileSchema = z
@@ -104,10 +110,17 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
       return c.json({ error: "Stale scene revision" }, 409);
     }
 
-    nextScene = mergeSceneDelta(
-      await loadScene({ scene: current.scene, sceneKey: current.sceneKey }),
-      delta.data,
-    );
+    let currentScene: unknown;
+    try {
+      currentScene = await loadScene({ scene: current.scene, sceneKey: current.sceneKey });
+    } catch (error) {
+      if (!isMissingObject(error)) throw error;
+      // A save committed and retired this object after the row read above, so
+      // the revision has moved: the ordinary stale answer, and the client
+      // resends a whole scene.
+      return c.json({ error: "Stale scene revision" }, 409);
+    }
+    nextScene = mergeSceneDelta(currentScene, delta.data);
     // Re-checked inside the write as well. This comparison is against a snapshot
     // that another request can invalidate before the write lands; the guard on the
     // statement itself is what actually makes it safe.
@@ -150,7 +163,9 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
     expectedSceneRev,
     returnContent: !metaOnly,
   }).catch(async (error: unknown) => {
-    if (uploaded) await deleteObject(uploaded.key);
+    const cleanup = uploaded ? await deleteObject(uploaded.key) : null;
+    if (cleanup)
+      c.get("log").set({ scene: { orphan: uploaded?.key, deleteError: String(cleanup) } });
     throw error;
   });
 

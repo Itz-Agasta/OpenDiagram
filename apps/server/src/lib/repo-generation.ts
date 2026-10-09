@@ -479,7 +479,8 @@ async function runRepoGenerationJob(
         });
         file = inserted;
       } catch (dbError) {
-        if (placeholder) await deleteObject(placeholder.key);
+        const cleanup = placeholder ? await deleteObject(placeholder.key) : null;
+        if (cleanup) logJob(jobId, "error", `Could not delete unused scene: ${String(cleanup)}`);
         logJob(
           jobId,
           "error",
@@ -657,9 +658,11 @@ async function runRepoGenerationJob(
           });
           return written.previousSceneKey;
         });
-        await settleScene(uploaded.key, true, replaced);
+        const cleanup = await settleScene(uploaded.key, true, replaced);
+        if (cleanup) logJob(jobId, "error", `Could not delete replaced scene: ${String(cleanup)}`);
       } catch (dbError) {
-        await settleScene(uploaded.key, false, null);
+        const cleanup = await settleScene(uploaded.key, false, null);
+        if (cleanup) logJob(jobId, "error", `Could not delete unused scene: ${String(cleanup)}`);
         logJob(
           jobId,
           "error",

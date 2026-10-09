@@ -28,7 +28,7 @@ async function putScene(key: string, scene: unknown): Promise<number> {
   return body.byteLength;
 }
 
-export async function readScene(key: string): Promise<unknown> {
+async function readScene(key: string): Promise<unknown> {
   const gzipped = new Uint8Array(await store.file(key).arrayBuffer());
   return JSON.parse(new TextDecoder().decode(Bun.gunzipSync(gzipped)));
 }
@@ -51,6 +51,38 @@ export function settleScene(uploadedKey: string, committed: boolean, previousKey
   return deleteObject(committed ? previousKey : uploadedKey);
 }
 
+// JSON compresses about 7x, so 64 KiB of gzip holds far more than any excerpt
+// we cut. Bounds the bytes read to this however large the scene grows.
+const EXCERPT_GZIP_BYTES = 64 * 1024;
+
+/**
+ * The first maxChars of a scene's JSON, from a ranged read of the gzipped
+ * object streamed through gunzip. The stream stops once enough text is out,
+ * so a 2 MB scene costs the same as a small one.
+ */
+export async function readSceneExcerpt(key: string, maxChars: number): Promise<string> {
+  const reader = store
+    .file(key)
+    .slice(0, EXCERPT_GZIP_BYTES)
+    .stream()
+    .pipeThrough(new DecompressionStream("gzip"))
+    .pipeThrough(new TextDecoderStream())
+    .getReader();
+  let text = "";
+  try {
+    while (text.length < maxChars) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += value;
+    }
+  } finally {
+    // The range usually ends mid-stream; cancel instead of reading to the
+    // truncated end, which gunzip would report as corrupt.
+    await reader.cancel().catch(() => {});
+  }
+  return text.slice(0, maxChars);
+}
+
 /**
  * A content row's scene: from object storage when it has a key, else the legacy
  * jsonb column. TODO: drop the fallback with the scene column, once the backfill
@@ -58,6 +90,14 @@ export function settleScene(uploadedKey: string, committed: boolean, previousKey
  */
 export function loadScene(row: { scene: unknown; sceneKey: string | null }): Promise<unknown> {
   return row.sceneKey ? readScene(row.sceneKey) : Promise.resolve(row.scene);
+}
+
+/**
+ * The object is gone. Expected when a save retires the object a reader picked
+ * up from the row a moment earlier: the row has already moved on.
+ */
+export function isMissingObject(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === "NoSuchKey";
 }
 
 /**
