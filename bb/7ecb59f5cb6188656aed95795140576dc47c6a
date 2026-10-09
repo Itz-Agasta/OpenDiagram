@@ -1,0 +1,29 @@
+infra/modules/r2-data-bucket/main.tf
+  s_2b9ac1bf85f8e2::t_db6db8acb1e4a2 1-3,15-25,27-47,51,53-56,58-78
+  s_2b9ac1bf85f8e2::t_304dff07dc339a 5
+  s_2b9ac1bf85f8e2::t_dc76416b08c7d6 6-14
+  s_2b9ac1bf85f8e2::t_cdb810c1933bd9 48-50,52,57
+  s_2b9ac1bf85f8e2::t_4e48bed60482a3 4,26
+infra/modules/r2-data-bucket/variables.tf
+  s_2b9ac1bf85f8e2::t_db6db8acb1e4a2 1-9
+infra/modules/r2-data-bucket/versions.tf
+  s_2b9ac1bf85f8e2::t_db6db8acb1e4a2 1-8
+infra/modules/r2-data-bucket/outputs.tf
+  s_2b9ac1bf85f8e2::t_db6db8acb1e4a2 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb7ecb59f5cb6188656aed95795140576dc47c6a",
+  "prompts": {},
+  "sessions": {
+    "s_2b9ac1bf85f8e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc681250-6186-4d1c-bc04-b14052b41867",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
