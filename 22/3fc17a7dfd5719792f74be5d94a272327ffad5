@@ -1,0 +1,25 @@
+apps/web/src/lib/local-scene.ts
+  s_2b9ac1bf85f8e2::t_b1deb18fbf4920 1,59-77
+  s_2b9ac1bf85f8e2::t_d97ba628375e04 78-79
+apps/web/src/components/whiteboard/workspace-layout/useWorkspaceProjectLoader.ts
+  s_2b9ac1bf85f8e2::t_baab977214eb61 274-285,287-288,312
+apps/web/src/components/whiteboard/workspace-layout/useWorkspacePersistence.ts
+  s_2b9ac1bf85f8e2::t_b1deb18fbf4920 5,93-98,109-115,406-409
+  s_2b9ac1bf85f8e2::t_6854a9fe9ef594 410
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "223fc17a7dfd5719792f74be5d94a272327ffad5",
+  "prompts": {},
+  "sessions": {
+    "s_2b9ac1bf85f8e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc681250-6186-4d1c-bc04-b14052b41867",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
