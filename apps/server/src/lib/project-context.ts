@@ -1,6 +1,7 @@
 import { and, db, desc, eq, sql } from "@OpenDiagram/db";
 import { project, projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
 import { projectFileContentJoin } from "./project-file-content";
+import { readScene } from "./scene-store";
 
 /**
  * Grounding context for project-scoped AI answers, read straight from the
@@ -71,16 +72,17 @@ export async function getProjectContext(
 
   if (!row) return null;
 
-  // Truncated in SQL so a 2MB scene does not cross the wire to be cut to 16kB
+  // Truncated in SQL so a 2MB value does not cross the wire to be cut to 16kB
   // here. `history` is not selected at all: nothing below reads it.
   //
   // Left-joined, so a file missing its content row still contributes its name
   // and type rather than dropping out of the context.
-  const files = await db
+  const rows = await db
     .select({
       id: projectFile.id,
       name: projectFile.name,
       type: projectFile.type,
+      sceneKey: projectFileContent.sceneKey,
       scene: sql<string | null>`left(${projectFileContent.scene}::text, ${MAX_DOCUMENT_CHARS})`,
       spec: sql<string | null>`left(${projectFileContent.spec}::text, ${MAX_DOCUMENT_CHARS})`,
       content: sql<string | null>`left(${projectFileContent.content}::text, ${MAX_DOCUMENT_CHARS})`,
@@ -90,6 +92,16 @@ export async function getProjectContext(
     .where(eq(projectFile.projectId, projectId))
     .orderBy(desc(projectFile.updatedAt))
     .limit(MAX_CONTEXT_FILES);
+
+  // Scenes in object storage arrive whole, so they are cut here instead. One
+  // parallel round of at most MAX_CONTEXT_FILES reads.
+  const files: ContextFile[] = await Promise.all(
+    rows.map(async ({ sceneKey, ...file }) =>
+      sceneKey
+        ? { ...file, scene: JSON.stringify(await readScene(sceneKey)).slice(0, MAX_DOCUMENT_CHARS) }
+        : file,
+    ),
+  );
 
   const sources: ProjectContextSource[] = [
     {

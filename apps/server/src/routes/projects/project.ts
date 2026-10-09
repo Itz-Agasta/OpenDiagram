@@ -3,6 +3,7 @@ import { project, projectFile } from "@OpenDiagram/db/schema/projects";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AuthVariables } from "../../lib/require-auth";
+import { deletePrefix, projectPrefix } from "../../lib/scene-store";
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
@@ -145,7 +146,7 @@ projectRoute.patch("/:id", async (c) => {
 
 /**
  * The dashboard tree's delete action. Files and their content rows go with the
- * project via the cascade on project_id, so this is the whole cleanup.
+ * project via the cascade on project_id; their scenes go by storage prefix.
  *
  * 404 covers "not yours" as well as "gone", deliberately: a distinct 403 would
  * confirm that some other account owns that id.
@@ -160,6 +161,14 @@ projectRoute.delete("/:id", async (c) => {
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
+
+  // Scenes live in object storage, outside the cascade. After the row, never
+  // before: a failed row delete must leave them. A failed prefix delete only
+  // leaves storage to sweep, so it is logged, not a 500.
+  const removed = await deletePrefix(projectPrefix({ userId, projectId: row.id })).catch(
+    (error: unknown) => String(error),
+  );
+  c.get("log").set({ scene: { prefixDelete: removed } });
 
   return c.json({ ok: true });
 });

@@ -1,6 +1,7 @@
 import { and, db, desc, eq, or } from "@OpenDiagram/db";
 import { project, projectFile, projectFileContent } from "@OpenDiagram/db/schema/projects";
 import { projectFileContentJoin, writeProjectFileContent } from "./project-file-content";
+import { deleteObject, settleScene, uploadScene } from "./scene-store";
 import { layoutDiagram, renderToExcalidraw, type DiagramSpec } from "@OpenDiagram/harness";
 import { iconRegistry } from "./icons/registry";
 import { generateArchitectureDoc, generateDiagramSpec, type AiCallOptions } from "./repo-ai";
@@ -400,6 +401,7 @@ async function runRepoGenerationJob(
   projectRow: typeof project.$inferSelect,
   ai?: AiCallOptions,
 ) {
+  const owner = { userId: projectRow.userId, projectId: projectRow.id };
   await sleep(500);
 
   const existingFiles = await db
@@ -451,25 +453,33 @@ async function runRepoGenerationJob(
       updateTask(jobId, item.id, { status: "active", message: "Creating placeholder file" });
       logJob(jobId, "creating", `Creating placeholder: ${item.name}`, { type: item.type });
 
+      // Minted here because the placeholder scene's object key needs it before
+      // the transaction opens.
+      const newFileId = crypto.randomUUID();
+      const placeholder =
+        item.type === "diagram"
+          ? await uploadScene(owner, newFileId, { skeletons: [], rawElements: [] })
+          : null;
       try {
         const inserted = await db.transaction(async (tx) => {
           const [row] = await tx
             .insert(projectFile)
-            .values({ projectId: projectRow.id, name: item.name, type: item.type })
+            .values({ id: newFileId, projectId: projectRow.id, name: item.name, type: item.type })
             .returning();
 
           if (!row) return undefined;
 
-          const contentRow = await writeProjectFileContent(tx, row.id, {
+          const written = await writeProjectFileContent(tx, row.id, {
             content: item.type === "doc" ? "Generating repository documentation..." : undefined,
-            scene: item.type === "diagram" ? { skeletons: [], rawElements: [] } : undefined,
+            sceneKey: placeholder?.key,
             spec: createGeneratedSpec(projectRow, item, "placeholder"),
           });
 
-          return { ...row, spec: contentRow?.spec ?? null };
+          return { ...row, spec: written.content?.spec ?? null };
         });
         file = inserted;
       } catch (dbError) {
+        if (placeholder) await deleteObject(placeholder.key);
         logJob(
           jobId,
           "error",
@@ -632,20 +642,24 @@ async function runRepoGenerationJob(
         throw new Error(`Failed to initialize diagram spec for ${item.name}`);
       }
 
+      const uploaded = await uploadScene(owner, fileId, diagram.scene);
       try {
         // project_file first, same lock order as writeProjectFile. See the note
         // on the doc write above.
-        await db.transaction(async (tx) => {
+        const replaced = await db.transaction(async (tx) => {
           await tx
             .update(projectFile)
             .set({ updatedAt: new Date() })
             .where(eq(projectFile.id, fileId));
-          await writeProjectFileContent(tx, fileId, {
-            scene: diagram.scene,
+          const written = await writeProjectFileContent(tx, fileId, {
+            sceneKey: uploaded.key,
             spec: createGeneratedSpec(projectRow, item, "complete", diagram.spec),
           });
+          return written.previousSceneKey;
         });
+        await settleScene(uploaded.key, true, replaced);
       } catch (dbError) {
+        await settleScene(uploaded.key, false, null);
         logJob(
           jobId,
           "error",
