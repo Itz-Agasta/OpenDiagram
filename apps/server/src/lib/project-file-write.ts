@@ -15,9 +15,9 @@ import type { SQL } from "drizzle-orm";
  * the outer SELECT returns nothing. Same three-way answer as before, one trip
  * instead of four.
  *
- * SET lists are built per request. A CASE WHEN would spare the branching but
- * reads and rewrites the TOASTed scene on every request that does not touch it,
- * which is worse than the problem being solved.
+ * The scene itself is not in this statement: the caller uploads it to object
+ * storage first and passes the key. SET lists are built per request so a write
+ * that does not touch a column never reads or rewrites it.
  */
 
 type ProjectFileRow = {
@@ -30,7 +30,9 @@ type ProjectFileRow = {
 };
 
 type ProjectFileContentRow = {
+  /** Legacy jsonb scene, only for rows not yet moved to object storage. */
   scene: unknown;
+  sceneKey: string | null;
   spec: unknown;
   content: unknown;
   history: unknown;
@@ -41,6 +43,11 @@ export type WriteProjectFileResult =
       status: "ok";
       file: ProjectFileRow;
       sceneRev: number | null;
+      /**
+       * The scene object this write replaced, for the caller to delete after
+       * the response is safe. Null when no scene was written or none existed.
+       */
+      previousSceneKey: string | null;
       /** Present only when returnContent was asked for. */
       content: ProjectFileContentRow | null;
     }
@@ -49,7 +56,6 @@ export type WriteProjectFileResult =
   | { status: "stale" };
 
 type ContentColumns = {
-  scene?: unknown;
   spec?: unknown;
   content?: unknown;
   history?: unknown[];
@@ -61,16 +67,17 @@ export type WriteProjectFileInput = {
   userId: string;
   metadata: { name?: string; type?: "diagram" | "doc" };
   content: ContentColumns;
+  /** Object storage key of a scene already uploaded. Advances scene_rev. */
+  sceneKey?: string;
   /**
-   * Set when content.scene is a merged delta. Turns the write into a guarded
+   * Set when the scene is a merged delta. Turns the write into a guarded
    * UPDATE so a stale merge cannot silently overwrite the current scene.
    */
   expectedSceneRev?: number;
   /**
    * Echo the content columns back. Off for canvas autosave, the agent's spec
-   * write, and chat history write (all fire-and-forget; RETURNING would detoast
-   * a scene just to serialize it to a client that discards it). On for rename
-   * and manual save, which call setActiveFile with the response.
+   * write, and chat history write (all fire-and-forget). On for rename and
+   * manual save, which call setActiveFile with the response.
    */
   returnContent?: boolean;
 };
@@ -85,16 +92,24 @@ function jsonb(value: unknown): SQL {
   return sql`${JSON.stringify(value)}::jsonb`;
 }
 
-const CONTENT_COLUMNS = ["scene", "spec", "content", "history"] as const;
+const CONTENT_COLUMNS = ["spec", "content", "history"] as const;
+
+/** Column name to value, for the columns this request writes. */
+type Assignment = [column: string, value: SQL];
 
 export async function writeProjectFile(
   input: WriteProjectFileInput,
 ): Promise<WriteProjectFileResult> {
-  const { projectId, fileId, userId, metadata, content, expectedSceneRev, returnContent } = input;
+  const { projectId, fileId, userId, metadata, content, sceneKey, expectedSceneRev } = input;
+  const echo = input.returnContent === true;
+  const writesScene = sceneKey !== undefined;
 
-  const written = CONTENT_COLUMNS.filter((column) => content[column] !== undefined);
-  const writesScene = written.includes("scene");
-  const echo = returnContent === true;
+  const assignments: Assignment[] = CONTENT_COLUMNS.filter(
+    (column) => content[column] !== undefined,
+  ).map((column) => [column, jsonb(content[column])]);
+  // The jsonb column is cleared on every scene write, so a migrated row never
+  // carries two copies of its scene.
+  if (writesScene) assignments.push(["scene_key", sql`${sceneKey}`], ["scene", sql`NULL`]);
 
   const fileSets: SQL[] = [sql`"updated_at" = now()`];
   if (metadata.name !== undefined) fileSets.push(sql`"name" = ${metadata.name}`);
@@ -110,25 +125,44 @@ export async function writeProjectFile(
       RETURNING f."id", f."project_id", f."type", f."name", f."created_at", f."updated_at"
     )`;
 
-  const echoed = echo ? sql`"scene", "spec", "content", "history",` : sql``;
+  // FOR UPDATE, not a plain read: two scene writes racing on one row would both
+  // see the snapshot's key, and the second would report the wrong previous
+  // object and leak the first one's. Locking waits for the row and returns the
+  // latest committed key. Same lock order as below: project_file, then content.
+  const prev = sql`, prev AS (
+      SELECT c."scene_key" FROM "project_file_content" AS c
+        JOIN owned ON c."file_id" = owned."id"
+       FOR UPDATE OF c
+    )`;
 
-  // Metadata only: skip project_file_content entirely. A rename must not rewrite
-  // a 70 kB TOASTed scene. The caller reads content off a join, not RETURNING.
-  //
-  // LEFT JOIN ON true so a guarded write that matched nothing still returns the
-  // file row, which is what tells stale from not-found below.
+  // Qualified: prev also has a scene_key column.
+  const echoed = (from: string) =>
+    echo
+      ? sql.raw(
+          ["scene", "scene_key", "spec", "content", "history"]
+            .map((column) => `${from}."${column}"`)
+            .join(", ") + ",",
+        )
+      : sql``;
+
+  // Metadata only: skip project_file_content entirely. A rename must not touch
+  // the content row. LEFT JOIN ON true so a guarded write that matched nothing
+  // still returns the file row, which is what tells stale from not-found below.
   const statement =
-    written.length === 0
+    assignments.length === 0
       ? sql`${owned}
-            SELECT owned.*, ${echoed} cc."scene_rev" AS "content_scene_rev"
+            SELECT owned.*, ${echoed("cc")} cc."scene_rev" AS "content_scene_rev",
+                   NULL AS "previous_scene_key"
               FROM owned LEFT JOIN "project_file_content" AS cc ON cc."file_id" = owned."id"`
-      : sql`${owned}${
+      : sql`${owned}${writesScene ? prev : sql``}${
           expectedSceneRev === undefined
-            ? upsertContent(written, content, writesScene, echo)
-            : guardedContent(written, content, expectedSceneRev, echo)
+            ? upsertContent(assignments, writesScene, echo)
+            : guardedContent(assignments, writesScene, expectedSceneRev, echo)
         }
-            SELECT owned.*, ${echoed} changed."scene_rev" AS "content_scene_rev"
-              FROM owned LEFT JOIN changed ON true`;
+            SELECT owned.*, ${echoed("changed")} changed."scene_rev" AS "content_scene_rev",
+                   ${writesScene ? sql`prev."scene_key"` : sql`NULL`} AS "previous_scene_key"
+              FROM owned LEFT JOIN changed ON true
+              ${writesScene ? sql`LEFT JOIN prev ON true` : sql``}`;
 
   const result = await db.execute<{
     id: string;
@@ -138,7 +172,9 @@ export async function writeProjectFile(
     created_at: Date;
     updated_at: Date;
     content_scene_rev: number | null;
+    previous_scene_key: string | null;
     scene?: unknown;
+    scene_key?: string | null;
     spec?: unknown;
     content?: unknown;
     history?: unknown;
@@ -155,8 +191,15 @@ export async function writeProjectFile(
   return {
     status: "ok",
     sceneRev: row.content_scene_rev,
+    previousSceneKey: row.previous_scene_key,
     content: echo
-      ? { scene: row.scene, spec: row.spec, content: row.content, history: row.history }
+      ? {
+          scene: row.scene,
+          sceneKey: row.scene_key ?? null,
+          spec: row.spec,
+          content: row.content,
+          history: row.history,
+        }
       : null,
     file: {
       id: row.id,
@@ -174,36 +217,42 @@ export async function writeProjectFile(
  * columns the caller named. Self-repairing: a file whose content row went
  * missing recovers on its next save instead of failing forever.
  */
-function upsertContent(
-  written: readonly (keyof ContentColumns)[],
-  content: ContentColumns,
-  writesScene: boolean,
-  echo: boolean,
-): SQL {
+function upsertContent(assignments: Assignment[], writesScene: boolean, echo: boolean): SQL {
   // history is NOT NULL with no database default, so the INSERT half always
   // carries one even when the caller said nothing about it.
-  const columns = new Set<string>([...written, "history"]);
-  const names = [...columns].map((column) => sql.raw(`"${column}"`));
-  const values = [...columns].map((column) =>
-    column === "history" && content.history === undefined
-      ? sql`'[]'::jsonb`
-      : jsonb(content[column as keyof ContentColumns]),
-  );
+  const inserted = assignments.some(([column]) => column === "history")
+    ? assignments
+    : [...assignments, ["history", sql`'[]'::jsonb`] as Assignment];
+  const names = inserted.map(([column]) => sql.raw(`"${column}"`));
+  const values = inserted.map(([, value]) => value);
 
-  const sets = written.map((column) => sql.raw(`"${column}" = excluded."${column}"`));
+  const sets = assignments.map(([column]) => sql.raw(`"${column}" = excluded."${column}"`));
   if (writesScene) sets.push(sql`"scene_rev" = "project_file_content"."scene_rev" + 1`);
 
   return sql`, changed AS (
       INSERT INTO "project_file_content" (${sql.join(names, sql`, `)}, "file_id", "scene_rev")
-      SELECT ${sql.join(values, sql`, `)}, owned."id", ${writesScene ? 1 : 0} FROM owned
+      SELECT ${sql.join(values, sql`, `)}, owned."id", ${writesScene ? 1 : 0}
+        FROM owned ${readsPrev(writesScene)}
       ON CONFLICT ("file_id") DO UPDATE SET ${sql.join(sets, sql`, `)}
       RETURNING ${returning(echo)}
     )`;
 }
 
+/**
+ * Makes the content write read prev, which forces prev (and its row lock) to run
+ * before the write touches the row. Left unreferenced, prev can run after the
+ * write, and FOR UPDATE skips a row the same statement already updated, so the
+ * previous key came back null and every replaced object leaked.
+ */
+function readsPrev(writesScene: boolean): SQL {
+  return writesScene ? sql`LEFT JOIN prev ON true` : sql``;
+}
+
 /** The content columns a write hands back, which is nothing extra unless asked. */
 function returning(echo: boolean): SQL {
-  return echo ? sql`"scene_rev", "scene", "spec", "content", "history"` : sql`"scene_rev"`;
+  return echo
+    ? sql`"scene_rev", "scene", "scene_key", "spec", "content", "history"`
+    : sql`"scene_rev"`;
 }
 
 /**
@@ -214,18 +263,18 @@ function returning(echo: boolean): SQL {
  * a full snapshot.
  */
 function guardedContent(
-  written: readonly (keyof ContentColumns)[],
-  content: ContentColumns,
+  assignments: Assignment[],
+  writesScene: boolean,
   expectedSceneRev: number,
   echo: boolean,
 ): SQL {
-  const sets = written.map((column) => sql`${sql.raw(`"${column}"`)} = ${jsonb(content[column])}`);
+  const sets = assignments.map(([column, value]) => sql`${sql.raw(`"${column}"`)} = ${value}`);
   sets.push(sql`"scene_rev" = c."scene_rev" + 1`);
 
   return sql`, changed AS (
       UPDATE "project_file_content" AS c
          SET ${sql.join(sets, sql`, `)}
-        FROM owned
+        FROM owned ${readsPrev(writesScene)}
        WHERE c."file_id" = owned."id" AND c."scene_rev" = ${expectedSceneRev}
       RETURNING ${returning(echo)}
     )`;

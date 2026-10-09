@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireAuth, type AuthVariables } from "../../lib/require-auth";
 import { chatRoute } from "./chat";
+import { fileUpdateRoute } from "./file-update";
 import { filesRoute } from "./files";
 import { projectRoute } from "./project";
 import { repoGenerationRoute } from "./repo-generation";
@@ -18,6 +19,7 @@ projectsRoute.use("*", requireAuth);
 // segment, so `/:projectId/files/:fileId` never captures `.../threads`.
 projectsRoute.route("/", threadsRoute);
 projectsRoute.route("/", filesRoute);
+projectsRoute.route("/", fileUpdateRoute);
 projectsRoute.route("/", chatRoute);
 projectsRoute.route("/", repoGenerationRoute);
 projectsRoute.route("/", projectRoute);

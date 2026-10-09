@@ -43,6 +43,13 @@
       "when": 1786002230091,
       "tag": "0005_add_scene_rev",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791559931642,
+      "tag": "0006_add_scene_key",
+      "breakpoints": true
     }
   ]
 }

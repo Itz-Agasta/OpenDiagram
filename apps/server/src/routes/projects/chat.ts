@@ -31,6 +31,9 @@ chatRoute.post("/:projectId/chat", async (c) => {
   if (!projectContext) {
     return c.json({ error: "Not found" }, 404);
   }
+  if (projectContext.sceneReadErrors > 0) {
+    c.get("log").set({ projectContext: { sceneReadErrors: projectContext.sceneReadErrors } });
+  }
 
   const grant = await takeAiGrant(c, userId, "project-chat", {
     selection: { providerId: parsed.data.providerId, modelId: parsed.data.modelId },

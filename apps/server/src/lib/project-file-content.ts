@@ -6,7 +6,8 @@ type Db = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** The large columns, living in project_file_content, not project_file. */
 export type ProjectFileContentPatch = {
-  scene?: unknown;
+  /** Object storage key of a scene the caller already uploaded. */
+  sceneKey?: string;
   spec?: unknown;
   content?: unknown;
   history?: unknown[];
@@ -14,7 +15,9 @@ export type ProjectFileContentPatch = {
 
 /** Selected alongside project_file wherever a caller wants the whole file. */
 const projectFileContentColumns = {
+  /** Legacy jsonb scene: only set on rows the backfill has not moved yet. */
   scene: projectFileContent.scene,
+  sceneKey: projectFileContent.sceneKey,
   spec: projectFileContent.spec,
   content: projectFileContent.content,
   history: projectFileContent.history,
@@ -33,42 +36,69 @@ const projectFileContentColumns = {
  *
  * Only columns whose value is not undefined are written. That matters for PATCH,
  * where the client sends scene alone and must not blank history and spec as a
- * side effect. The test is on the value rather than key presence ("scene" in
+ * side effect. The test is on the value rather than key presence ("spec" in
  * patch) because an optional Zod field can land in the parsed object as explicit
  * undefined, which key presence would treat as a write. An explicit null still
  * clears the column, which is the intended way to do it.
+ *
+ * Returns the scene key this write replaced. The caller deletes that object only
+ * after its transaction commits; deleting earlier would orphan the row on rollback.
  */
 export async function writeProjectFileContent(
   tx: Db,
   fileId: string,
   patch: ProjectFileContentPatch,
-  // false for callers that do not read the content back: the canvas autosave, the
-  // spec write, and the chat history write are all fire-and-forget. Skipping the
-  // RETURNING keeps a multi-hundred-kilobyte scene from being detoasted and shipped
-  // to the server only to be serialized out to a client that discards it.
+  // false for callers that do not read the content back. Skipping the RETURNING
+  // keeps a legacy jsonb scene from being detoasted for nothing.
   { returnContent = true }: { returnContent?: boolean } = {},
 ) {
-  const columns = Object.fromEntries(
-    Object.entries(patch).filter(([, value]) => value !== undefined),
+  const { sceneKey, ...rest } = patch;
+  const columns: Record<string, unknown> = Object.fromEntries(
+    Object.entries(rest).filter(([, value]) => value !== undefined),
   );
-
-  // Nothing to write, and Postgres rejects an empty DO UPDATE SET. Reaching
-  // here means the caller had no content fields at all, so the existing row (or
-  // the absence of one) is already correct.
-  if (Object.keys(columns).length === 0) {
-    if (!returnContent) return null;
-    const [existing] = await tx
-      .select(projectFileContentColumns)
-      .from(projectFileContent)
-      .where(eq(projectFileContent.fileId, fileId));
-    return existing ?? { scene: null, spec: null, content: null, history: [], sceneRev: null };
-  }
 
   // Every writer of scene advances scene_rev, not just the PATCH route. Repository
   // generation replaces whole scenes through here, and a canvas holding the file
   // open would otherwise keep a baseline the server had silently moved past and
   // have its next delta merged into the generated scene instead of rejected.
-  const writesScene = columns.scene !== undefined;
+  const writesScene = sceneKey !== undefined;
+
+  // Nothing to write, and Postgres rejects an empty DO UPDATE SET. Reaching
+  // here means the caller had no content fields at all, so the existing row (or
+  // the absence of one) is already correct.
+  if (!writesScene && Object.keys(columns).length === 0) {
+    if (!returnContent) return { content: null, previousSceneKey: null };
+    const [existing] = await tx
+      .select(projectFileContentColumns)
+      .from(projectFileContent)
+      .where(eq(projectFileContent.fileId, fileId));
+    return {
+      content: existing ?? {
+        scene: null,
+        sceneKey: null,
+        spec: null,
+        content: null,
+        history: [],
+        sceneRev: null,
+      },
+      previousSceneKey: null,
+    };
+  }
+
+  let previousSceneKey: string | null = null;
+  if (writesScene) {
+    // Locked so a concurrent writer cannot swap the key between this read and
+    // the upsert below, which takes the same row lock anyway.
+    const [current] = await tx
+      .select({ sceneKey: projectFileContent.sceneKey })
+      .from(projectFileContent)
+      .where(eq(projectFileContent.fileId, fileId))
+      .for("update");
+    previousSceneKey = current?.sceneKey ?? null;
+    // The jsonb column is cleared on every scene write, so a migrated row never
+    // carries two copies of its scene.
+    Object.assign(columns, { sceneKey, scene: null });
+  }
 
   const insert = tx
     .insert(projectFileContent)
@@ -84,11 +114,11 @@ export async function writeProjectFileContent(
 
   if (!returnContent) {
     await insert;
-    return null;
+    return { content: null, previousSceneKey };
   }
 
   const [row] = await insert.returning(projectFileContentColumns);
-  return row;
+  return { content: row ?? null, previousSceneKey };
 }
 
 /**

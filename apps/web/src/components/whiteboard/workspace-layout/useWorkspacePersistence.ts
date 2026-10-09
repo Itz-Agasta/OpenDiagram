@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { env } from "@OpenDiagram/env/web";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
-import { writeLocalScene } from "@/lib/local-scene";
+import { markLocalSceneSaved, writeLocalScene } from "@/lib/local-scene";
 import { queueProjectFilePatch } from "@/lib/project-file-sync";
 import { encodeScene, resetSceneDelta } from "@/lib/scene-delta";
 import { type SavedProjectFile } from "@/lib/projects-client";
@@ -79,23 +79,40 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
           "meta",
         );
         if (invalidatedFileIdsRef.current.has(snapshot.file.id)) return;
-        if (snapshot.file.id === activeFileRef.current?.id) {
+        const isActive = snapshot.file.id === activeFileRef.current?.id;
+        const isLatest = isActive && snapshot.version === pendingVersionRef.current;
+        if (isActive) {
           lastSavedVersionRef.current = String(snapshot.version);
-          if (snapshot.version === pendingVersionRef.current) dirtyRef.current = false;
+          if (isLatest) dirtyRef.current = false;
           setSaveStatus(dirtyRef.current ? "unsaved" : "saved");
         }
         // Clear the local dirty flag only once the server has taken the write,
         // and stamp the server's own updatedAt so the next open compares the
         // two copies on the same clock rather than on this device's.
-        void writeLocalScene({
-          fileId: snapshot.file.id,
-          projectId,
-          type: snapshot.file.type,
-          scene: snapshot.scene,
-          content: snapshot.content,
-          updatedAt: updated.updatedAt,
-          dirty: false,
-        });
+        //
+        // Only if the entry still holds this snapshot. A newer edit has already
+        // written its own dirty entry, and the queue can merge a newer scene
+        // (manual Save) into this request; marking either clean would hide it
+        // from reload recovery or pair it with the wrong revision.
+        void markLocalSceneSaved(
+          {
+            fileId: snapshot.file.id,
+            projectId,
+            type: snapshot.file.type,
+            scene: snapshot.scene,
+            content: snapshot.content,
+            updatedAt: updated.updatedAt,
+            dirty: false,
+            // What lets the next open skip the download. Diagrams only: a doc
+            // save echoes the untouched scene revision, which no doc entry holds.
+            sceneRev: snapshot.file.type === "diagram" ? (updated.sceneRev ?? null) : null,
+          },
+          (entry) =>
+            entry.type === snapshot.file.type &&
+            (entry.type === "diagram"
+              ? sceneElementsVersion(sceneElementsOf(entry.scene)) === snapshot.version
+              : entry.content === snapshot.content),
+        );
         upsertStoredFile(toSidebarFile(updated));
       } catch {
         // The local copy stays dirty, so the edit is still on disk and will be
@@ -177,6 +194,7 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         content: snapshot.content,
         updatedAt: new Date().toISOString(),
         dirty: true,
+        sceneRev: null,
       });
     }
 
@@ -384,4 +402,9 @@ function updateGuestDraft(
   draftRef.current = nextDraft;
   saveGuestProjectDraft(nextDraft);
   setDraft(nextDraft);
+}
+
+function sceneElementsOf(scene: unknown): readonly unknown[] {
+  const elements = (scene as { elements?: unknown } | null)?.elements;
+  return Array.isArray(elements) ? elements : [];
 }

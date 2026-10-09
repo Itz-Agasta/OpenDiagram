@@ -32,8 +32,13 @@ export type SavedProjectFile = {
   spec?: RepositoryDocProvenance | unknown;
   content?: unknown;
   history?: unknown[];
-  /** Revision of the stored scene. Only what `lib/scene-delta.ts` reads it for. */
+  /** Revision of the stored scene: the delta baseline and the IndexedDB cache key. */
   sceneRev?: number | null;
+  /**
+   * Presigned R2 URL of the scene, set by GET in place of `scene` once the scene
+   * lives in object storage. Short-lived: use it right away.
+   */
+  sceneUrl?: string;
   createdAt: string;
   updatedAt: string;
 };

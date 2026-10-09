@@ -15,6 +15,14 @@ export const projectFileContent = pgTable("project_file_content", {
     .references(() => projectFile.id, { onDelete: "cascade" }),
   scene: jsonb("scene"),
   /**
+   * Object storage key of the current scene. Null means the scene is still in
+   * the jsonb column above (written before the move) or the file has none.
+   * Every scene write uploads under a fresh key and replaces this one; the old
+   * object is deleted after the row commits, so a write that loses the
+   * scene_rev race never touches the object the row points at.
+   */
+  sceneKey: text("scene_key"),
+  /**
    * Bumped by every write that touches scene, and by nothing else. The canvas
    * sends element deltas against the revision it last had acknowledged, so this
    * is what lets the server tell "these changes apply to what I hold" from "this

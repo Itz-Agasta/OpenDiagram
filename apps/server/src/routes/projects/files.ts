@@ -8,16 +8,17 @@ import {
   withContentDefaults,
   writeProjectFileContent,
 } from "../../lib/project-file-content";
-import { writeProjectFile } from "../../lib/project-file-write";
 import type { AuthVariables } from "../../lib/require-auth";
+import { pruneTombstones } from "../../lib/scene-delta";
 import {
-  isSceneDelta,
-  mergeSceneDelta,
-  pruneTombstones,
-  sceneDeltaSchema,
-} from "../../lib/scene-delta";
+  deleteObject,
+  deletePrefix,
+  filePrefix,
+  sceneUrl,
+  uploadScene,
+} from "../../lib/scene-store";
 
-const fileTypeSchema = z.enum(["diagram", "doc"]);
+export const fileTypeSchema = z.enum(["diagram", "doc"]);
 
 const createFileSchema = z.object({
   name: z.string().min(1).max(200),
@@ -28,17 +29,6 @@ const createFileSchema = z.object({
   history: z.array(z.unknown()).optional(),
 });
 
-const updateFileSchema = z
-  .object({
-    name: z.string().min(1).max(200).optional(),
-    type: fileTypeSchema.optional(),
-    scene: z.unknown().optional(),
-    spec: z.unknown().optional(),
-    content: z.unknown().optional(),
-    history: z.array(z.unknown()).optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, { message: "No fields to update" });
-
 /** The columns a file list returns; never the large ones in project_file_content. */
 const fileListColumns = {
   id: projectFile.id,
@@ -48,13 +38,6 @@ const fileListColumns = {
   createdAt: projectFile.createdAt,
   updatedAt: projectFile.updatedAt,
 };
-
-function markDocSpecUserEdited(spec: unknown) {
-  if (!spec || typeof spec !== "object" || !("kind" in spec)) return spec;
-  if ((spec as { kind?: unknown }).kind !== "repo_documentation") return spec;
-
-  return { ...(spec as Record<string, unknown>), userEditedAt: new Date().toISOString() };
-}
 
 /** Ownership as a subquery, for statements that can't join. */
 function ownedProject(projectId: string, userId: string) {
@@ -118,28 +101,45 @@ filesRoute.post("/:projectId/files", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
+  const { scene, spec, content, history, ...metadata } = parsed.data;
+  // Guest draft promotion posts a scene drawn before the account existed, so
+  // this path receives tombstones as old as the draft in localStorage.
+  const initialScene = pruneTombstones(scene);
+  // The id is minted here rather than by the insert default because the scene's
+  // object key needs it, and the upload has to finish before the transaction opens.
+  const fileId = crypto.randomUUID();
+  const uploaded =
+    initialScene === undefined
+      ? null
+      : await uploadScene({ userId, projectId }, fileId, initialScene);
+
   // Two rows now, so one transaction: a file whose content row failed to insert
   // would open blank and silently discard whatever the client sent with it.
-  const { scene, spec, content, history, ...metadata } = parsed.data;
-  const row = await db.transaction(async (tx) => {
-    const [file] = await tx
-      .insert(projectFile)
-      .values({ ...metadata, projectId })
-      .returning();
+  const row = await db
+    .transaction(async (tx) => {
+      const [file] = await tx
+        .insert(projectFile)
+        .values({ ...metadata, id: fileId, projectId })
+        .returning();
 
-    if (!file) throw new Error("Could not create file");
+      if (!file) throw new Error("Could not create file");
 
-    const contentRow = await writeProjectFileContent(tx, file.id, {
-      // Guest draft promotion posts a scene drawn before the account existed,
-      // so this path receives tombstones as old as the draft in localStorage.
-      scene: pruneTombstones(scene),
-      spec,
-      content,
-      history,
+      const written = await writeProjectFileContent(tx, file.id, {
+        sceneKey: uploaded?.key,
+        spec,
+        content,
+        history,
+      });
+
+      const { sceneKey: _key, ...stored } = written.content ?? {};
+      return { ...file, ...stored, scene: initialScene ?? null };
+    })
+    .catch(async (error: unknown) => {
+      const cleanup = uploaded ? await deleteObject(uploaded.key) : null;
+      if (cleanup)
+        c.get("log").set({ scene: { orphan: uploaded?.key, deleteError: String(cleanup) } });
+      throw error;
     });
-
-    return { ...file, ...contentRow };
-  });
 
   return c.json({ file: row }, 201);
 });
@@ -162,125 +162,18 @@ filesRoute.get("/:projectId/files/:fileId", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
-  return c.json({ file: withContentDefaults(row) });
-});
-
-/**
- * The only writer of project_file_content, and the busiest route in the app.
- *
- * scene arrives in one of two shapes: a whole scene, or a delta of the elements
- * whose Excalidraw version moved since base (see lib/scene-delta.ts). A delta
- * answers 409 when base is not the current revision, which is the client's cue
- * to drop its baseline and resend a whole scene (no body worth reading comes
- * back with it).
- *
- * Last-writer-wins throughout, matching the local-first canvas. The response
- * carries sceneRev whenever the content row was touched.
- */
-filesRoute.patch("/:projectId/files/:fileId", async (c) => {
-  const userId = c.get("userId");
-  const projectId = c.req.param("projectId");
-  const fileId = c.req.param("fileId");
-  const body = await c.req.json().catch(() => null);
-  const parsed = updateFileSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
-  }
-
-  const { scene, spec, content, history, ...metadata } = parsed.data;
-
-  // ?fields=meta drops the content echo from the response. The write paths that
-  // use it (canvas autosave, agent spec write, chat history write) are all
-  // replication behind a local write and read nothing back, yet each was
-  // downloading the scene it had just uploaded. A rename paid 12.8KB to change 15
-  // bytes. Opt-in rather than default because useWorkspaceFileActions and
-  // useWorkspaceFileName do setActiveFile(updated) and read updated.content, so
-  // stripping it unconditionally would blank the editor.
-  const metaOnly = c.req.query("fields") === "meta";
-
-  const delta = isSceneDelta(scene) ? sceneDeltaSchema.safeParse(scene) : null;
-  if (delta && !delta.success) {
-    return c.json({ error: "Invalid scene delta", issues: delta.error.issues }, 400);
-  }
-
-  // The only two writes that have to see the current row before building the next
-  // one. Everything else (the overwhelming majority of traffic) goes straight to
-  // the single-statement write below.
-  let nextScene = scene;
-  let nextSpec = spec;
-  let expectedSceneRev: number | undefined;
-
-  if (delta?.success) {
-    const [current] = await db
-      .select({ scene: projectFileContent.scene, sceneRev: projectFileContent.sceneRev })
-      .from(projectFile)
-      .innerJoin(project, eq(projectFile.projectId, project.id))
-      .leftJoin(projectFileContent, projectFileContentJoin)
-      .where(
-        and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)),
-      );
-
-    if (!current) return c.json({ error: "Not found" }, 404);
-    // A null base is the unload beacon, which cannot wait to learn the current
-    // revision, so it merges onto whatever the row holds. A base that is still
-    // null after that is a file with no content row: the changed elements are a
-    // fragment, and inserting them would stand in for a whole scene.
-    const base = delta.data.base ?? current.sceneRev;
-    if (base === null || (current.sceneRev ?? 0) !== base) {
-      return c.json({ error: "Stale scene revision" }, 409);
-    }
-
-    nextScene = mergeSceneDelta(current.scene, delta.data);
-    // Re-checked inside the write as well. This comparison is against a snapshot
-    // that another request can invalidate before the write lands; the guard on the
-    // statement itself is what actually makes it safe.
-    expectedSceneRev = base;
-  } else if (content !== undefined) {
-    // Editing a doc's body stamps the spec so the generator knows a human touched
-    // it. Keyed on the value, not "content" in parsed.data (an optional Zod field
-    // can arrive as explicit undefined, which key presence would read as an edit).
-    // spec is TOASTed, so this read is kept off every canvas autosave.
-    const [current] = await db
-      .select({ type: projectFile.type, spec: projectFileContent.spec })
-      .from(projectFile)
-      .innerJoin(project, eq(projectFile.projectId, project.id))
-      .leftJoin(projectFileContent, projectFileContentJoin)
-      .where(
-        and(eq(project.id, projectId), eq(project.userId, userId), eq(projectFile.id, fileId)),
-      );
-
-    if (!current) return c.json({ error: "Not found" }, 404);
-    // The type after this write, not before it. A request that converts a diagram
-    // to a doc and supplies the body in one go still owes the spec its stamp.
-    if ((metadata.type ?? current.type) === "doc") {
-      nextSpec = markDocSpecUserEdited(current.spec ?? null);
-    }
-  }
-
-  const result = await writeProjectFile({
-    projectId,
-    fileId,
-    userId,
-    metadata,
-    content: { scene: pruneTombstones(nextScene), spec: nextSpec, content, history },
-    expectedSceneRev,
-    returnContent: !metaOnly,
+  // A stored scene is not inlined: the browser compares sceneRev with its
+  // IndexedDB copy and downloads from R2 only on a miss, so the server never
+  // streams scene bytes. The key is not sent as a field, but it is the path of
+  // the presigned URL, so the user id travels inside that URL: short-lived and
+  // scoped to this one object, and only ever returned to its owner.
+  const { sceneKey, ...file } = row;
+  c.get("log").set({ scene: { store: sceneKey ? "s3" : "jsonb" } });
+  return c.json({
+    file: withContentDefaults(
+      sceneKey ? { ...file, scene: undefined, sceneUrl: sceneUrl(sceneKey) } : file,
+    ),
   });
-
-  if (result.status === "not-found") return c.json({ error: "Not found" }, 404);
-  // Empty body on purpose: the client answers a 409 by resending the whole scene,
-  // so returning the current one would cost the 70 kB this endpoint exists to
-  // avoid. Note the write already advanced updatedAt even though the scene did not
-  // land, since both are sub-statements of one statement. See project-file-write.
-  if (result.status === "stale") return c.json({ error: "Stale scene revision" }, 409);
-
-  const row = { ...result.file, sceneRev: result.sceneRev };
-
-  // withContentDefaults normalises a missing content row to history: [], which is
-  // exactly the wrong thing for a meta response (it would tell the client chat
-  // history is empty when it simply was not asked for).
-  return c.json({ file: metaOnly ? row : withContentDefaults({ ...row, ...result.content }) });
 });
 
 /**
@@ -308,6 +201,13 @@ filesRoute.delete("/:projectId/files/:fileId", async (c) => {
   if (!row) {
     return c.json({ error: "Not found" }, 404);
   }
+
+  // After the row, never before: a failed row delete must leave its scene. A
+  // failed prefix delete only leaves storage to sweep, so it is logged, not a 500.
+  const removed = await deletePrefix(filePrefix({ userId, projectId }, fileId)).catch(
+    (error: unknown) => String(error),
+  );
+  c.get("log").set({ scene: { prefixDelete: removed } });
 
   return c.json({ ok: true });
 });
