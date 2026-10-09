@@ -1,0 +1,27 @@
+apps/web/src/components/whiteboard/workspace-layout/useWorkspaceProjectLoader.ts
+  s_2b9ac1bf85f8e2::t_ffc3bd7ac755e5 270-271
+  s_2b9ac1bf85f8e2::t_a7d96e9a9ff9c3 249-252,254-255,265-269,272-274,279-280,283
+apps/server/src/routes/projects/files.ts
+  s_2b9ac1bf85f8e2::t_ffc3bd7ac755e5 167-169
+apps/web/src/lib/scene-download.ts
+  s_2b9ac1bf85f8e2::t_1092d8ee0eb503 13-22,35-38,42,48-53,58-62
+  s_2b9ac1bf85f8e2::t_652ddf0ed7f1b6 54-57
+apps/web/src/components/whiteboard/workspace-layout/useWorkspacePersistence.ts
+  s_2b9ac1bf85f8e2::t_2bd398c39100a2 92-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0fcc49b9874a76ed0b1be0e9420d2adba8ead5e",
+  "prompts": {},
+  "sessions": {
+    "s_2b9ac1bf85f8e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc681250-6186-4d1c-bc04-b14052b41867",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
