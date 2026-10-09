@@ -1,0 +1,39 @@
+apps/server/src/routes/projects/file-update.ts
+  s_2b9ac1bf85f8e2::t_64db0027b9674e 207-208
+apps/web/src/lib/projects-client/types.ts
+  s_2b9ac1bf85f8e2::t_4574689744b46f 35,37-41
+apps/web/src/components/whiteboard/workspace-layout/useWorkspaceProjectLoader.ts
+  s_2b9ac1bf85f8e2::t_0b68d2055afa7a 7-8,251-253,255-258,260
+  s_2b9ac1bf85f8e2::t_d7913268410f16 250,254,259,261-267,291
+apps/web/src/lib/scene-download.ts
+  s_2b9ac1bf85f8e2::t_a71ceea5027c19 3-9,11-22,24-25,48-49
+  s_2b9ac1bf85f8e2::t_cd148ec9390e17 10,23
+  s_2b9ac1bf85f8e2::t_d7913268410f16 1-2,26-47
+apps/web/src/components/whiteboard/workspace-layout/useWorkspacePersistence.ts
+  s_2b9ac1bf85f8e2::t_0b68d2055afa7a 188
+  s_2b9ac1bf85f8e2::t_43bb25b67e9716 82-84,86,100-105
+apps/server/src/lib/scene-store/index.ts
+  s_2b9ac1bf85f8e2::t_64db0027b9674e 86-94
+apps/web/src/lib/projects-client/files.ts
+  s_2b9ac1bf85f8e2::t_4574689744b46f 2,22-23
+apps/server/src/routes/projects/files.ts
+  s_2b9ac1bf85f8e2::t_64db0027b9674e 17,134-135,154-160,165-173
+apps/web/src/lib/local-scene.ts
+  s_2b9ac1bf85f8e2::t_4574689744b46f 25-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1d134c98738c744ad498f94dd4e740a5344c177b",
+  "prompts": {},
+  "sessions": {
+    "s_2b9ac1bf85f8e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc681250-6186-4d1c-bc04-b14052b41867",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
