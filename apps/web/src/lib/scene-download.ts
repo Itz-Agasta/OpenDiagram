@@ -10,10 +10,16 @@ import { getProjectFile, type SavedProjectFile } from "@/lib/projects-client";
 async function fetchStoredScene(url: string): Promise<unknown> {
   const response = await fetch(url);
   if (!response.ok || !response.body) throw new StoredSceneError(response.status);
-  const text = await new Response(
-    response.body.pipeThrough(new DecompressionStream("gzip")),
-  ).text();
-  return JSON.parse(text);
+  try {
+    const text = await new Response(
+      response.body.pipeThrough(new DecompressionStream("gzip")),
+    ).text();
+    return JSON.parse(text);
+  } catch {
+    // A 200 whose body is not gzipped JSON: report it like any other failed
+    // load instead of surfacing a raw decoder error to the user.
+    throw new StoredSceneError(response.status);
+  }
 }
 
 /**
@@ -26,24 +32,33 @@ class StoredSceneError extends Error {
   }
 }
 
+// Each 404 means a save landed between issuing the URL and using it. Two
+// refetches cover back-to-back saves; past that something else is wrong.
+const MAX_ATTEMPTS = 3;
+
 /**
  * The server copy of a diagram's scene and the revision it is at. A URL that
  * 404s was retired by a save after it was issued, so the file is fetched again
- * once and its newer scene used instead.
+ * and its newer scene used instead.
  */
 export async function downloadServerScene(
   projectId: string,
   file: SavedProjectFile,
 ): Promise<{ scene: unknown; sceneRev: number | null }> {
-  if (!file.sceneUrl) return { scene: file.scene ?? null, sceneRev: file.sceneRev ?? null };
-  try {
-    return { scene: await fetchStoredScene(file.sceneUrl), sceneRev: file.sceneRev ?? null };
-  } catch (error) {
-    if (!(error instanceof StoredSceneError) || error.status !== 404) throw error;
-    const fresh = await getProjectFile(projectId, file.id);
-    return {
-      scene: fresh.sceneUrl ? await fetchStoredScene(fresh.sceneUrl) : (fresh.scene ?? null),
-      sceneRev: fresh.sceneRev ?? null,
-    };
+  let current = file;
+  for (let attempt = 1; ; attempt++) {
+    if (!current.sceneUrl) {
+      return { scene: current.scene ?? null, sceneRev: current.sceneRev ?? null };
+    }
+    try {
+      return {
+        scene: await fetchStoredScene(current.sceneUrl),
+        sceneRev: current.sceneRev ?? null,
+      };
+    } catch (error) {
+      const retired = error instanceof StoredSceneError && error.status === 404;
+      if (!retired || attempt === MAX_ATTEMPTS) throw error;
+      current = await getProjectFile(projectId, file.id);
+    }
   }
 }

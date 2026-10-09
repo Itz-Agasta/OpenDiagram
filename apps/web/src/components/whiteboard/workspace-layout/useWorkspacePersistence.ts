@@ -89,21 +89,26 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         // Clear the local dirty flag only once the server has taken the write,
         // and stamp the server's own updatedAt so the next open compares the
         // two copies on the same clock rather than on this device's.
-        void writeLocalScene({
-          fileId: snapshot.file.id,
-          projectId,
-          type: snapshot.file.type,
-          scene: snapshot.scene,
-          content: snapshot.content,
-          updatedAt: updated.updatedAt,
-          dirty: false,
-          // Lets the next open skip the download, so it must only be claimed when
-          // this snapshot is what the server holds at that revision. The queue
-          // can merge a newer scene (manual Save) into this request, and then the
-          // revision belongs to that scene, not this one: only the newest local
-          // state may carry it.
-          sceneRev: isLatest ? (updated.sceneRev ?? null) : null,
-        });
+        //
+        // Only for the newest local state. A newer edit has already written its
+        // own dirty entry; overwriting it with this older snapshot marked clean
+        // would hide that edit from reload recovery if its save then failed. The
+        // queue can also merge a newer scene (manual Save) into this request, so
+        // the acknowledged revision may not even be this snapshot's.
+        if (isLatest) {
+          void writeLocalScene({
+            fileId: snapshot.file.id,
+            projectId,
+            type: snapshot.file.type,
+            scene: snapshot.scene,
+            content: snapshot.content,
+            updatedAt: updated.updatedAt,
+            dirty: false,
+            // What lets the next open skip the download. Diagrams only: a doc
+            // save echoes the untouched scene revision, which no doc entry holds.
+            sceneRev: snapshot.file.type === "diagram" ? (updated.sceneRev ?? null) : null,
+          });
+        }
         upsertStoredFile(toSidebarFile(updated));
       } catch {
         // The local copy stays dirty, so the edit is still on disk and will be

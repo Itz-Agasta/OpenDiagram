@@ -245,15 +245,14 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
         // alternative is silently throwing away edits the user made.
         const local = await readLocalScene(result.id);
         if (!active) return;
-        const keepLocal = local?.dirty === true;
 
-        // A clean local copy recorded at the server's revision is that scene, so
-        // it paints with no download at all. Unsaved local work still downloads:
-        // the server scene is its delta baseline, and a delta merges onto the
-        // server copy, keeping elements another device added since.
+        // A clean diagram copy recorded at the server's revision is that scene,
+        // so it paints with no download at all. Unsaved local work still
+        // downloads: the server scene is its delta baseline, and a delta merges
+        // onto the server copy, keeping elements another device added since.
         const cached =
-          local != null &&
-          !keepLocal &&
+          local?.type === "diagram" &&
+          !local.dirty &&
           result.sceneRev != null &&
           local.sceneRev === result.sceneRev;
         const server =
@@ -263,15 +262,25 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
               ? { scene: local.scene ?? null, sceneRev: result.sceneRev ?? null }
               : await downloadServerScene(projectId, result);
         if (!active) return;
+
+        // Decided after the download, not before: the canvas painted from
+        // IndexedDB stays editable while it runs, and an edit made meanwhile has
+        // marked the local copy dirty. Reading the earlier snapshot would let the
+        // server scene overwrite that edit.
+        const current =
+          cached || result.type !== "diagram" ? local : await readLocalScene(result.id);
+        if (!active) return;
+        const keepLocal = current?.dirty === true;
+
         const serverScene = server.scene;
         seedSceneDelta(result.id, serverScene, server.sceneRev);
         const serverContent = result.type === "doc" ? fileContentToText(result.content) : "";
         const scene = keepLocal
-          ? local.type === "diagram"
-            ? (local.scene ?? null)
+          ? current.type === "diagram"
+            ? (current.scene ?? null)
             : null
           : serverScene;
-        const content = keepLocal ? local.content : serverContent;
+        const content = keepLocal ? current.content : serverContent;
 
         initializePersistence(result.type, scene, content);
         setDocContent(content);
