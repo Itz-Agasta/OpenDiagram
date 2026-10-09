@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { env } from "@OpenDiagram/env/web";
 import { saveGuestProjectDraft, type GuestProjectDraft } from "@/lib/guest-drafts";
-import { writeLocalScene } from "@/lib/local-scene";
+import { markLocalSceneSaved, writeLocalScene } from "@/lib/local-scene";
 import { queueProjectFilePatch } from "@/lib/project-file-sync";
 import { encodeScene, resetSceneDelta } from "@/lib/scene-delta";
 import { type SavedProjectFile } from "@/lib/projects-client";
@@ -90,13 +90,12 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
         // and stamp the server's own updatedAt so the next open compares the
         // two copies on the same clock rather than on this device's.
         //
-        // Only for the newest local state. A newer edit has already written its
-        // own dirty entry; overwriting it with this older snapshot marked clean
-        // would hide that edit from reload recovery if its save then failed. The
-        // queue can also merge a newer scene (manual Save) into this request, so
-        // the acknowledged revision may not even be this snapshot's.
-        if (isLatest) {
-          void writeLocalScene({
+        // Only if the entry still holds this snapshot. A newer edit has already
+        // written its own dirty entry, and the queue can merge a newer scene
+        // (manual Save) into this request; marking either clean would hide it
+        // from reload recovery or pair it with the wrong revision.
+        void markLocalSceneSaved(
+          {
             fileId: snapshot.file.id,
             projectId,
             type: snapshot.file.type,
@@ -107,8 +106,13 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
             // What lets the next open skip the download. Diagrams only: a doc
             // save echoes the untouched scene revision, which no doc entry holds.
             sceneRev: snapshot.file.type === "diagram" ? (updated.sceneRev ?? null) : null,
-          });
-        }
+          },
+          (entry) =>
+            entry.type === snapshot.file.type &&
+            (entry.type === "diagram"
+              ? sceneElementsVersion(sceneElementsOf(entry.scene)) === snapshot.version
+              : entry.content === snapshot.content),
+        );
         upsertStoredFile(toSidebarFile(updated));
       } catch {
         // The local copy stays dirty, so the edit is still on disk and will be
@@ -398,4 +402,9 @@ function updateGuestDraft(
   draftRef.current = nextDraft;
   saveGuestProjectDraft(nextDraft);
   setDraft(nextDraft);
+}
+
+function sceneElementsOf(scene: unknown): readonly unknown[] {
+  const elements = (scene as { elements?: unknown } | null)?.elements;
+  return Array.isArray(elements) ? elements : [];
 }

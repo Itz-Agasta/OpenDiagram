@@ -271,9 +271,21 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
           cached || result.type !== "diagram" ? local : await readLocalScene(result.id);
         if (!active) return;
         const keepLocal = current?.dirty === true;
+        // An edit made during the download may also have been saved by now: the
+        // copy is clean again but at a newer revision than the one downloaded.
+        // It equals the server's newer state, so it stands in for the download.
+        const newerLocal =
+          current?.type === "diagram" &&
+          !current.dirty &&
+          current.sceneRev != null &&
+          server.sceneRev != null &&
+          current.sceneRev > server.sceneRev;
+        const resolved = newerLocal
+          ? { scene: current.scene ?? null, sceneRev: current.sceneRev ?? null }
+          : server;
 
-        const serverScene = server.scene;
-        seedSceneDelta(result.id, serverScene, server.sceneRev);
+        const serverScene = resolved.scene;
+        seedSceneDelta(result.id, serverScene, resolved.sceneRev);
         const serverContent = result.type === "doc" ? fileContentToText(result.content) : "";
         const scene = keepLocal
           ? current.type === "diagram"
@@ -297,7 +309,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
             content: serverContent,
             updatedAt: result.updatedAt,
             dirty: false,
-            sceneRev: server.sceneRev,
+            sceneRev: resolved.sceneRev,
           });
         }
       } catch (error) {
