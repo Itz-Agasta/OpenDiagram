@@ -66,3 +66,22 @@ jobs:
         env:
           NEXT_PUBLIC_SERVER_URL: "http://localhost:3000"
           NEXT_PUBLIC_ASSET_URL: "https://assets.example.com"
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+
+      # -backend=false skips the HCP cloud block, so this job needs no HCP or
+      # Cloudflare credentials. Plans and applies run against HCP from a laptop.
+      - name: Format, init, validate
+        run: |
+          terraform fmt -check -recursive infra
+          terraform -chdir=infra init -backend=false -lockfile=readonly
+          terraform -chdir=infra validate

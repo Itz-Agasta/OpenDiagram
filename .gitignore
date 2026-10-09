@@ -61,3 +61,6 @@ opencode.json
 
 # launch videos (local renders, large binaries)
 brag-output/
+
+# Terraform provider cache; *.tf and the lock file are committed, state lives in HCP.
+infra/.terraform/
