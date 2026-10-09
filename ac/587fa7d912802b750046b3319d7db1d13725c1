@@ -1,0 +1,59 @@
+apps/server/src/routes/projects/files.ts
+  s_2b9ac1bf85f8e2::t_230ac0aba1eb08 21
+  s_2b9ac1bf85f8e2::t_5f74d54d89f336 112-114
+  s_2b9ac1bf85f8e2::t_7c90776aebd15b 12
+  s_2b9ac1bf85f8e2::t_bb74ef415b9e1c 200-205
+  s_2b9ac1bf85f8e2::t_808a9e7a16e67c 14-19,105-111,118-138,162-168,171
+  s_2b9ac1bf85f8e2::t_5b980130cb0c41 116-117,206
+apps/server/src/routes/projects/index.ts
+  s_2b9ac1bf85f8e2::t_230ac0aba1eb08 4,22
+apps/server/src/lib/project-context.ts
+  s_2b9ac1bf85f8e2::t_0f5506d88173b5 4,75,80,85,96-104
+  s_2b9ac1bf85f8e2::t_f38669da4e25d8 105
+apps/server/src/lib/project-file-write.ts
+  s_2b9ac1bf85f8e2::t_1bd90ca494d9e4 138-146,154,162
+  s_2b9ac1bf85f8e2::t_1eab69e86ee55e 160,234-235,241-248,266-267,277
+  s_2b9ac1bf85f8e2::t_ad818fbb27d3a3 18-20,33,35,46-50,70-71,73,79-80,95-98,103-105,107-112,128-136,148-150,152,155,157,159,163-165,175,177,194,196-202,220,223-229,253-255,271
+  s_2b9ac1bf85f8e2::t_81bfba59468d0f 137,249-250
+apps/server/src/routes/projects/project.ts
+  s_2b9ac1bf85f8e2::t_d4af949df82382 6
+  s_2b9ac1bf85f8e2::t_bb74ef415b9e1c 149,165-171
+  s_2b9ac1bf85f8e2::t_4acb0d5641e689 172
+apps/server/src/routes/projects/file-update.ts
+  s_2b9ac1bf85f8e2::t_7e8e91fb7f380f 38
+  s_2b9ac1bf85f8e2::t_7c90776aebd15b 191-192
+  s_2b9ac1bf85f8e2::t_230ac0aba1eb08 15
+  s_2b9ac1bf85f8e2::t_5f74d54d89f336 139-141
+  s_2b9ac1bf85f8e2::t_53df57648e7fe2 1-14,16-37,39-138,142-190,193
+apps/server/src/lib/repo-generation.ts
+  s_2b9ac1bf85f8e2::t_fff2d8dc214530 4,456-462,467,472,474,478,482,645,649,654-655,658,660,662
+  s_2b9ac1bf85f8e2::t_c7e2b726cae91e 404
+apps/server/src/lib/scene-store/client.ts
+  s_2b9ac1bf85f8e2::t_3270e1868c2f09 1-11
+apps/server/src/lib/project-file-content.ts
+  s_2b9ac1bf85f8e2::t_64ef0d00ba1f4f 9-10,18,20
+  s_2b9ac1bf85f8e2::t_e55c096575b972 39,51-52,55-57,60-65,69-70,75-85,88-101,117,121
+  s_2b9ac1bf85f8e2::t_70974407158c54 43-45
+apps/server/src/lib/scene-store/index.ts
+  s_2b9ac1bf85f8e2::t_c9bd19c3d796c3 55-63
+  s_2b9ac1bf85f8e2::t_53dec335397e23 36-40,42-53
+  s_2b9ac1bf85f8e2::t_3270e1868c2f09 1-20,22-24,26-35,54,64-89
+  s_2b9ac1bf85f8e2::t_971870d75ecc27 21,25
+  s_2b9ac1bf85f8e2::t_23234f8c171616 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac587fa7d912802b750046b3319d7db1d13725c1",
+  "prompts": {},
+  "sessions": {
+    "s_2b9ac1bf85f8e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc681250-6186-4d1c-bc04-b14052b41867",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
