@@ -92,13 +92,9 @@ export function sceneUrl(key: string): string {
   return store.presign(key, { expiresIn: SCENE_URL_TTL_SECONDS });
 }
 
-/**
- * A content row's scene: from object storage when it has a key, else the legacy
- * jsonb column. TODO: drop the fallback with the scene column, once the backfill
- * has run on every database.
- */
-export function loadScene(row: { scene: unknown; sceneKey: string | null }): Promise<unknown> {
-  return row.sceneKey ? readScene(row.sceneKey) : Promise.resolve(row.scene);
+/** A content row's scene by its key; a row with no key has no scene yet. */
+export function loadScene(sceneKey: string | null): Promise<unknown> {
+  return sceneKey ? readScene(sceneKey) : Promise.resolve(null);
 }
 
 /**

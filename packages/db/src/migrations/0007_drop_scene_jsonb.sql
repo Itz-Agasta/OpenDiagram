@@ -1,0 +1,1 @@
+ALTER TABLE "project_file_content" DROP COLUMN "scene";

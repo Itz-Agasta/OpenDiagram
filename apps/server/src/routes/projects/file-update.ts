@@ -89,7 +89,6 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
   if (delta?.success) {
     const [current] = await db
       .select({
-        scene: projectFileContent.scene,
         sceneKey: projectFileContent.sceneKey,
         sceneRev: projectFileContent.sceneRev,
       })
@@ -112,7 +111,7 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
 
     let currentScene: unknown;
     try {
-      currentScene = await loadScene({ scene: current.scene, sceneKey: current.sceneKey });
+      currentScene = await loadScene(current.sceneKey);
     } catch (error) {
       if (!isMissingObject(error)) throw error;
       // A save committed and retired this object after the row read above, so
@@ -201,9 +200,8 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
   // exactly the wrong thing for a meta response (it would tell the client chat
   // history is empty when it simply was not asked for).
   if (metaOnly || !result.content) return c.json({ file: row });
-  // The row's scene column is NULL once the scene lives in storage, so the echo
-  // is the scene just written, or the stored one when this write did not touch it.
-  const echoed = prunedScene !== undefined ? prunedScene : await loadScene(result.content);
+  // The echo is the scene just written, or the stored one when this write did not touch it.
+  const echoed = prunedScene !== undefined ? prunedScene : await loadScene(result.content.sceneKey);
   const { sceneKey: _key, ...echoedContent } = result.content;
   return c.json({ file: withContentDefaults({ ...row, ...echoedContent, scene: echoed }) });
 });
