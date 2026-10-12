@@ -201,7 +201,26 @@ fileUpdateRoute.patch("/:projectId/files/:fileId", async (c) => {
   // history is empty when it simply was not asked for).
   if (metaOnly || !result.content) return c.json({ file: row });
   // The echo is the scene just written, or the stored one when this write did not touch it.
-  const echoed = prunedScene !== undefined ? prunedScene : await loadScene(result.content.sceneKey);
+  const echoed =
+    prunedScene !== undefined ? prunedScene : await loadEchoScene(fileId, result.content.sceneKey);
   const { sceneKey: _key, ...echoedContent } = result.content;
   return c.json({ file: withContentDefaults({ ...row, ...echoedContent, scene: echoed }) });
 });
+
+/**
+ * A concurrent scene save can commit and retire `sceneKey` between this write
+ * and the read. That save's scene is the current one, so read it by the row's
+ * key now; this write already committed and must not 500.
+ */
+async function loadEchoScene(fileId: string, sceneKey: string | null): Promise<unknown> {
+  try {
+    return await loadScene(sceneKey);
+  } catch (error) {
+    if (!isMissingObject(error)) throw error;
+    const [current] = await db
+      .select({ sceneKey: projectFileContent.sceneKey })
+      .from(projectFileContent)
+      .where(eq(projectFileContent.fileId, fileId));
+    return loadScene(current?.sceneKey ?? null);
+  }
+}
