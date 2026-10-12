@@ -162,17 +162,14 @@ filesRoute.get("/:projectId/files/:fileId", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
 
-  // A stored scene is not inlined: the browser compares sceneRev with its
-  // IndexedDB copy and downloads from R2 only on a miss, so the server never
-  // streams scene bytes. The key is not sent as a field, but it is the path of
-  // the presigned URL, so the user id travels inside that URL: short-lived and
-  // scoped to this one object, and only ever returned to its owner.
+  // The scene is not inlined: the browser compares sceneRev with its IndexedDB
+  // copy and downloads from R2 only on a miss, so the server never streams scene
+  // bytes. The key is not sent as a field, but it is the path of the presigned
+  // URL, so the user id travels inside that URL: short-lived and scoped to this
+  // one object, and only ever returned to its owner.
   const { sceneKey, ...file } = row;
-  c.get("log").set({ scene: { store: sceneKey ? "s3" : "jsonb" } });
   return c.json({
-    file: withContentDefaults(
-      sceneKey ? { ...file, scene: undefined, sceneUrl: sceneUrl(sceneKey) } : file,
-    ),
+    file: withContentDefaults(sceneKey ? { ...file, sceneUrl: sceneUrl(sceneKey) } : file),
   });
 });
 

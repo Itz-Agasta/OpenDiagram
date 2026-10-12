@@ -50,6 +50,13 @@
       "when": 1791559931642,
       "tag": "0006_add_scene_key",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791578269292,
+      "tag": "0007_drop_scene_jsonb",
+      "breakpoints": true
     }
   ]
 }

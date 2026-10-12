@@ -15,8 +15,6 @@ export type ProjectFileContentPatch = {
 
 /** Selected alongside project_file wherever a caller wants the whole file. */
 const projectFileContentColumns = {
-  /** Legacy jsonb scene: only set on rows the backfill has not moved yet. */
-  scene: projectFileContent.scene,
   sceneKey: projectFileContent.sceneKey,
   spec: projectFileContent.spec,
   content: projectFileContent.content,
@@ -48,8 +46,7 @@ export async function writeProjectFileContent(
   tx: Db,
   fileId: string,
   patch: ProjectFileContentPatch,
-  // false for callers that do not read the content back. Skipping the RETURNING
-  // keeps a legacy jsonb scene from being detoasted for nothing.
+  // false for callers that do not read the content back.
   { returnContent = true }: { returnContent?: boolean } = {},
 ) {
   const { sceneKey, ...rest } = patch;
@@ -74,7 +71,6 @@ export async function writeProjectFileContent(
       .where(eq(projectFileContent.fileId, fileId));
     return {
       content: existing ?? {
-        scene: null,
         sceneKey: null,
         spec: null,
         content: null,
@@ -95,9 +91,7 @@ export async function writeProjectFileContent(
       .where(eq(projectFileContent.fileId, fileId))
       .for("update");
     previousSceneKey = current?.sceneKey ?? null;
-    // The jsonb column is cleared on every scene write, so a migrated row never
-    // carries two copies of its scene.
-    Object.assign(columns, { sceneKey, scene: null });
+    Object.assign(columns, { sceneKey });
   }
 
   const insert = tx

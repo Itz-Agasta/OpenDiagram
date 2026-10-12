@@ -85,7 +85,6 @@ export async function getProjectContext(
       name: projectFile.name,
       type: projectFile.type,
       sceneKey: projectFileContent.sceneKey,
-      scene: sql<string | null>`left(${projectFileContent.scene}::text, ${MAX_DOCUMENT_CHARS})`,
       spec: sql<string | null>`left(${projectFileContent.spec}::text, ${MAX_DOCUMENT_CHARS})`,
       content: sql<string | null>`left(${projectFileContent.content}::text, ${MAX_DOCUMENT_CHARS})`,
     })
@@ -101,7 +100,7 @@ export async function getProjectContext(
   let sceneReadErrors = 0;
   const files: ContextFile[] = await Promise.all(
     rows.map(async ({ sceneKey, ...file }) => {
-      if (!sceneKey) return file;
+      if (!sceneKey) return { ...file, scene: null };
       const scene = await readSceneExcerpt(sceneKey, MAX_DOCUMENT_CHARS).catch(() => {
         sceneReadErrors++;
         return null;
