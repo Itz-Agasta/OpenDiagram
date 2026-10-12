@@ -1,0 +1,19 @@
+apps/server/src/routes/projects/file-update.ts
+  s_45c9a936d33512::t_2e0765bb11c6de 204-205,209-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "85c97e736677b004246376a8e0590cfe22c0f4d3",
+  "prompts": {},
+  "sessions": {
+    "s_45c9a936d33512": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7a66a1b-af48-47a7-a8eb-12f676c0c6b6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
