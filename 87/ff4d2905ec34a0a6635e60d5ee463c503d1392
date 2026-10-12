@@ -1,0 +1,48 @@
+apps/server/src/routes/projects/file-update.ts
+  s_2b9ac1bf85f8e2::t_3abef1ff49cd3d 114,204
+  s_45c9a936d33512::t_ae8ebf173d5793 203
+apps/server/src/lib/scene-store/index.ts
+  s_2b9ac1bf85f8e2::t_3abef1ff49cd3d 95-97
+apps/server/src/lib/project-file-write.ts
+  s_2b9ac1bf85f8e2::t_c26d10fcda3f39 108,138
+  s_2b9ac1bf85f8e2::t_b4e132fdf03f15 247
+apps/server/src/routes/projects/files.ts
+  s_2b9ac1bf85f8e2::t_3abef1ff49cd3d 165-169,172
+packages/db/src/migrations/0007_drop_scene_jsonb.sql
+  s_2b9ac1bf85f8e2::t_0b4a3406dd8fa9 1
+packages/db/src/migrations/meta/_journal.json
+  s_2b9ac1bf85f8e2::t_0b4a3406dd8fa9 53-59
+packages/db/src/schema/projects/project-file-content.ts
+  s_2b9ac1bf85f8e2::t_0b4a3406dd8fa9 7-11,18
+packages/db/src/migrations/meta/0007_snapshot.json
+  s_2b9ac1bf85f8e2::t_b4e132fdf03f15 113-114,161,244-245,255,319,499-500,745-746,754-755,959-960,1243-1244,1320-1321,1385-1386,1490-1491,1499-1500,1581-1582,1590,1734-1735,1743-1744,1767
+  s_2b9ac1bf85f8e2::t_0b4a3406dd8fa9 1-112,115-160,162-243,246-254,256-318,320-498,501-744,747-753,756-958,961-1242,1245-1319,1322-1384,1387-1489,1492-1498,1501-1580,1583-1589,1591-1733,1736-1742,1745-1766
+apps/server/src/lib/project-context.ts
+  s_2b9ac1bf85f8e2::t_71333a4de052fb 103
+apps/server/src/lib/project-file-content.ts
+  s_2b9ac1bf85f8e2::t_c26d10fcda3f39 49,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "87ff4d2905ec34a0a6635e60d5ee463c503d1392",
+  "prompts": {},
+  "sessions": {
+    "s_2b9ac1bf85f8e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc681250-6186-4d1c-bc04-b14052b41867",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    },
+    "s_45c9a936d33512": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7a66a1b-af48-47a7-a8eb-12f676c0c6b6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
