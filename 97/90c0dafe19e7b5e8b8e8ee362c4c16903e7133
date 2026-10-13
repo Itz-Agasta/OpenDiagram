@@ -1,0 +1,19 @@
+infra/server.tf
+  s_65306f18a86d90::t_8397aaf63ccb51 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9790c0dafe19e7b5e8b8e8ee362c4c16903e7133",
+  "prompts": {},
+  "sessions": {
+    "s_65306f18a86d90": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f091a72f-5252-4fa7-953f-5c7836f267f0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
