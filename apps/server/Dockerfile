@@ -55,4 +55,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD bun -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # --preload is load-bearing for db tracing. See the Sentry note in src/index.ts.
+# Prod overrides this with `args` in infra/server.tf (adds --env-file); change both.
 CMD ["bun", "run", "--preload", "@sentry/node/preload", "dist/index.mjs"]
