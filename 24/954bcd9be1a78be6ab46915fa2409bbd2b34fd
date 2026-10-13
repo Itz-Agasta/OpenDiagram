@@ -1,0 +1,36 @@
+infra/server.auto.tfvars
+  s_65306f18a86d90::t_3320192549cec7 1
+infra/server.tf
+  s_65306f18a86d90::t_71a1661d67cebb 1-86,90-120
+  s_65306f18a86d90::t_e57a9da0f8f817 87-89
+infra/.terraform.lock.hcl
+  s_65306f18a86d90::t_3320192549cec7 22-68
+infra/variables.tf
+  s_65306f18a86d90::t_3320192549cec7 5-9
+infra/versions.tf
+  s_65306f18a86d90::t_e848ba5c884073 16-23,29-38
+infra/outputs.tf
+  s_65306f18a86d90::t_3320192549cec7 17-20
+apps/server/Dockerfile
+  s_65306f18a86d90::t_15476dfd408146 58
+Justfile
+  s_65306f18a86d90::t_fda2cb9ef2454b 98-113
+infra/server-secrets.tf
+  s_65306f18a86d90::t_846114be06c7f1 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24954bcd9be1a78be6ab46915fa2409bbd2b34fd",
+  "prompts": {},
+  "sessions": {
+    "s_65306f18a86d90": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f091a72f-5252-4fa7-953f-5c7836f267f0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
