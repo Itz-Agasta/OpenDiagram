@@ -16,8 +16,9 @@ locals {
     "SENTRY_DSN",
   ])
 
-  # Bump after changing any of the values above in Infisical: the apply writes
-  # a new version and rolls a new revision.
+  # Bump after changing a value in Infisical or server_secret_names. Terraform cannot see
+  # either change (secret_data_wo is never stored), so without a bump the
+  # apply keeps the old version.
   server_env_version = 1
 }
 
@@ -29,6 +30,13 @@ ephemeral "infisical_secret" "server" {
   env_slug     = "prod"
   workspace_id = local.infisical_project_id
   folder_path  = "/server"
+
+  lifecycle {
+    postcondition {
+      condition     = !strcontains(self.value, "'") && !strcontains(self.value, "\n")
+      error_message = "${each.key} contains ' or a newline, which the single-quoted .env below cannot hold."
+    }
+  }
 }
 
 # One secret holding a .env file instead of one secret per value: Secret Manager
@@ -41,8 +49,8 @@ resource "google_secret_manager_secret" "server_env" {
   }
 }
 
-# Single quotes are literal in Bun's dotenv parser; a value containing ' or a
-# newline would break the file (none did on 2026-10-13).
+# Single quotes are literal in Bun's dotenv parser; the postcondition above
+# rejects the two characters that would break the file.
 resource "google_secret_manager_secret_version" "server_env" {
   secret = google_secret_manager_secret.server_env.id
   secret_data_wo = join("\n", [

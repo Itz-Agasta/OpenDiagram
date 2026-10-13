@@ -25,6 +25,9 @@ resource "google_cloud_run_v2_service" "server" {
   invoker_iam_disabled = true
   deletion_protection  = true
 
+  # 3 on purpose: burst/concurrency limiters live in process memory, so their real
+  # limit is plan limit x instance count, and this cap is what keeps us under
+  # Gemini's rate limits. Spend is bounded separately by the DB credit counter.
   scaling {
     max_instance_count = 3
   }
@@ -36,7 +39,7 @@ resource "google_cloud_run_v2_service" "server" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 20
+      max_instance_count = 3
     }
 
     volumes {
