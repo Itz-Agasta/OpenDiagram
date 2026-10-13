@@ -16,10 +16,22 @@ locals {
     "SENTRY_DSN",
   ])
 
-  # Bump after changing a value in Infisical or server_secret_names. Terraform cannot see
-  # either change (secret_data_wo is never stored), so without a bump the
-  # apply keeps the old version.
-  server_env_version = 1
+  # secret_data_wo is never stored, so Terraform cannot see a changed value on
+  # its own. This number changes whenever any Infisical version or the name list
+  # does, which makes the next apply write a new version and roll a revision.
+  server_env_version = parseint(substr(sha256(join(",", [
+    for name in sort(local.server_secret_names) :
+    "${name}:${data.infisical_secret_metadata.server[name].secret_version}"
+  ])), 0, 12), 16)
+}
+
+# Versions only, never values: a plain data source is safe in state.
+data "infisical_secret_metadata" "server" {
+  for_each         = local.server_secret_names
+  name             = each.key
+  environment_slug = "prod"
+  project_id       = local.infisical_project_id
+  folder_path      = "/server"
 }
 
 # Ephemeral + secret_data_wo keeps every value out of state; Cloud Run env values
