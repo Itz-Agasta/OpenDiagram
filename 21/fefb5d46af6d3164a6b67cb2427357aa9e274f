@@ -1,0 +1,19 @@
+bun.lock
+  s_65306f18a86d90::t_58e5612a94c1d1 868,870,872,874,876,878,880,882,884,886,888,890,892,894,896,898,900,902,904,2318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "21fefb5d46af6d3164a6b67cb2427357aa9e274f",
+  "prompts": {},
+  "sessions": {
+    "s_65306f18a86d90": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f091a72f-5252-4fa7-953f-5c7836f267f0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Itz-Agasta <rupamgolui69@gmail.com>"
+    }
+  }
+}
