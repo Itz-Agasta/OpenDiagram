@@ -90,6 +90,7 @@ resource "google_cloud_run_v2_service" "server" {
       # FIXME(upstream): success_threshold left at the default (1). The v2 API omits
       # readinessProbe.successThreshold on read, so any other value is a diff on
       # every plan. Set it again once the v2 GET returns it.
+      # https://issuetracker.google.com/issues/573056668
       readiness_probe {
         http_get {
           path = "/health/ready"
