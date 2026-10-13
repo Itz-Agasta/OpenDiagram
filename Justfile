@@ -95,3 +95,20 @@ db-seed *args:
 # Bring a database up to date: migrate, then seed. Order matters.
 db-setup:
     infisical run --path="server" -- just db-migrate db-seed
+
+# Build + push the server image, then roll it out through Terraform: just deploy 0.10.2
+deploy version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version={{ quote(version) }}
+    image=docker.io/agasta/opendiagram-server
+    meta=$(mktemp)
+    trap 'rm -f "$meta"' EXIT
+    docker buildx build --platform linux/amd64 -f apps/server/Dockerfile \
+        -t "$image:$version" --metadata-file "$meta" --push .
+    digest=$(jq -er '."containerimage.digest"' "$meta")
+    # Digest pin: a rebuilt image under the same tag still rolls a new revision.
+    printf 'server_image = "%s:%s@%s"\n' "$image" "$version" "$digest" > infra/server.auto.tfvars
+    terraform -chdir=infra apply
+    curl -fsS https://apix4k9.opendiagram.ink/health/ready
+    echo "Deployed $version. Commit infra/server.auto.tfvars."

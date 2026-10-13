@@ -14,3 +14,7 @@ output "prod_secret_access_key" {
   value     = module.data_prod.secret_access_key
   sensitive = true
 }
+
+output "server_url" {
+  value = google_cloud_run_v2_service.server.uri
+}
