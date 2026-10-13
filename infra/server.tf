@@ -1,17 +1,14 @@
 locals {
   server_env = {
-    NODE_ENV              = "production"
-    BETTER_AUTH_URL       = "https://apix4k9.opendiagram.ink"
-    CORS_ORIGIN           = "https://opendiagram.ink"
-    COOKIE_DOMAIN         = "opendiagram.ink"
-    GITHUB_CLIENT_ID      = "Ov23liHzBr1KaIkQ18oI"
-    RESEND_FROM           = "OpenDiagram <hello@opendiagram.ink>"
-    DODO_PRO_PRODUCT_ID   = "pdt_0Nk9YqgohjlnsspluJcHg"
-    DODO_ENVIRONMENT      = "live_mode"
-    POSTHOG_PROJECT_TOKEN = "phc_wBTEk2sn9Q5XQaSjJu4xGnm8PagFHi9np7JVVLPXvUxx"
-    POSTHOG_HOST          = "https://us.i.posthog.com"
-    S3_ENDPOINT           = module.data_prod.endpoint
-    S3_BUCKET             = module.data_prod.bucket_name
+    NODE_ENV         = "production"
+    BETTER_AUTH_URL  = "https://apix4k9.opendiagram.ink"
+    CORS_ORIGIN      = "https://opendiagram.ink"
+    COOKIE_DOMAIN    = "opendiagram.ink"
+    RESEND_FROM      = "OpenDiagram <hello@opendiagram.ink>"
+    DODO_ENVIRONMENT = "live_mode"
+    POSTHOG_HOST     = "https://us.i.posthog.com"
+    S3_ENDPOINT      = module.data_prod.endpoint
+    S3_BUCKET        = module.data_prod.bucket_name
   }
 }
 

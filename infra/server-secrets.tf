@@ -1,15 +1,19 @@
 locals {
   infisical_project_id = "bc7e2422-3367-414c-a029-435f38f54b00"
 
-  # Read from Infisical prod /server.
+  # Read from Infisical prod /server. some are not secret (browsers see them)
+  # but stay out; so forks cannot send events or traffic to our accounts.
   server_secret_names = toset([
     "BETTER_AUTH_SECRET",
     "BYOK_ENCRYPTION_KEY",
     "DATABASE_URL",
     "DODO_PAYMENTS_API_KEY",
+    "DODO_PRO_PRODUCT_ID",
     "DODO_WEBHOOK_SECRET",
+    "GITHUB_CLIENT_ID",
     "GITHUB_CLIENT_SECRET",
     "GOOGLE_GENERATIVE_AI_API_KEY",
+    "POSTHOG_PROJECT_TOKEN",
     "RESEND_API_KEY",
     "S3_ACCESS_KEY_ID",
     "S3_SECRET_ACCESS_KEY",
