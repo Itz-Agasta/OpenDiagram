@@ -187,16 +187,16 @@ function SaveButton({
       </button>
     );
   }
-  // idle and saved: nothing pending. Still clickable, a re-save is harmless.
+  // idle and saved: a status, not a button. A click here re-uploaded the whole
+  // scene and bumped its revision for no edit, while looking like it did nothing.
   return (
-    <button
-      type="button"
-      onClick={onSave}
+    <span
+      role="status"
       title="All changes saved"
-      className={`${base} hover:bg-od-canvas/45 hover:text-od-ink ${justSaved ? "text-od-green" : "text-od-ink-faint"}`}
+      className={`${base} ${justSaved ? "text-od-green" : "text-od-ink-faint"}`}
     >
       <Check aria-hidden className="h-3.5 w-3.5" />
       Saved
-    </button>
+    </span>
   );
 }
