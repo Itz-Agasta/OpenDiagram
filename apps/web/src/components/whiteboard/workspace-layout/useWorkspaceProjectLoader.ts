@@ -25,7 +25,12 @@ interface LoaderOptions {
   draft: GuestProjectDraft | null;
   draftResolved: boolean;
   draftRef: RefObject<GuestProjectDraft | null>;
-  initializePersistence: (type: SavedProjectFile["type"], scene: unknown, content: string) => void;
+  initializePersistence: (
+    type: SavedProjectFile["type"],
+    scene: unknown,
+    content: string,
+    dirty?: boolean,
+  ) => void;
   isSignedIn: boolean;
   projectId: string;
   sessionPending: boolean;
@@ -294,7 +299,7 @@ export function useWorkspaceProjectLoader(options: LoaderOptions) {
           : serverScene;
         const content = keepLocal ? current.content : serverContent;
 
-        initializePersistence(result.type, scene, content);
+        initializePersistence(result.type, scene, content, keepLocal);
         setDocContent(content);
         setInitialScene(scene);
 

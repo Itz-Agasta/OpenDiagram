@@ -337,7 +337,9 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
   );
 
   const initialize = useCallback(
-    (type: SavedProjectFile["type"], scene: unknown, content: string) => {
+    // dirty: the scene is unsynced local work the loader kept over the server's,
+    // which must upload like a fresh edit rather than read as saved.
+    (type: SavedProjectFile["type"], scene: unknown, content: string, dirty = false) => {
       if (dirtyRef.current) {
         const snapshot = snapshotRef.current ?? snapshotCurrent();
         if (snapshot) void saveSnapshot(snapshot);
@@ -349,8 +351,9 @@ export function useWorkspacePersistence(options: UseWorkspacePersistenceOptions)
       lastSavedVersionRef.current = initialElementsVersion(sceneRef.current);
       pendingVersionRef.current = lastSavedVersionRef.current;
       dirtyRef.current = false;
+      if (dirty) scheduleAutosave();
     },
-    [saveSnapshot, snapshotCurrent],
+    [saveSnapshot, scheduleAutosave, snapshotCurrent],
   );
 
   const clearAutosave = useCallback(() => {
