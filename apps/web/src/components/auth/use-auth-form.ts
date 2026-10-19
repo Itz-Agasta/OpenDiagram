@@ -32,7 +32,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
     "An account already exists for that email, but it isn't linked to GitHub yet. Sign in with your password below, then verify your email -- after that, GitHub sign-in will work.",
   unable_to_link_account:
     "We couldn't link that GitHub account. Try signing in with your password.",
-  "email_doesn't_match": "That GitHub account uses a different email than the one on file.",
+  email_does_not_match: "That GitHub account uses a different email than the one on file.",
   account_already_linked_to_different_user:
     "That GitHub account is already linked to a different OpenDiagram account.",
   email_not_found:

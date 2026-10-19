@@ -14,7 +14,7 @@
       "@milkdown/crepe": "7.22.3",
       "@milkdown/kit": "7.22.3",
       "@types/lodash.throttle": "^4.1.9",
-      "better-auth": "1.6.22",
+      "better-auth": "1.7.11",
       "drizzle-orm": "^0.45.1",
       "evlog": "^2.19.2",
       "lodash.throttle": "^4.1.1",

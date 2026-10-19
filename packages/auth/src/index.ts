@@ -82,9 +82,6 @@ export function createAuth() {
       schema: schema,
       transaction: true,
     }),
-    // Joins session + user in one query instead of two. Measured 2 statements -> 1.
-    // TODO: re-check on every Better Auth version bump -- still experimental upstream.
-    experimental: { joins: true },
     trustedOrigins: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
     session: {
       // 30-day remembered session. The 7-day default silently delivered a quarter
@@ -175,6 +172,8 @@ export function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
+      // Joins session + user in one query instead of two. Measured 2 statements -> 1.
+      database: { joins: true },
       // No `backgroundTasks.handler` -- Cloud Run has no `waitUntil`, so a handler
       // would detach mail sends into a CPU-throttled instance and lose them.
       ipAddress: {

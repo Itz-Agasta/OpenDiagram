@@ -1,5 +1,6 @@
 import { auth } from "@OpenDiagram/auth";
 import { and, db, eq, ne } from "@OpenDiagram/db";
+import { account } from "@OpenDiagram/db/schema/auth";
 import { githubImportJob, project, projectFile } from "@OpenDiagram/db/schema/projects";
 import { z } from "zod";
 import { Hono } from "hono";
@@ -238,6 +239,14 @@ async function getGitHubAuth(c: Context) {
     return null;
   }
 
+  // Better Auth 1.7 selects the account by its local row id, not by provider.
+  const [githubAccount] = await db
+    .select({ id: account.id })
+    .from(account)
+    .where(and(eq(account.userId, session.user.id), eq(account.providerId, "github")))
+    .limit(1);
+  if (!githubAccount) return null;
+
   try {
     // Still the raw headers, and deliberately so: `getAccessToken` forces
     // `disableCookieCache: true` internally, because it hands out a live GitHub
@@ -246,7 +255,7 @@ async function getGitHubAuth(c: Context) {
     const token = await auth.api.getAccessToken({
       headers: c.req.raw.headers,
       body: {
-        providerId: "github",
+        accountId: githubAccount.id,
         userId: session.user.id,
       },
     });
