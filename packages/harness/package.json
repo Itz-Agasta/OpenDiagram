@@ -11,7 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "elkjs": "^0.11.1",
+    "elkjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
