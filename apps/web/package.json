@@ -72,7 +72,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",
     "@types/lodash.throttle": "catalog:",
-    "@types/node": "^20",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
