@@ -16,10 +16,15 @@ const env = (name: string) => {
   return value;
 };
 
-const directNames = new Set(
+// A workspace's dep resolves to the hoisted key ("zod") or, when its version differs
+// from the hoisted one, to a key under the workspace's name ("web/zod").
+const directKeys = new Set(
   Object.values(lock.workspaces as Record<string, Record<string, unknown>>).flatMap((ws) =>
     ["dependencies", "devDependencies", "optionalDependencies"].flatMap((field) =>
-      Object.keys((ws[field] as Record<string, string> | undefined) ?? {}),
+      Object.keys((ws[field] as Record<string, string> | undefined) ?? {}).flatMap((dep) => [
+        dep,
+        `${ws.name}/${dep}`,
+      ]),
     ),
   ),
 );
@@ -33,11 +38,11 @@ for (const [key, entry] of Object.entries(lock.packages as Record<string, Entry>
   const name = entry[0].slice(0, at);
   const version = entry[0].slice(at + 1);
   const purl = `pkg:npm/${name.replace(/^@/, "%40")}@${version}`;
-  // Nested keys ("parent/child") are extra copies under another package; the
-  // top-level key is the one a workspace resolves directly.
-  const direct = key === name && directNames.has(name);
   if (resolved[purl]?.relationship === "direct") continue;
-  resolved[purl] = { package_url: purl, relationship: direct ? "direct" : "indirect" };
+  resolved[purl] = {
+    package_url: purl,
+    relationship: directKeys.has(key) ? "direct" : "indirect",
+  };
 }
 
 const repo = env("GITHUB_REPOSITORY");
