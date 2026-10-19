@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { ChevronsUpDown, FileText, PenTool, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { Attachment, Attachments, type AttachmentData } from "@/components/ai-elements/attachments";
+import { PastedTextDialog } from "@/components/pasted-text-dialog";
+import { claimLargePaste, fileUIPartText, pastedTextPart } from "@/lib/pasted-text";
 import {
   getAiSettings,
   pickerModelOptions,
@@ -45,6 +49,8 @@ interface AgentInputPanelWithSessionProps extends AgentInputPanelProps {
 export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPanelWithSessionProps) {
   const [selectedMode, setSelectedMode] = useState<FileKind>("diagram");
   const [prompt, setPrompt] = useState("");
+  const [pastes, setPastes] = useState<AttachmentData[]>([]);
+  const [openPaste, setOpenPaste] = useState<AttachmentData | null>(null);
   const [ctaIndex, setCtaIndex] = useState(0);
   const [providerId, setProviderId] = useState(STANDARD_MODEL_OPTION.id);
   const [providerOptions, setProviderOptions] = useState<ProviderModelOption[]>([]);
@@ -78,6 +84,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
   }, [signedIn]);
 
   const selectedProvider = providerOptions.find((option) => option.id === providerId);
+  const canSubmit = !creating && (prompt.trim().length > 0 || pastes.length > 0);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col items-center justify-center px-0 py-4 md:px-6 md:py-5">
@@ -87,12 +94,12 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          const text = prompt.trim();
-          if (!text || creating) return;
+          if (!canSubmit) return;
 
           setProviderError(null);
           onSubmit({
-            prompt: text,
+            prompt: prompt.trim(),
+            files: pastes.map(({ id: _id, ...part }) => part),
             kind: selectedMode,
             modelId: selectedProvider?.modelId,
             providerId: selectedProvider?.providerId,
@@ -116,11 +123,56 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
               </button>
             ))}
           </div>
+          {pastes.length > 0 && (
+            <Attachments className="mt-3">
+              {pastes.map((paste) => (
+                <Attachment
+                  key={paste.id}
+                  data={paste}
+                  onOpen={() => setOpenPaste(paste)}
+                  onRemove={
+                    creating
+                      ? undefined
+                      : () => setPastes((current) => current.filter(({ id }) => id !== paste.id))
+                  }
+                />
+              ))}
+            </Attachments>
+          )}
+          <PastedTextDialog
+            paste={
+              openPaste && {
+                name: openPaste.filename ?? "Pasted text",
+                text: fileUIPartText(openPaste),
+              }
+            }
+            onClose={() => setOpenPaste(null)}
+            onInsertAsText={() => {
+              if (!openPaste) return;
+              const text = fileUIPartText(openPaste);
+              setPrompt((current) => (current ? `${current}\n\n${text}` : text));
+              setPastes((current) => current.filter(({ id }) => id !== openPaste.id));
+              setOpenPaste(null);
+            }}
+          />
           <label className="mt-3 block">
             <span className="sr-only">Describe what OpenDiagram should create</span>
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
+              onPaste={(event) => {
+                const text = claimLargePaste(event);
+                if (text === null) return;
+                // Same cap as the canvas composer: every chip is re-sent with each turn.
+                if (pastes.length >= 3) {
+                  toast.error("Up to 3 pastes per message.");
+                  return;
+                }
+                setPastes((current) => [
+                  ...current,
+                  { ...pastedTextPart(text), id: crypto.randomUUID() },
+                ]);
+              }}
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                   event.preventDefault();
@@ -157,7 +209,7 @@ export function AgentInputPanel({ creating, onSubmit, signedIn }: AgentInputPane
             />
             <button
               type="submit"
-              disabled={creating || prompt.trim().length === 0}
+              disabled={!canSubmit}
               className="h-8 rounded-[10px] bg-od-ink px-4 text-[13px] font-semibold text-white transition hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {creating ? "Creating..." : "Create"}

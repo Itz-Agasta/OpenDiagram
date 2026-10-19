@@ -10,6 +10,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ThemeName } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/web";
 import { toPromptDiagrams, type CanvasDiagram } from "@/lib/canvas-diagrams";
+import { isTextFilePart } from "@/lib/pasted-text";
 import {
   storedChatMessageToUIMessage,
   uiMessagesToStoredChatHistory,
@@ -201,12 +202,11 @@ export function useDiagramChat(options: UseDiagramChatOptions) {
     const seedMessage = chat.messages.find(
       (message) => message.role === "user" && uiMessageText(message) === autoDiagramPrompt.text,
     );
+    // A dashboard paste arrives as file parts, possibly with no text at all.
+    const files = autoDiagramPrompt.parts?.filter(isTextFilePart) ?? [];
+    const message = autoDiagramPrompt.text ? { text: autoDiagramPrompt.text, files } : { files };
     void chat
-      .sendMessage(
-        seedMessage
-          ? { text: autoDiagramPrompt.text, messageId: seedMessage.id }
-          : { text: autoDiagramPrompt.text },
-      )
+      .sendMessage(seedMessage ? { ...message, messageId: seedMessage.id } : message)
       .then(() => {
         window.localStorage.setItem(storageKey, "complete");
       })

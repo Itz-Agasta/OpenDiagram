@@ -3,7 +3,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { env } from "@OpenDiagram/env/web";
 import posthog from "posthog-js";
+import type { StoredChatMessage } from "@/lib/chat-history";
 import { createGuestProjectDraft, saveGuestProjectDraft } from "@/lib/guest-drafts";
+import { fileUIPartText } from "@/lib/pasted-text";
 import { createProject, createProjectFile, type SavedProjectFile } from "@/lib/projects-client";
 import type { DashboardData } from "./use-dashboard-data";
 import type { AgentInputSubmit, FileKind } from "./types";
@@ -67,16 +69,32 @@ export function useDashboardCreation(data: DashboardData, signedIn: boolean) {
     }
   }
 
-  async function createProjectFromAgent({ prompt, kind, modelId, providerId }: AgentInputSubmit) {
+  async function createProjectFromAgent({
+    prompt,
+    files = [],
+    kind,
+    modelId,
+    providerId,
+  }: AgentInputSubmit) {
     if (agentCreatePending) return;
-    const names = deriveAgentProjectNames(prompt, kind);
-    const firstMessage = { id: crypto.randomUUID(), role: "user" as const, text: prompt };
-    const docContent = kind === "doc" ? `# ${names.fileName}\n\n${prompt}\n` : undefined;
+    const body = [prompt, ...files.map(fileUIPartText)].filter(Boolean).join("\n\n");
+    const names = deriveAgentProjectNames(prompt || body, kind);
+    const firstMessage: StoredChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      text: prompt,
+      parts: [...(prompt ? [{ type: "text" as const, text: prompt }] : []), ...files],
+    };
+    const docContent = kind === "doc" ? `# ${names.fileName}\n\n${body}\n` : undefined;
     setAgentCreatePending(true);
 
     try {
       if (signedIn) {
-        const project = await createProject({ name: names.projectName, description: prompt });
+        const project = await createProject({
+          name: names.projectName,
+          // The server caps a description at 2,000 characters (routes/projects/project.ts).
+          description: body.slice(0, 2_000),
+        });
         const file = await createFirstFile(project.id, {
           name: names.fileName,
           type: kind === "diagram" ? "diagram" : "doc",

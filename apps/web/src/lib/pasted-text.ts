@@ -1,4 +1,6 @@
 import type { FileUIPart } from "ai";
+import type { ClipboardEvent } from "react";
+import { toast } from "sonner";
 
 /**
  * Past either of these, a paste becomes an attachment chip instead of composer
@@ -9,20 +11,48 @@ import type { FileUIPart } from "ai";
 const ATTACH_OVER_CHARS = 2_000;
 const ATTACH_OVER_LINES = 100;
 /** ~25k tokens. A paste is re-sent with every later turn, so it is capped, not just shown. */
-export const MAX_PASTE_CHARS = 100_000;
+const MAX_PASTE_CHARS = 100_000;
 
 // A copied block usually ends in a newline; it is not a line of its own.
 const lineCount = (text: string) => text.replace(/\n$/, "").split("\n").length;
 
-export function shouldAttachPaste(text: string) {
+function shouldAttachPaste(text: string) {
   return text.length > ATTACH_OVER_CHARS || lineCount(text) > ATTACH_OVER_LINES;
 }
 
-export function pastedTextFile(text: string) {
+/**
+ * The text of a paste that should become a chip, or null to let the textarea
+ * take it. A paste too big for a chip is claimed too, with a toast, so it never
+ * lands in the textarea either.
+ */
+export function claimLargePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+  const text = event.clipboardData.getData("text/plain");
+  if (!shouldAttachPaste(text)) return null;
+  event.preventDefault();
+  if (text.length <= MAX_PASTE_CHARS) return text;
+  toast.error(
+    `That paste is ${text.length.toLocaleString()} characters. The limit is ${MAX_PASTE_CHARS.toLocaleString()}.`,
+  );
+  return null;
+}
+
+function pasteName(text: string) {
   const lines = lineCount(text);
-  return new File([text], `Pasted text · ${lines} line${lines === 1 ? "" : "s"}`, {
-    type: "text/plain",
-  });
+  return `Pasted text · ${lines} line${lines === 1 ? "" : "s"}`;
+}
+
+export function pastedTextFile(text: string) {
+  return new File([text], pasteName(text), { type: "text/plain" });
+}
+
+/** The part a composer chip becomes on send, for a form without a PromptInput. */
+export function pastedTextPart(text: string): FileUIPart {
+  return {
+    type: "file",
+    mediaType: "text/plain",
+    filename: pasteName(text),
+    url: `data:text/plain;charset=utf-8,${encodeURIComponent(text)}`,
+  };
 }
 
 export const isTextFilePart = (part: { type: string; mediaType?: string }): part is FileUIPart =>

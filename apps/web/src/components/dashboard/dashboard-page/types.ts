@@ -1,3 +1,5 @@
+import type { FileUIPart } from "ai";
+
 export type FileKind = "diagram" | "doc";
 
 export interface ProjectFile {
@@ -20,6 +22,8 @@ export interface Project {
 
 export interface AgentInputSubmit {
   prompt: string;
+  /** Pasted-text chips, as `text/plain` data-URL parts. */
+  files?: FileUIPart[];
   kind: FileKind;
   providerId?: string;
   modelId?: string;
