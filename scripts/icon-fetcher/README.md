@@ -79,9 +79,9 @@ Every downloaded icon lands in the registry. Untagged icons are kept with empty 
 ```toml
 ["aws-architecture-icons__ec2"]
 name = "EC2"
-category = "service"                                  # one of the categories in the comment
+category = "service" # one of the categories in the comment
 tags = ["compute", "server", "vm", "instance", "aws"] # concepts the AI matches against
-keywords = ["ec2", "instance", "virtual machine"]     # synonyms / alternate names
+keywords = ["ec2", "instance", "virtual machine"] # synonyms / alternate names
 ```
 
 - **category** — coarse bucket: `service|database|cache|queue|gateway|client|storage|function|network|external`.
