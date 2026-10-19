@@ -11,10 +11,10 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.211",
-    "@openrouter/ai-sdk-provider": "^2.9.1",
+    "@ai-sdk/react": "catalog:",
+    "@openrouter/ai-sdk-provider": "catalog:",
     "@radix-ui/react-presence": "^1.1.6",
-    "ai": "^6.0.209",
+    "ai": "catalog:",
     "class-variance-authority": "catalog:",
     "cnfast": "^0.0.8",
     "flexsearch": "^0.8.212",

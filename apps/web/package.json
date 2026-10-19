@@ -11,7 +11,7 @@
   "dependencies": {
     "@OpenDiagram/env": "workspace:*",
     "@OpenDiagram/harness": "workspace:*",
-    "@ai-sdk/react": "^4.0.5",
+    "@ai-sdk/react": "catalog:",
     "@excalidraw/excalidraw": "^0.18.1",
     "@milkdown/crepe": "catalog:",
     "@milkdown/kit": "catalog:",
