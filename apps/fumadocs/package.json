@@ -16,7 +16,7 @@
     "@radix-ui/react-presence": "^1.1.6",
     "ai": "catalog:",
     "class-variance-authority": "catalog:",
-    "cnfast": "^0.0.8",
+    "cnfast": "^0.2.0",
     "flexsearch": "^0.8.212",
     "fumadocs-core": "catalog:",
     "fumadocs-mdx": "15.4.8",

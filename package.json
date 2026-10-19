@@ -14,7 +14,7 @@
       "@milkdown/crepe": "7.22.3",
       "@milkdown/kit": "7.22.3",
       "@types/lodash.throttle": "^4.1.9",
-      "better-auth": "1.6.22",
+      "better-auth": "1.7.10",
       "drizzle-orm": "^0.45.1",
       "evlog": "^2.19.2",
       "lodash.throttle": "^4.1.1",
@@ -40,7 +40,7 @@
       "class-variance-authority": "^0.7.1",
       "@ai-sdk/react": "^4.0.5",
       "@openrouter/ai-sdk-provider": "^3.0.0",
-      "elkjs": "^0.11.1",
+      "elkjs": "^0.12.0",
       "@types/node": "^26.6.5"
     }
   },

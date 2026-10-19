@@ -38,7 +38,7 @@
   "devDependencies": {
     "@OpenDiagram/config": "workspace:*",
     "@types/bun": "catalog:",
-    "tsdown": "^0.21.9",
+    "tsdown": "^0.23.1",
     "typescript": "catalog:"
   },
   "trustedDependencies": [
