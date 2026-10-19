@@ -36,8 +36,15 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
-      include: "scope"
+    # A package joins the first group it matches, so the family groups come
+    # first. They take majors too: a split @sentry/* set loads two SDK copies,
+    # and ai without @ai-sdk/otel fails to typecheck.
+    # https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#groups
     groups:
+      sentry:
+        patterns: ["@sentry/*"]
+      ai-sdk:
+        patterns: ["ai", "@ai-sdk/*"]
       bun-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
