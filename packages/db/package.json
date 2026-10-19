@@ -30,8 +30,8 @@
   },
   "devDependencies": {
     "@OpenDiagram/config": "workspace:*",
-    "@types/pg": "^8.16.0",
-    "drizzle-kit": "^0.31.8",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "typescript": "catalog:"
   }
 }
