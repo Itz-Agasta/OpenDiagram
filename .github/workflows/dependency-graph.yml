@@ -1,0 +1,35 @@
+name: Dependency Graph
+
+# GitHub's dependency graph does not read bun.lock, so without this workflow
+# catalog and transitive deps get no Dependabot alerts.
+# https://docs.github.com/en/rest/dependency-graph/dependency-submission
+on:
+  push:
+    branches: [main]
+    paths: [bun.lock]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+# The submission API needs contents: write.
+permissions:
+  contents: write
+
+jobs:
+  submit:
+    name: Submit bun.lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Submit snapshot
+        run: bun .github/scripts/submit-bun-deps.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

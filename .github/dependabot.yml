@@ -24,26 +24,20 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
-  # Bun deps are intentionally NOT managed yet.
-  #
-  # This repo declares shared versions in `workspaces.catalog` and every
-  # workspace package references them with `catalog:`. Dependabot's bun parser
-  # skips `catalog:` specifiers, so it would see almost nothing here, and it has
-  # an open bug where it strips the catalog block from bun.lock.
-  #   fix:  https://github.com/dependabot/dependabot-core/pull/14418  (open)
-  #   bug:  https://github.com/dependabot/dependabot-core/issues/12522 (open)
-  # Uncomment once both are resolved.
-  #
-  # - package-ecosystem: "bun"
-  #   directory: "/"
-  #   schedule:
-  #     interval: "weekly"
-  #     day: "monday"
-  #   open-pull-requests-limit: 5
-  #   commit-message:
-  #     prefix: "chore(deps)"
-  #     include: "scope"
-  #   groups:
-  #     bun-minor-patch:
-  #       patterns: ["*"]
-  #       update-types: ["minor", "patch"]
+  # Covers `workspaces.catalog` entries since dependabot-core#16544. Version
+  # updates only: alerts come from workflows/dependency-graph.yml, because
+  # GitHub's dependency graph does not read bun.lock.
+  # https://github.com/dependabot/dependabot-core/pull/16544
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      bun-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
