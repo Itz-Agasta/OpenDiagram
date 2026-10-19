@@ -56,7 +56,10 @@ app.use(
     traceLifecycle: "stream",
     // Every category explicit: in v11 an unset one means "collect", which would
     // send session cookies, request bodies (user prompts) and query parameters.
-    // This is the v10 default; gen_ai keeps model/token/latency metadata only.
+    // This is the v10 default, plus no local variables (a prompt held in one would
+    // ride along on any error); gen_ai keeps model/token/latency metadata only.
+    // `token` and `key` are already scrubbed by Sentry's built-in sensitive-key list
+    // (@sentry/core utils/data-collection); `code`/`state` are the OAuth callback's.
     // https://docs.sentry.io/platforms/javascript/guides/bun/migration/v10-to-v11/#data-collection
     dataCollection: {
       userInfo: false,
@@ -66,10 +69,12 @@ app.use(
         response: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
       },
       httpBodies: [],
-      urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+      urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user", "code", "state"] },
       genAI: { inputs: false, outputs: false },
       databaseQueryData: false,
       graphQL: { document: false, variables: false },
+      queues: false,
+      stackFrameVariables: false,
     },
     // v11 ignores spans created through @opentelemetry/api unless this is on, and
     // @ai-sdk/otel emits every gen_ai span that way (lib/telemetry.ts).

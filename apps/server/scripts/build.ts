@@ -9,7 +9,7 @@
  */
 import { sentryBunPlugin } from "@sentry/bun/plugin";
 
-const pkg = await Bun.file(new URL("../package.json", import.meta.url)).json();
+const pkg = await Bun.file(`${import.meta.dir}/../package.json`).json();
 
 const external = [
   ...Object.keys(pkg.dependencies).filter((d) => d !== "pg" && !d.startsWith("@OpenDiagram/")),
@@ -20,8 +20,8 @@ const external = [
 ];
 
 const result = await Bun.build({
-  entrypoints: [new URL("../src/index.ts", import.meta.url).pathname],
-  outdir: new URL("../dist", import.meta.url).pathname,
+  entrypoints: [`${import.meta.dir}/../src/index.ts`],
+  outdir: `${import.meta.dir}/../dist`,
   target: "bun",
   format: "esm",
   external,

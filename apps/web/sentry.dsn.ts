@@ -18,7 +18,9 @@ export const WEB_SENTRY_TRACES_SAMPLE_RATE = env.NEXT_PUBLIC_SENTRY_TRACES_SAMPL
 export const WEB_SENTRY_ENVIRONMENT = process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV;
 
 // Every category explicit: in Sentry v11 an unset one means "collect" (cookies,
-// request bodies, user IP). This is the v10 default, shared by all three runtimes.
+// request bodies, user IP). This is the v10 default plus no local variables, shared
+// by all three runtimes. `code`/`state` are OAuth callback params; `token` is already
+// on Sentry's built-in sensitive-key list.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/migration/v10-to-v11/#data-collection
 const denyNetworkIdentity = { deny: ["forwarded", "-ip", "remote-", "via", "-user"] };
 export const WEB_SENTRY_DATA_COLLECTION = {
@@ -26,8 +28,10 @@ export const WEB_SENTRY_DATA_COLLECTION = {
   cookies: false,
   httpHeaders: { request: denyNetworkIdentity, response: denyNetworkIdentity },
   httpBodies: [],
-  urlQueryParams: denyNetworkIdentity,
+  urlQueryParams: { deny: [...denyNetworkIdentity.deny, "code", "state"] },
   genAI: { inputs: false, outputs: false },
   databaseQueryData: false,
   graphQL: { document: false, variables: false },
+  queues: false,
+  stackFrameVariables: false,
 } satisfies NonNullable<Parameters<typeof import("@sentry/nextjs").init>[0]>["dataCollection"];
