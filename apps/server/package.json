@@ -23,7 +23,7 @@
     "@posthog/ai": "8.14.2",
     "@sentry/bun": "10.68.0",
     "@sentry/hono": "10.68.0",
-    "@sentry/node": "10.68.0",
+    "@sentry/node": "11.8.0",
     "ai": "catalog:",
     "better-auth": "catalog:",
     "dodopayments": "^2.43.0",
