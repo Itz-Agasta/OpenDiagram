@@ -93,6 +93,11 @@ projectRoute.post("/", async (c) => {
   const parsed = createSchema.safeParse(body);
 
   if (!parsed.success) {
+    // Warn, not info: only the web app calls this, so a 400 is our client's bug,
+    // and warn is the lowest level that reaches Sentry.
+    c.get("log").warn("Project create rejected", {
+      issues: parsed.error.issues.map(({ path, code }) => `${path.join(".")}: ${code}`),
+    });
     return c.json({ error: "Invalid request", issues: parsed.error.issues }, 400);
   }
 
