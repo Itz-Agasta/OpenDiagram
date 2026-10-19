@@ -54,7 +54,7 @@ resource "google_cloud_run_v2_service" "server" {
       name  = "opendiagram-server-1"
       image = var.server_image
       # The Dockerfile CMD plus --env-file; keep the two in step.
-      args = ["bun", "run", "--env-file", "/secrets/server.env", "--preload", "@sentry/node/preload", "dist/index.mjs"]
+      args = ["bun", "run", "--env-file", "/secrets/server.env", "dist/index.js"]
 
       ports {
         name           = "http1"

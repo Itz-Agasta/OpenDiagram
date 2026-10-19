@@ -8,14 +8,15 @@ import { registerTelemetry } from "ai";
 // diagnostics tracing channel, which Bun does not implement. Verified against
 // a live Gemini call that produced zero gen_ai spans. The AI SDK's own
 // OpenTelemetry integration does not need that channel: it emits GenAI SemConv
-// spans through the @opentelemetry/api singleton, and @sentry/bun registers a
-// SentryTracerProvider there, so the spans land in Sentry's AI Agents views.
+// spans through the @opentelemetry/api singleton, where Sentry registers its
+// provider (`enableOpenTelemetrySetup` in index.ts, off by default in v11), so
+// the spans land in Sentry's AI Agents views.
 // The Sentry integration is disabled in index.ts so the two can't double up.
 const integrations = [new OpenTelemetry()];
 
 // PostHog gets its own tracer, NOT the global provider: registering a second
-// global (e.g. an OTel NodeSDK) makes Sentry's registration fail and
-// every Sentry span vanish (@sentry/node 10.68.0 build/cjs/sdk/initOtel.js).
+// global (e.g. an OTel NodeSDK) makes Sentry refuse to register its own, and
+// every gen_ai span stops reaching Sentry (v11 migration guide, OpenTelemetry).
 // Nor via Sentry's `openTelemetrySpanProcessors`, which would gate PostHog by
 // SENTRY_TRACES_SAMPLE_RATE. AlwaysOn so an unsampled Sentry parent can't drop it.
 if (env.POSTHOG_PROJECT_TOKEN && env.POSTHOG_HOST) {

@@ -8,9 +8,10 @@
     },
     "apps/server": {
       "entry": ["scripts/eval/run.ts", "scripts/eval/summary.ts"],
-      // Imported only by bundled @OpenDiagram/* packages. tsdown externalizes
-      // package.json deps, so the server must list them to resolve at runtime.
-      "ignoreDependencies": ["better-auth", "dotenv", "elkjs"],
+      // Imported only by bundled @OpenDiagram/* packages. scripts/build.ts keeps
+      // package.json deps external, so the server must list them to resolve at runtime.
+      // @sentry/server-utils is imported by the code sentryBunPlugin injects.
+      "ignoreDependencies": ["better-auth", "dotenv", "elkjs", "@sentry/server-utils"],
     },
   },
 }
