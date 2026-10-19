@@ -16,7 +16,7 @@ import { Reasoning } from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { DotMatrixLoader } from "./DotMatrixLoader";
-import { PastedTextDialog } from "./PastedTextDialog";
+import { PastedTextDialog } from "@/components/pasted-text-dialog";
 
 type Part = UIMessage["parts"][number];
 

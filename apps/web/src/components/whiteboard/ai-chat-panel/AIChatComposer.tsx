@@ -25,9 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MAX_PASTE_CHARS, pastedTextFile, shouldAttachPaste } from "@/lib/pasted-text";
+import { claimLargePaste, pastedTextFile } from "@/lib/pasted-text";
 import type { ProviderModelOption } from "@/lib/settings-client";
-import { PastedTextDialog } from "./PastedTextDialog";
+import { PastedTextDialog } from "@/components/pasted-text-dialog";
 
 interface AIChatComposerProps {
   onStop?: () => void;
@@ -167,16 +167,8 @@ function ComposerTextarea() {
   const attachments = usePromptInputAttachments();
 
   const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
-    const text = event.clipboardData.getData("text/plain");
-    if (!shouldAttachPaste(text)) return;
-    event.preventDefault();
-    if (text.length > MAX_PASTE_CHARS) {
-      toast.error(
-        `That paste is ${text.length.toLocaleString()} characters. The limit is ${MAX_PASTE_CHARS.toLocaleString()}.`,
-      );
-      return;
-    }
-    attachments.add([pastedTextFile(text)]);
+    const text = claimLargePaste(event);
+    if (text !== null) attachments.add([pastedTextFile(text)]);
   };
 
   return (
