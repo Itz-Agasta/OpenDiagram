@@ -51,6 +51,6 @@ The diagram engine. Full docs: `packages/harness/README.md`.
 
 ## Server
 
-- Sentry needs `--preload @sentry/node/preload` (dev script, start script, Dockerfile `CMD`). The Hono middleware inits after `pg` is imported, so without it every `db` span silently vanishes. Same reason `bun build --compile` can't be used.
-- `tsdown` bundles `@OpenDiagram/*` but keeps package.json deps external, so `apps/server` lists deps it never imports itself (`pg`, `better-auth`, `elkjs`, `dotenv`). Don't remove them.
+- Server `db` spans exist only in the built bundle: `scripts/build.ts` runs Sentry's Bun plugin, which rewrites the bundled `pg` to publish on diagnostics channels (Sentry 11 has no runtime hook on Bun). `bun run dev:server` runs unbundled, so it has no `db` spans.
+- `scripts/build.ts` bundles `@OpenDiagram/*` and keeps other package.json deps external, except the ones Sentry's plugin instruments (`pg`, `ai`, `hono`), which it always bundles. So `apps/server` lists deps it never imports itself (`better-auth`, `elkjs`, `dotenv`). Don't remove them.
 - Every request writes a wide event to `apps/server/.evlog/logs/`. It carries what no UI shows, e.g. `chat.targetedIds` (an id matching no frame means the model garbled it), `chat.messageCount`, `chat.cacheReadTokens`. Request order is an assertion too: resuming a thread is `PATCH /threads/:id`, then `GET /threads/:id/messages`; a `threads/active` read there means the by-id fetch regressed.

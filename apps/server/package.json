@@ -3,10 +3,10 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "tsdown",
+    "build": "bun scripts/build.ts",
     "check-types": "tsgo --noEmit",
-    "dev": "bun --hot --preload @sentry/node/preload src/index.ts",
-    "start": "bun run --preload @sentry/node/preload dist/index.mjs"
+    "dev": "bun --hot src/index.ts",
+    "start": "bun run dist/index.js"
   },
   "dependencies": {
     "@OpenDiagram/auth": "workspace:*",
@@ -21,9 +21,9 @@
     "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
     "@opentelemetry/sdk-trace-base": "2.12.0",
     "@posthog/ai": "8.14.2",
-    "@sentry/bun": "10.68.0",
-    "@sentry/hono": "10.68.0",
-    "@sentry/node": "10.68.0",
+    "@sentry/bun": "11.8.0",
+    "@sentry/hono": "11.8.0",
+    "@sentry/server-utils": "11.8.0",
     "ai": "catalog:",
     "better-auth": "catalog:",
     "dodopayments": "^2.43.0",
@@ -38,7 +38,6 @@
   "devDependencies": {
     "@OpenDiagram/config": "workspace:*",
     "@types/bun": "catalog:",
-    "tsdown": "^0.23.1",
     "typescript": "catalog:"
   },
   "trustedDependencies": [

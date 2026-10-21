@@ -39,12 +39,9 @@ const origins = env.CORS_ORIGIN.split(",").map((o) => o.trim());
 
 const app = new Hono<{ Variables: SessionVariables }>();
 
-// The middleware is the SDK's only init, and it runs after the imports above have
-// already pulled in `pg` (@OpenDiagram/auth -> @OpenDiagram/db) -- too late to
-// instrument it. `@sentry/node/preload` wraps modules first, so the run scripts
-// and the Dockerfile pass `--preload`; without that flag every `db` span vanishes.
-// It patches `require`, so `pg` has to stay external to the bundle to be seen.
-// https://docs.sentry.io/platforms/javascript/guides/hono/install/late-initialization/
+// The middleware is the SDK's only init. Late is fine: scripts/build.ts rewrites
+// the bundled `pg` to publish on diagnostics channels, and the SDK subscribes
+// here, before the first request queries anything. No preload in v11.
 app.use(
   sentry(app, {
     dsn: env.SENTRY_DSN,
@@ -57,12 +54,34 @@ app.use(
     // /api/diagram/chat is a long-lived SSE response, so in transaction mode its
     // spans are lost whenever the process restarts mid-stream.
     traceLifecycle: "stream",
-    // Keep the model/token/latency metadata, drop the content — user prompts
-    // and repo context must not leave the server.
-    dataCollection: { genAI: { inputs: false, outputs: false } },
-    // VercelAI is inert on Bun (see lib/telemetry.ts); @ai-sdk/otel emits the
-    // gen_ai spans instead. Drop it so the two never produce duplicate spans
-    // if Sentry later adds Bun support for the diagnostics channel.
+    // Every category explicit: in v11 an unset one means "collect", which would
+    // send session cookies, request bodies (user prompts) and query parameters.
+    // This is the v10 default, plus no local variables (a prompt held in one would
+    // ride along on any error); gen_ai keeps model/token/latency metadata only.
+    // `token` and `key` are already scrubbed by Sentry's built-in sensitive-key list
+    // (@sentry/core utils/data-collection); `code`/`state` are the OAuth callback's.
+    // https://docs.sentry.io/platforms/javascript/guides/bun/migration/v10-to-v11/#data-collection
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: {
+        request: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+        response: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+      },
+      httpBodies: [],
+      urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user", "code", "state"] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      graphQL: { document: false, variables: false },
+      queues: false,
+      stackFrameVariables: false,
+    },
+    // v11 ignores spans created through @opentelemetry/api unless this is on, and
+    // @ai-sdk/otel emits every gen_ai span that way (lib/telemetry.ts).
+    enableOpenTelemetrySetup: true,
+    // VercelAI would instrument `ai` through diagnostics channels. The build plugin
+    // bundles `ai` but 11.8.0 injects no channel into it; @ai-sdk/otel emits the
+    // gen_ai spans instead. Dropped so the two can never double up.
     integrations: (defaults) => defaults.filter((i) => i.name !== "VercelAI"),
   }),
 );

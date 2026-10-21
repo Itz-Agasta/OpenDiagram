@@ -2,6 +2,7 @@ import { env } from "@OpenDiagram/env/web";
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
 import {
+  WEB_SENTRY_DATA_COLLECTION,
   WEB_SENTRY_DSN,
   WEB_SENTRY_ENVIRONMENT,
   WEB_SENTRY_TRACES_SAMPLE_RATE,
@@ -25,6 +26,7 @@ if (env.NEXT_PUBLIC_POSTHOG_KEY && env.NEXT_PUBLIC_POSTHOG_HOST) {
 Sentry.init({
   dsn: WEB_SENTRY_DSN,
   environment: WEB_SENTRY_ENVIRONMENT,
+  dataCollection: WEB_SENTRY_DATA_COLLECTION,
   // Errors + tracing only (no session replay).
   tracesSampleRate: WEB_SENTRY_TRACES_SAMPLE_RATE,
 });
