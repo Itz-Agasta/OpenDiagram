@@ -1,1 +1,1 @@
-server_image = "docker.io/agasta/opendiagram-server:0.11.0@sha256:3db6066ad1450b8a78b9d2afc0e354b7a28e753faf7f9a3f210c847e0dc3147b"
+server_image = "docker.io/agasta/opendiagram-server:0.12.1@sha256:910899423fd3c4f2120dd2b338c97d3d41e4e09de21e33cf5a1267aeffad778a"
