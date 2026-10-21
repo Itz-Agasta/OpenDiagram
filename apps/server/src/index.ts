@@ -79,8 +79,8 @@ app.use(
     // v11 ignores spans created through @opentelemetry/api unless this is on, and
     // @ai-sdk/otel emits every gen_ai span that way (lib/telemetry.ts).
     enableOpenTelemetrySetup: true,
-    // VercelAI would instrument `ai` through diagnostics channels, but `ai` stays
-    // external to the bundle, so it is never rewritten; @ai-sdk/otel emits the
+    // VercelAI would instrument `ai` through diagnostics channels. The build plugin
+    // bundles `ai` but 11.8.0 injects no channel into it; @ai-sdk/otel emits the
     // gen_ai spans instead. Dropped so the two can never double up.
     integrations: (defaults) => defaults.filter((i) => i.name !== "VercelAI"),
   }),
