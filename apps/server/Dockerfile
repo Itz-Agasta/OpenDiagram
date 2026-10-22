@@ -2,7 +2,7 @@
 # 1.20 for COPY --parents (manifest-only copies that keep apps/*/packages/* paths).
 
 # Pinned to `packageManager` in the root package.json; bump both together.
-FROM oven/bun:1.4.3-slim AS deps
+FROM oven/bun:1.4.4-slim AS deps
 WORKDIR /app
 ENV SKIP_ENV_VALIDATION=1
 
@@ -18,7 +18,7 @@ ENV NODE_ENV=production
 COPY --parents apps/server packages/config packages/auth packages/db packages/env packages/harness ./
 RUN bun run --filter server build
 
-FROM oven/bun:1.4.3-slim AS runtime
+FROM oven/bun:1.4.4-slim AS runtime
 WORKDIR /app
 
 # git is required at runtime: repo import shells out to `git clone`.
