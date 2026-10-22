@@ -4,7 +4,8 @@
 default:
     @just --list
 
-# Full clean: node_modules, .turbo, .next, lockfiles everywhere
+# Full clean: node_modules, .turbo, .next, dist. Keeps bun.lock: deleting it made
+# every reinstall re-resolve to the newest versions and rewrite the lockfile.
 clean:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -15,7 +16,6 @@ clean:
     find "$ROOT" -name ".turbo" -type d -exec rm -rf {} + 2>/dev/null || true
     find "$ROOT" -name ".next" -type d -exec rm -rf {} + 2>/dev/null || true
     find "$ROOT" -name "dist" -type d -not -path "*/.git/*" -exec rm -rf {} + 2>/dev/null || true
-    rm -f "$ROOT/bun.lock" "$ROOT/bun.lockb"
     echo "Done. All artifacts removed."
 
 # Just node_modules
@@ -38,7 +38,7 @@ clean-cache:
 
 # Clean and reinstall
 reinstall: clean
-    bun install
+    bun install --frozen-lockfile
 
 # Install and build everything
 setup: reinstall
