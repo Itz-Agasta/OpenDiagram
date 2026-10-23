@@ -112,46 +112,52 @@ const STORES = ["database", "storage", "cache"];
  * the social model: every domain as one icon-less box scored 21, this 77.
  */
 function overview(model: Model): DiagramSpec {
-  const domainOf = new Map(model.components.map((c) => [c.id, c.domain]));
-  const links = allLinks(model);
-  const neighbours = (id: string) =>
-    links.flatMap((l) => (l.from === id ? [l.to] : l.to === id ? [l.from] : []));
   // A domain of stores only shows its stores: hidden, it would vanish from the overview.
   const hasService = (domain: string) =>
     model.components.some((m) => m.domain === domain && !STORES.includes(m.category));
-  const hidden = (c: Component) =>
-    !!c.domain && STORES.includes(c.category) && hasService(c.domain);
-  const core = model.components.filter((c) => !hidden(c));
+  const shown = model.components.filter(
+    (c) => !c.domain || !STORES.includes(c.category) || !hasService(c.domain),
+  );
   // Stand-in nodes for collapsed domains. Also tried merging shared clients and
   // externals into one node each: no score gain, so not done.
   const standIns = new Map<string, DiagramNode>();
   const bucketOf = new Map<string, string>();
-  const count = () => core.filter((c) => !bucketOf.has(c.id)).length + standIns.size;
+  const count = () => shown.filter((c) => !bucketOf.has(c.id)).length + standIns.size;
   const collapse = (id: string, node: Omit<DiagramNode, "id">, members: Component[]) => {
     standIns.set(id, { id, ...node });
     for (const m of members) bucketOf.set(m.id, id);
   };
-  const inCore = (id: string) => core.filter((c) => c.domain === id);
+  const inDomain = (id: string) => shown.filter((c) => c.domain === id);
   while (count() > MAX_DETAIL_NODES) {
     const biggest = model.domains
-      .filter((d) => !standIns.has(d.id) && inCore(d.id).length > 1)
-      .sort((a, b) => inCore(b.id).length - inCore(a.id).length)[0];
+      .filter((d) => !standIns.has(d.id) && inDomain(d.id).length > 1)
+      .sort((a, b) => inDomain(b.id).length - inDomain(a.id).length)[0];
     if (!biggest) break;
     collapse(
       biggest.id,
       { label: biggest.label, sublabel: biggest.sublabel, category: "service" },
-      inCore(biggest.id),
+      inDomain(biggest.id),
     );
   }
-  // A hidden store something outside its domain reaches (blob storage the client
-  // uploads to) comes back after collapse is settled, so it never pushes a service
-  // out (OPE-110). Letting it count toward the budget swapped services for stores.
-  const shown = model.components.filter(
-    (c) => !hidden(c) || neighbours(c.id).some((n) => domainOf.get(n) !== c.domain),
-  );
-  // A store still hidden has no owner: its links stay inside its domain, so they go too.
   const owner = new Map<string, string>();
-  for (const c of shown) owner.set(c.id, bucketOf.get(c.id) ?? c.id);
+  for (const c of model.components) {
+    const bucket =
+      bucketOf.get(c.id) ?? (c.domain && standIns.has(c.domain) ? c.domain : undefined);
+    if (bucket) owner.set(c.id, bucket);
+    else if (shown.includes(c)) owner.set(c.id, c.id);
+    else {
+      const service = shown.find((m) => m.domain === c.domain);
+      if (service) owner.set(c.id, owner.get(service.id) ?? service.id);
+    }
+  }
+  // A hidden store keeps only its links to domain-less nodes (a DR replica, an
+  // external), moved onto its domain's first service; without them such a node
+  // floats unconnected. Its other links would only add service-to-service noise.
+  const hidden = new Set(model.components.filter((c) => !shown.includes(c)).map((c) => c.id));
+  const domainOf = new Map(model.components.map((c) => [c.id, c.domain]));
+  const links = allLinks(model).filter((l) =>
+    hidden.has(l.from) ? !domainOf.get(l.to) : hidden.has(l.to) ? !domainOf.get(l.from) : true,
+  );
   const nodes = [
     ...shown.filter((c) => owner.get(c.id) === c.id).map(componentNode),
     ...standIns.values(),
@@ -162,8 +168,6 @@ function overview(model: Model): DiagramSpec {
     title: `${model.title} - overview`,
     nodes,
     // One edge per node: 64.8 -> 83.4 mean overview score on the eval's models.
-    // Also giving every node that sends traffic an outbound edge (a CDN kept only
-    // its inbound one) cost 2.3 to 2.8 points, over or within budget, so not done.
     // 0.8 per node scores 87 but is a bare spanning tree, and it cut the social
     // overview's write path (the post service lost its publish to the bus).
     edges: pruneEdges(merged, nodes.length),
@@ -173,7 +177,7 @@ function overview(model: Model): DiagramSpec {
         id: d.id,
         label: d.label,
         sublabel: d.sublabel,
-        contains: shown.filter((c) => c.domain === d.id).map((c) => c.id),
+        contains: inDomain(d.id).map((c) => c.id),
       }))
       .filter((g) => g.contains.length > 1),
   };
