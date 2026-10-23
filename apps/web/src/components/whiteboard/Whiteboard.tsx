@@ -20,11 +20,19 @@ const Excalidraw = dynamic(
     const { Excalidraw, MainMenu, languages } = await import("@excalidraw/excalidraw");
     // Excalidraw's own locale stands in for the browser translator, which the
     // container opts out of. Its codes are mostly region-tagged ("de-DE"), so a
-    // bare "de" falls back to the first code with the same base language.
-    const browserLang = navigator.language;
+    // bare "de" falls back to the first code with the same base language. Chinese
+    // is the one base it ships in two scripts: zh-HK maximizes to Hant, so zh-TW.
+    // Not Intl.Locale on Excalidraw's codes: "kab-KAB" is not valid BCP 47 and throws.
+    const browser = new Intl.Locale(navigator.language).maximize();
+    const wanted =
+      browser.language === "zh"
+        ? browser.script === "Hant"
+          ? "zh-TW"
+          : "zh-CN"
+        : navigator.language;
     const langCode = (
-      languages.find((lang) => lang.code === browserLang) ??
-      languages.find((lang) => lang.code.split("-")[0] === browserLang.split("-")[0])
+      languages.find((lang) => lang.code === wanted) ??
+      languages.find((lang) => lang.code.split("-")[0] === browser.language)
     )?.code;
     return function OpenDiagramExcalidraw({
       onExport,
