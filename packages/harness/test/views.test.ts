@@ -88,6 +88,27 @@ describe("planViews", () => {
     expect(islands(overview!)).toBe(1);
   });
 
+  test("the overview keeps a store other domains talk to, hides one only its domain uses", () => {
+    // 14 components, 12 once the private stores hide: nothing collapses.
+    const model = system(3, 3);
+    model.links!.push({ from: "web", to: "d2_db", label: "upload" });
+    const [overview] = planViews(model);
+    const ids = overview!.nodes.map((n) => n.id);
+    expect(ids).toContain("d2_db");
+    expect(ids).not.toContain("d1_db");
+    expect(overview!.edges.some((e) => e.from === "web" && e.to === "d2_db")).toBe(true);
+  });
+
+  test("a store other domains reach stays its own node when its domain collapses", () => {
+    const model = system(4, 4);
+    model.links!.push({ from: "web", to: "d0_db", label: "upload" });
+    const [overview] = planViews(model);
+    expect(overview!.nodes.map((n) => n.id)).toEqual(
+      expect.arrayContaining(["domain_d0", "d0_db"]),
+    );
+    expect(overview!.edges.some((e) => e.from === "web" && e.to === "d0_db")).toBe(true);
+  });
+
   test.each([
     ["small", 2, 3],
     ["large", 4, 4],
