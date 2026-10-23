@@ -206,8 +206,11 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
       join(outDir, "specs", `${file}.json`),
       JSON.stringify(drawn.length === 1 ? drawn[0] : { views: drawn }, null, 2),
     );
-  // The draw_system input, so view planning can be replayed offline without the LLM.
-  const model = steps.flatMap((s) => s.toolCalls).find((t) => t.toolName === "draw_system")?.input;
+  // The accepted draw_system input, so view planning can be replayed offline without
+  // the LLM. Not the first call: a rejected one (missing component ids) broke replays.
+  const model = steps
+    .flatMap((s) => s.content)
+    .findLast((c) => c.type === "tool-result" && c.toolName === "draw_system")?.input;
   if (model)
     writeFileSync(join(outDir, "specs", `${file}.model.json`), JSON.stringify(model, null, 2));
   // Plan = text up to and including the draw step; reply = text after the last draw.
