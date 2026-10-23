@@ -17,13 +17,29 @@ import { sanitizeSceneAppState } from "./workspace-layout/helpers";
 // come from the one dynamic import.
 const Excalidraw = dynamic(
   async () => {
-    const { Excalidraw, MainMenu } = await import("@excalidraw/excalidraw");
+    const { Excalidraw, MainMenu, languages } = await import("@excalidraw/excalidraw");
+    // Excalidraw's own locale stands in for the browser translator, which the
+    // container opts out of. Its codes are mostly region-tagged ("de-DE"), so a
+    // bare "de" falls back to the first code with the same base language. Chinese
+    // is the one base it ships in two scripts: zh-HK maximizes to Hant, so zh-TW.
+    // Not Intl.Locale on Excalidraw's codes: "kab-KAB" is not valid BCP 47 and throws.
+    const browser = new Intl.Locale(navigator.language).maximize();
+    const wanted =
+      browser.language === "zh"
+        ? browser.script === "Hant"
+          ? "zh-TW"
+          : "zh-CN"
+        : navigator.language;
+    const langCode = (
+      languages.find((lang) => lang.code === wanted) ??
+      languages.find((lang) => lang.code.split("-")[0] === browser.language)
+    )?.code;
     return function OpenDiagramExcalidraw({
       onExport,
       ...props
     }: ExcalidrawProps & { onExport?: () => void }) {
       return (
-        <Excalidraw {...props}>
+        <Excalidraw langCode={langCode} {...props}>
           {/* Replaces the default menu: no Open/Save-to-file (we persist),
               no "Excalidraw links", no dark toggle that only darkens the canvas. */}
           <MainMenu>
@@ -115,8 +131,15 @@ export function Whiteboard({ onAPIReady, onExport, onSceneChange, initialScene }
     return () => observer.disconnect();
   }, [isMounted]);
 
+  // `translate="no"`: Edge and Chrome translation swap React's text nodes for
+  // <font> elements, and the next toolbar re-render throws NotFoundError on
+  // removeChild (Sentry WEB-14). https://github.com/facebook/react/issues/11538
   return (
-    <div ref={containerRef} className="od-canvas w-full h-full overflow-hidden relative">
+    <div
+      ref={containerRef}
+      translate="no"
+      className="od-canvas w-full h-full overflow-hidden relative"
+    >
       <Excalidraw
         excalidrawAPI={handleAPI}
         onExport={onExport}
