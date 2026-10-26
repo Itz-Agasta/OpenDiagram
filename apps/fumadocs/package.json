@@ -19,7 +19,7 @@
     "cnfast": "^0.2.0",
     "flexsearch": "^0.8.212",
     "fumadocs-core": "catalog:",
-    "fumadocs-mdx": "15.4.8",
+    "fumadocs-mdx": "15.4.10",
     "fumadocs-ui": "catalog:",
     "hast-util-to-jsx-runtime": "catalog:",
     "lucide-react": "catalog:",
