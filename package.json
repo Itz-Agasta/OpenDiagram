@@ -20,7 +20,7 @@
       "lodash.throttle": "^4.1.1",
       "lucide-react": "^1.21.0",
       "pg": "^8.22.0",
-      "motion": "^12.42.2",
+      "motion": "^14.6.0",
       "react": "^19.2.7",
       "react-dom": "^19.2.7",
       "sonner": "^2.0.7",
