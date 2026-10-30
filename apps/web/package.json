@@ -51,7 +51,7 @@
     "lodash.throttle": "catalog:",
     "lucide-react": "catalog:",
     "motion": "catalog:",
-    "nanoid": "^5.1.16",
+    "nanoid": "^6.0.2",
     "next": "catalog:",
     "posthog-js": "1.438.12",
     "react": "catalog:",
