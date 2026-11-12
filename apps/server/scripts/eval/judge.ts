@@ -7,7 +7,10 @@
  *   bun scripts/eval/judge.ts --dir <fix out dir> --prompts <prompts.json>
  *
  * Expects <dir>/png/<name>~0.png (start) and <name>~<arm><run>.png (after),
- * as written by scripts/viz/viz-scenes.ts. Appends to <dir>/judge.jsonl.
+ * rendered from fix.ts's scenes through Excalidraw (the local scripts/viz
+ * tooling; see AGENTS.md "Seeing harness output"). fix.ts writes no after-scene
+ * for an unchanged run, so those never reach the judge. Appends to
+ * <dir>/judge.jsonl; a rerun skips files already judged and exits 1 if any failed.
  */
 import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -90,12 +93,17 @@ const jobs = readdirSync(png)
 
 console.log(`${jobs.length} to judge`);
 let next = 0;
+let failed = 0;
 await Promise.all(
   Array.from({ length: Number(args.concurrency) }, async () => {
     while (next < jobs.length) {
       const job = jobs[next++]!;
-      await job().catch((e) => console.log(`JUDGE FAIL ${String(e).slice(0, 200)}`));
+      await job().catch((e) => {
+        failed++;
+        console.log(`JUDGE FAIL ${String(e).slice(0, 200)}`);
+      });
     }
   }),
 );
-process.exit(0);
+if (failed) console.log(`${failed} failed; rerun to fill them in`);
+process.exit(failed ? 1 : 0);

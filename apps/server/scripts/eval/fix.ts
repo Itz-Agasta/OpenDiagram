@@ -25,6 +25,7 @@ import type { RequestLogger } from "evlog";
 import { createLayoutFixer, type FixOptions } from "../../src/lib/agent/fix";
 import { layoutCost } from "../../src/lib/agent/fix/view";
 import { iconRegistry, normalizeSpecIcons } from "../../src/lib/icons/registry";
+import { costMicros } from "../../src/lib/quota/cost-ceiling";
 
 const { values: args } = parseArgs({
   options: {
@@ -80,8 +81,13 @@ const scene = (p: PositionedSpec) => renderToExcalidraw(p, iconRegistry, theme);
 const labels = (s: DiagramSpec) =>
   [...s.nodes.map((n) => n.label), ...s.edges.flatMap((e) => (e.label ? [e.label] : []))].sort();
 
-async function runOne(name: string, spec: DiagramSpec, armName: string, run: number) {
-  const laid = await layoutDiagram(spec, theme);
+async function runOne(
+  name: string,
+  spec: DiagramSpec,
+  laid: PositionedSpec,
+  armName: string,
+  run: number,
+) {
   const usage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   let fields: Record<string, unknown> = {};
   const log = {
@@ -103,8 +109,17 @@ async function runOne(name: string, spec: DiagramSpec, armName: string, run: num
   // Content check: every node id and every label text from the start survives.
   const ids = new Set(out.spec.nodes.map((n) => n.id));
   const lostNodes = spec.nodes.filter((n) => !ids.has(n.id)).map((n) => n.id);
-  const after = labels(out.spec).join("\n");
-  const lostLabels = labels(spec).filter((l) => !after.includes(l));
+  // Multiset: a label that appears twice must still appear twice.
+  const left = labels(out.spec);
+  const lostLabels = labels(spec).filter((l) => {
+    const i = left.indexOf(l);
+    if (i < 0) return true;
+    left.splice(i, 1);
+    return false;
+  });
+  // The fixer hands the start back when it keeps nothing; such pairs are left
+  // out of judging, where render jitter alone reads as better or worse.
+  const unchanged = out.positioned === laid;
   const row = {
     name,
     arm: armName,
@@ -122,15 +137,18 @@ async function runOne(name: string, spec: DiagramSpec, armName: string, run: num
     fix: fields.fix,
     triage: fields.fixTriage,
     warn: fields.warn,
-    cost: (usage.inputTokens * 0.75 + usage.outputTokens * 3.75) / 1e6,
+    unchanged,
+    cost:
+      costMicros(args.model!, usage.inputTokens, usage.outputTokens, usage.cachedInputTokens) / 1e6,
     ms: Math.round(performance.now() - started),
   };
   appendFileSync(join(args.out!, "results.jsonl"), `${JSON.stringify(row)}\n`);
   writeFileSync(join(args.out!, "scenes", `${name}~0.json`), JSON.stringify(scene(laid)));
-  writeFileSync(
-    join(args.out!, "scenes", `${name}~${armName}${run}.json`),
-    JSON.stringify(scene(out.positioned)),
-  );
+  if (!unchanged)
+    writeFileSync(
+      join(args.out!, "scenes", `${name}~${armName}${run}.json`),
+      JSON.stringify(scene(out.positioned)),
+    );
   console.log(
     `${armName}${run} ${name.padEnd(26)} ${String(row.before).padStart(5)} -> ${String(row.after).padStart(5)} hard ${row.hardBefore}->${row.hardAfter} lints ${row.lintsBefore}->${row.lintsAfter} ${JSON.stringify(fields.fix ?? {})} $${row.cost.toFixed(4)}${lostNodes.length + lostLabels.length ? " LOST" : ""}${row.warn ? ` WARN ${String(row.warn).slice(0, 120)}` : ""}`,
   );
@@ -147,14 +165,25 @@ for (const dir of args.specs) {
     for (const [i, s] of specs.entries()) {
       if (s.type === "sequence") continue;
       const { spec } = normalizeSpecIcons<DiagramSpec>(s);
-      const score = layoutCost(await layoutDiagram(spec, theme), theme);
+      const laid = await layoutDiagram(spec, theme);
+      const score = layoutCost(laid, theme);
       if (score > Number(args.max) || score < Number(args.min)) continue;
       const name =
         basename(file, ".json").replace(/^.*__(.+)__\d+$/, "$1") +
         (specs.length > 1 ? `-v${i}` : "");
       if (args.only && !args.only.split(",").includes(name)) continue;
       for (let run = Number(args.first); run < Number(args.first) + Number(args.runs); run++)
-        for (const arm of args.arms!.split(",")) jobs.push(() => runOne(name, spec, arm, run));
+        for (const arm of args.arms!.split(","))
+          jobs.push(() =>
+            runOne(name, spec, laid, arm, run).catch((e) => {
+              // A failed run stays in the results, so arm counts are not biased to survivors.
+              appendFileSync(
+                join(args.out!, "results.jsonl"),
+                `${JSON.stringify({ name, arm, run, error: String(e).slice(0, 300) })}\n`,
+              );
+              console.log(`JOB FAIL ${name} ${arm}${run} ${String(e).slice(0, 200)}`);
+            }),
+          );
     }
   }
 }
@@ -166,7 +195,7 @@ await Promise.all(
   Array.from({ length: Number(args.concurrency) }, async () => {
     while (next < mine.length) {
       const job = mine[next++]!;
-      await job().catch((e) => console.log(`JOB FAIL ${String(e).slice(0, 200)}`));
+      await job();
     }
   }),
 );

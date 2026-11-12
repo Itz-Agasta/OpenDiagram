@@ -192,11 +192,13 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     typeof d?.score === "number"
       ? d.score - ((d.metrics as { fit: number }).fit < 0.6 ? 30 : 0)
       : -Infinity;
-  let keep = drawGroups.length - 1;
+  // Later draw wins a tie: scan from the first with >=.
+  let keep = 0;
   if (strategy.revises && drawGroups.every((g) => g.length === 1))
     drawGroups.forEach((_, i) => {
-      if (effective(drawLogs[i]) > effective(drawLogs[keep])) keep = i;
+      if (effective(drawLogs[i]) >= effective(drawLogs[keep])) keep = i;
     });
+  else keep = drawGroups.length - 1;
   const drawn = strategy.revises ? (drawGroups[keep] ?? []) : drawGroups.flat();
   if (strategy.revises && drawGroups.every((g) => g.length === 1))
     drawLogs.splice(0, drawLogs.length, ...(drawLogs[keep] ? [drawLogs[keep]!] : []));
