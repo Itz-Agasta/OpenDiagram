@@ -16,7 +16,7 @@ export interface DiagramSpec {
   edges: DiagramEdge[];
   groups?: DiagramGroup[];
   zones?: DiagramZone[];
-  /** What the line styles mean. Text and edge kind only; the renderer places and draws it. */
+  /** What the line styles mean: text plus the edge kind or style it explains; the renderer places and draws it. */
   legend?: { label: string; kind?: DiagramEdge["kind"]; style?: "solid" | "dashed" | "dotted" }[];
   /** Free sentences that belong beside the diagram, not inside a node. */
   notes?: string[];

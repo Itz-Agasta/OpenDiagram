@@ -40,6 +40,9 @@ const DETOUR_SLACK = 160;
 const EMPTY_SHARE = 0.15;
 const EMPTY_MIN = 260;
 const CELL = 40;
+// Grid cells allowed before the scan coarsens: a node dragged far away must not
+// turn this into a multi-megabyte allocation.
+const MAX_CELLS = 40_000;
 
 function segs(points: Point[]): Seg[] {
   const out: Seg[] = [];
@@ -157,12 +160,15 @@ function emptyArea(p: PositionedSpec): string | undefined {
   if (ink.length < 4) return undefined;
   const x0 = Math.min(...ink.map((b) => b.x));
   const y0 = Math.min(...ink.map((b) => b.y));
-  const cols = Math.ceil((Math.max(...ink.map((b) => b.x + b.width)) - x0) / CELL);
-  const rows = Math.ceil((Math.max(...ink.map((b) => b.y + b.height)) - y0) / CELL);
+  const spanX = Math.max(...ink.map((b) => b.x + b.width)) - x0;
+  const spanY = Math.max(...ink.map((b) => b.y + b.height)) - y0;
+  const cell = Math.max(CELL, Math.sqrt((spanX * spanY) / MAX_CELLS));
+  const cols = Math.ceil(spanX / cell);
+  const rows = Math.ceil(spanY / cell);
   const full = Array.from({ length: rows }, () => new Uint8Array(cols));
   for (const b of ink)
-    for (let r = Math.floor((b.y - y0) / CELL); r < Math.ceil((b.y + b.height - y0) / CELL); r++)
-      for (let c = Math.floor((b.x - x0) / CELL); c < Math.ceil((b.x + b.width - x0) / CELL); c++)
+    for (let r = Math.floor((b.y - y0) / cell); r < Math.ceil((b.y + b.height - y0) / cell); r++)
+      for (let c = Math.floor((b.x - x0) / cell); c < Math.ceil((b.x + b.width - x0) / cell); c++)
         if (full[r]) full[r]![c] = 1;
   // Largest all-zero rectangle: per row, a histogram of blank run heights.
   const heights = Array.from({ length: cols }, () => 0);
@@ -176,15 +182,18 @@ function emptyArea(p: PositionedSpec): string | undefined {
         const top = stack.pop()!;
         const left = stack.length ? stack[stack.length - 1]! + 1 : 0;
         const area = heights[top]! * (c - left);
-        if (area > best.area) best = { area, r, c: left, w: c - left, h: heights[top]! };
+        // Largest rectangle that is big enough both ways: a thin strip can out-area
+        // a square void and must not hide it.
+        const fits = (c - left) * cell >= EMPTY_MIN && heights[top]! * cell >= EMPTY_MIN;
+        if (fits && area > best.area) best = { area, r, c: left, w: c - left, h: heights[top]! };
       }
       stack.push(c);
     }
   }
-  const [w, h] = [best.w * CELL, best.h * CELL];
-  if (w < EMPTY_MIN || h < EMPTY_MIN || best.area < EMPTY_SHARE * rows * cols) return undefined;
-  const x = x0 + best.c * CELL;
-  const y = y0 + (best.r - best.h + 1) * CELL;
+  const [w, h] = [Math.round(best.w * cell), Math.round(best.h * cell)];
+  if (best.area === 0 || best.area < EMPTY_SHARE * rows * cols) return undefined;
+  const x = x0 + best.c * cell;
+  const y = y0 + (best.r - best.h + 1) * cell;
   return `${Math.round(x)},${Math.round(y)} ${w}x${h}`;
 }
 

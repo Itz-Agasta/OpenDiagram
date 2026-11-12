@@ -5,12 +5,7 @@ import type { Theme } from "./theme/index.js";
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-const DASH: Record<string, string> = {
-  async: "8 6",
-  replication: "3 5",
-  dashed: "8 6",
-  dotted: "3 5",
-};
+const DASH: Record<string, string> = { dashed: "8 6", dotted: "3 5" };
 const COLOR: Record<string, string> = { error: "#d33", success: "#2a2" };
 
 /**
@@ -52,6 +47,10 @@ export function renderPreviewSvg(p: PositionedSpec, theme: Theme): string {
       `<rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="#f4f6fb" stroke="#7a86a8" stroke-dasharray="6 4"/>`,
       `<text x="${b.x + 10}" y="${b.y + 20}" font-size="15" fill="#3a4670">${esc(c.label)} <tspan fill="#999" font-size="11">[${esc(c.id)}]</tspan></text>`,
     );
+    if ("sublabel" in c && c.sublabel)
+      out.push(
+        `<text x="${b.x + 10}" y="${b.y + 38}" font-size="12" fill="#5a6690">${esc(c.sublabel)}</text>`,
+      );
   }
   const contained = new Set(p.containedNodeIds);
   const lines = (x: number, y: number, rows: string[], size: number, fill = "#222") =>
@@ -71,8 +70,11 @@ export function renderPreviewSvg(p: PositionedSpec, theme: Theme): string {
     if (solo) {
       const icon = theme.solo.iconSize;
       const wrap = labelWrapWidth(icon);
-      const label = wrapLabel(n.label, 15, undefined, wrap);
-      const sub = n.sublabel ? wrapLabel(n.sublabel, 12, undefined, wrap) : [];
+      // Same wrap inputs as renderSoloNode, so line breaks match the real render.
+      const label = wrapLabel(n.label, theme.text.soloLabel.size, theme.fontFamily, wrap);
+      const sub = n.sublabel
+        ? wrapLabel(n.sublabel, theme.text.soloSublabel.size, theme.fontFamily, wrap)
+        : [];
       const top = b.y + icon + theme.solo.gapIconLabel + 14;
       out.push(
         `<rect x="${cx - icon / 2}" y="${b.y}" width="${icon}" height="${icon}" rx="10" fill="#e8ecf8" stroke="#556"/>`,
@@ -81,8 +83,14 @@ export function renderPreviewSvg(p: PositionedSpec, theme: Theme): string {
         lines(cx, top + label.length * 19 + 2, sub, 12, "#667"),
       );
     } else {
-      const label = wrapLabel(n.label, 14, undefined, b.width - 16);
-      const sub = n.sublabel ? wrapLabel(n.sublabel, 11, undefined, b.width - 16) : [];
+      // Box nodes wrap at the solo icon width in "icon" themes, cards at the card icon width.
+      const wrap = labelWrapWidth(
+        theme.nodeMode === "icon" ? theme.solo.iconSize : theme.card.iconSize,
+      );
+      const label = wrapLabel(n.label, theme.text.nodeLabel.size, theme.fontFamily, wrap);
+      const sub = n.sublabel
+        ? wrapLabel(n.sublabel, theme.text.nodeSublabel.size, theme.fontFamily, wrap)
+        : [];
       const h = label.length * 17.5 + sub.length * 14;
       const top = b.y + (b.height - h) / 2 + 13;
       out.push(
@@ -96,8 +104,10 @@ export function renderPreviewSvg(p: PositionedSpec, theme: Theme): string {
   for (const e of p.edges) {
     const r = p.edgeRoutes[e.id!];
     if (!r || r.points.length < 2) continue;
-    const kind = e.style ?? e.kind ?? "";
-    const dash = DASH[kind] ? ` stroke-dasharray="${DASH[kind]}"` : "";
+    // As renderEdge: colour from kind, stroke from style or the theme's kind map.
+    const kind = e.kind ?? "sync";
+    const stroke = e.style ?? theme.edge.kind[kind];
+    const dash = DASH[stroke] ? ` stroke-dasharray="${DASH[stroke]}"` : "";
     const start = e.direction === "bi" ? ` marker-start="url(#a)"` : "";
     out.push(
       `<polyline points="${r.points.map((q) => `${q.x},${q.y}`).join(" ")}" fill="none" stroke="${COLOR[kind] ?? "#334"}" stroke-width="1.6"${dash}${start} marker-end="url(#a)"/>`,

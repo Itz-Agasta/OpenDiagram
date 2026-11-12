@@ -136,12 +136,26 @@ export function containerBoxes(
     groupBoxes[g.id] = box;
   }
   const zoneBoxes: Record<string, Box> = {};
+  const groupMembers = new Map(s.groups.map((g) => [g.id, g.contains]));
   for (const z of s.zones) {
+    // A group whose frame strict mode dropped still has nodes in this zone.
+    const inside = z.contains.flatMap((id) =>
+      groupBoxes[id] ? [id] : (groupMembers.get(id) ?? [id]),
+    );
     const box = wrap(
       z.id,
-      z.contains.flatMap((id) => groupBoxes[id] ?? positions[id] ?? []),
+      inside.flatMap((id) => groupBoxes[id] ?? positions[id] ?? []),
     );
-    if (box) zoneBoxes[z.id] = box;
+    if (!box) continue;
+    const covered = new Set(inside.flatMap((id) => [id, ...(groupMembers.get(id) ?? [])]));
+    const strangers = Object.entries(positions).some(
+      ([id, b]) => !covered.has(id) && overlaps(box, b),
+    );
+    if (strict && strangers) {
+      s.warnings.push(`zone "${z.id}" is not contiguous in the arrangement - drawn without a box`);
+      continue;
+    }
+    zoneBoxes[z.id] = box;
   }
   return { groupBoxes, zoneBoxes };
 }

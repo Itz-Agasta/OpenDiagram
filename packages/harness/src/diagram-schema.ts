@@ -112,7 +112,7 @@ export const diagramSpecSchema = z.object({
     .array(
       z.object({
         label: z.string(),
-        kind: z.enum(["sync", "async", "replication", "error", "success"]).optional(),
+        kind: edgeKindSchema.optional(),
         style: z.enum(["solid", "dashed", "dotted"]).optional(),
       }),
     )
@@ -127,7 +127,10 @@ export const diagramSpecSchema = z.object({
           rows: z.array(z.array(z.string())).optional(),
           center: z.string().optional(),
         })
-        .optional(),
+        .optional()
+        .describe(
+          'Only when the user dictates placement. rows: grid of node ids, one array per row, "" leaves a cell empty. center: one node in the middle, the rest on a ring around it. Replaces automatic placement.',
+        ),
     })
     .optional(),
 });

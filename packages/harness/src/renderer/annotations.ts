@@ -27,6 +27,9 @@ export function renderAnnotations(
     ...Object.values(positioned.zoneBoxes),
   ];
   const points = Object.values(positioned.edgeRoutes).flatMap((r) => r.points);
+  if (boxes.length === 0 && points.length === 0) return;
+  // Element ids share one namespace with spec ids; a node called "legend-0" must not collide.
+  const tag = crypto.randomUUID().slice(0, 8);
   const left = Math.min(...boxes.map((b) => b.x), ...points.map((p) => p.x));
   const bottom = Math.max(...boxes.map((b) => b.y + b.height), ...points.map((p) => p.y));
 
@@ -41,7 +44,7 @@ export function renderAnnotations(
       const y = top + i * line + line / 2;
       out.push({
         kind: "arrow",
-        id: `legend-${i}`,
+        id: `legend-${tag}-${i}`,
         x,
         y,
         points: [
@@ -62,7 +65,7 @@ export function renderAnnotations(
       });
       out.push({
         kind: "text",
-        id: `legend-text-${i}`,
+        id: `legend-text-${tag}-${i}`,
         text: item.label,
         x: x + SAMPLE + 12,
         y: y - size * 0.65,
@@ -81,7 +84,7 @@ export function renderAnnotations(
     const lines = wrapLabel(note, size, theme.fontFamily, NOTE_WIDTH);
     out.push({
       kind: "text",
-      id: `note-${i}`,
+      id: `note-${tag}-${i}`,
       text: lines.join("\n"),
       x,
       y,
