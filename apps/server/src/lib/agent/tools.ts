@@ -10,6 +10,7 @@ import { env } from "@OpenDiagram/env/server";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
+import type { LayoutFixer } from "./fix";
 import { renderView, type DrawDiagramOutput } from "./render-view";
 
 export interface AskUserInput {
@@ -81,6 +82,8 @@ export function createDrawDiagramTool(
   log: RequestLogger,
   theme: Theme = classicTheme,
   canvas: { id: string; spec: DiagramSpec }[] = [],
+  // A holder, not the fixer: the route builds tools before it has resolved a model.
+  fixer: { run?: LayoutFixer } = {},
 ): Tool<z.infer<typeof drawDiagramInputSchema>, DrawDiagramOutput> {
   return tool({
     description:
@@ -92,7 +95,7 @@ export function createDrawDiagramTool(
         spec: _,
         logFields,
         ...output
-      } = await renderView(restoreIcons(rawSpec as DiagramSpec, previous), theme);
+      } = await renderView(restoreIcons(rawSpec as DiagramSpec, previous), theme, fixer.run);
       if (output.summary.warnings.length > 0) {
         log.warn("draw_diagram sanitized malformed LLM output", {
           diagram: { layoutWarnings: output.summary.warnings },
@@ -136,6 +139,7 @@ export interface DrawSystemOutput {
 export function createDrawSystemTool(
   log: RequestLogger,
   theme: Theme = classicTheme,
+  fixer: { run?: LayoutFixer } = {},
 ): Tool<z.infer<typeof drawSystemInputSchema>, DrawSystemOutput> {
   return tool({
     description:
@@ -145,7 +149,7 @@ export function createDrawSystemTool(
       // One at a time: layout is single-threaded CPU work, so parallel renders
       // saved no time and held every view's layout in memory at once.
       const rendered = [];
-      for (const spec of planViews(model)) rendered.push(await renderView(spec, theme));
+      for (const spec of planViews(model)) rendered.push(await renderView(spec, theme, fixer.run));
       const warnings = rendered.flatMap((view) => view.summary.warnings);
       if (warnings.length > 0) {
         log.warn("draw_system sanitized malformed LLM output", {
