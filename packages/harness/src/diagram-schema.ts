@@ -108,10 +108,26 @@ export const diagramSpecSchema = z.object({
   edges: z.array(diagramEdgeSchema),
   groups: z.array(diagramGroupSchema).optional(),
   zones: z.array(diagramZoneSchema).optional(),
+  legend: z
+    .array(
+      z.object({
+        label: z.string(),
+        kind: z.enum(["sync", "async", "replication", "error", "success"]).optional(),
+        style: z.enum(["solid", "dashed", "dotted"]).optional(),
+      }),
+    )
+    .optional(),
+  notes: z.array(z.string()).optional(),
   meta: z
     .object({
       theme: z.enum(["light", "dark"]).optional(),
       direction: z.enum(["LR", "TB", "BT", "RL"]).optional(),
+      arrange: z
+        .object({
+          rows: z.array(z.array(z.string())).optional(),
+          center: z.string().optional(),
+        })
+        .optional(),
     })
     .optional(),
 });

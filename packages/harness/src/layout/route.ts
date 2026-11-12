@@ -1,6 +1,11 @@
 import type { Box, EdgeRoute } from "../geometry.js";
 import { containerTitleBox } from "../measure.js";
-import { type RouterContainer, type RouterInput, routeEdges } from "../router/index.js";
+import {
+  type RouterContainer,
+  type RouterEdge,
+  type RouterInput,
+  routeEdges,
+} from "../router/index.js";
 import type { DiagramSpec } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 import { edgeLabelSize } from "./elk-common.js";
@@ -24,6 +29,7 @@ export function routeGeometry(
   s: Sanitized,
   geo: LayoutGeometry,
   theme: Theme,
+  sides: Record<string, RouterEdge["sides"]> = {},
 ): { routes: Record<string, EdgeRoute>; warnings: string[] } {
   const zoneOf = new Map<string, string>();
   for (const z of s.zones) for (const id of z.contains) zoneOf.set(id, z.id);
@@ -74,6 +80,7 @@ export function routeGeometry(
       from: e.from,
       to: e.to,
       label: edgeLabelSize(e, theme),
+      sides: sides[e.id],
     })),
     direction: spec.meta?.direction ?? (spec.type === "erd" ? "TB" : "LR"),
   };

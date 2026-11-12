@@ -16,9 +16,19 @@ export interface DiagramSpec {
   edges: DiagramEdge[];
   groups?: DiagramGroup[];
   zones?: DiagramZone[];
+  /** What the line styles mean. Text and edge kind only; the renderer places and draws it. */
+  legend?: { label: string; kind?: DiagramEdge["kind"]; style?: "solid" | "dashed" | "dotted" }[];
+  /** Free sentences that belong beside the diagram, not inside a node. */
+  notes?: string[];
   meta?: {
     theme?: "light" | "dark";
     direction?: "LR" | "TB" | "BT" | "RL";
+    /**
+     * Placement the author dictates, in cells and never pixels: `rows` is a grid
+     * of node ids ("" leaves a cell empty), `center` puts one node in the middle
+     * and the rest on a ring. Either one replaces ELK placement.
+     */
+    arrange?: { rows?: string[][]; center?: string };
   };
 }
 
