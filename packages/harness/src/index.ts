@@ -16,6 +16,7 @@ export { diagramSpecSchema, diagramTypeSchema } from "./diagram-schema.js";
 export { layoutDiagram, layoutPinned } from "./layout.js";
 export type { Box, EdgeRoute, EdgeSides, PositionedSpec } from "./layout.js";
 export { renderPreviewSvg } from "./preview.js";
+export { edgeLabelText } from "./measure.js";
 
 export { renderToExcalidraw } from "./renderer.js";
 export type {

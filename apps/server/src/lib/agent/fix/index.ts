@@ -62,6 +62,13 @@ const DEFAULT_FIX: FixOptions = {
 const FIX_BELOW = 70;
 const SLOP_LINTS = 3;
 
+const RENDER_CAPTION = "The drawing now:";
+const isRender = (m: ModelMessage) =>
+  m.role === "user" &&
+  Array.isArray(m.content) &&
+  m.content[0]?.type === "text" &&
+  m.content[0].text === RENDER_CAPTION;
+
 const face = z.enum(["top", "right", "bottom", "left"]);
 
 /**
@@ -102,7 +109,19 @@ export function createLayoutFixer(
     }
 
     // Edges carry layout-assigned ids from here on; the model names them.
-    let spec: DiagramSpec = { ...input, edges: drawn.edges };
+    // Without a picture there is nothing to look at: a missing resvg binary or
+    // font must cost the polish, never the diagram.
+    let firstPicture: Uint8Array | undefined;
+    if (options.picture) {
+      try {
+        firstPicture = picture(drawn, theme);
+      } catch (error) {
+        log.warn("fix preview failed, skipping the fix", { error: String(error) });
+        return { spec: input, positioned: drawn };
+      }
+    }
+    const working: DiagramSpec = { ...input, edges: drawn.edges };
+    let spec = working;
     let current = drawn;
     let sides: Record<string, EdgeSides> = {};
     const calls = { move: 0, route: 0, restructure: 0, reverted: 0 };
@@ -220,20 +239,18 @@ export function createLayoutFixer(
             calls.restructure++;
             const r = restructure(spec, ops);
             if (typeof r === "string") return `ERROR: ${r}`;
-            if (r.relayout) {
-              const next = await layoutDiagram(r.spec, theme);
-              // A grid mixing groups' members makes their frames collide, and the
-              // harness drops colliding frames: the grouping silently vanishes.
-              const lost = Object.keys(current.groupBoxes).filter((g) => !next.groupBoxes[g]);
-              if (lost.length)
-                return `REFUSED: that arrangement drops group frames ${lost.join(", ")}. Keep each group's members together in adjacent cells.`;
-              return commit(next, r.spec, {});
-            }
             const kept = new Set(r.spec.edges.map((e) => e.id));
-            const nextSides = Object.fromEntries(
-              Object.entries(sides).filter(([k]) => kept.has(k)),
-            );
-            const next = layoutPinned(r.spec, {}, current.positions, theme, nextSides);
+            const nextSides = r.relayout
+              ? {}
+              : Object.fromEntries(Object.entries(sides).filter(([k]) => kept.has(k)));
+            const next = r.relayout
+              ? await layoutDiagram(r.spec, theme)
+              : layoutPinned(r.spec, {}, current.positions, theme, nextSides);
+            // The harness drops a frame whose members collide with another's or
+            // that a regroup emptied: the grouping would silently vanish.
+            const lost = Object.keys(current.groupBoxes).filter((g) => !next.groupBoxes[g]);
+            if (lost.length)
+              return `REFUSED: that change drops group frames ${lost.join(", ")}. Keep each group's members together, and never empty a group.`;
             return commit(next, r.spec, nextSides);
           },
         }),
@@ -249,7 +266,7 @@ export function createLayoutFixer(
           text: `${ask}${seen ? `A FIRST LOOK FOUND:\n${seen}\n\n` : ""}${textView(drawn, theme, options.lints)}`,
         },
         ...(options.picture
-          ? [{ type: "file" as const, data: picture(drawn, theme), mediaType: "image/png" }]
+          ? [{ type: "file" as const, data: firstPicture!, mediaType: "image/png" }]
           : []),
       ],
     };
@@ -261,17 +278,17 @@ export function createLayoutFixer(
         messages: [first],
         telemetry: aiTelemetry("diagram-fix-layout"),
         stopWhen: isStepCount(options.maxSteps),
-        // Only the latest render rides along, never the history: one picture
-        // per step instead of one per change ever made.
+        // Only the latest render rides along. A prepareStep override carries
+        // forward to later steps, so earlier renders are dropped here first.
         prepareStep: ({ stepNumber, messages }) =>
           options.picture && stepNumber > 0
             ? {
                 messages: [
-                  ...messages,
+                  ...messages.filter((m) => !isRender(m)),
                   {
                     role: "user",
                     content: [
-                      { type: "text", text: "The drawing now:" },
+                      { type: "text", text: RENDER_CAPTION },
                       { type: "file", data: picture(current, theme), mediaType: "image/png" },
                     ],
                   },
@@ -302,7 +319,7 @@ export function createLayoutFixer(
           return undefined;
         },
       );
-      if (kept === "start") [current, spec] = [drawn, { ...input, edges: drawn.edges }];
+      if (kept === "start") [current, spec] = [drawn, working];
     }
     log.set({
       fix: {
@@ -317,6 +334,8 @@ export function createLayoutFixer(
         ms: Math.round(performance.now() - started),
       },
     });
-    return { spec, positioned: current };
+    // Moves never touch the spec. Hand back the caller's own spec unless a
+    // restructure changed it: the working copy carries sanitized edges.
+    return { spec: spec === working ? input : spec, positioned: current };
   };
 }

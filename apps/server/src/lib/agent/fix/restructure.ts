@@ -70,6 +70,13 @@ export function restructure(
       const [first] = group;
       if (!group.every((e) => e.from === first!.from && e.to === first!.to))
         return `merge_edges: ${op.edges!.join(",")} do not all share the same from and to`;
+      // Only the label survives a merge, so every other attribute must already agree.
+      const same = (k: keyof DiagramEdge) => group.every((e) => e[k] === first![k]);
+      const differ = (
+        ["kind", "style", "protocol", "direction", "startArrowhead", "endArrowhead"] as const
+      ).filter((k) => !same(k));
+      if (differ.length)
+        return `merge_edges: ${op.edges!.join(",")} differ in ${differ.join(", ")}; merge only edges that differ in label`;
       const merged = { ...first!, label: joinLabels(group) };
       edges = edges.filter((e) => !group.includes(e)).concat(merged);
     } else return `bad op ${JSON.stringify(op)}`;

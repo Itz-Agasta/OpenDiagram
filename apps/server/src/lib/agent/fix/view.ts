@@ -1,4 +1,5 @@
 import {
+  edgeLabelText,
   buildReport as harnessReport,
   hardFaults as harnessHardFaults,
   layoutLints as harnessLints,
@@ -74,7 +75,11 @@ export function layoutCost(p: PositionedSpec, theme: Theme): number {
 
 export function headline(p: PositionedSpec, theme: Theme): string {
   const { metrics } = buildReport(p, theme);
-  const boxes = [...Object.values(p.positions), ...Object.values(p.groupBoxes)];
+  const boxes = [
+    ...Object.values(p.positions),
+    ...Object.values(p.groupBoxes),
+    ...Object.values(p.zoneBoxes),
+  ];
   const width = Math.max(...boxes.map((b) => b.x + b.width)) - Math.min(...boxes.map((b) => b.x));
   const height = Math.max(...boxes.map((b) => b.y + b.height)) - Math.min(...boxes.map((b) => b.y));
   return `score ${layoutCost(p, theme)} | hard faults ${hardFaults(p, theme)} | ${Math.round(width)}x${Math.round(height)} fit ${metrics.fit.toFixed(2)} | crossings ${metrics.crossings} bends ${metrics.bends}`;
@@ -91,7 +96,9 @@ export function issues(p: PositionedSpec, theme: Theme, lints: boolean): string[
 /** The whole drawing as text: every box with coordinates, every edge, every issue. */
 export function textView(p: PositionedSpec, theme: Theme, lints: boolean): string {
   const parent = new Map<string, string>();
-  for (const g of p.groups ?? []) for (const id of g.contains) parent.set(id, g.id);
+  // Groups after zones, so a node in a group inside a zone shows its group.
+  for (const c of [...(p.zones ?? []), ...(p.groups ?? [])])
+    for (const id of c.contains) parent.set(id, c.id);
   const box = (b: Rect) =>
     `${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.width)}x${Math.round(b.height)}`;
   return [
@@ -100,11 +107,14 @@ export function textView(p: PositionedSpec, theme: Theme, lints: boolean): strin
     ...p.nodes.map(
       (n) => `${n.id} | ${n.label} | ${box(p.positions[n.id]!)} | ${parent.get(n.id) ?? "-"}`,
     ),
-    ...(Object.keys(p.groupBoxes).length
+    ...(Object.keys(p.groupBoxes).length + Object.keys(p.zoneBoxes).length
       ? [
           "GROUPS id | label | x,y WxH (auto-wrapped around members)",
           ...(p.groups ?? []).flatMap((g) =>
             p.groupBoxes[g.id] ? [`${g.id} | ${g.label} | ${box(p.groupBoxes[g.id]!)}`] : [],
+          ),
+          ...(p.zones ?? []).flatMap((z) =>
+            p.zoneBoxes[z.id] ? [`${z.id} | ${z.label} (zone) | ${box(p.zoneBoxes[z.id]!)}`] : [],
           ),
         ]
       : []),
@@ -112,7 +122,7 @@ export function textView(p: PositionedSpec, theme: Theme, lints: boolean): strin
     ...p.edges.map((e) => {
       const chip = p.edgeRoutes[e.id!]?.label;
       const size = chip ? ` (${Math.round(chip.width)}x${Math.round(chip.height)})` : "";
-      return `${e.id} | ${e.from}>${e.to} | ${e.label ?? ""}${size}`;
+      return `${e.id} | ${e.from}>${e.to} | ${edgeLabelText(e) ?? ""}${size}`;
     }),
     ...issues(p, theme, lints),
   ].join("\n");
