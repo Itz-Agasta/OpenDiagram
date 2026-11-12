@@ -23,6 +23,7 @@ const google = createGoogle({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?
 const argv = process.argv.slice(2);
 const flag = argv.indexOf("--prompts");
 const promptsFile = flag >= 0 ? argv.splice(flag, 2)[1] : undefined;
+if (flag >= 0 && !promptsFile) throw new Error("--prompts needs a file");
 const [out, ...dirs] = argv;
 if (!out || dirs.length === 0)
   throw new Error("usage: triage.ts <outDir> <specsDir...> [--prompts f]");
