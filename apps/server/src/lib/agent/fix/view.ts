@@ -95,10 +95,14 @@ export function issues(p: PositionedSpec, theme: Theme, lints: boolean): string[
 
 /** The whole drawing as text: every box with coordinates, every edge, every issue. */
 export function textView(p: PositionedSpec, theme: Theme, lints: boolean): string {
-  const parent = new Map<string, string>();
-  // Groups after zones, so a node in a group inside a zone shows its group.
-  for (const c of [...(p.zones ?? []), ...(p.groups ?? [])])
-    for (const id of c.contains) parent.set(id, c.id);
+  // First claim wins within zones and within groups, as in sanitize; a group
+  // overrides a zone so a node in a group inside a zone shows its group.
+  const claim = (containers: { id: string; contains: string[] }[]) => {
+    const out = new Map<string, string>();
+    for (const c of containers) for (const id of c.contains) if (!out.has(id)) out.set(id, c.id);
+    return out;
+  };
+  const parent = new Map([...claim(p.zones ?? []), ...claim(p.groups ?? [])]);
   const box = (b: Rect) =>
     `${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.width)}x${Math.round(b.height)}`;
   return [
