@@ -7,7 +7,7 @@
       "ignore": ["src/components/ui/**", "src/components/ai-elements/**"],
     },
     "apps/server": {
-      "entry": ["scripts/eval/run.ts", "scripts/eval/summary.ts"],
+      "entry": ["scripts/eval/run.ts", "scripts/eval/summary.ts", "scripts/eval/fix.ts", "scripts/eval/judge.ts", "scripts/eval/triage.ts"],
       // Imported only by bundled @OpenDiagram/* packages. scripts/build.ts keeps
       // package.json deps external, so the server must list them to resolve at runtime.
       // @sentry/server-utils is imported by the code sentryBunPlugin injects.
