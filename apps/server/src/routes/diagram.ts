@@ -1,9 +1,11 @@
+import { env } from "@OpenDiagram/env/server";
 import { diagramSpecSchema, themes } from "@OpenDiagram/harness";
 import { convertToModelMessages, createUIMessageStreamResponse, type UIMessage } from "ai";
 import type { EvlogVariables } from "evlog/hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import { streamDiagramChat } from "../lib/agent/chat-stream";
+import { createLayoutFixer, type LayoutFixer } from "../lib/agent/fix";
 import { inlineTextFiles } from "../lib/agent/inline-text-files";
 import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
 import { askUserTool, createDrawDiagramTool, createDrawSystemTool } from "../lib/agent/tools";
@@ -77,10 +79,12 @@ diagramRoute.post("/chat", async (c) => {
     id: chatId,
   } = parsed.data;
 
+  const fixer: { run?: LayoutFixer } = {};
+  const sideUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   const tools = {
     ask_user: askUserTool,
-    draw_diagram: createDrawDiagramTool(log, themes[themeName], diagrams),
-    draw_system: createDrawSystemTool(log, themes[themeName]),
+    draw_diagram: createDrawDiagramTool(log, themes[themeName], diagrams, fixer),
+    draw_system: createDrawSystemTool(log, themes[themeName], fixer),
   };
 
   // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
@@ -128,6 +132,23 @@ diagramRoute.post("/chat", async (c) => {
     ai: { source: resolved.source, provider: resolved.provider, modelId: resolved.modelId },
   });
 
+  if (env.AGENT_FIX_LAYOUT) {
+    const last = messages.findLast((m) => m.role === "user");
+    const parts = Array.isArray(last?.parts)
+      ? (last.parts as { type?: string; text?: string }[])
+      : [];
+    const request = parts
+      .flatMap((part) => (part.type === "text" && part.text ? [part.text] : []))
+      .join("\n");
+    fixer.run = createLayoutFixer(
+      resolved.model,
+      themes[themeName],
+      log,
+      sideUsage,
+      request || undefined,
+    );
+  }
+
   let grant: Awaited<ReturnType<typeof enforceAiQuota>>;
   try {
     grant = await enforceAiQuota(c, resolved, "diagram-chat", userId, turnIdFor(messages));
@@ -152,6 +173,7 @@ diagramRoute.post("/chat", async (c) => {
       originalMessages: messages as unknown as UIMessage[],
       tools,
       grant,
+      sideUsage,
       runtimeContext: {
         // Guests have no user id; the browser's PostHog id (tracing_headers) keeps
         // their traces on one person. Client-supplied, so analytics only.

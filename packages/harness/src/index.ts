@@ -13,8 +13,10 @@ export type { SequenceRenderResult } from "./layout/sequence.js";
 
 export { diagramSpecSchema, diagramTypeSchema } from "./diagram-schema.js";
 
-export { layoutDiagram } from "./layout.js";
-export type { Box, EdgeRoute, PositionedSpec } from "./layout.js";
+export { layoutDiagram, layoutPinned } from "./layout.js";
+export type { Box, EdgeRoute, EdgeSides, PositionedSpec } from "./layout.js";
+export { renderPreviewSvg } from "./preview.js";
+export { edgeLabelText } from "./measure.js";
 
 export { renderToExcalidraw } from "./renderer.js";
 export type {
@@ -26,6 +28,8 @@ export type {
 } from "./renderer.js";
 
 export { buildReport } from "./report/index.js";
+export { hardFaults, layoutLints } from "./report/lints.js";
+export type { Lint, LintCode } from "./report/lints.js";
 export type {
   DiagnosticCode,
   Diagnostic,

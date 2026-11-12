@@ -17,7 +17,7 @@ import {
   type RouterNode,
 } from "./types.js";
 
-export type { RouterContainer, RouterInput } from "./types.js";
+export type { RouterContainer, RouterEdge, RouterInput } from "./types.js";
 
 // Port-order rounds. Each re-derives port order from the previous round's
 // routes and reroutes every edge against all the others.
@@ -66,15 +66,20 @@ export function routeEdges(input: RouterInput): {
     const [a, b] = [nodes.get(e.from)!, nodes.get(e.to)!];
     const sc = faceCosts(a, b, "source", input.direction);
     const tc = faceCosts(b, a, "target", input.direction);
-    const sources = FACES.map((f) => terminal(a, f, sc[f]));
+    const allowed = (side?: Face) => (side ? [side] : FACES);
     const found = search(
       coarse,
-      sources,
-      FACES.map((f) => terminal(b, f, tc[f])),
+      allowed(e.sides?.from).map((f) => terminal(a, f, sc[f])),
+      allowed(e.sides?.to).map((f) => terminal(b, f, tc[f])),
       obstacles.get(e.id)!,
       occupied,
     );
-    faces.set(e.id, found ? [found.source.face, found.target.face] : ["right", "left"]);
+    faces.set(
+      e.id,
+      found
+        ? [found.source.face, found.target.face]
+        : [e.sides?.from ?? "right", e.sides?.to ?? "left"],
+    );
     const pts = found?.points ?? [mid(a), mid(b)];
     routes.set(e.id, pts);
     record(occupied, e.id, pts);

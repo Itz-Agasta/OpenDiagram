@@ -10,6 +10,7 @@ import {
 } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
+import type { LayoutFixer } from "./fix";
 
 export interface DrawDiagramOutput {
   skeletons: RenderSkeleton[];
@@ -30,8 +31,11 @@ export interface DrawDiagramOutput {
 export async function renderView(
   rawSpec: DiagramSpec,
   theme: Theme,
+  fix?: LayoutFixer,
 ): Promise<DrawDiagramOutput & { spec: DiagramSpec; logFields: Record<string, unknown> }> {
-  const { spec, unknownIcons } = normalizeSpecIcons<DiagramSpec>(rawSpec);
+  const normalized = normalizeSpecIcons<DiagramSpec>(rawSpec);
+  const { unknownIcons } = normalized;
+  let spec = normalized.spec;
   const warnings = unknownIcons.map((key) => `unknown icon "${key}" - drawn as a box`);
 
   let skeletons: RenderSkeleton[];
@@ -46,7 +50,10 @@ export async function renderView(
     rawElements = result.rawElements;
     warnings.push(...result.warnings);
   } else {
-    const positioned = await layoutDiagram(spec, theme);
+    let positioned = await layoutDiagram(spec, theme);
+    // The fixer may restructure (merge edges, add a junction): what it returns
+    // is what the canvas stores, so the next edit starts from what is drawn.
+    if (fix) ({ spec, positioned } = await fix(spec, positioned));
     const result = renderToExcalidraw(positioned, iconRegistry, theme);
     skeletons = result.skeletons;
     rawElements = result.rawElements;

@@ -43,6 +43,8 @@ export interface RouterEdge {
   to: string;
   /** Measured label chip; the router picks where it lands. */
   label?: { width: number; height: number };
+  /** Faces someone chose by hand (the layout fixer); the router keeps to them. */
+  sides?: { from?: Face; to?: Face };
 }
 
 export interface RouterInput {

@@ -71,6 +71,11 @@ export const env = createEnv({
     // NODE_ENV: that defaults to "development", so a self-hosted deploy that
     // never sets it would ship a user's architecture to Sentry by default.
     LOG_DIAGRAM_SPEC: z.stringbool().default(false),
+    // After the harness draws, a model looks at a picture of the result and
+    // moves boxes and groups to fix it (apps/server/src/lib/agent/fix). Off by
+    // default: a fix adds ~30-50 s and ~$0.03 to a draw, and production needs
+    // the picture renderer in the image first (OPE-115).
+    AGENT_FIX_LAYOUT: z.stringbool().default(false),
   },
   runtimeEnv: process.env,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

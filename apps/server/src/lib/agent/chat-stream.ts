@@ -105,6 +105,11 @@ export type DiagramChatOptions = {
   originalMessages: UIMessage[];
   tools: ToolSet;
   grant: AiQuotaGrant;
+  /**
+   * Tokens spent by model calls the tools make on their own (the layout fix
+   * pass). The tool adds to it while the stream runs; it is billed with the turn.
+   */
+  sideUsage?: Required<AiUsage>;
   meta: { canvasDiagrams: number; theme: string; messageCount: number };
   instructions: string;
   runtimeContext: AiRuntimeContext;
@@ -127,6 +132,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
     originalMessages,
     tools,
     grant,
+    sideUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
     meta,
     instructions,
     runtimeContext,
@@ -282,12 +288,17 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       // cost. Must happen before the response is done on Cloud Run, which
       // throttles CPU once the response completes. A stream that errored gives
       // the credit back but keeps the tokens it burned on the ledger.
-      if (failed) await grant.release(spent);
+      if (failed)
+        await grant.release({
+          inputTokens: spent.inputTokens + sideUsage.inputTokens,
+          outputTokens: spent.outputTokens + sideUsage.outputTokens,
+          cachedInputTokens: spent.cachedInputTokens + sideUsage.cachedInputTokens,
+        });
       else
         await grant.settle({
-          inputTokens: totals.inputTokens,
-          outputTokens: totals.outputTokens,
-          cachedInputTokens: totals.cacheRead,
+          inputTokens: totals.inputTokens + sideUsage.inputTokens,
+          outputTokens: totals.outputTokens + sideUsage.outputTokens,
+          cachedInputTokens: totals.cacheRead + sideUsage.cachedInputTokens,
         });
     },
   });

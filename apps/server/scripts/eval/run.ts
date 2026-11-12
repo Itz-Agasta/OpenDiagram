@@ -9,7 +9,7 @@
  *
  * Run from apps/server so the server env loads.
  */
-import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { createGoogle } from "@ai-sdk/google";
@@ -29,6 +29,7 @@ const { values: args } = parseArgs({
   options: {
     models: { type: "string" },
     prompts: { type: "string" },
+    file: { type: "string" },
     runs: { type: "string", default: "1" },
     strategy: { type: "string", default: "s0" },
     concurrency: { type: "string", default: "6" },
@@ -75,9 +76,9 @@ function resolveModel(slug: string, host?: string, effort?: string) {
   };
 }
 const models = args.models.split(",");
-const chosen = args.prompts
-  ? prompts.filter((p) => args.prompts!.split(",").includes(p.id))
-  : prompts;
+// --file: a local JSON array of EvalPrompt, for corpora that must stay out of git.
+const pool: EvalPrompt[] = args.file ? JSON.parse(readFileSync(args.file, "utf8")) : prompts;
+const chosen = args.prompts ? pool.filter((p) => args.prompts!.split(",").includes(p.id)) : pool;
 const outDir = join(args.out, new Date().toISOString().replace(/[:.]/g, "-"));
 mkdirSync(join(outDir, "specs"), { recursive: true });
 const resultsPath = join(outDir, "results.jsonl");
@@ -174,17 +175,34 @@ async function runOne(modelId: string, prompt: EvalPrompt, run: number) {
     ),
   );
   // Every successful draw of the turn: S2 may draw several views, draw_system returns its planned ones.
-  const drawn = steps.flatMap((s) =>
+  const drawGroups = steps.flatMap((s) =>
     s.content.flatMap((c) => {
       if (c.type !== "tool-result") return [];
-      if (c.toolName === "draw_diagram") return [c.input as Record<string, unknown>];
+      if (c.toolName === "draw_diagram") return [[c.input as Record<string, unknown>]];
       if (c.toolName === "draw_system")
-        return (c.output as { views: { spec: Record<string, unknown> }[] }).views.map(
-          (v) => v.spec,
-        );
+        return [
+          (c.output as { views: { spec: Record<string, unknown> }[] }).views.map((v) => v.spec),
+        ];
       return [];
     }),
   );
+  // A revising strategy redraws in place, so one draw is the result: the best
+  // by report (an unreadably small render loses 30), the later one on a tie.
+  const effective = (d: Record<string, unknown> | undefined) =>
+    typeof d?.score === "number"
+      ? d.score - ((d.metrics as { fit: number }).fit < 0.6 ? 30 : 0)
+      : -Infinity;
+  // Later draw wins a tie: scan from the first with >=.
+  let keep = 0;
+  if (strategy.revises && drawGroups.every((g) => g.length === 1))
+    drawGroups.forEach((_, i) => {
+      if (effective(drawLogs[i]) >= effective(drawLogs[keep])) keep = i;
+    });
+  else keep = drawGroups.length - 1;
+  const drawn = strategy.revises ? (drawGroups[keep] ?? []) : drawGroups.flat();
+  if (strategy.revises && drawGroups.every((g) => g.length === 1))
+    drawLogs.splice(0, drawLogs.length, ...(drawLogs[keep] ? [drawLogs[keep]!] : []));
+  else if (strategy.revises) drawLogs.splice(0, Math.max(0, drawLogs.length - drawn.length));
   const geminiPrice = GEMINI_PRICES[slug.replace("gemini:", "")];
   const cost = steps.reduce((sum, s) => {
     if (geminiPrice) {

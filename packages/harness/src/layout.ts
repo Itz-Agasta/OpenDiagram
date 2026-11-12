@@ -1,10 +1,12 @@
 import type { ElkNode } from "elkjs/lib/elk-api.js";
 import type { Box, PositionedSpec } from "./geometry.js";
 import { alignColumns } from "./layout/align.js";
+import { arrangedLayout, containerBoxes } from "./layout/arrange.js";
 import { laneLayout } from "./layout/lanes.js";
 import { BASE_OPTIONS, containerOptions, elk, elkEdge } from "./layout/elk-common.js";
 import { type LayoutGeometry, twoPhaseLayout } from "./layout/macro.js";
 import { routeGeometry } from "./layout/route.js";
+import type { RouterEdge } from "./router/index.js";
 import { sanitize, type Sanitized } from "./layout/sanitize.js";
 import { reorderStacks } from "./layout/reorder.js";
 import { straightenRows } from "./layout/straighten.js";
@@ -12,6 +14,8 @@ import { buildReport } from "./report/index.js";
 import { nodeSize } from "./measure.js";
 import type { DiagramSpec } from "./schema.js";
 import { classicTheme, type Theme } from "./theme/index.js";
+
+export type EdgeSides = NonNullable<RouterEdge["sides"]>;
 
 export type { Box, EdgeRoute, PositionedSpec } from "./geometry.js";
 
@@ -162,9 +166,13 @@ export async function layoutDiagram(
   };
 
   const candidates: LayoutGeometry[] = [];
+  // Dictated placement is the only candidate: the author asked for those cells.
+  const arranged = arrangedLayout(spec, s, theme);
+  if (arranged) candidates.push(arranged);
   const swimlanes =
-    spec.type === "bpmn" ||
-    (s.groups.length > 1 && (spec.groups ?? []).every((g) => g.style === "swimlane"));
+    !arranged &&
+    (spec.type === "bpmn" ||
+      (s.groups.length > 1 && (spec.groups ?? []).every((g) => g.style === "swimlane")));
   let lanes: LayoutGeometry | null = null;
   try {
     if (swimlanes) lanes = await laneLayout(spec, placing, theme);
@@ -174,7 +182,13 @@ export async function layoutDiagram(
   if (lanes) candidates.push(lanes);
   const topContainers =
     s.zones.length + s.groups.filter((g) => !s.zones.some((z) => z.contains.includes(g.id))).length;
-  if (!lanes && strategy !== "single" && spec.type !== "sequence" && topContainers >= 2) {
+  if (
+    !arranged &&
+    !lanes &&
+    strategy !== "single" &&
+    spec.type !== "sequence" &&
+    topContainers >= 2
+  ) {
     try {
       const folded = await twoPhaseLayout(spec, placing, theme);
       if (folded) {
@@ -186,7 +200,7 @@ export async function layoutDiagram(
     }
   }
   let single: LayoutGeometry | undefined;
-  if (!lanes && (strategy !== "two-phase" || candidates.length === 0)) {
+  if (!arranged && !lanes && (strategy !== "two-phase" || candidates.length === 0)) {
     single = await singleRunLayout(spec, placing, theme);
     candidates.push(single);
   }
@@ -212,7 +226,7 @@ export async function layoutDiagram(
 
   let best: { positioned: PositionedSpec; score: number } | undefined;
   for (const geo of candidates) {
-    if (geo !== lanes) {
+    if (geo !== lanes && geo !== arranged) {
       alignColumns(spec, geo.positions);
       straightenRows(geo, s, placing.edges, ["LR", "RL"].includes(flowDirection(spec)));
     }
@@ -229,4 +243,36 @@ export async function layoutDiagram(
     if (!best || score > best.score) best = { positioned, score };
   }
   return best!.positioned;
+}
+
+/**
+ * Re-solves a diagram around node positions someone else chose (an agent's fix,
+ * a user's drag): boxes are re-wrapped, every edge re-routed, nothing re-placed.
+ * `at` is each node's top-left; a node missing from it keeps `fallback`'s spot.
+ * `sides` pins which face an edge leaves and enters by; the router does the rest.
+ */
+export function layoutPinned(
+  spec: DiagramSpec,
+  at: Record<string, { x: number; y: number }>,
+  fallback: Record<string, Box>,
+  theme: Theme = classicTheme,
+  sides: Record<string, EdgeSides> = {},
+): PositionedSpec {
+  const s = sanitize(spec);
+  const positions: Record<string, Box> = {};
+  for (const node of spec.nodes) {
+    const size = nodeSize(node, theme, s.nodeParent.has(node.id));
+    const spot = at[node.id] ?? fallback[node.id] ?? { x: 0, y: 0 };
+    positions[node.id] = { x: Math.round(spot.x), y: Math.round(spot.y), ...size };
+  }
+  const geo = { positions, ...containerBoxes(spec, s, positions, theme, false) };
+  const { routes, warnings } = routeGeometry(spec, s, geo, theme, sides);
+  return {
+    ...spec,
+    edges: s.edges,
+    ...geo,
+    edgeRoutes: routes,
+    containedNodeIds: [...s.nodeParent.keys()],
+    warnings: [...s.warnings, ...warnings],
+  };
 }

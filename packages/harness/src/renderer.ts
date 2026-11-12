@@ -1,3 +1,4 @@
+import { renderAnnotations } from "./renderer/annotations.js";
 import type { PositionedSpec } from "./geometry.js";
 import { renderContainer } from "./renderer/containers.js";
 import { renderEdge } from "./renderer/edges.js";
@@ -89,6 +90,8 @@ export function renderToExcalidraw(
     if (!route) continue;
     renderEdge(edge, route, theme, skeletons);
   }
+
+  renderAnnotations(positioned, theme, skeletons);
 
   // Wrap the whole diagram in a named frame: one-click select/move/export,
   // and the anchor for "replace this diagram" updates.
