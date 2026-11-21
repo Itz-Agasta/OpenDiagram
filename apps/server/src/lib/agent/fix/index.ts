@@ -83,20 +83,27 @@ function findings(text: string, drawn: PositionedSpec): string[] {
     [...drawn.nodes, ...(drawn.groups ?? []), ...(drawn.zones ?? [])].map((x) => [x.id, x.label]),
   );
   const arrows = new Map(drawn.edges.map((e) => [e.id, edgeLabelText(e)]));
+  const escape = (id: string) => id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Longest first, so `api` never matches inside `api-gateway`.
+  const ids = [...labels.keys(), ...arrows.keys()]
+    .filter((id): id is string => !!id)
+    .sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(
+    `(?:\\b(?:[Ee]dge|[Aa]rrow)\\s+)?(?<![\\w-])(${ids.map(escape).join("|") || "(?!)"})(?![\\w-])(?:\\s*\\(([^)]+)\\))?`,
+    "g",
+  );
   const name = (match: string, id: string, paren?: string) => {
     if (arrows.has(id)) {
       const label = paren ?? arrows.get(id);
       return label ? `the ${label} arrow` : "an arrow";
     }
-    // `match` may have swallowed a leading "edge " that belongs to plain prose.
+    // A leading "edge " that matched before a node id is prose; keep it.
     const label = labels.get(id);
-    return label ? match.replace(id, label) : match;
+    return label ? match.replace(id, () => label) : match;
   };
   return text
     .split(/;|\.\s|\n/)
-    .map((part) =>
-      part.trim().replace(/\b(?:(?:edge|arrow)\s+)?([A-Za-z_][\w-]*)(?:\s*\(([^)]+)\))?/gi, name),
-    )
+    .map((part) => part.trim().replace(pattern, name))
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => {

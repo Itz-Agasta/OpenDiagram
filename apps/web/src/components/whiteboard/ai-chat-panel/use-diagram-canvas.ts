@@ -8,19 +8,26 @@ import { toast } from "sonner";
 import type { DrawDiagramOutput, DrawSystemOutput } from "./types";
 
 /**
- * What the user could have changed in a frame: every shape's place and size,
- * every text's content, and the element count. Text geometry is left out on
- * purpose: Excalidraw re-measures text on its own, which is not an edit.
+ * What the user could have changed in a frame: every shape's and arrow's
+ * place, size and style, every text's content and style, free text's place,
+ * and the element count. Bound text geometry is left out on purpose: Excalidraw
+ * re-centres and re-measures it on its own, which is not an edit.
  */
 function framePrint(api: ExcalidrawImperativeAPI, frameId: string): string {
   return api
     .getSceneElements()
     .filter((el) => el.id === frameId || el.frameId === frameId)
-    .map((el) =>
-      el.type === "text"
-        ? `${el.id}:${el.text}`
-        : `${el.id}:${Math.round(el.x)},${Math.round(el.y)},${Math.round(el.width)},${Math.round(el.height)}`,
-    )
+    .map((el) => {
+      const style = `${el.strokeColor},${el.backgroundColor},${el.fillStyle},${el.strokeWidth},${el.strokeStyle},${el.opacity}`;
+      const at = `${Math.round(el.x)},${Math.round(el.y)}`;
+      if (el.type === "text")
+        return `${el.id}:${el.text}:${el.fontSize}:${el.fontFamily}:${style}:${el.containerId ? "" : at}`;
+      const points =
+        "points" in el
+          ? el.points.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(";")
+          : "";
+      return `${el.id}:${at},${Math.round(el.width)},${Math.round(el.height)}:${style}:${points}`;
+    })
     .sort()
     .join("|");
 }

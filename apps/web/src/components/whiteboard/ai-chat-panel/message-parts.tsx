@@ -203,7 +203,13 @@ function DrawSteps({
   parts: Part[];
   showDiagram: (title: string) => void;
 }) {
-  const drawn = parts.flatMap(drawnViews);
+  // `fixId` is the id the server gives that view's `data-fix` part.
+  const drawn = parts.flatMap((part) =>
+    drawnViews(part).map((view, i) => ({
+      ...view,
+      fixId: isStaticToolUIPart(part) ? `${part.toolCallId}-${i}` : undefined,
+    })),
+  );
   const tools = parts.filter(isStaticToolUIPart);
   const active = tools.find(
     (part) => part.state === "input-streaming" || part.state === "input-available",
@@ -214,12 +220,14 @@ function DrawSteps({
       ? (active.input as Partial<DiagramSpec> | undefined)?.title
       : undefined;
   // Fixer steps, one live part per view. Never stored: history keeps the drawn row.
-  const fixes = parts.flatMap((part) =>
-    part.type === "data-fix" ? [part.data as FixProgress] : [],
+  const fixes = new Map(
+    parts.flatMap((part) =>
+      part.type === "data-fix" && part.id ? [[part.id, part.data as FixProgress] as const] : [],
+    ),
   );
   // A preliminary result is the first draw, on the canvas while the fixer works.
   const polishing = tools.some((part) => part.state === "output-available" && part.preliminary);
-  const polishTitle = fixes.findLast((fix) => fix.status === "polishing")?.title;
+  const polishTitle = [...fixes.values()].findLast((fix) => fix.status === "polishing")?.title;
   const activeLabel = active
     ? active.type === "tool-draw_system"
       ? "Modelling the system…"
@@ -265,12 +273,10 @@ function DrawSteps({
             }
             description={`${view.nodes} nodes, ${view.edges} edges`}
           >
-            {fixes
-              .filter((fix) => fix.title === view.title)
-              .flatMap((fix) => fix.lines)
-              .map((line, i) => (
-                <ChainOfThoughtStep key={`${line}-${i}`} icon={Wand2} label={line} />
-              ))}
+            {(view.fixId ? (fixes.get(view.fixId)?.lines ?? []) : []).map((line, i) => (
+              // Append-only list, so the index is a stable key.
+              <ChainOfThoughtStep key={i} icon={Wand2} label={line} />
+            ))}
           </ChainOfThoughtStep>
         ))}
         {failed.map((errorText, index) => (
