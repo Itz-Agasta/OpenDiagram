@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sanitizeSceneAppState } from "./workspace-layout/helpers";
+import { releasePolishLocks } from "@/lib/excalidraw-utils";
 
 // MainMenu is a compound child of Excalidraw and just as browser-only, so both
 // come from the one dynamic import.
@@ -86,7 +87,9 @@ function toExcalidrawInitialData(scene: unknown): ExcalidrawInitialDataState | u
       : undefined;
 
   return {
-    elements: Array.isArray(value.elements) ? value.elements : undefined,
+    elements: Array.isArray(value.elements)
+      ? (releasePolishLocks(value.elements) as ExcalidrawInitialDataState["elements"])
+      : undefined,
     appState,
     files:
       value.files && typeof value.files === "object" ? (value.files as BinaryFiles) : undefined,

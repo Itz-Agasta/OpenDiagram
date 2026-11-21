@@ -2,35 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec } from "@OpenDiagram/harness";
-import { applyDiagramToCanvas, removeFramesFromCanvas } from "@/lib/excalidraw-utils";
+import {
+  applyDiagramToCanvas,
+  lockFrame,
+  releaseFrame,
+  removeFramesFromCanvas,
+} from "@/lib/excalidraw-utils";
 import { upsertCanvasDiagram, type CanvasDiagram } from "@/lib/canvas-diagrams";
 import { toast } from "sonner";
-import type { DrawDiagramOutput, DrawSystemOutput } from "./types";
-
-/**
- * What the user could have changed in a frame: every shape's and arrow's
- * place, size and style, every text's content and style, free text's place,
- * and the element count. Bound text geometry is left out on purpose: Excalidraw
- * re-centres and re-measures it on its own, which is not an edit.
- */
-function framePrint(api: ExcalidrawImperativeAPI, frameId: string): string {
-  return api
-    .getSceneElements()
-    .filter((el) => el.id === frameId || el.frameId === frameId)
-    .map((el) => {
-      const style = `${el.strokeColor},${el.backgroundColor},${el.fillStyle},${el.strokeWidth},${el.strokeStyle},${el.opacity}`;
-      const at = `${Math.round(el.x)},${Math.round(el.y)}`;
-      if (el.type === "text")
-        return `${el.id}:${el.text}:${el.fontSize}:${el.fontFamily}:${style}:${el.containerId ? "" : at}`;
-      const points =
-        "points" in el
-          ? el.points.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(";")
-          : "";
-      return `${el.id}:${at},${Math.round(el.width)},${Math.round(el.height)}:${style}:${points}`;
-    })
-    .sort()
-    .join("|");
-}
+import type { DrawDiagramOutput, DrawSystemOutput, FixProgress } from "./types";
 
 interface UseDiagramCanvasOptions {
   /** Every diagram currently on this canvas. */
@@ -38,15 +18,23 @@ interface UseDiagramCanvasOptions {
   /** Reports the list after a draw, so it can be sent with the next turn and stored. */
   onDiagramsChange: (diagrams: CanvasDiagram[]) => void;
   diagramMessages: UIMessage[];
+  /** False once the turn ends, stopped or failed: any frame still polishing unlocks then. */
+  streaming: boolean;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
   fileId?: string;
   projectId?: string;
+}
+
+/** A final view worth swapping in: the canvas already shows an unchanged one. */
+function changed<T extends DrawDiagramOutput>(view: T): T | undefined {
+  return view.fix?.status === "done" && view.fix.changed ? view : undefined;
 }
 
 export function useDiagramCanvas({
   diagrams,
   onDiagramsChange,
   diagramMessages,
+  streaming,
   excalidrawAPI,
   fileId,
   projectId,
@@ -54,8 +42,8 @@ export function useDiagramCanvas({
   const appliedToolCallsRef = useRef(new Set<string>());
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
   const skippedMessageIdsRef = useRef(new Set<string>());
-  // `<toolCallId>-<view>` -> the frame a first draw made, while its fixer runs.
-  const polishingRef = useRef(new Map<string, { frameId: string; print: string }>());
+  // `<toolCallId>-<view>` -> the locked frame a first draw made, while its fixer runs.
+  const polishingRef = useRef(new Map<string, string>());
   const [applyError, setApplyError] = useState<string | null>(null);
 
   // Mirrored because the apply chain reads it from inside a promise that resolves
@@ -99,13 +87,14 @@ export function useDiagramCanvas({
       output: DrawDiagramOutput,
       spec: DiagramSpec,
       targetId: string | undefined,
+      scroll = true,
     ): Promise<string | undefined> => {
       const replaceFrameId = knownFrame(targetId);
       const { frameId } = await applyDiagramToCanvas(
         excalidrawAPI,
         output.skeletons,
         output.rawElements,
-        { replaceFrameId },
+        { replaceFrameId, scroll },
       );
       if (!frameId) return undefined;
       // Replacing does not reuse the frame id. `applyDiagramToCanvas`
@@ -126,7 +115,7 @@ export function useDiagramCanvas({
       return frameId;
     };
 
-    /** A first draw while the fixer works: drawn now, its frame kept for the swap. */
+    /** A first draw while the fixer works: drawn now, locked until its pass ends. */
     const drawFirst = async (
       key: string,
       view: DrawDiagramOutput,
@@ -134,24 +123,22 @@ export function useDiagramCanvas({
       target?: string,
     ) => {
       const frameId = await drawFrame(view, spec, target);
-      if (frameId)
-        polishingRef.current.set(key, { frameId, print: framePrint(excalidrawAPI, frameId) });
+      if (!frameId) return;
+      polishingRef.current.set(key, frameId);
+      await lockFrame(excalidrawAPI, frameId, spec.title);
     };
 
     /**
-     * The fixer's final drawing replaces its first draw in place, unless the
-     * user edited that frame meanwhile: their edits win over the polish.
+     * A view's pass ended: the polished drawing replaces the first draw in
+     * place, or the frame just unlocks when nothing changed. No camera move:
+     * views swap mid-turn, and the user may be looking at another one.
      */
-    const swap = async (key: string, view: DrawDiagramOutput, spec: DiagramSpec) => {
-      const first = polishingRef.current.get(key);
+    const swap = async (key: string, polished?: DrawDiagramOutput, spec?: DiagramSpec) => {
+      const frameId = polishingRef.current.get(key);
       polishingRef.current.delete(key);
-      if (!first || !view.fix || view.fix.status !== "done" || !view.fix.changed) return;
-      if (!knownFrame(first.frameId)) return;
-      if (framePrint(excalidrawAPI, first.frameId) !== first.print) {
-        toast.info(`Kept your edits to “${spec.title}”. The polished layout was not applied.`);
-        return;
-      }
-      await drawFrame(view, spec, first.frameId);
+      if (!frameId || !knownFrame(frameId)) return;
+      await releaseFrame(excalidrawAPI, frameId, { replacing: Boolean(polished && spec) });
+      if (polished && spec) await drawFrame(polished, spec, frameId, false);
     };
 
     for (const message of diagramMessages) {
@@ -159,6 +146,22 @@ export function useDiagramCanvas({
       if (message.role !== "assistant") continue;
 
       for (const part of message.parts) {
+        if (part.type === "data-fix" && part.id) {
+          const fix = part.data as FixProgress;
+          // Only once its first draw is queued: the stream may deliver the
+          // part before the tool's first yield, and the final yield covers that.
+          const toolCallId = part.id.slice(0, part.id.lastIndexOf("-"));
+          const key = `${part.id}:fixed`;
+          if (fix.status !== "done" || appliedToolCallsRef.current.has(key)) continue;
+          if (!appliedToolCallsRef.current.has(`${toolCallId}:first`)) continue;
+          appliedToolCallsRef.current.add(key);
+          queue(() => swap(part.id!, fix.view, fix.view?.spec));
+          // A pass that ran but changed nothing otherwise reads as a swap that broke.
+          // The row's verdict says why: nothing better, or the pass stopped early.
+          if (!fix.view && fix.lines.length > 0)
+            toast.info(`Kept the original layout of “${fix.title}”.`);
+          continue;
+        }
         if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") continue;
         if (part.state !== "output-available") continue;
         const id = part.toolCallId;
@@ -197,7 +200,7 @@ export function useDiagramCanvas({
           const { targetId, ...spec } = part.input as DiagramSpec & { targetId?: string };
           const output = views[0]!;
           if (phase === "first") queue(() => drawFirst(`${id}-0`, output, spec, targetId), retry);
-          else if (phase === "final") queue(() => swap(`${id}-0`, output, spec));
+          else if (phase === "final") queue(() => swap(`${id}-0`, changed(output), spec));
           else
             queue(async () => {
               await drawFrame(output, spec, targetId);
@@ -207,7 +210,9 @@ export function useDiagramCanvas({
 
         const systemViews = views as DrawSystemOutput["views"];
         if (phase === "final") {
-          systemViews.forEach((view, i) => queue(() => swap(`${id}-${i}`, view, view.spec)));
+          systemViews.forEach((view, i) =>
+            queue(() => swap(`${id}-${i}`, changed(view), view.spec)),
+          );
           continue;
         }
         // A redo deletes the old set, then draws the new one like a fresh set.
@@ -231,6 +236,15 @@ export function useDiagramCanvas({
       }
     }
   }, [diagramMessages, excalidrawAPI, fileId, onDiagramsChange, projectId]);
+
+  useEffect(() => {
+    if (streaming || !excalidrawAPI) return;
+    applyChainRef.current = applyChainRef.current.then(async () => {
+      for (const frameId of polishingRef.current.values())
+        await releaseFrame(excalidrawAPI, frameId);
+      polishingRef.current.clear();
+    });
+  }, [streaming, excalidrawAPI]);
 
   return { applyError, setApplyError };
 }

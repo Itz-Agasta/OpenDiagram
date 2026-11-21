@@ -216,6 +216,7 @@ export function createLayoutFixer(
           : []),
       ],
     };
+    let failed = false;
     try {
       await generateText({
         model,
@@ -251,6 +252,7 @@ export function createLayoutFixer(
         tools: session.tools,
       });
     } catch (error) {
+      failed = true;
       log.warn("layout fix pass failed, keeping what it reached", { error: String(error) });
     }
     if (options.judge === "end" && hardFaults(state.current, theme) > session.hardBefore) {
@@ -269,7 +271,12 @@ export function createLayoutFixer(
     }
     emit({
       kind: "verdict",
-      text: state.current === drawn ? "Kept the first draw" : "Kept the polished layout",
+      text:
+        state.current !== drawn
+          ? "Applied the polished layout"
+          : failed
+            ? "Polishing stopped early, kept the original"
+            : "No better layout found, kept the original",
     });
     stats.fix = {
       before: cost,

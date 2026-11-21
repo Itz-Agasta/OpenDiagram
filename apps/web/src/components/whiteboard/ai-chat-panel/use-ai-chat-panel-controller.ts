@@ -177,6 +177,7 @@ export function useAIChatPanelController({
     diagrams,
     onDiagramsChange: handleDiagramsChange,
     diagramMessages: diagramChat.messages,
+    streaming: diagramChat.status === "submitted" || diagramChat.status === "streaming",
     excalidrawAPI,
     fileId,
     projectId,

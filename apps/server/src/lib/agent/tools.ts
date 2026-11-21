@@ -77,11 +77,17 @@ function restoreIcons(spec: DiagramSpec, previous: DiagramSpec | undefined): Dia
   };
 }
 
-/** One view's fixer steps so far, streamed as a `data-fix` part while it polishes. */
+/**
+ * One view's fixer steps so far, streamed as a `data-fix` part while it polishes.
+ * Every polished view gets a `done`: the client unlocks the frame on it and
+ * swaps in `view` when the drawing changed. This part, not the tool's final
+ * yield, is how a view swaps as soon as its own pass ends.
+ */
 interface FixProgress {
   title: string;
   lines: string[];
   status: "polishing" | "done";
+  view?: ReturnType<typeof forClient>;
 }
 
 /**
@@ -125,10 +131,16 @@ async function polishStreamed(
 ): Promise<{ view: RenderedView; stats?: FixStats }> {
   const lines: string[] = [];
   let repeat = { text: "", times: 0 };
-  const send = (status: FixProgress["status"]) =>
-    progress.write?.(id, { title: view.spec.title, lines: [...lines], status });
+  const send = (status: FixProgress["status"], final?: RenderedView) =>
+    progress.write?.(id, {
+      title: view.spec.title,
+      lines: [...lines],
+      status,
+      ...(final && final !== view && { view: forClient(final) }),
+    });
+  let result: { view: RenderedView; stats?: FixStats } = { view };
   try {
-    return await polishView(
+    result = await polishView(
       view,
       theme,
       fix,
@@ -147,10 +159,9 @@ async function polishStreamed(
     );
   } catch (error) {
     log.warn("layout fix threw, keeping the first draw", { error: String(error) });
-    return { view };
-  } finally {
-    if (lines.length) send("done");
   }
+  send("done", result.view);
+  return result;
 }
 
 /** Server-side tool: validate spec -> layout (ELK) -> render -> canvas payload. */
@@ -274,8 +285,9 @@ export function createDrawSystemTool(
     });
     return rendered.map(forClient);
   };
-  // Every first draw goes out in one yield, then each view polishes in turn:
-  // a yield per view would resend the views before it each time.
+  // Every first draw goes out in one yield, then each view polishes in turn
+  // and swaps through its `data-fix` part: a yield per view would resend the
+  // views before it each time.
   async function* polished(
     model: z.infer<typeof systemModelSchema>,
     toolCallId: string,
