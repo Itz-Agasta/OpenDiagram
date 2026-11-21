@@ -139,6 +139,45 @@ const replica = spec("Replica", {
   meta: { direction: "TB" },
 });
 
+// Regression: a chip with no legal spot on its line printed over a group title.
+// Two groups with two-line titles under a gateway, TB.
+const groupTitles = spec("Group titles", {
+  nodes: [
+    n("gw", "API Gateway", "gateway"),
+    n("orders", "Orders DB", "database"),
+    n("search", "Search Service"),
+    n("rank", "Ranker", "gateway"),
+    n("ingest", "Ingest Queue", "queue"),
+    n("stream", "Stream Processor", "queue"),
+    n("sink", "Event Sink", "gateway"),
+    n("cdn", "CDN Cache", "cache"),
+    n("auth", "Auth Service"),
+  ],
+  edges: [
+    e("gw", "orders", "HTTPS"),
+    e("gw", "search", "Query / Read"),
+    e("search", "rank", "Search & Agent · gRPC"),
+    e("orders", "ingest", "Search & Agent · gRPC"),
+    e("ingest", "stream", "Query / Read"),
+    e("gw", "sink", "gRPC"),
+    e("ingest", "cdn", "Search & Agent · gRPC"),
+    e("orders", "auth", "Query / Read"),
+  ],
+  groups: [
+    {
+      id: "mesh",
+      label: "Compute Mesh / EKS Multi-Region",
+      contains: ["orders", "search", "rank"],
+    },
+    {
+      id: "data",
+      label: "Data Platform / Streaming Ingest Tier",
+      contains: ["ingest", "stream", "sink"],
+    },
+  ],
+  meta: { direction: "TB" },
+});
+
 const swimlanes = spec("Swimlanes", {
   type: "flowchart",
   nodes: [
@@ -318,6 +357,7 @@ export const stress: Record<string, DiagramSpec> = {
   nested,
   tbTwoGroups,
   replica,
+  groupTitles,
   swimlanes,
   big,
   longLabels,
