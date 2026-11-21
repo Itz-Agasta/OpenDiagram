@@ -92,5 +92,8 @@ describe("placeLabels", () => {
     ).get("e")!;
     for (const n of nodes) expect(overlaps(chip, n)).toBe(false);
     for (const y of [-13, 119]) expect(overlaps(chip, box(-300, y, 1000, 1))).toBe(false);
+    // Next free spot clear of both lines is about 78px off; a far-away chip reads as nobody's.
+    const [cx, cy] = [chip.x + chip.width / 2, chip.y + chip.height / 2];
+    expect(Math.hypot(cx - 194, cy - 53)).toBeLessThanOrEqual(100);
   });
 });
