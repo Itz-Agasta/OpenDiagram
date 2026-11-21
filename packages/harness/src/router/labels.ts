@@ -10,6 +10,8 @@ const COVER = 300;
 // A chip set beside its line, not on it: the gap, and its price.
 const SIDE_GAP = 4;
 const SIDE = 40;
+// How far from its run a chip with no legal spot on it may go.
+const FREE_RADIUS = 360;
 
 const hit = (a: Box, b: Box, pad = 0) =>
   a.x < b.x + b.width + pad &&
@@ -57,23 +59,27 @@ export function placeLabels(
     if (route) options.set(edge, candidates(route, size));
   }
   const order = [...options.keys()].sort((a, b) => options.get(a)!.length - options.get(b)!.length);
+  const legal = (box: Box) =>
+    !nodes.some((n) => hit(box, n, 2)) &&
+    !titles.some((t) => hit(box, t, 2)) &&
+    !containers.some((k) => straddles(box, k)) &&
+    ![...placed.values()].some((p) => hit(box, p, 4));
   for (const edge of order) {
     let best: { box: Box; cost: number } | undefined;
     for (const c of options.get(edge)!) {
-      if (nodes.some((n) => hit(c.box, n, 2)) || titles.some((t) => hit(c.box, t, 2))) continue;
-      if (containers.some((k) => straddles(c.box, k))) continue;
-      if ([...placed.values()].some((p) => hit(c.box, p, 4))) continue;
+      if (!legal(c.box)) continue;
       let cost = c.cost;
       for (const [other, pts] of routes)
         if (other !== edge && segmentsCover(c.box, pts)) cost += COVER;
       if (!best || cost < best.cost) best = { box: c.box, cost };
     }
-    // FIXME: a chip with no legal spot falls back to the longest run's middle and may collide;
-    // counted by the report as LABEL_COLLISION.
-    best ??= options.get(edge)![0] ?? {
-      box: longestMiddle(routes.get(edge)!, sizes.get(edge)!),
-      cost: 0,
-    };
+    // No legal spot on the line (a run shorter than the chip, e.g. same-layer
+    // neighbours 48px apart): the nearest free spot beats printing over a box.
+    const middle = longestMiddle(routes.get(edge)!, sizes.get(edge)!);
+    best ??= nearestFree(middle, legal);
+    // FIXME: nothing free within FREE_RADIUS either; the chip collides and the
+    // report counts it as LABEL_COLLISION.
+    best ??= { box: middle, cost: 0 };
     placed.set(edge, best.box);
   }
   return placed;
@@ -89,6 +95,27 @@ function longestMiddle(route: Point[], size: { width: number; height: number }):
   }
   const x = Math.round(best.cx - size.width / 2);
   return { x, y: Math.round(best.cy - size.height / 2), width: size.width, height: size.height };
+}
+
+// Offsets on a STEP grid within FREE_RADIUS, nearest first.
+const RING = (() => {
+  const out: { dx: number; dy: number }[] = [];
+  const n = Math.floor(FREE_RADIUS / STEP);
+  for (let i = -n; i <= n; i++)
+    for (let j = -n; j <= n; j++)
+      if (Math.hypot(i, j) <= n) out.push({ dx: i * STEP, dy: j * STEP });
+  return out.sort((a, b) => Math.hypot(a.dx, a.dy) - Math.hypot(b.dx, b.dy));
+})();
+
+function nearestFree(
+  at: Box,
+  legal: (box: Box) => boolean,
+): { box: Box; cost: number } | undefined {
+  for (const { dx, dy } of RING) {
+    const box = { ...at, x: at.x + dx, y: at.y + dy };
+    if (legal(box)) return { box, cost: 0 };
+  }
+  return undefined;
 }
 
 function candidates(
