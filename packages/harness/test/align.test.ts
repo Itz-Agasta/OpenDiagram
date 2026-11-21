@@ -33,14 +33,18 @@ describe("alignColumns", () => {
     meta: { direction: "TB" },
   };
 
-  test("a snap never moves a node onto its group's title band", async () => {
-    const p = await layoutDiagram(spec, classicTheme);
-    for (const g of spec.groups!) {
-      const frame = p.groupBoxes[g.id]!;
-      // The band ELK reserves above members: title plus a 30px gap (containerOptions).
-      const membersTop = frame.y + 30 + containerTitleBox(g, classicTheme).height;
-      for (const id of g.contains) expect(p.positions[id]!.y).toBeGreaterThanOrEqual(membersTop);
-    }
-    expect(layoutLints(p, classicTheme).filter((l) => l.code === "NODE_ON_TITLE")).toEqual([]);
-  });
+  // auto is what users get; two-phase is the path that snapped a node onto a title.
+  test.each(["auto", "two-phase"] as const)(
+    "a snap never moves a node onto its group's title band (%s)",
+    async (strategy) => {
+      const p = await layoutDiagram(spec, classicTheme, { strategy });
+      for (const g of spec.groups!) {
+        const frame = p.groupBoxes[g.id]!;
+        // The band ELK reserves above members: title plus a 30px gap (containerOptions).
+        const membersTop = frame.y + 30 + containerTitleBox(g, classicTheme).height;
+        for (const id of g.contains) expect(p.positions[id]!.y).toBeGreaterThanOrEqual(membersTop);
+      }
+      expect(layoutLints(p, classicTheme).filter((l) => l.code === "NODE_ON_TITLE")).toEqual([]);
+    },
+  );
 });
