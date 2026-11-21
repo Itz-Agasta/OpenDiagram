@@ -78,17 +78,18 @@ describe("mergeSceneDelta", () => {
   });
 
   test("appState is replaced when sent and kept when not; files are merged", () => {
-    const stored = { elements: [], appState: { theme: "light" }, files: { f1: "one" } };
+    const stored = { elements: [], appState: { theme: "light", zoom: 2 }, files: { f1: "one" } };
     const sent = mergeSceneDelta(stored, {
       base: 1,
       changed: [],
       appState: { theme: "dark" },
       files: { f2: "two" },
-    });
-    expect(sent).toMatchObject({ appState: { theme: "dark" }, files: { f1: "one", f2: "two" } });
-    expect(mergeSceneDelta(stored, { base: 1, changed: [] })).toMatchObject({
-      appState: { theme: "light" },
-    });
+    }) as { appState: unknown; files: unknown };
+    // Wholesale: the stale zoom does not survive.
+    expect(sent.appState).toEqual({ theme: "dark" });
+    expect(sent.files).toEqual({ f1: "one", f2: "two" });
+    const kept = mergeSceneDelta(stored, { base: 1, changed: [] }) as { appState: unknown };
+    expect(kept.appState).toEqual({ theme: "light", zoom: 2 });
   });
 
   test("a changed entry with no string id is ignored", () => {

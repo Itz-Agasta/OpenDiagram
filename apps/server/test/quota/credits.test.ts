@@ -79,23 +79,16 @@ describe("creation credits", () => {
 
   test("a guest blocked by the shared IP bucket keeps every other credit", async () => {
     // dailyCap 1 x multiplier 1: one creation per IP per day, across guests.
-    const one = actor({
-      actorType: "guest",
-      actorId: "g1",
-      ipBucketId: "ip-a",
-      dailyCap: 1,
-      ipMultiplier: 1,
-    });
-    const two = actor({
-      actorType: "guest",
-      actorId: "g2",
-      ipBucketId: "ip-a",
-      dailyCap: 1,
-      ipMultiplier: 1,
-    });
-    await consumeCreationQuota(one);
+    const guest = (actorId: string) =>
+      actor({ actorType: "guest", actorId, ipBucketId: "ip-a", dailyCap: 1, ipMultiplier: 1 });
+    const [one, two] = [guest("g1"), guest("g2")];
+    const { day } = await consumeCreationQuota(one);
     await expect(consumeCreationQuota(two)).rejects.toThrow("today's creation limit");
     expect(await used(two)).toBe(0);
+    // Free the IP bucket: two must now get through, so its own day counter
+    // was rolled back too (dailyCap 1 would refuse a leaked one).
+    await refundCreationQuota(one, day);
+    await consumeCreationQuota(two);
   });
 
   test("a refund gives back the credit, on the day the request started even past midnight", async () => {

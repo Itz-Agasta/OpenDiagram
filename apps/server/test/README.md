@@ -1,6 +1,6 @@
 # Server tests
 
-`just test` from the repo root runs them; `bun test test` here runs only these.
+`just test` from the repo root runs them. To run only these, from `apps/server` (where `bunfig.toml` loads the preload): `bun test test`.
 
 The layout mirrors `src/`: `agent/` for the agent loop and layout fixer, `quota/` for credits, `routes/` for HTTP routes, top-level files for single modules (`scene-delta.test.ts`).
 
@@ -12,7 +12,7 @@ The layout mirrors `src/`: `agent/` for the agent loop and layout fixer, `quota/
 
 Same rules as the harness tests: assert the intended behaviour, never output copied from a run, and prove each test by breaking the line it guards.
 
-CI has no `.env`. To run the way CI does:
+CI has no `.env`. To run the way CI does, from `apps/server`:
 
 ```bash
 env -i PATH=$PATH HOME=$HOME CI=true DOTENV_CONFIG_PATH=/dev/null bun --no-env-file test test
