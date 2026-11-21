@@ -4,7 +4,26 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { DiagramSpec } from "@OpenDiagram/harness";
 import { applyDiagramToCanvas, removeFramesFromCanvas } from "@/lib/excalidraw-utils";
 import { upsertCanvasDiagram, type CanvasDiagram } from "@/lib/canvas-diagrams";
+import { toast } from "sonner";
 import type { DrawDiagramOutput, DrawSystemOutput } from "./types";
+
+/**
+ * What the user could have changed in a frame: every shape's place and size,
+ * every text's content, and the element count. Text geometry is left out on
+ * purpose: Excalidraw re-measures text on its own, which is not an edit.
+ */
+function framePrint(api: ExcalidrawImperativeAPI, frameId: string): string {
+  return api
+    .getSceneElements()
+    .filter((el) => el.id === frameId || el.frameId === frameId)
+    .map((el) =>
+      el.type === "text"
+        ? `${el.id}:${el.text}`
+        : `${el.id}:${Math.round(el.x)},${Math.round(el.y)},${Math.round(el.width)},${Math.round(el.height)}`,
+    )
+    .sort()
+    .join("|");
+}
 
 interface UseDiagramCanvasOptions {
   /** Every diagram currently on this canvas. */
@@ -28,6 +47,8 @@ export function useDiagramCanvas({
   const appliedToolCallsRef = useRef(new Set<string>());
   const applyChainRef = useRef<Promise<void>>(Promise.resolve());
   const skippedMessageIdsRef = useRef(new Set<string>());
+  // `<toolCallId>-<view>` -> the frame a first draw made, while its fixer runs.
+  const polishingRef = useRef(new Map<string, { frameId: string; print: string }>());
   const [applyError, setApplyError] = useState<string | null>(null);
 
   // Mirrored because the apply chain reads it from inside a promise that resolves
@@ -71,7 +92,7 @@ export function useDiagramCanvas({
       output: DrawDiagramOutput,
       spec: DiagramSpec,
       targetId: string | undefined,
-    ) => {
+    ): Promise<string | undefined> => {
       const replaceFrameId = knownFrame(targetId);
       const { frameId } = await applyDiagramToCanvas(
         excalidrawAPI,
@@ -79,7 +100,7 @@ export function useDiagramCanvas({
         output.rawElements,
         { replaceFrameId },
       );
-      if (!frameId) return;
+      if (!frameId) return undefined;
       // Replacing does not reuse the frame id. `applyDiagramToCanvas`
       // deletes the old frame along with every element inside it and
       // builds a fresh one (`deleteFrames` in `excalidraw-utils.ts`), so the id it
@@ -95,6 +116,35 @@ export function useDiagramCanvas({
       // frame the first one just made, and reported upward so the list is
       // sent with the next request and written to the file.
       report(upsertCanvasDiagram(base, { id: frameId, title: spec.title, spec }));
+      return frameId;
+    };
+
+    /** A first draw while the fixer works: drawn now, its frame kept for the swap. */
+    const drawFirst = async (
+      key: string,
+      view: DrawDiagramOutput,
+      spec: DiagramSpec,
+      target?: string,
+    ) => {
+      const frameId = await drawFrame(view, spec, target);
+      if (frameId)
+        polishingRef.current.set(key, { frameId, print: framePrint(excalidrawAPI, frameId) });
+    };
+
+    /**
+     * The fixer's final drawing replaces its first draw in place, unless the
+     * user edited that frame meanwhile: their edits win over the polish.
+     */
+    const swap = async (key: string, view: DrawDiagramOutput, spec: DiagramSpec) => {
+      const first = polishingRef.current.get(key);
+      polishingRef.current.delete(key);
+      if (!first || !view.fix || view.fix.status !== "done" || !view.fix.changed) return;
+      if (!knownFrame(first.frameId)) return;
+      if (framePrint(excalidrawAPI, first.frameId) !== first.print) {
+        toast.info(`Kept your edits to “${spec.title}”. The polished layout was not applied.`);
+        return;
+      }
+      await drawFrame(view, spec, first.frameId);
     };
 
     for (const message of diagramMessages) {
@@ -104,8 +154,24 @@ export function useDiagramCanvas({
       for (const part of message.parts) {
         if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") continue;
         if (part.state !== "output-available") continue;
-        if (appliedToolCallsRef.current.has(part.toolCallId)) continue;
-        appliedToolCallsRef.current.add(part.toolCallId);
+        const id = part.toolCallId;
+        const views =
+          part.type === "tool-draw_diagram"
+            ? [part.output as DrawDiagramOutput]
+            : (part.output as DrawSystemOutput).views;
+        // Without a fixer there is one output; with one, a preliminary first
+        // draw and then the final. A throttled render can skip the preliminary,
+        // and then the final draws like an ordinary one.
+        const phase =
+          views[0]?.fix?.status === "polishing"
+            ? "first"
+            : views[0]?.fix && appliedToolCallsRef.current.has(`${id}:first`)
+              ? "final"
+              : "only";
+        const key = phase === "only" ? id : `${id}:${phase}`;
+        if (appliedToolCallsRef.current.has(key)) continue;
+        appliedToolCallsRef.current.add(key);
+        const retry = () => appliedToolCallsRef.current.delete(key);
 
         if (part.type === "tool-draw_diagram") {
           // Which diagram this replaces is now the model's answer, not a guess.
@@ -122,28 +188,39 @@ export function useDiagramCanvas({
           // reliability of extra fields is tracked separately. `targetedIds` in the
           // diagram route's log is the signal to watch.
           const { targetId, ...spec } = part.input as DiagramSpec & { targetId?: string };
-          const output = part.output as DrawDiagramOutput;
-          queue(
-            () => drawFrame(output, spec, targetId),
-            () => appliedToolCallsRef.current.delete(part.toolCallId),
-          );
+          const output = views[0]!;
+          if (phase === "first") queue(() => drawFirst(`${id}-0`, output, spec, targetId), retry);
+          else if (phase === "final") queue(() => swap(`${id}-0`, output, spec));
+          else
+            queue(async () => {
+              await drawFrame(output, spec, targetId);
+            }, retry);
           continue;
         }
 
+        const systemViews = views as DrawSystemOutput["views"];
+        if (phase === "final") {
+          systemViews.forEach((view, i) => queue(() => swap(`${id}-${i}`, view, view.spec)));
+          continue;
+        }
         // A redo deletes the old set, then draws the new one like a fresh set.
         // Slotting view i where replaceIds[i] stood was tried: a replacement keeps
         // the old frame's top-left, so a view that grew covered its neighbour. Each view
         // is queued on its own, and a failed one is not retried: re-running the
         // call would duplicate every view that did land.
         const replaceIds = (part.input as { replaceIds?: string[] }).replaceIds ?? [];
-        const { views } = part.output as DrawSystemOutput;
         queue(async () => {
-          const old = replaceIds.filter((id) => knownFrame(id));
+          const old = replaceIds.filter((frame) => knownFrame(frame));
           if (old.length === 0) return;
           await removeFramesFromCanvas(excalidrawAPI, old);
           report(diagramsRef.current.filter((diagram) => !old.includes(diagram.id)));
         });
-        for (const view of views) queue(() => drawFrame(view, view.spec, undefined));
+        systemViews.forEach((view, i) =>
+          queue(async () => {
+            if (phase === "first") await drawFirst(`${id}-${i}`, view, view.spec);
+            else await drawFrame(view, view.spec, undefined);
+          }),
+        );
       }
     }
   }, [diagramMessages, excalidrawAPI, fileId, onDiagramsChange, projectId]);

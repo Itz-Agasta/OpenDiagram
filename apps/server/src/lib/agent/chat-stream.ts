@@ -14,6 +14,7 @@ import {
   type UIMessageChunk,
 } from "ai";
 import type { RequestLogger } from "evlog";
+import type { ProgressSink } from "./tools";
 import type { AiQuotaGrant, AiUsage } from "../quota/enforce";
 import { LLM_MAX_RETRIES } from "../repo-ai";
 import { aiTelemetry, type AiRuntimeContext } from "../telemetry";
@@ -110,6 +111,8 @@ export type DiagramChatOptions = {
    * pass). The tool adds to it while the stream runs; it is billed with the turn.
    */
   sideUsage?: Required<AiUsage>;
+  /** The draw tools' fixer-step sink; wired to this stream's writer as `data-fix` parts. */
+  progress?: ProgressSink;
   meta: { canvasDiagrams: number; theme: string; messageCount: number };
   instructions: string;
   runtimeContext: AiRuntimeContext;
@@ -133,6 +136,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
     tools,
     grant,
     sideUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    progress,
     meta,
     instructions,
     runtimeContext,
@@ -201,6 +205,8 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
   return createUIMessageStream({
     originalMessages,
     execute: async ({ writer }) => {
+      // Same id each write, so the client updates one part in place.
+      if (progress) progress.write = (id, data) => writer.write({ type: "data-fix", id, data });
       for (let run = 0; run < 2; run++) {
         const result = attempt();
         // `tools` makes tool parts stream as static `tool-<name>` parts (the chat

@@ -8,7 +8,12 @@ import { streamDiagramChat } from "../lib/agent/chat-stream";
 import { createLayoutFixer, type LayoutFixer } from "../lib/agent/fix";
 import { inlineTextFiles } from "../lib/agent/inline-text-files";
 import { buildCanvasContext, buildSystemPrompt } from "../lib/agent/prompt";
-import { askUserTool, createDrawDiagramTool, createDrawSystemTool } from "../lib/agent/tools";
+import {
+  askUserTool,
+  createDrawDiagramTool,
+  createDrawSystemTool,
+  type ProgressSink,
+} from "../lib/agent/tools";
 import { enforceAiQuota, quotaErrorResponse } from "../lib/quota";
 import { getRequestSession } from "../lib/session";
 import { ModelSelectionError, resolveModel } from "../lib/ai-provider/resolve";
@@ -80,11 +85,12 @@ diagramRoute.post("/chat", async (c) => {
   } = parsed.data;
 
   const fixer: { run?: LayoutFixer } = {};
+  const progress: ProgressSink = {};
   const sideUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   const tools = {
     ask_user: askUserTool,
-    draw_diagram: createDrawDiagramTool(log, themes[themeName], diagrams, fixer),
-    draw_system: createDrawSystemTool(log, themes[themeName], fixer),
+    draw_diagram: createDrawDiagramTool(log, themes[themeName], diagrams, fixer, progress),
+    draw_system: createDrawSystemTool(log, themes[themeName], fixer, progress),
   };
 
   // convertToModelMessages throws on malformed UIMessage shapes -- that's a bad
@@ -174,6 +180,7 @@ diagramRoute.post("/chat", async (c) => {
       tools,
       grant,
       sideUsage,
+      progress,
       runtimeContext: {
         // Guests have no user id; the browser's PostHog id (tracing_headers) keeps
         // their traces on one person. Client-supplied, so analytics only.

@@ -3,14 +3,14 @@ import {
   layoutDiagram,
   renderSequenceDiagram,
   renderToExcalidraw,
-  type DiagramReport,
   type DiagramSpec,
+  type PositionedSpec,
   type RenderSkeleton,
   type Theme,
 } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
-import type { LayoutFixer } from "./fix";
+import type { FixEvent, LayoutFixer } from "./fix";
 
 export interface DrawDiagramOutput {
   skeletons: RenderSkeleton[];
@@ -21,48 +21,90 @@ export interface DrawDiagramOutput {
     edges: number;
     warnings: string[];
   };
+  /**
+   * Set only while a layout fixer is on. `polishing`: this is the first draw,
+   * a preliminary result, and a fixed one may follow. `done`: final; `changed`
+   * false means the canvas already shows it.
+   */
+  fix?: { status: "polishing" } | { status: "done"; changed: boolean };
 }
+
+export type RenderedView = DrawDiagramOutput & {
+  /** The icon-normalized spec, the one the client stores for CANVAS. */
+  spec: DiagramSpec;
+  logFields: Record<string, unknown>;
+  /** What the fixer starts from. Absent for sequence diagrams, which it skips. */
+  positioned?: PositionedSpec;
+};
 
 /**
  * One spec to canvas payload: icons, layout (sequence grid or ELK), render,
- * report. Shared by `draw_diagram` and every view `draw_system` plans.
- * `spec` is the icon-normalized spec, the one the client stores for CANVAS.
+ * report. Shared by `draw_diagram` and every view `draw_system` plans. The
+ * layout fixer, when on, runs after this through `polishView`, so the first
+ * draw can reach the canvas while it works.
  */
-export async function renderView(
-  rawSpec: DiagramSpec,
-  theme: Theme,
-  fix?: LayoutFixer,
-): Promise<DrawDiagramOutput & { spec: DiagramSpec; logFields: Record<string, unknown> }> {
+export async function renderView(rawSpec: DiagramSpec, theme: Theme): Promise<RenderedView> {
   const normalized = normalizeSpecIcons<DiagramSpec>(rawSpec);
-  const { unknownIcons } = normalized;
-  let spec = normalized.spec;
-  const warnings = unknownIcons.map((key) => `unknown icon "${key}" - drawn as a box`);
-
-  let skeletons: RenderSkeleton[];
-  let rawElements: Record<string, unknown>[];
-  let edgeCount = spec.edges.length;
+  const spec = normalized.spec;
+  const warnings = normalized.unknownIcons.map((key) => `unknown icon "${key}" - drawn as a box`);
   // Sequence diagrams skip the report: its metrics assume ELK routes, and a
   // lifeline grid crosses its own messages by construction.
-  let report: DiagramReport | undefined;
   if (spec.type === "sequence") {
     const result = renderSequenceDiagram(spec, theme);
-    skeletons = result.skeletons;
-    rawElements = result.rawElements;
     warnings.push(...result.warnings);
-  } else {
-    let positioned = await layoutDiagram(spec, theme);
-    // The fixer may restructure (merge edges, add a junction): what it returns
-    // is what the canvas stores, so the next edit starts from what is drawn.
-    if (fix) ({ spec, positioned } = await fix(spec, positioned));
-    const result = renderToExcalidraw(positioned, iconRegistry, theme);
-    skeletons = result.skeletons;
-    rawElements = result.rawElements;
-    warnings.push(...positioned.warnings);
-    // Post-sanitize count, matching what actually renders on canvas.
-    edgeCount = positioned.edges.length;
-    report = buildReport(positioned);
+    return output(spec, result, spec.edges.length, warnings);
   }
+  return drawn(spec, await layoutDiagram(spec, theme), theme, warnings);
+}
 
+/**
+ * The fixer's pass over a first draw. Hands back the same object when the
+ * drawing did not change, so callers can tell by identity.
+ */
+export async function polishView(
+  view: RenderedView,
+  theme: Theme,
+  fix: LayoutFixer,
+  onEvent: (event: FixEvent) => void,
+): Promise<RenderedView> {
+  if (!view.positioned) return view;
+  // The fixer may restructure (merge edges, add a junction): what it returns
+  // is what the canvas stores, so the next edit starts from what is drawn.
+  const { spec, positioned } = await fix(view.spec, view.positioned, onEvent);
+  if (positioned === view.positioned) return view;
+  // Icon warnings carry over; layout warnings come from the new positioning.
+  const iconWarnings = view.summary.warnings.filter((w) => w.startsWith("unknown icon"));
+  return drawn(spec, positioned, theme, iconWarnings);
+}
+
+function drawn(
+  spec: DiagramSpec,
+  positioned: PositionedSpec,
+  theme: Theme,
+  warnings: string[],
+): RenderedView {
+  const result = renderToExcalidraw(positioned, iconRegistry, theme);
+  // Post-sanitize count, matching what actually renders on canvas.
+  const view = output(spec, result, positioned.edges.length, [...warnings, ...positioned.warnings]);
+  const report = buildReport(positioned);
+  view.logFields = {
+    ...view.logFields,
+    score: report.score,
+    metrics: report.metrics,
+    diagnostics: report.diagnostics.map((d) => `${d.code}:${d.subjects.join(",")}`),
+  };
+  return { ...view, positioned };
+}
+
+function output(
+  spec: DiagramSpec,
+  {
+    skeletons,
+    rawElements,
+  }: { skeletons: RenderSkeleton[]; rawElements: Record<string, unknown>[] },
+  edgeCount: number,
+  warnings: string[],
+): RenderedView {
   return {
     spec,
     skeletons,
@@ -80,11 +122,6 @@ export async function renderView(
       // architecture. Turn it on locally to harvest fixtures, never in a
       // deployment serving anyone else.
       ...(env.LOG_DIAGRAM_SPEC && { spec: JSON.stringify(spec) }),
-      ...(report && {
-        score: report.score,
-        metrics: report.metrics,
-        diagnostics: report.diagnostics.map((d) => `${d.code}:${d.subjects.join(",")}`),
-      }),
     },
   };
 }
