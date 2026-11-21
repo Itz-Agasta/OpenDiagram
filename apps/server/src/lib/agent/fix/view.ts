@@ -8,6 +8,16 @@ import {
   type Theme,
 } from "@OpenDiagram/harness";
 import { Resvg } from "@resvg/resvg-js";
+import { resolve } from "node:path";
+import notoSans from "../../../../assets/fonts/NotoSans-Regular.ttf" with { type: "file" };
+
+// The bundle gets "./NotoSans-Regular-<hash>.ttf", which Bun resolves against
+// the cwd, not dist/; unbundled it is already absolute.
+//
+// FIXME(bun-file-loader-cwd): drop the resolve() once a Bun release ships
+// oven-sh/bun#41892 and the bundle emits module-relative paths.
+// https://github.com/oven-sh/bun/issues/41780
+const FONT_FILE = resolve(import.meta.dir, notoSans);
 
 // One drawing is scored by the judge, the headline and the issue list each
 // step; the crossing scan is O(segments^2), so compute each once per drawing.
@@ -29,12 +39,8 @@ const PICTURE_WIDTH = 1600;
 
 /**
  * The drawing as the fixer sees it. Plain boxes and the exact arrow polylines,
- * ids printed on everything.
- *
- * FIXME(fix-picture-deploy): the server Dockerfile installs with
- * `--omit=optional`, which drops resvg's per-platform native binary, and the
- * slim image has no fonts. Ship a TTF and keep resvg's platform package before
- * this runs on Cloud Run.
+ * ids printed on everything. Text uses only the bundled Noto Sans, never system
+ * fonts: the slim server image has none, and dev must draw what prod draws.
  */
 export function picture(p: PositionedSpec, theme: Theme): Uint8Array {
   const svg = renderPreviewSvg(p, theme);
@@ -43,7 +49,12 @@ export function picture(p: PositionedSpec, theme: Theme): Uint8Array {
     width > PICTURE_WIDTH ? { mode: "width" as const, value: PICTURE_WIDTH } : undefined;
   return new Resvg(svg, {
     fitTo,
-    font: { loadSystemFonts: true, sansSerifFamily: "Noto Sans", defaultFontFamily: "Noto Sans" },
+    font: {
+      fontFiles: [FONT_FILE],
+      loadSystemFonts: false,
+      sansSerifFamily: "Noto Sans",
+      defaultFontFamily: "Noto Sans",
+    },
   })
     .render()
     .asPng();

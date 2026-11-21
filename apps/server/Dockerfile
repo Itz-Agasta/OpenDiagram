@@ -30,17 +30,21 @@ RUN apt-get update \
 ENV SKIP_ENV_VALIDATION=1
 COPY package.json bun.lock bunfig.toml ./
 COPY --parents apps/*/package.json packages/*/package.json ./
-# --omit=peer,optional: evlog's framework integrations declare next/hono/express/etc
+# --omit=peer: evlog's framework integrations declare next/hono/express/etc
 # as optional peers, and bun auto-installs any optional peer already resolved
 # elsewhere in the lockfile (apps/web's `next`) even though server never needs it.
 # Without --omit this pulled in next + its swc binaries + sharp (~450MB dead weight).
+# We deliberately do NOT --omit=optional: it drops resvg's native binary, which the
+# layout fixer's picture needs. Keeping optionals costs 9MB.
 # https://github.com/oven-sh/bun/issues/26400
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-  bun install --filter 'server...' --production --omit=peer --omit=optional --frozen-lockfile
+  bun install --filter 'server...' --production --omit=peer --frozen-lockfile
 ENV SKIP_ENV_VALIDATION=
 ENV NODE_ENV=production
 
 COPY --from=build /app/apps/server/dist /app/apps/server/dist
+# The bundled Noto Sans is OFL 1.1, whose notice must travel with the font.
+COPY --from=build /app/apps/server/assets/fonts/OFL.txt /app/apps/server/dist/
 
 # evlog's fs drain writes every request to ./.evlog unconditionally (src/index.ts).
 # Precreate it owned by the runtime user or the first request hits EACCES.
