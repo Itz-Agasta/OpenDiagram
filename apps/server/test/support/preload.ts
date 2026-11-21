@@ -9,3 +9,12 @@ mock.module("@OpenDiagram/env/server", () => ({ env: {} }));
 mock.module("../../src/lib/telemetry", () => ({
   aiTelemetry: () => undefined,
 }));
+
+// The db singleton opens a pg Pool against DATABASE_URL. Tests get PGlite
+// instead, built from the real migrations (support/db.ts).
+mock.module("@OpenDiagram/db", async () => {
+  const { testDb } = await import("./db");
+  const orm = await import("drizzle-orm");
+  const { and, desc, eq, exists, inArray, lt, ne, notInArray, or, sql } = orm;
+  return { db: testDb, and, desc, eq, exists, inArray, lt, ne, notInArray, or, sql };
+});

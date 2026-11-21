@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "@OpenDiagram/config": "workspace:*",
+    "@electric-sql/pglite": "^0.5.17",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   },
