@@ -43,6 +43,8 @@ ENV SKIP_ENV_VALIDATION=
 ENV NODE_ENV=production
 
 COPY --from=build /app/apps/server/dist /app/apps/server/dist
+# The bundled Noto Sans is OFL 1.1, whose notice must travel with the font.
+COPY --from=build /app/apps/server/assets/fonts/OFL.txt /app/apps/server/dist/
 
 # evlog's fs drain writes every request to ./.evlog unconditionally (src/index.ts).
 # Precreate it owned by the runtime user or the first request hits EACCES.
