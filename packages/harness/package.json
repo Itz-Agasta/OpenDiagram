@@ -15,7 +15,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "fast-check": "^4.10.3",
+    "fast-check": "catalog:",
     "typescript": "catalog:"
   }
 }
