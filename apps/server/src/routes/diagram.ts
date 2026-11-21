@@ -181,6 +181,7 @@ diagramRoute.post("/chat", async (c) => {
       grant,
       sideUsage,
       progress,
+      modelCalls: resolved.calls,
       runtimeContext: {
         // Guests have no user id; the browser's PostHog id (tracing_headers) keeps
         // their traces on one person. Client-supplied, so analytics only.

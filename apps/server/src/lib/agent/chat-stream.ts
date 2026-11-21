@@ -14,6 +14,7 @@ import {
   type UIMessageChunk,
 } from "ai";
 import type { RequestLogger } from "evlog";
+import type { ModelCall } from "./cache";
 import type { ProgressSink } from "./tools";
 import type { AiQuotaGrant, AiUsage } from "../quota/enforce";
 import { LLM_MAX_RETRIES } from "../repo-ai";
@@ -113,6 +114,8 @@ export type DiagramChatOptions = {
   sideUsage?: Required<AiUsage>;
   /** The draw tools' fixer-step sink; wired to this stream's writer as `data-fix` parts. */
   progress?: ProgressSink;
+  /** The resolved model's HTTP attempts, when it records them (platform Gemini). */
+  modelCalls?: ModelCall[];
   meta: { canvasDiagrams: number; theme: string; messageCount: number };
   instructions: string;
   runtimeContext: AiRuntimeContext;
@@ -137,6 +140,7 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
     grant,
     sideUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
     progress,
+    modelCalls,
     meta,
     instructions,
     runtimeContext,
@@ -154,6 +158,11 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
     reasoning: 0,
   };
   const allSteps: StepResult<ToolSet>[] = [];
+  // Written on every step end, not once at the end like `chat`: a turn whose
+  // connection drops mid-stream emits its wide event at the drop, and this is
+  // what says where the time went (OPE-120: 3 silent minutes after a tool).
+  let stepAt = performance.now();
+  const stepTimes: { ms: number; finish: string; tools: string[] }[] = [];
   let failed = false;
   let malformedCalls = 0;
   let jsonBlocksStripped = 0;
@@ -182,7 +191,15 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
       // fast instead of hanging (observed with gemini-2.5-flash during testing).
       maxOutputTokens: 16384,
       experimental_transform: stripJsonBlocks(() => jsonBlocksStripped++),
-      onStepEnd: ({ usage }) => {
+      onStepEnd: ({ usage, finishReason, toolCalls }) => {
+        const now = performance.now();
+        stepTimes.push({
+          ms: Math.round(now - stepAt),
+          finish: finishReason,
+          tools: toolCalls.map((t) => t.toolName),
+        });
+        stepAt = now;
+        log.set({ turn: { steps: stepTimes, modelCalls } });
         spent.inputTokens += usage.inputTokens ?? 0;
         spent.outputTokens += usage.outputTokens ?? 0;
         spent.cachedInputTokens += usage.inputTokenDetails.cacheReadTokens ?? 0;
@@ -207,105 +224,116 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
     execute: async ({ writer }) => {
       // Same id each write, so the client updates one part in place.
       if (progress) progress.write = (id, data) => writer.write({ type: "data-fix", id, data });
-      for (let run = 0; run < 2; run++) {
-        const result = attempt();
-        // `tools` makes tool parts stream as static `tool-<name>` parts (the chat
-        // panel matches on those) instead of generic `dynamic-tool` parts.
-        writer.merge(
-          toUIMessageStream({
-            stream: result.stream,
-            tools,
-            // A failing tool passes through THIS handler, never streamText's
-            // `onError`. The default here is `() => "An error occurred."`, which
-            // is all the chat panel and the logs ever saw.
-            onError: (error) => {
-              const message = error instanceof Error ? error.message : String(error);
-              // Error first, not as a field: evlog unpacks name/message/stack
-              // from the first argument only, and a layout throw needs its stack.
-              log.error(error instanceof Error ? error : message, {
-                chat: { toolError: message },
-              });
-              // A model call that ran out of retries (Gemini 503 overload, 429) lands
-              // here too and is not a spec problem: on 2026-09-24, 11 of 20 eval
-              // turns died on 503s, and users read "the spec was rejected".
-              const cause = RetryError.isInstance(error) ? error.lastError : error;
-              if (APICallError.isInstance(cause) && cause.isRetryable)
-                return "The AI model is overloaded right now. Please try again in a minute.";
-              // The model gets the real validation error through its own tool
-              // result and usually fixes it on the next step, so this string is
-              // for the human only. Returning `message` put the whole rejected
-              // spec plus a Zod dump in the chat panel.
-              return "the spec was rejected, adjusting";
-            },
-          }),
-        );
-        const steps = await result.steps;
-        if (failed || !isMalformedFunctionCall(steps)) break;
-        malformedCalls++;
-        log.warn("model returned a malformed function call, retrying once", {
-          chat: { malformedCall: true },
-        });
-      }
-
-      log.set({
-        chat: {
-          messageCount: meta.messageCount,
-          // How many diagrams the canvas held going in, and which one the model
-          // chose to replace. A `targetId` that matches nothing in `diagrams` is
-          // the signature of the model garbling the id - see the FIXME in
-          // `agent/tools.ts` - and shows up here as a duplicate frame.
-          canvasDiagrams: meta.canvasDiagrams,
-          // A `draw_system` redo lists every frame id it names, a new system is `<system>`.
-          targetedIds: allSteps.flatMap((s) =>
-            s.toolCalls.flatMap((t) => {
-              const input = t.input as { targetId?: unknown; replaceIds?: unknown[] } | undefined;
-              if (t.toolName === "draw_diagram") return [input?.targetId ?? "<new>"];
-              if (t.toolName === "draw_system")
-                return input?.replaceIds?.length ? input.replaceIds : ["<system>"];
-              return [];
+      // Bun closes a connection after `idleTimeout` (120 s) without bytes, and a
+      // model step can sit silent longer than that. Transient parts reach only
+      // the client's `onData`, never the message.
+      const keepalive = setInterval(
+        () => writer.write({ type: "data-keepalive", data: {}, transient: true }),
+        30_000,
+      );
+      try {
+        for (let run = 0; run < 2; run++) {
+          const result = attempt();
+          // `tools` makes tool parts stream as static `tool-<name>` parts (the chat
+          // panel matches on those) instead of generic `dynamic-tool` parts.
+          writer.merge(
+            toUIMessageStream({
+              stream: result.stream,
+              tools,
+              // A failing tool passes through THIS handler, never streamText's
+              // `onError`. The default here is `() => "An error occurred."`, which
+              // is all the chat panel and the logs ever saw.
+              onError: (error) => {
+                const message = error instanceof Error ? error.message : String(error);
+                // Error first, not as a field: evlog unpacks name/message/stack
+                // from the first argument only, and a layout throw needs its stack.
+                log.error(error instanceof Error ? error : message, {
+                  chat: { toolError: message },
+                });
+                // A model call that ran out of retries (Gemini 503 overload, 429) lands
+                // here too and is not a spec problem: on 2026-09-24, 11 of 20 eval
+                // turns died on 503s, and users read "the spec was rejected".
+                const cause = RetryError.isInstance(error) ? error.lastError : error;
+                if (APICallError.isInstance(cause) && cause.isRetryable)
+                  return "The AI model is overloaded right now. Please try again in a minute.";
+                // The model gets the real validation error through its own tool
+                // result and usually fixes it on the next step, so this string is
+                // for the human only. Returning `message` put the whole rejected
+                // spec plus a Zod dump in the chat panel.
+                return "the spec was rejected, adjusting";
+              },
             }),
-          ),
-          theme: meta.theme,
-          steps: allSteps.length,
-          toolCalls: allSteps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
-          malformedCalls,
-          // Tool arguments the model drafted as a ```json block in its reply; see strip-json-text.ts.
-          jsonBlocksStripped,
-          totalTokens: totals.totalTokens,
-          // Output is most of the bill now that the head is cached, so it is
-          // split out. The platform model pins thinking to `low` (resolve.ts);
-          // BYOK models pick their own budget, so this is the number to watch
-          // when the model changes.
-          outputTokens: totals.outputTokens,
-          reasoningTokens: totals.reasoning,
-          // The system prompt is ~8k tokens, three quarters of it the static icon
-          // catalog, and it is re-sent once per step. Whether that is billed at
-          // full price or at the cached rate is the single biggest lever on the
-          // AI bill, so it gets measured rather than assumed. `cacheReadTokens`
-          // near zero means the prefix is being broken - check that nothing was
-          // appended after the spec in buildSystemPrompt.
-          inputTokens: totals.inputTokens,
-          cacheReadTokens: totals.cacheRead,
-          noCacheTokens: totals.noCache,
-        },
-      });
+          );
+          const steps = await result.steps;
+          if (failed || !isMalformedFunctionCall(steps)) break;
+          malformedCalls++;
+          log.warn("model returned a malformed function call, retrying once", {
+            chat: { malformedCall: true },
+          });
+        }
 
-      // Reconciles the pessimistic reservation down to what this run actually
-      // cost. Must happen before the response is done on Cloud Run, which
-      // throttles CPU once the response completes. A stream that errored gives
-      // the credit back but keeps the tokens it burned on the ledger.
-      if (failed)
-        await grant.release({
-          inputTokens: spent.inputTokens + sideUsage.inputTokens,
-          outputTokens: spent.outputTokens + sideUsage.outputTokens,
-          cachedInputTokens: spent.cachedInputTokens + sideUsage.cachedInputTokens,
+        log.set({
+          chat: {
+            messageCount: meta.messageCount,
+            // How many diagrams the canvas held going in, and which one the model
+            // chose to replace. A `targetId` that matches nothing in `diagrams` is
+            // the signature of the model garbling the id - see the FIXME in
+            // `agent/tools.ts` - and shows up here as a duplicate frame.
+            canvasDiagrams: meta.canvasDiagrams,
+            // A `draw_system` redo lists every frame id it names, a new system is `<system>`.
+            targetedIds: allSteps.flatMap((s) =>
+              s.toolCalls.flatMap((t) => {
+                const input = t.input as { targetId?: unknown; replaceIds?: unknown[] } | undefined;
+                if (t.toolName === "draw_diagram") return [input?.targetId ?? "<new>"];
+                if (t.toolName === "draw_system")
+                  return input?.replaceIds?.length ? input.replaceIds : ["<system>"];
+                return [];
+              }),
+            ),
+            theme: meta.theme,
+            steps: allSteps.length,
+            toolCalls: allSteps.flatMap((s) => s.toolCalls.map((t) => t.toolName)),
+            malformedCalls,
+            // Tool arguments the model drafted as a ```json block in its reply; see strip-json-text.ts.
+            jsonBlocksStripped,
+            totalTokens: totals.totalTokens,
+            // Output is most of the bill now that the head is cached, so it is
+            // split out. The platform model pins thinking to `low` (resolve.ts);
+            // BYOK models pick their own budget, so this is the number to watch
+            // when the model changes.
+            outputTokens: totals.outputTokens,
+            reasoningTokens: totals.reasoning,
+            // The system prompt is ~8k tokens, three quarters of it the static icon
+            // catalog, and it is re-sent once per step. Whether that is billed at
+            // full price or at the cached rate is the single biggest lever on the
+            // AI bill, so it gets measured rather than assumed. `cacheReadTokens`
+            // near zero means the prefix is being broken - check that nothing was
+            // appended after the spec in buildSystemPrompt.
+            inputTokens: totals.inputTokens,
+            cacheReadTokens: totals.cacheRead,
+            noCacheTokens: totals.noCache,
+          },
         });
-      else
-        await grant.settle({
-          inputTokens: totals.inputTokens + sideUsage.inputTokens,
-          outputTokens: totals.outputTokens + sideUsage.outputTokens,
-          cachedInputTokens: totals.cacheRead + sideUsage.cachedInputTokens,
-        });
+
+        // Reconciles the pessimistic reservation down to what this run actually
+        // cost. Must happen before the response is done on Cloud Run, which
+        // throttles CPU once the response completes. A stream that errored gives
+        // the credit back but keeps the tokens it burned on the ledger.
+        if (failed)
+          await grant.release({
+            inputTokens: spent.inputTokens + sideUsage.inputTokens,
+            outputTokens: spent.outputTokens + sideUsage.outputTokens,
+            cachedInputTokens: spent.cachedInputTokens + sideUsage.cachedInputTokens,
+          });
+        else
+          await grant.settle({
+            inputTokens: totals.inputTokens + sideUsage.inputTokens,
+            outputTokens: totals.outputTokens + sideUsage.outputTokens,
+            cachedInputTokens: totals.cacheRead + sideUsage.cachedInputTokens,
+          });
+      } finally {
+        clearInterval(keepalive);
+      }
     },
   });
 }

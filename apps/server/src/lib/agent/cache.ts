@@ -44,6 +44,14 @@ const entries = new Map<string, CacheEntry>();
 /** In-flight creations, so concurrent first requests build one cache, not N. */
 const pending = new Map<string, Promise<CacheEntry | null>>();
 
+/**
+ * Heads the API refused as too small, until when. The layout fixer also sends
+ * instructions plus tools, but its head is ~840 tokens against a 1,024 minimum:
+ * without this every fixer step paid a `cachedContents` POST that could only
+ * 400 (6 per fix pass, measured). Network and 5xx failures are not remembered.
+ */
+const tooSmall = new Map<string, number>();
+
 type GeminiBody = {
   systemInstruction?: unknown;
   tools?: unknown;
@@ -96,6 +104,8 @@ async function createCache(
   } | null;
 
   if (!response.ok || !payload?.name) {
+    if (response.status === 400 && /too small/i.test(payload?.error?.message ?? ""))
+      tooSmall.set(headKey(model, body), Date.now() + TTL_SECONDS * 1000);
     // Not fatal: the caller sends the head inline instead and pays full price.
     // Worth a line though -- a persistent failure here is a silent bill increase,
     // and the usual cause is the head falling under the model's 2,048-token
@@ -120,6 +130,7 @@ async function cacheFor(
   const key = headKey(model, body);
   const held = entries.get(key);
   if (held && held.expiresAt - REFRESH_MARGIN_MS > Date.now()) return held;
+  if ((tooSmall.get(key) ?? 0) > Date.now()) return null;
 
   const inFlight = pending.get(key);
   if (inFlight) return inFlight;
@@ -184,4 +195,23 @@ export function createCachingFetch(apiKey: string, model: string): FetchFunction
   // provider option asks for. Forwarded to the real implementation rather than
   // stubbed, so anything reaching for it gets working behaviour.
   return Object.assign(cachingFetch, { preconnect: fetch.preconnect });
+}
+
+/** One model HTTP attempt as the provider made it; retries show up as extra rows. */
+export type ModelCall = { status: number; ms: number };
+
+/**
+ * Wraps a provider `fetch` to record every attempt into `calls`. The AI SDK
+ * retries 503/429 inside one step and exposes no count, so a step that sits
+ * silent for minutes is otherwise indistinguishable from one slow call.
+ * `ms` is time to response headers: for a stream, time to first byte.
+ */
+export function recordCalls(inner: FetchFunction, calls: ModelCall[]): FetchFunction {
+  const recording = async (...args: Parameters<FetchFunction>) => {
+    const started = performance.now();
+    const response = await inner(...args);
+    calls.push({ status: response.status, ms: Math.round(performance.now() - started) });
+    return response;
+  };
+  return Object.assign(recording, { preconnect: fetch.preconnect });
 }
