@@ -269,7 +269,10 @@ export function createLayoutFixer(
     }
     emit({
       kind: "verdict",
-      text: state.current === drawn ? "Kept the first draw" : "Kept the polished layout",
+      text:
+        state.current === drawn
+          ? "No better layout found, kept the original"
+          : "Applied the polished layout",
     });
     stats.fix = {
       before: cost,

@@ -9,6 +9,7 @@ import {
   removeFramesFromCanvas,
 } from "@/lib/excalidraw-utils";
 import { upsertCanvasDiagram, type CanvasDiagram } from "@/lib/canvas-diagrams";
+import { toast } from "sonner";
 import type { DrawDiagramOutput, DrawSystemOutput, FixProgress } from "./types";
 
 interface UseDiagramCanvasOptions {
@@ -155,6 +156,11 @@ export function useDiagramCanvas({
           if (!appliedToolCallsRef.current.has(`${toolCallId}:first`)) continue;
           appliedToolCallsRef.current.add(key);
           queue(() => swap(part.id!, fix.view, fix.view?.spec));
+          // A pass that ran but changed nothing otherwise reads as a swap that broke.
+          if (!fix.view && fix.lines.length > 0)
+            toast.info(
+              `Kept the original layout of “${fix.title}”. Polishing found nothing better.`,
+            );
           continue;
         }
         if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") continue;
