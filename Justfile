@@ -66,6 +66,10 @@ test:
     cd packages/harness && bun test
     cd apps/web && bun test src
 
+# Rewrite harness layout snapshots; look at the new layouts first
+snapshots:
+    cd packages/harness && bun test snapshots --update-snapshots
+
 # Harness tests with a line coverage report
 coverage:
     cd packages/harness && bun test --coverage
