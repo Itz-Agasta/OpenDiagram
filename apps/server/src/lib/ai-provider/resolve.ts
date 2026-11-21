@@ -120,7 +120,11 @@ function resolvePlatformModel(): ResolvedModel | null {
   const calls: ModelCall[] = [];
   const google = createGoogle({
     apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
-    fetch: recordCalls(createCachingFetch(env.GOOGLE_GENERATIVE_AI_API_KEY, PLATFORM_MODEL), calls),
+    fetch: createCachingFetch(
+      env.GOOGLE_GENERATIVE_AI_API_KEY,
+      PLATFORM_MODEL,
+      recordCalls(fetch, calls),
+    ),
   });
   return {
     model: wrapLanguageModel({ model: google(PLATFORM_MODEL), middleware: PLATFORM_SETTINGS }),

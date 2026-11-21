@@ -333,6 +333,9 @@ export function streamDiagramChat(options: DiagramChatOptions): ReadableStream<U
           });
       } finally {
         clearInterval(keepalive);
+        // Again here: a turn that fails before its first step ends has no
+        // onStepEnd, and its model attempts are what explain the failure.
+        log.set({ turn: { steps: stepTimes, modelCalls } });
       }
     },
   });

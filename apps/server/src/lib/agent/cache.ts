@@ -165,12 +165,18 @@ async function cacheFor(
  * that pays to build the cache is also the first to read it -- and so the work
  * stays inside the request, which Cloud Run needs (CPU throttles after response).
  */
-export function createCachingFetch(apiKey: string, model: string): FetchFunction {
+export function createCachingFetch(
+  apiKey: string,
+  model: string,
+  // Generation calls go through `send`; the cache's own POSTs never do, so a
+  // recorder passed here times the model, not cache warm-up.
+  send: FetchFunction = fetch,
+): FetchFunction {
   const cachingFetch = async (
     input: Parameters<FetchFunction>[0],
     init?: Parameters<FetchFunction>[1],
   ): Promise<Response> => {
-    if (typeof init?.body !== "string") return fetch(input, init);
+    if (typeof init?.body !== "string") return send(input, init);
 
     const body = JSON.parse(init.body) as GeminiBody;
     // Cache only the diagram agent's head. It is the one platform call that
@@ -178,17 +184,17 @@ export function createCachingFetch(apiKey: string, model: string): FetchFunction
     // cache minimum -- project chat and repo generation send a few hundred tokens
     // of system prompt, so they would spend a round trip per request on a
     // `cachedContents` POST that can only fail. Token counts carry no head at all.
-    if (!body.systemInstruction || !body.tools) return fetch(input, init);
+    if (!body.systemInstruction || !body.tools) return send(input, init);
 
     const entry = await cacheFor(apiKey, model, body);
-    if (!entry) return fetch(input, init);
+    if (!entry) return send(input, init);
 
     body.cachedContent = entry.name;
     delete body.systemInstruction;
     delete body.tools;
     delete body.toolConfig;
 
-    return fetch(input, { ...init, body: JSON.stringify(body) });
+    return send(input, { ...init, body: JSON.stringify(body) });
   };
 
   // `preconnect` rides along on Bun's `fetch` type, which is the shape the
@@ -197,7 +203,7 @@ export function createCachingFetch(apiKey: string, model: string): FetchFunction
   return Object.assign(cachingFetch, { preconnect: fetch.preconnect });
 }
 
-/** One model HTTP attempt as the provider made it; retries show up as extra rows. */
+/** One model HTTP attempt as the provider made it; retries show up as extra rows. 0: no response. */
 export type ModelCall = { status: number; ms: number };
 
 /**
@@ -209,9 +215,16 @@ export type ModelCall = { status: number; ms: number };
 export function recordCalls(inner: FetchFunction, calls: ModelCall[]): FetchFunction {
   const recording = async (...args: Parameters<FetchFunction>) => {
     const started = performance.now();
-    const response = await inner(...args);
-    calls.push({ status: response.status, ms: Math.round(performance.now() - started) });
-    return response;
+    const elapsed = () => Math.round(performance.now() - started);
+    try {
+      const response = await inner(...args);
+      calls.push({ status: response.status, ms: elapsed() });
+      return response;
+    } catch (error) {
+      // No response at all (network, abort): status 0, so it still counts.
+      calls.push({ status: 0, ms: elapsed() });
+      throw error;
+    }
   };
   return Object.assign(recording, { preconnect: fetch.preconnect });
 }
