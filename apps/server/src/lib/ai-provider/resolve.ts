@@ -9,7 +9,7 @@ import { and, db, eq } from "@OpenDiagram/db";
 import { userAiProvider } from "@OpenDiagram/db/schema/ai";
 import { env } from "@OpenDiagram/env/server";
 import { defaultSettingsMiddleware, wrapLanguageModel, type LanguageModel } from "ai";
-import { createCachingFetch } from "../agent/cache";
+import { createCachingFetch, recordCalls, type ModelCall } from "../agent/cache";
 import { decryptSecret } from "./encrypt";
 import { getProvider, isKnownModel } from "./registry";
 
@@ -29,6 +29,8 @@ export type ResolvedModel = {
   modelId: string;
   /** True when this call should consume the platform creation quota. */
   countsAgainstQuota: boolean;
+  /** Every model HTTP attempt this request makes, platform only (see `recordCalls`). */
+  calls?: ModelCall[];
 };
 
 /**
@@ -115,9 +117,14 @@ async function resolveUserModel(
  */
 function resolvePlatformModel(): ResolvedModel | null {
   if (!env.GOOGLE_GENERATIVE_AI_API_KEY) return null;
+  const calls: ModelCall[] = [];
   const google = createGoogle({
     apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
-    fetch: createCachingFetch(env.GOOGLE_GENERATIVE_AI_API_KEY, PLATFORM_MODEL),
+    fetch: createCachingFetch(
+      env.GOOGLE_GENERATIVE_AI_API_KEY,
+      PLATFORM_MODEL,
+      recordCalls(fetch, calls),
+    ),
   });
   return {
     model: wrapLanguageModel({ model: google(PLATFORM_MODEL), middleware: PLATFORM_SETTINGS }),
@@ -125,6 +132,7 @@ function resolvePlatformModel(): ResolvedModel | null {
     provider: "google",
     modelId: PLATFORM_MODEL,
     countsAgainstQuota: true,
+    calls,
   };
 }
 
