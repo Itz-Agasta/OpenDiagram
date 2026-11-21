@@ -9,6 +9,15 @@ export interface DrawDiagramOutput {
   skeletons: RenderSkeleton[];
   rawElements: unknown[];
   summary: { title: string; nodes: number; edges: number; warnings: string[] };
+  /** Only while the server's layout fixer is on; see `render-view.ts` on the server. */
+  fix?: { status: "polishing" } | { status: "done"; changed: boolean };
+}
+
+/** One view's fixer steps, the `data-fix` part streamed while it polishes. */
+export interface FixProgress {
+  title: string;
+  lines: string[];
+  status: "polishing" | "done";
 }
 
 /** `draw_system`: overview first, then one view per flow. `spec` is what the canvas list stores. */

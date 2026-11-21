@@ -1,25 +1,29 @@
 import {
-  layoutDiagram,
-  layoutPinned,
+  edgeLabelText,
   type DiagramSpec,
-  type EdgeSides,
   type PositionedSpec,
   type Theme,
 } from "@OpenDiagram/harness";
-import { generateText, isStepCount, tool, type LanguageModel, type ModelMessage } from "ai";
+import { generateText, isStepCount, type LanguageModel, type ModelMessage } from "ai";
 import type { RequestLogger } from "evlog";
-import { z } from "zod";
 import type { AiUsage } from "../../quota/enforce";
 import { aiTelemetry } from "../../telemetry";
-import { restructure, restructureOp } from "./restructure";
 import { instructions } from "./prompt";
 import { compare, triage } from "./self-check";
-import { hardFaults, headline, issues, layoutCost, layoutLints, picture, textView } from "./view";
+import { createFixSession } from "./session";
+import { hardFaults, layoutCost, layoutLints, picture, textView } from "./view";
+
+/** One line of what the fixer is doing, for the chat while it works. */
+export type FixEvent =
+  | { kind: "look"; text: string }
+  | { kind: "step"; text: string }
+  | { kind: "verdict"; text: string };
 
 /** Repairs a drawn diagram, or hands the same one back. Never drops content. */
 export type LayoutFixer = (
   spec: DiagramSpec,
   drawn: PositionedSpec,
+  onEvent?: (event: FixEvent) => void,
 ) => Promise<{ spec: DiagramSpec; positioned: PositionedSpec }>;
 
 export interface FixOptions {
@@ -69,7 +73,44 @@ const isRender = (m: ModelMessage) =>
   m.content[0]?.type === "text" &&
   m.content[0].text === RENDER_CAPTION;
 
-const face = z.enum(["top", "right", "bottom", "left"]);
+/**
+ * The first look as chat rows: its first two findings, in the user's labels.
+ * Triage writes a paragraph naming things by id ("Edge e8 (Track) stretches
+ * across the canvas; cdn is stranded ...").
+ */
+function findings(text: string, drawn: PositionedSpec): string[] {
+  const labels = new Map(
+    [...drawn.nodes, ...(drawn.groups ?? []), ...(drawn.zones ?? [])].map((x) => [x.id, x.label]),
+  );
+  const arrows = new Map(drawn.edges.map((e) => [e.id, edgeLabelText(e)]));
+  const escape = (id: string) => id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Longest first, so `api` never matches inside `api-gateway`.
+  const ids = [...labels.keys(), ...arrows.keys()]
+    .filter((id): id is string => !!id)
+    .sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(
+    `(?:\\b(?:[Ee]dge|[Aa]rrow)\\s+)?(?<![\\w-])(${ids.map(escape).join("|") || "(?!)"})(?![\\w-])(?:\\s*\\(([^)]+)\\))?`,
+    "g",
+  );
+  const name = (match: string, id: string, paren?: string) => {
+    if (arrows.has(id)) {
+      const label = paren ?? arrows.get(id);
+      return label ? `the ${label} arrow` : "an arrow";
+    }
+    // A leading "edge " that matched before a node id is prose; keep it.
+    const label = labels.get(id);
+    return label ? match.replace(id, () => label) : match;
+  };
+  return text
+    .split(/;|\.\s|\n/)
+    .map((part) => part.trim().replace(pattern, name))
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => {
+      const line = part[0]!.toUpperCase() + part.slice(1).replace(/\.$/, "");
+      return line.length > 110 ? `${line.slice(0, 110).replace(/\s+\S*$/, "")}…` : line;
+    });
+}
 
 /**
  * The polish pass behind `AGENT_FIX_LAYOUT`: the harness has drawn, a model
@@ -89,11 +130,11 @@ export function createLayoutFixer(
   options: FixOptions = DEFAULT_FIX,
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"],
 ): LayoutFixer {
-  return async (input, drawn) => {
-    const before = { cost: layoutCost(drawn, theme), hard: hardFaults(drawn, theme) };
+  return async (input, drawn, emit = () => {}) => {
+    const cost = layoutCost(drawn, theme);
     const lintsBefore = layoutLints(drawn, theme).length;
     if (input.nodes.length < 3) return { spec: input, positioned: drawn };
-    const numbers = before.cost < FIX_BELOW || before.hard > 0 || lintsBefore >= SLOP_LINTS;
+    const numbers = cost < FIX_BELOW || hardFaults(drawn, theme) > 0 || lintsBefore >= SLOP_LINTS;
     let seen: string | undefined;
     if (!numbers) {
       if (!options.picture) return { spec: input, positioned: drawn };
@@ -120,142 +161,13 @@ export function createLayoutFixer(
         return { spec: input, positioned: drawn };
       }
     }
+    const looked = seen ? findings(seen, drawn) : [];
+    for (const text of looked.length ? looked : ["The layout check found overlaps or tangles"])
+      emit({ kind: "look", text });
     const working: DiagramSpec = { ...input, edges: drawn.edges };
-    let spec = working;
-    let current = drawn;
-    let sides: Record<string, EdgeSides> = {};
-    const calls = { move: 0, route: 0, restructure: 0, reverted: 0 };
+    const session = createFixSession(drawn, working, theme, options, emit);
+    const { state, calls } = session;
     const started = performance.now();
-
-    const judge = (next: PositionedSpec): string | undefined => {
-      if (options.judge === "strict") {
-        const [was, now] = [layoutCost(current, theme), layoutCost(next, theme)];
-        return now < was ? `score ${was} -> ${now}` : undefined;
-      }
-      const [was, now] = [hardFaults(current, theme), hardFaults(next, theme)];
-      return now > was ? `hard faults ${was} -> ${now}` : undefined;
-    };
-    // Latest state no worse in hard faults than the start: where an "end" judge lands.
-    let safe = { positioned: drawn, spec, sides };
-    const commit = (next: PositionedSpec, nextSpec: DiagramSpec, nextSides = sides): string => {
-      if (options.judge === "end") {
-        const was = layoutCost(current, theme);
-        [current, spec, sides] = [next, nextSpec, nextSides];
-        const hard = hardFaults(next, theme);
-        if (hard <= before.hard) safe = { positioned: next, spec, sides };
-        const warn =
-          hard > before.hard
-            ? `WARNING: ${hard - before.hard} more hard faults than the start (see ISSUES). Fix them in your next move, or this state is dropped at the end.`
-            : "";
-        return [`applied: score ${was} -> ${layoutCost(next, theme)}`, warn, headline(next, theme)]
-          .concat(issues(next, theme, options.lints))
-          .filter(Boolean)
-          .join("\n");
-      }
-      const worse = judge(next);
-      if (worse) {
-        calls.reverted++;
-        return `REVERTED (${worse}). Nothing changed. Try something else.`;
-      }
-      const was = layoutCost(current, theme);
-      [current, spec, sides] = [next, nextSpec, nextSides];
-      return [`applied: score ${was} -> ${layoutCost(next, theme)}`, headline(next, theme)]
-        .concat(issues(next, theme, options.lints))
-        .join("\n");
-    };
-
-    const tools = {
-      ...(options.tools.includes("move") && {
-        move_nodes: tool({
-          description: "Move nodes to absolute top-left positions in pixels. Several per call.",
-          inputSchema: z.object({
-            moves: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })),
-          }),
-          execute: async ({ moves }) => {
-            calls.move++;
-            const at = Object.fromEntries(
-              moves.filter((m) => current.positions[m.id]).map((m) => [m.id, m]),
-            );
-            return commit(layoutPinned(spec, at, current.positions, theme, sides), spec);
-          },
-        }),
-      }),
-      ...(options.tools.includes("move") && {
-        // One atomic step for a whole frame: moving its boxes one call at a time
-        // passed through label collisions and the judge undid every attempt.
-        move_group: tool({
-          description:
-            "Shift every node inside each group by dx,dy pixels. Several groups per call.",
-          inputSchema: z.object({
-            shifts: z.array(z.object({ id: z.string(), dx: z.number(), dy: z.number() })),
-          }),
-          execute: async ({ shifts }) => {
-            calls.move++;
-            const containers = [...(spec.groups ?? []), ...(spec.zones ?? [])];
-            const nodesOf = (id: string, seen = new Set<string>()): string[] => {
-              if (seen.has(id)) return [];
-              seen.add(id);
-              const c = containers.find((x) => x.id === id);
-              if (!c) return current.positions[id] ? [id] : [];
-              return c.contains.flatMap((m) => nodesOf(m, seen));
-            };
-            const at: Record<string, { x: number; y: number }> = {};
-            const unknown: string[] = [];
-            for (const { id, dx, dy } of shifts) {
-              if (!containers.some((c) => c.id === id)) unknown.push(id);
-              for (const n of nodesOf(id)) {
-                const b = current.positions[n]!;
-                at[n] = { x: b.x + dx, y: b.y + dy };
-              }
-            }
-            if (unknown.length) return `ERROR: unknown groups ${unknown.join(", ")}`;
-            return commit(layoutPinned(spec, at, current.positions, theme, sides), spec);
-          },
-        }),
-      }),
-      ...(options.tools.includes("route") && {
-        route_edge: tool({
-          description:
-            "Pin which side of its source box an arrow leaves (from) and which side of its target it enters (to). Omit a side to let the router choose it.",
-          inputSchema: z.object({
-            routes: z.array(
-              z.object({ id: z.string(), from: face.optional(), to: face.optional() }),
-            ),
-          }),
-          execute: async ({ routes }) => {
-            calls.route++;
-            const next = { ...sides };
-            for (const r of routes) next[r.id] = { from: r.from, to: r.to };
-            return commit(layoutPinned(spec, {}, current.positions, theme, next), spec, next);
-          },
-        }),
-      }),
-      ...(options.tools.includes("restructure") && {
-        restructure: tool({
-          description:
-            "Change the diagram's structure without dropping content. Ops apply in order.",
-          inputSchema: z.object({ ops: z.array(restructureOp) }),
-          execute: async ({ ops }) => {
-            calls.restructure++;
-            const r = restructure(spec, ops);
-            if (typeof r === "string") return `ERROR: ${r}`;
-            const kept = new Set(r.spec.edges.map((e) => e.id));
-            const nextSides = r.relayout
-              ? {}
-              : Object.fromEntries(Object.entries(sides).filter(([k]) => kept.has(k)));
-            const next = r.relayout
-              ? await layoutDiagram(r.spec, theme)
-              : layoutPinned(r.spec, {}, current.positions, theme, nextSides);
-            // The harness drops a frame whose members collide with another's or
-            // that a regroup emptied: the grouping would silently vanish.
-            const lost = Object.keys(current.groupBoxes).filter((g) => !next.groupBoxes[g]);
-            if (lost.length)
-              return `REFUSED: that change drops group frames ${lost.join(", ")}. Keep each group's members together, and never empty a group.`;
-            return commit(next, r.spec, nextSides);
-          },
-        }),
-      }),
-    };
 
     const ask = request ? `THE USER ASKED FOR:\n"""\n${request.slice(0, 3000)}\n"""\n\n` : "";
     const first: ModelMessage = {
@@ -289,7 +201,7 @@ export function createLayoutFixer(
                     role: "user",
                     content: [
                       { type: "text", text: RENDER_CAPTION },
-                      { type: "file", data: picture(current, theme), mediaType: "image/png" },
+                      { type: "file", data: picture(state.current, theme), mediaType: "image/png" },
                     ],
                   },
                 ],
@@ -302,33 +214,43 @@ export function createLayoutFixer(
         },
         maxOutputTokens: 8192,
         abortSignal: AbortSignal.timeout(120_000),
-        tools,
+        tools: session.tools,
       });
     } catch (error) {
       log.warn("layout fix pass failed, keeping what it reached", { error: String(error) });
     }
-    if (options.judge === "end" && hardFaults(current, theme) > before.hard) {
+    if (options.judge === "end" && hardFaults(state.current, theme) > session.hardBefore) {
       calls.reverted++;
-      ({ positioned: current, spec, sides } = safe);
+      ({ positioned: state.current, spec: state.spec, sides: state.sides } = state.safe);
     }
     let kept: "fix" | "start" | undefined;
-    if (options.selfCheck && current !== drawn) {
-      kept = await compare(model, providerOptions, drawn, current, request, usage, theme).catch(
-        (error) => {
-          log.warn("fix self-check failed, keeping the fix", { error: String(error) });
-          return undefined;
-        },
-      );
-      if (kept === "start") [current, spec] = [drawn, working];
+    if (options.selfCheck && state.current !== drawn) {
+      kept = await compare(
+        model,
+        providerOptions,
+        drawn,
+        state.current,
+        request,
+        usage,
+        theme,
+      ).catch((error) => {
+        log.warn("fix self-check failed, keeping the fix", { error: String(error) });
+        return undefined;
+      });
+      if (kept === "start") [state.current, state.spec] = [drawn, working];
     }
+    emit({
+      kind: "verdict",
+      text: state.current === drawn ? "Kept the first draw" : "Kept the polished layout",
+    });
     log.set({
       fix: {
-        before: before.cost,
-        after: layoutCost(current, theme),
-        hardBefore: before.hard,
-        hardAfter: hardFaults(current, theme),
+        before: cost,
+        after: layoutCost(state.current, theme),
+        hardBefore: session.hardBefore,
+        hardAfter: hardFaults(state.current, theme),
         lintsBefore,
-        lintsAfter: layoutLints(current, theme).length,
+        lintsAfter: layoutLints(state.current, theme).length,
         kept,
         ...calls,
         ms: Math.round(performance.now() - started),
@@ -336,6 +258,6 @@ export function createLayoutFixer(
     });
     // Moves never touch the spec. Hand back the caller's own spec unless a
     // restructure changed it: the working copy carries sanitized edges.
-    return { spec: spec === working ? input : spec, positioned: current };
+    return { spec: state.spec === working ? input : state.spec, positioned: state.current };
   };
 }

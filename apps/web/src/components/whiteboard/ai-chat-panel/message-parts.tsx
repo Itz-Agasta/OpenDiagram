@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { CheckCircle2, CircleAlert, Crosshair, Shapes } from "lucide-react";
+import { CheckCircle2, CircleAlert, Crosshair, Shapes, Wand2 } from "lucide-react";
 import { isStaticToolUIPart, type FileUIPart, type ToolUIPart, type UIMessage } from "ai";
 import type { DiagramSpec } from "@OpenDiagram/harness";
 import { drawnViews, type StoredAskUserInput } from "@/lib/chat-history";
@@ -16,6 +16,7 @@ import { Reasoning } from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { DotMatrixLoader } from "./DotMatrixLoader";
+import type { FixProgress } from "./types";
 import { PastedTextDialog } from "@/components/pasted-text-dialog";
 
 type Part = UIMessage["parts"][number];
@@ -29,7 +30,8 @@ export interface MessagePartHandlers {
 const isDrawPart = (part: Part) =>
   part.type === "tool-draw_diagram" ||
   part.type === "tool-draw_system" ||
-  part.type === "data-drawn";
+  part.type === "data-drawn" ||
+  part.type === "data-fix";
 
 /**
  * One message's parts, with each run of consecutive draw parts collapsed into a
@@ -133,12 +135,13 @@ function pendingLabel(parts: Part[]) {
   if (last.type === "dynamic-tool" && last.state === "output-error") return "Fixing the diagram…";
   if (
     isStaticToolUIPart(last) &&
-    last.state !== "output-available" &&
-    last.state !== "output-error"
+    (last.state === "output-available" ? last.preliminary === true : last.state !== "output-error")
   ) {
-    // Draw steps and ask_user render their own shimmer while in flight.
+    // Draw steps and ask_user render their own shimmer while in flight,
+    // and so does a draw whose layout fixer is still polishing.
     return null;
   }
+  if (last.type === "data-fix" && (last.data as FixProgress).status === "polishing") return null;
   return "Working…";
 }
 
@@ -200,7 +203,13 @@ function DrawSteps({
   parts: Part[];
   showDiagram: (title: string) => void;
 }) {
-  const drawn = parts.flatMap(drawnViews);
+  // `fixId` is the id the server gives that view's `data-fix` part.
+  const drawn = parts.flatMap((part) =>
+    drawnViews(part).map((view, i) => ({
+      ...view,
+      fixId: isStaticToolUIPart(part) ? `${part.toolCallId}-${i}` : undefined,
+    })),
+  );
   const tools = parts.filter(isStaticToolUIPart);
   const active = tools.find(
     (part) => part.state === "input-streaming" || part.state === "input-available",
@@ -210,13 +219,26 @@ function DrawSteps({
     active?.type === "tool-draw_diagram"
       ? (active.input as Partial<DiagramSpec> | undefined)?.title
       : undefined;
+  // Fixer steps, one live part per view. Never stored: history keeps the drawn row.
+  const fixes = new Map(
+    parts.flatMap((part) =>
+      part.type === "data-fix" && part.id ? [[part.id, part.data as FixProgress] as const] : [],
+    ),
+  );
+  // A preliminary result is the first draw, on the canvas while the fixer works.
+  const polishing = tools.some((part) => part.state === "output-available" && part.preliminary);
+  const polishTitle = [...fixes.values()].findLast((fix) => fix.status === "polishing")?.title;
   const activeLabel = active
     ? active.type === "tool-draw_system"
       ? "Modelling the system…"
       : activeTitle
         ? `Drawing “${activeTitle}”…`
         : "Drawing diagram…"
-    : null;
+    : polishing
+      ? polishTitle
+        ? `Polishing “${polishTitle}”…`
+        : "Checking the layout…"
+      : null;
 
   return (
     <ChainOfThought defaultOpen className="rounded-lg border border-od-border-soft px-3 py-2">
@@ -250,7 +272,12 @@ function DrawSteps({
               </span>
             }
             description={`${view.nodes} nodes, ${view.edges} edges`}
-          />
+          >
+            {(view.fixId ? (fixes.get(view.fixId)?.lines ?? []) : []).map((line, i) => (
+              // Append-only list, so the index is a stable key.
+              <ChainOfThoughtStep key={i} icon={Wand2} label={line} />
+            ))}
+          </ChainOfThoughtStep>
         ))}
         {failed.map((errorText, index) => (
           <ChainOfThoughtStep
