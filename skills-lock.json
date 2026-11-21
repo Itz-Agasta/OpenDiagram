@@ -18,12 +18,6 @@
       "skillPath": "security/SKILL.md",
       "computedHash": "7a230edf3a24ce18162cb4379f59b6a19b8d24ca04db530609d0f15cede556dc"
     },
-    "brag-slim": {
-      "source": "latent-spaces/brag",
-      "sourceType": "github",
-      "skillPath": "skills/brag-slim/SKILL.md",
-      "computedHash": "6dab27b4473fb5dd900c383f503e2f65d2f7b089b3cd5fd46b0897ad781a404d"
-    },
     "create-auth": {
       "source": "better-auth/skills",
       "sourceType": "github",
@@ -36,29 +30,11 @@
       "skillPath": "better-auth/emailAndPassword/SKILL.md",
       "computedHash": "747d7f73bd9e2ec5317b8ef88dc70f97df716d00e3d02de4051feebaa48b062d"
     },
-    "gpt-taste": {
-      "source": "Leonxlnx/taste-skill",
-      "sourceType": "github",
-      "skillPath": "skills/gpt-tasteskill/SKILL.md",
-      "computedHash": "cc8f0c601d8240a124e1d11634351a2be7b8a72fd807c75e5b6bf7afcd5ddee0"
-    },
     "hono": {
       "source": "yusukebe/hono-skill",
       "sourceType": "github",
       "skillPath": "skills/hono/SKILL.md",
       "computedHash": "220e5e1b12bbaeec49ec362b6e2262d77632d0536e9758bba9acbbc323fef990"
-    },
-    "image-to-code": {
-      "source": "Leonxlnx/taste-skill",
-      "sourceType": "github",
-      "skillPath": "skills/image-to-code-skill/SKILL.md",
-      "computedHash": "58517b03b2a01f4c9ba65861559d03df931400871bbc200978c975b24bb92c73"
-    },
-    "imagegen-frontend-web": {
-      "source": "Leonxlnx/taste-skill",
-      "sourceType": "github",
-      "skillPath": "skills/imagegen-frontend-web/SKILL.md",
-      "computedHash": "65f5ae59fa317567809438310b1c54f78cd133426deb43e4d3d4ca4c8f541628"
     },
     "review-logging-patterns": {
       "source": "evlog.dev",
