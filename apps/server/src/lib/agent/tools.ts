@@ -113,23 +113,30 @@ async function polishStreamed(
   progress: ProgressSink,
   id: string,
   log: RequestLogger,
+  part?: Parameters<LayoutFixer>[3],
 ): Promise<RenderedView> {
   const lines: string[] = [];
   let repeat = { text: "", times: 0 };
   const send = (status: FixProgress["status"]) =>
     progress.write?.(id, { title: view.spec.title, lines: [...lines], status });
   try {
-    return await polishView(view, theme, fix, (event: FixEvent) => {
-      // A model that repeats a move gets one row with a count, not three rows.
-      if (event.text === repeat.text) {
-        repeat.times++;
-        lines[lines.length - 1] = `${event.text} (${repeat.times} times)`;
-      } else {
-        repeat = { text: event.text, times: 1 };
-        lines.push(event.text);
-      }
-      send("polishing");
-    });
+    return await polishView(
+      view,
+      theme,
+      fix,
+      (event: FixEvent) => {
+        // A model that repeats a move gets one row with a count, not three rows.
+        if (event.text === repeat.text) {
+          repeat.times++;
+          lines[lines.length - 1] = `${event.text} (${repeat.times} times)`;
+        } else {
+          repeat = { text: event.text, times: 1 };
+          lines.push(event.text);
+        }
+        send("polishing");
+      },
+      part,
+    );
   } catch (error) {
     log.warn("layout fix threw, keeping the first draw", { error: String(error) });
     return view;
@@ -258,7 +265,12 @@ export function createDrawSystemTool(
     };
     const final: RenderedView[] = [];
     for (const [i, view] of first.entries())
-      final.push(await polishStreamed(view, theme, fix, progress, `${toolCallId}-${i}`, log));
+      final.push(
+        await polishStreamed(view, theme, fix, progress, `${toolCallId}-${i}`, log, {
+          index: i,
+          count: first.length,
+        }),
+      );
     yield {
       views: finish(model, final).map((view, i) => ({
         ...view,
