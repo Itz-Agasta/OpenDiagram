@@ -28,6 +28,7 @@ export function labelRoom(
   );
   const room = new Map<string, number>();
   for (const e of s.edges) {
+    if (e.from === e.to) continue;
     const size = edgeLabelSize(e, theme);
     const parent = s.nodeParent.get(e.from) ?? "root";
     if (!size || parent !== (s.nodeParent.get(e.to) ?? "root")) continue;
@@ -43,7 +44,9 @@ export function labelRoom(
       : Math.max(b.y - (a.y + a.height), a.y - (b.y + b.height));
     const need = (vertical ? size.width : size.height) + RUN_EXTRA;
     if (gap >= need) continue;
-    room.set(parent, Math.max(room.get(parent) ?? 0, NODE_GAP + need - gap));
+    // At least `need`: the deficit alone undershoots when ELK's gap here was
+    // already wider than NODE_GAP.
+    room.set(parent, Math.max(room.get(parent) ?? 0, need, NODE_GAP + need - gap));
   }
   return room;
 }

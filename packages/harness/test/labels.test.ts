@@ -55,4 +55,42 @@ describe("placeLabels", () => {
     const [cx, cy] = [chip.x + chip.width / 2, chip.y + chip.height / 2];
     expect(Math.hypot(cx - 194, cy - 53)).toBeLessThanOrEqual(80);
   });
+
+  test("a chip with no room on its line does not hide another edge", () => {
+    // Same 48px gap; other routes run where the nearest free spots would be,
+    // straight above and below the boxes.
+    const nodes = [box(0, 0, 170, 106), box(218, 0, 170, 106)];
+    const routes = new Map([
+      [
+        "e",
+        [
+          { x: 170, y: 53 },
+          { x: 218, y: 53 },
+        ],
+      ],
+      [
+        "above",
+        [
+          { x: -300, y: -13 },
+          { x: 700, y: -13 },
+        ],
+      ],
+      [
+        "below",
+        [
+          { x: -300, y: 119 },
+          { x: 700, y: 119 },
+        ],
+      ],
+    ]);
+    const chip = placeLabels(
+      routes,
+      new Map([["e", { width: 119, height: 22 }]]),
+      nodes,
+      [],
+      [],
+    ).get("e")!;
+    for (const n of nodes) expect(overlaps(chip, n)).toBe(false);
+    for (const y of [-13, 119]) expect(overlaps(chip, box(-300, y, 1000, 1))).toBe(false);
+  });
 });

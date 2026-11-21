@@ -59,12 +59,15 @@ export function placeLabels(
     if (route) options.set(edge, candidates(route, size));
   }
   const order = [...options.keys()].sort((a, b) => options.get(a)!.length - options.get(b)!.length);
-  const legal = (box: Box) =>
-    !nodes.some((n) => hit(box, n, 2)) &&
-    !titles.some((t) => hit(box, t, 2)) &&
-    !containers.some((k) => straddles(box, k)) &&
-    ![...placed.values()].some((p) => hit(box, p, 4));
+  const covers = (box: Box, edge: string) =>
+    [...routes].some(([other, pts]) => other !== edge && segmentsCover(box, pts));
   for (const edge of order) {
+    const others = [...placed.values()];
+    const legal = (box: Box) =>
+      !nodes.some((n) => hit(box, n, 2)) &&
+      !titles.some((t) => hit(box, t, 2)) &&
+      !containers.some((k) => straddles(box, k)) &&
+      !others.some((p) => hit(box, p, 4));
     let best: { box: Box; cost: number } | undefined;
     for (const c of options.get(edge)!) {
       if (!legal(c.box)) continue;
@@ -74,9 +77,10 @@ export function placeLabels(
       if (!best || cost < best.cost) best = { box: c.box, cost };
     }
     // No legal spot on the line (a run shorter than the chip, e.g. same-layer
-    // neighbours 48px apart): the nearest free spot beats printing over a box.
+    // neighbours 48px apart): the nearest free spot beats printing over a box,
+    // and one that hides no other edge beats a nearer one that does.
     const middle = longestMiddle(routes.get(edge)!, sizes.get(edge)!);
-    best ??= nearestFree(middle, legal);
+    best ??= nearestFree(middle, (b) => legal(b) && !covers(b, edge)) ?? nearestFree(middle, legal);
     // FIXME: nothing free within FREE_RADIUS either; the chip collides and the
     // report counts it as LABEL_COLLISION.
     best ??= { box: middle, cost: 0 };
