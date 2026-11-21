@@ -1,10 +1,12 @@
-import type { Box } from "../geometry.js";
 import type { DiagramSpec } from "../schema.js";
+import type { Theme } from "../theme/index.js";
+import { memberArea } from "./elk-common.js";
+import type { LayoutGeometry } from "./macro.js";
+import type { Sanitized } from "./sanitize.js";
 
 // Column-alignment nudge cap (px). ELK left-aligns nodes within a layer, so
 // nodes with different label widths end up with visually offset centers.
-// Snaps stay small — this is polish, never rearrangement — and stay within a
-// container's padding so nodes can't poke out of their group box.
+// Snaps stay small: this is polish, never rearrangement.
 const MAX_ALIGN_SNAP = 24;
 
 /**
@@ -12,7 +14,13 @@ const MAX_ALIGN_SNAP = 24;
  * TB) get their centers snapped to the column mean. Fixes the "Product DB
  * sits 15px left of Order DB" class of visual noise. Runs before routing.
  */
-export function alignColumns(spec: DiagramSpec, positions: Record<string, Box>): void {
+export function alignColumns(
+  spec: DiagramSpec,
+  geo: LayoutGeometry,
+  s: Sanitized,
+  theme: Theme,
+): void {
+  const positions = geo.positions;
   const direction = spec.meta?.direction ?? (spec.type === "erd" ? "TB" : "LR");
   const axis = direction === "LR" || direction === "RL" ? ("x" as const) : ("y" as const);
   const size = axis === "x" ? ("width" as const) : ("height" as const);
@@ -45,5 +53,21 @@ export function alignColumns(spec: DiagramSpec, positions: Record<string, Box>):
       if (delta !== 0 && Math.abs(delta) <= MAX_ALIGN_SNAP) deltas.set(id, delta);
     });
   }
-  for (const [id, delta] of deltas) positions[id]![axis] += delta;
+  // A contained node stays in its frame's member area. The cap alone is not
+  // enough: in TB the top padding holds the title, and groups laid out apart
+  // (two-phase fold) snap far enough to land a node on it.
+  const named = new Map([...(spec.groups ?? []), ...(spec.zones ?? [])].map((c) => [c.id, c]));
+  for (const [id, delta] of deltas) {
+    const box = positions[id]!;
+    const parent = s.nodeParent.get(id);
+    const frame = parent ? (geo.groupBoxes[parent] ?? geo.zoneBoxes[parent]) : undefined;
+    if (!frame) {
+      box[axis] += delta;
+      continue;
+    }
+    const area = memberArea(frame, named.get(parent!) ?? { label: "" }, theme);
+    const lo = Math.min(0, area[axis] - box[axis]);
+    const hi = Math.max(0, area[axis] + area[size] - box[size] - box[axis]);
+    box[axis] += Math.min(Math.max(delta, lo), hi);
+  }
 }

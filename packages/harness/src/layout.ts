@@ -227,7 +227,7 @@ export async function layoutDiagram(
   let best: { positioned: PositionedSpec; score: number } | undefined;
   for (const geo of candidates) {
     if (geo !== lanes && geo !== arranged) {
-      alignColumns(spec, geo.positions);
+      alignColumns(spec, geo, s, theme);
       straightenRows(geo, s, placing.edges, ["LR", "RL"].includes(flowDirection(spec)));
     }
     const { routes, warnings } = routeGeometry(spec, s, geo, theme);

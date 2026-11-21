@@ -8,6 +8,7 @@ import {
   estimateTextHeight,
   estimateTextWidth,
 } from "../measure.js";
+import type { Box } from "../geometry.js";
 import type { DiagramEdge } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 
@@ -52,13 +53,30 @@ export function containerOptions(
   return {
     ...CONTAINER_OPTIONS,
     // Title band plus the gap to the children; 56 for a one-line title, as in CONTAINER_OPTIONS.
-    "elk.padding": `[top=${30 + title.height},left=24,bottom=24,right=24]`,
+    "elk.padding": `[top=${TITLE_GAP + title.height},left=${INSET},bottom=${INSET},right=${INSET}]`,
     "elk.nodeSize.constraints": "MINIMUM_SIZE",
     "elk.nodeSize.minimum": vertical ? `(0, ${width})` : `(${width}, 0)`,
     // A box widened for its title centres its children instead of leaving them
     // against the left padding. Same axis swap in vertical layouts.
     "elk.contentAlignment": vertical ? "V_CENTER" : "H_CENTER",
   };
+}
+
+const TITLE_GAP = 30;
+const INSET = 24;
+
+/**
+ * Where a container's members may sit once ELK has placed them: anywhere in
+ * the frame below the title band. Side and bottom padding are fair game for a
+ * small nudge; the top padding holds the title.
+ */
+export function memberArea(
+  frame: Box,
+  container: { label: string; sublabel?: string },
+  theme: Theme,
+): Box {
+  const top = TITLE_GAP + containerTitleBox(container, theme).height;
+  return { x: frame.x, y: frame.y + top, width: frame.width, height: frame.height - top };
 }
 
 // Shared layered-algorithm options (direction is decided per run).
