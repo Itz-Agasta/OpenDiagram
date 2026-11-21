@@ -2,10 +2,15 @@ import fc from "fast-check";
 import type { DiagramEdge, DiagramNode, DiagramSpec } from "../../src/index.js";
 
 /** Run count and seed: fixed in CI, `FC_RUNS` / `FC_SEED` to explore locally. */
-export const fcParams = (numRuns: number) => ({
-  numRuns: Number(process.env.FC_RUNS ?? numRuns),
-  seed: Number(process.env.FC_SEED ?? 20261122),
-});
+export const fcParams = (numRuns: number) => {
+  const runs = Number(process.env.FC_RUNS);
+  const seed = Number(process.env.FC_SEED);
+  // A zero, empty or garbled override must not quietly run nothing.
+  return {
+    numRuns: Number.isInteger(runs) && runs > 0 ? runs : numRuns,
+    seed: Number.isInteger(seed) ? seed : 20261122,
+  };
+};
 
 const CATEGORIES = [
   "service",

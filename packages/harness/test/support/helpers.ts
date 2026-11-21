@@ -44,3 +44,9 @@ export function onFace(p: Point, b: Box, face: Face, tol = 5): boolean {
   if (face === "left") return inY && Math.abs(p.x - b.x) <= tol;
   return inY && Math.abs(p.x - (b.x + b.width)) <= tol;
 }
+
+/** The rendered text of one skeleton by id, whitespace dropped (wrapping adds newlines). */
+export function textOf(skeletons: RenderSkeleton[], id: string): string | undefined {
+  const s = skeletons.find((k) => k.id === id);
+  return s?.kind === "text" ? s.text.replace(/\s+/g, "") : undefined;
+}

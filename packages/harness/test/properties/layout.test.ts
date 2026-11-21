@@ -14,7 +14,7 @@ import {
   type Box,
 } from "../../src/index.js";
 import { fcParams, specArb } from "../support/arb.js";
-import { allFinite } from "../support/helpers.js";
+import { allFinite, textOf } from "../support/helpers.js";
 
 const inside = (inner: Box, outer: Box) =>
   inner.x >= outer.x &&
@@ -51,11 +51,10 @@ describe("layout invariants over random specs", () => {
 
         const { skeletons } = renderToExcalidraw(p, {}, classicTheme);
         expect(allFinite(skeletons)).toBe(true);
-        const text = skeletons
-          .flatMap((s) => (s.kind === "text" ? [s.text] : []))
-          .join(" ")
-          .replace(/\s+/g, "");
-        for (const n of spec.nodes) expect(text).toContain(n.label.replace(/\s+/g, ""));
+        for (const n of spec.nodes)
+          expect(textOf(skeletons, `${n.id}-label`), `label of ${n.id}`).toBe(
+            n.label.replace(/\s+/g, ""),
+          );
       }),
       fcParams(40),
     );
@@ -71,6 +70,7 @@ describe("layout invariants over random specs", () => {
         expect(b.positions).toEqual(a.positions);
         expect(b.edgeRoutes).toEqual(a.edgeRoutes);
         expect(b.groupBoxes).toEqual(a.groupBoxes);
+        expect(b.zoneBoxes).toEqual(a.zoneBoxes);
       }),
       fcParams(15),
     );
