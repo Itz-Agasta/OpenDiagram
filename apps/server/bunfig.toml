@@ -1,0 +1,3 @@
+[test]
+# Swaps modules with process-wide side effects (env validation, tracing) for test doubles.
+preload = ["./test/support/preload.ts"]

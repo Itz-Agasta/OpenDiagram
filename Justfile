@@ -61,9 +61,10 @@ types:
 knip:
     bunx knip
 
-# Every test suite: harness geometry and web utils
+# Every test suite: harness geometry, server agent loop, web utils
 test:
     cd packages/harness && bun test
+    cd apps/server && bun test test
     cd apps/web && bun test src
 
 # Rewrite harness layout snapshots; look at the new layouts first
