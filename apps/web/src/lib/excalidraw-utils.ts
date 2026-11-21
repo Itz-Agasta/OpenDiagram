@@ -44,18 +44,34 @@ async function loadSceneFonts(elements: readonly SceneTextElement[]) {
   await document.fonts.ready;
 }
 
-/**
- * Loads scene fonts and repairs text bounds that may have used fallback metrics.
- * Also releases any frame still locked for polishing: a reload or a lost tab
- * mid-polish saved it locked, and nothing else would ever unlock it.
- */
+/** Loads scene fonts and repairs text bounds that may have used fallback metrics. */
 export async function restoreSceneElements(elements: readonly unknown[]) {
   const { restoreElements } = await import("@excalidraw/excalidraw");
   await loadSceneFonts(elements as SceneTextElement[]);
-  const released = (elements as ExcalidrawElement[]).map((el) =>
-    el.customData?.polishing === undefined ? el : { ...el, ...unmarked(el) },
+  return restoreElements(releasePolishLocks(elements) as never[], null, {
+    refreshDimensions: true,
+  });
+}
+
+/**
+ * A stored scene with every frame still locked for polishing released: a
+ * reload or a lost tab mid polish saved it locked, and nothing else would
+ * unlock it. Run on both load paths (`initialData` and the async restore),
+ * since either can be the one that lands. The version bump is what makes the
+ * delta save write the release back.
+ */
+export function releasePolishLocks(elements: readonly unknown[]): unknown[] {
+  return (elements as ExcalidrawElement[]).map((el) =>
+    el.customData?.polishing === undefined
+      ? el
+      : {
+          ...el,
+          ...unmarked(el),
+          version: el.version + 1,
+          versionNonce: Math.floor(Math.random() * 2 ** 31),
+          updated: Date.now(),
+        },
   );
-  return restoreElements(released as never[], null, { refreshDimensions: true });
 }
 
 const POLISHING_SUFFIX = " · polishing…";
