@@ -134,8 +134,8 @@ async function runOne(
     lintsAfter: layoutLints(out.positioned, theme).length,
     lostNodes,
     lostLabels,
-    fix: fields.fix,
-    triage: fields.fixTriage,
+    fix: out.stats.fix,
+    triage: out.stats.triage,
     warn: fields.warn,
     unchanged,
     cost:
@@ -150,7 +150,7 @@ async function runOne(
       JSON.stringify(scene(out.positioned)),
     );
   console.log(
-    `${armName}${run} ${name.padEnd(26)} ${String(row.before).padStart(5)} -> ${String(row.after).padStart(5)} hard ${row.hardBefore}->${row.hardAfter} lints ${row.lintsBefore}->${row.lintsAfter} ${JSON.stringify(fields.fix ?? {})} $${row.cost.toFixed(4)}${lostNodes.length + lostLabels.length ? " LOST" : ""}${row.warn ? ` WARN ${String(row.warn).slice(0, 120)}` : ""}`,
+    `${armName}${run} ${name.padEnd(26)} ${String(row.before).padStart(5)} -> ${String(row.after).padStart(5)} hard ${row.hardBefore}->${row.hardAfter} lints ${row.lintsBefore}->${row.lintsAfter} ${JSON.stringify(out.stats.fix ?? {})} $${row.cost.toFixed(4)}${lostNodes.length + lostLabels.length ? " LOST" : ""}${row.warn ? ` WARN ${String(row.warn).slice(0, 120)}` : ""}`,
   );
 }
 

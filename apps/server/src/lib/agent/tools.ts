@@ -10,7 +10,7 @@ import { env } from "@OpenDiagram/env/server";
 import { tool, type Tool } from "ai";
 import type { RequestLogger } from "evlog";
 import { z } from "zod";
-import type { FixEvent, LayoutFixer } from "./fix";
+import type { FixEvent, FixStats, LayoutFixer } from "./fix";
 import { polishView, renderView, type DrawDiagramOutput, type RenderedView } from "./render-view";
 
 export interface AskUserInput {
@@ -95,6 +95,14 @@ function forClient({ logFields: _, positioned: __, ...view }: RenderedView) {
   return view;
 }
 
+/** A pass's stats as wide-event fields; the names the fixer logged under before. */
+function fixFields(stats: FixStats | undefined) {
+  return {
+    ...(stats?.triage && { fixTriage: stats.triage }),
+    ...(stats?.fix && { fix: stats.fix }),
+  };
+}
+
 /** draw_diagram's output: the client reads the spec from the tool input instead. */
 function withoutSpec(view: RenderedView): DrawDiagramOutput {
   const { spec: _, ...output } = forClient(view);
@@ -114,7 +122,7 @@ async function polishStreamed(
   id: string,
   log: RequestLogger,
   part?: Parameters<LayoutFixer>[3],
-): Promise<RenderedView> {
+): Promise<{ view: RenderedView; stats?: FixStats }> {
   const lines: string[] = [];
   let repeat = { text: "", times: 0 };
   const send = (status: FixProgress["status"]) =>
@@ -139,7 +147,7 @@ async function polishStreamed(
     );
   } catch (error) {
     log.warn("layout fix threw, keeping the first draw", { error: String(error) });
-    return view;
+    return { view };
   } finally {
     if (lines.length) send("done");
   }
@@ -158,13 +166,13 @@ export function createDrawDiagramTool(
     const previous = canvas.find((diagram) => diagram.id === targetId)?.spec;
     return renderView(restoreIcons(rawSpec as DiagramSpec, previous), theme);
   };
-  const finish = (view: RenderedView): DrawDiagramOutput => {
+  const finish = (view: RenderedView, stats?: FixStats): DrawDiagramOutput => {
     if (view.summary.warnings.length > 0) {
       log.warn("draw_diagram sanitized malformed LLM output", {
         diagram: { layoutWarnings: view.summary.warnings },
       });
     }
-    log.set({ diagram: view.logFields });
+    log.set({ diagram: view.logFields, ...fixFields(stats) });
     return withoutSpec(view);
   };
   // A generator only when a fixer runs: the SDK sends every yield as a
@@ -177,15 +185,22 @@ export function createDrawDiagramTool(
   ): AsyncGenerator<DrawDiagramOutput> {
     const first = await draw(input);
     yield { ...withoutSpec(first), fix: { status: "polishing" } };
-    const final = await polishStreamed(first, theme, fix, progress, `${toolCallId}-0`, log);
-    yield { ...finish(final), fix: { status: "done", changed: final !== first } };
+    const { view: final, stats } = await polishStreamed(
+      first,
+      theme,
+      fix,
+      progress,
+      `${toolCallId}-0`,
+      log,
+    );
+    yield { ...finish(final, stats), fix: { status: "done", changed: final !== first } };
   }
   return tool({
     description:
       "Render the final diagram to the user's canvas. Call exactly once per design, after you have written a short plan in chat. Set targetId to update a diagram already on the canvas; omit it to add a new one.",
     inputSchema: drawDiagramInputSchema,
     execute: (input, { toolCallId }) =>
-      fixer.run ? polished(input, toolCallId, fixer.run) : draw(input).then(finish),
+      fixer.run ? polished(input, toolCallId, fixer.run) : draw(input).then((view) => finish(view)),
     // The model only ever sees the compact summary - element JSON is for the
     // client and would waste thousands of tokens per step.
     toModelOutput: ({ output }) => ({
@@ -231,7 +246,11 @@ export function createDrawSystemTool(
     for (const spec of planViews(model)) rendered.push(await renderView(spec, theme));
     return rendered;
   };
-  const finish = (model: z.infer<typeof systemModelSchema>, rendered: RenderedView[]) => {
+  const finish = (
+    model: z.infer<typeof systemModelSchema>,
+    rendered: RenderedView[],
+    stats: (FixStats | undefined)[] = [],
+  ) => {
     const warnings = rendered.flatMap((view) => view.summary.warnings);
     if (warnings.length > 0) {
       log.warn("draw_system sanitized malformed LLM output", {
@@ -247,7 +266,10 @@ export function createDrawSystemTool(
         // The model, not the views: `planViews` replays it for $0. Same gate as draw_diagram's spec.
         ...(env.LOG_DIAGRAM_SPEC && { model: JSON.stringify(model) }),
         // Same fields as draw_diagram's event, minus the spec: `model` above replays every view.
-        views: rendered.map(({ logFields: { spec: _, ...fields } }) => fields),
+        views: rendered.map(({ logFields: { spec: _, ...fields } }, i) => ({
+          ...fields,
+          ...fixFields(stats[i]),
+        })),
       },
     });
     return rendered.map(forClient);
@@ -266,16 +288,18 @@ export function createDrawSystemTool(
     // Numbered among the views the fixer polishes: a small system's sequence
     // views sit beside one complete view, which is not part of a set.
     const laid = first.filter((view) => view.positioned);
-    const final: RenderedView[] = [];
+    const polishedViews = [];
     for (const [i, view] of first.entries())
-      final.push(
+      polishedViews.push(
         await polishStreamed(view, theme, fix, progress, `${toolCallId}-${i}`, log, {
           index: laid.indexOf(view),
           count: laid.length,
         }),
       );
+    const final = polishedViews.map((p) => p.view);
+    const stats = polishedViews.map((p) => p.stats);
     yield {
-      views: finish(model, final).map((view, i) => ({
+      views: finish(model, final, stats).map((view, i) => ({
         ...view,
         fix: { status: "done" as const, changed: final[i] !== first[i] },
       })),
