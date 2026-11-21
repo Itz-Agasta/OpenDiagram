@@ -1,7 +1,7 @@
 /** placeLabels: where the router puts each edge's label chip. */
 import { describe, expect, test } from "bun:test";
-import type { Box } from "../src/index.js";
-import { placeLabels } from "../src/router/labels.js";
+import type { Box } from "../../src/index.js";
+import { placeLabels } from "../../src/router/labels.js";
 
 const box = (x: number, y: number, width: number, height: number): Box => ({ x, y, width, height });
 const overlaps = (a: Box, b: Box) =>

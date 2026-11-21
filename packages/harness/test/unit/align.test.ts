@@ -1,7 +1,7 @@
 /** alignColumns: the row/column snap that runs after ELK places nodes. */
 import { describe, expect, test } from "bun:test";
-import { classicTheme, layoutDiagram, layoutLints, type DiagramSpec } from "../src/index.js";
-import { containerTitleBox } from "../src/measure.js";
+import { classicTheme, layoutDiagram, layoutLints, type DiagramSpec } from "../../src/index.js";
+import { containerTitleBox } from "../../src/measure.js";
 
 const node = (id: string, label = "Cache", sublabel?: string) => ({
   id,

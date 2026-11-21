@@ -1,7 +1,7 @@
 /** Layout lints the fixer's judge reads: the empty-area scan and the hard-fault count. */
 import { describe, expect, test } from "bun:test";
-import { classicTheme, hardFaults, layoutLints, type Box } from "../src/index.js";
-import { positioned } from "./helpers.js";
+import { classicTheme, hardFaults, layoutLints, type Box } from "../../src/index.js";
+import { positioned } from "../support/helpers.js";
 
 const box = (x: number, y: number, width: number, height: number): Box => ({ x, y, width, height });
 

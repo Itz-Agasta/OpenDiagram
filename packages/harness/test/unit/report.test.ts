@@ -6,8 +6,8 @@ import {
   layoutDiagram,
   sketchTheme,
   type DiagramSpec,
-} from "../src/index.js";
-import { cloneIconInstance } from "../src/renderer/icons.js";
+} from "../../src/index.js";
+import { cloneIconInstance } from "../../src/renderer/icons.js";
 
 describe("report", () => {
   // A shape the generator produces constantly: one group of backends plus a
@@ -107,7 +107,7 @@ describe("golden-score corpus", () => {
     title: string;
     minScore: number;
     spec: DiagramSpec;
-  }[] = require("./fixtures/corpus.json");
+  }[] = require("../fixtures/corpus.json");
 
   describe.each(corpus)("$title", ({ minScore, spec }) => {
     test.each([classicTheme, sketchTheme])(`scores at least ${minScore} ($id)`, async (theme) => {

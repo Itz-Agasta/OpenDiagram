@@ -1,9 +1,9 @@
 /** layoutPinned: re-solving a drawing around positions the layout fixer chose. */
 import { describe, expect, test } from "bun:test";
-import { classicTheme, layoutDiagram, layoutPinned, type DiagramSpec } from "../src/index.js";
-import { containerTitleBox } from "../src/measure.js";
-import { FACES } from "../src/router/types.js";
-import { centreX, onFace } from "./helpers.js";
+import { classicTheme, layoutDiagram, layoutPinned, type DiagramSpec } from "../../src/index.js";
+import { containerTitleBox } from "../../src/measure.js";
+import { FACES } from "../../src/router/types.js";
+import { centreX, onFace } from "../support/helpers.js";
 
 describe("layoutPinned", () => {
   test("a group frame stays centred on its members when the title is wider", () => {

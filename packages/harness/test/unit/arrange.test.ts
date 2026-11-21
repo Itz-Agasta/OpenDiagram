@@ -1,7 +1,7 @@
 /** meta.arrange: placement the spec dictates instead of ELK. */
 import { describe, expect, test } from "bun:test";
-import { classicTheme, layoutDiagram, type DiagramSpec } from "../src/index.js";
-import { centreX } from "./helpers.js";
+import { classicTheme, layoutDiagram, type DiagramSpec } from "../../src/index.js";
+import { centreX } from "../support/helpers.js";
 
 const node = (id: string) => ({ id, label: `Service ${id}`, category: "service" as const });
 

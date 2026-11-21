@@ -1,9 +1,9 @@
 /** labelRoom: ELK leaves no label room between same-layer neighbours; layout makes it. */
 import { describe, expect, test } from "bun:test";
-import { classicTheme, layoutDiagram, type Box, type DiagramSpec } from "../src/index.js";
-import { edgeLabelSize } from "../src/layout/elk-common.js";
-import { labelRoom } from "../src/layout/label-room.js";
-import { sanitize } from "../src/layout/sanitize.js";
+import { classicTheme, layoutDiagram, type Box, type DiagramSpec } from "../../src/index.js";
+import { edgeLabelSize } from "../../src/layout/elk-common.js";
+import { labelRoom } from "../../src/layout/label-room.js";
+import { sanitize } from "../../src/layout/sanitize.js";
 
 const overlaps = (a: Box, b: Box) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;

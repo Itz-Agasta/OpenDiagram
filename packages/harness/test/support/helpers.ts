@@ -1,5 +1,5 @@
-import type { Box, PositionedSpec, RenderSkeleton } from "../src/index.js";
-import type { Face } from "../src/router/types.js";
+import type { Box, PositionedSpec, RenderSkeleton } from "../../src/index.js";
+import type { Face } from "../../src/router/types.js";
 
 type Point = { x: number; y: number };
 
