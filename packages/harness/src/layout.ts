@@ -4,6 +4,7 @@ import { alignColumns } from "./layout/align.js";
 import { arrangedLayout, containerBoxes } from "./layout/arrange.js";
 import { laneLayout } from "./layout/lanes.js";
 import { BASE_OPTIONS, containerOptions, elk, elkEdge } from "./layout/elk-common.js";
+import { labelRoom } from "./layout/label-room.js";
 import { type LayoutGeometry, twoPhaseLayout } from "./layout/macro.js";
 import { routeGeometry } from "./layout/route.js";
 import type { RouterEdge } from "./router/index.js";
@@ -29,6 +30,7 @@ function buildGraph(
   s: Sanitized,
   theme: Theme,
   extra: Record<string, string> = {},
+  gaps: Map<string, number> = new Map(),
 ): ElkNode {
   const elkNodes = new Map<string, ElkNode>();
   for (const node of spec.nodes) {
@@ -37,7 +39,12 @@ function buildGraph(
 
   const named = new Map([...(spec.groups ?? []), ...(spec.zones ?? [])].map((c) => [c.id, c]));
   const vertical = ["TB", "BT"].includes(flowDirection(spec));
-  const options = (id: string) => containerOptions(named.get(id) ?? { label: "" }, theme, vertical);
+  const gap = (id: string): Record<string, string> =>
+    gaps.has(id) ? { "elk.spacing.nodeNode": String(gaps.get(id)) } : {};
+  const options = (id: string) => ({
+    ...containerOptions(named.get(id) ?? { label: "" }, theme, vertical),
+    ...gap(id),
+  });
   const elkGroups = new Map<string, ElkNode>();
   for (const group of s.groups) {
     elkGroups.set(group.id, {
@@ -72,6 +79,7 @@ function buildGraph(
       "elk.direction":
         DIRECTION[spec.meta?.direction ?? (spec.type === "erd" ? "TB" : "LR")] ?? "RIGHT",
       ...extra,
+      ...gap("root"),
     },
     children: rootChildren,
     edges: s.edges.map((edge) => elkEdge(edge, theme)),
@@ -89,14 +97,31 @@ function aspect(geo: LayoutGeometry): number {
   return width / height;
 }
 
-/** Single-run ELK layout of the whole spec (nested compounds, one direction). */
+/**
+ * Single-run ELK layout of the whole spec (nested compounds, one direction).
+ * Runs ELK a second time, with wider sibling gaps where they are needed, when
+ * a label has no room between same-layer neighbours (see labelRoom).
+ */
 async function singleRunLayout(
+  spec: DiagramSpec,
+  s: Sanitized,
+  placing: Sanitized,
+  theme: Theme,
+  extra?: Record<string, string>,
+): Promise<LayoutGeometry> {
+  const first = await elkRun(spec, placing, theme, extra);
+  const gaps = labelRoom(spec, s, first, theme);
+  return gaps.size ? elkRun(spec, placing, theme, extra, gaps) : first;
+}
+
+async function elkRun(
   spec: DiagramSpec,
   s: Sanitized,
   theme: Theme,
   extra?: Record<string, string>,
+  gaps?: Map<string, number>,
 ): Promise<LayoutGeometry> {
-  const laidOut = await elk.layout(buildGraph(spec, s, theme, extra));
+  const laidOut = await elk.layout(buildGraph(spec, s, theme, extra, gaps));
 
   const positions: Record<string, Box> = {};
   const groupBoxes: Record<string, Box> = {};
@@ -201,7 +226,7 @@ export async function layoutDiagram(
   }
   let single: LayoutGeometry | undefined;
   if (!arranged && !lanes && (strategy !== "two-phase" || candidates.length === 0)) {
-    single = await singleRunLayout(spec, placing, theme);
+    single = await singleRunLayout(spec, s, placing, theme);
     candidates.push(single);
   }
   // A wrapped run: ELK cuts a long layering into chunks placed side by side.
@@ -214,7 +239,7 @@ export async function layoutDiagram(
   if (single && strategy === "auto" && spec.nodes.length >= 5 && aspect(single) > 3) {
     try {
       candidates.push(
-        await singleRunLayout(spec, placing, theme, {
+        await singleRunLayout(spec, s, placing, theme, {
           "elk.layered.wrapping.strategy": "MULTI_EDGE",
           "elk.aspectRatio": "2.0",
         }),
@@ -227,7 +252,7 @@ export async function layoutDiagram(
   let best: { positioned: PositionedSpec; score: number } | undefined;
   for (const geo of candidates) {
     if (geo !== lanes && geo !== arranged) {
-      alignColumns(spec, geo.positions);
+      alignColumns(spec, geo, s, theme);
       straightenRows(geo, s, placing.edges, ["LR", "RL"].includes(flowDirection(spec)));
     }
     const { routes, warnings } = routeGeometry(spec, s, geo, theme);

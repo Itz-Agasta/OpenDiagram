@@ -37,7 +37,7 @@ jobs:
       - name: Typecheck
         run: just types
 
-      - name: Harness tests
+      - name: Tests
         run: just test
 
       - name: Unused code and dependencies

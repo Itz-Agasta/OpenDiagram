@@ -13,6 +13,7 @@
         "scripts/eval/fix.ts",
         "scripts/eval/judge.ts",
         "scripts/eval/triage.ts",
+        "test/**/*.test.ts",
       ],
       // Imported only by bundled @OpenDiagram/* packages. scripts/build.ts keeps
       // package.json deps external, so the server must list them to resolve at runtime.

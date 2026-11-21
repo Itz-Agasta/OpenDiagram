@@ -1,7 +1,12 @@
 /** ERD: entity table sizing, crow-foot arrowheads, column rows. */
 import { describe, expect, test } from "bun:test";
-import { classicTheme, layoutDiagram, renderToExcalidraw, type DiagramSpec } from "../src/index.js";
-import { allFinite } from "./helpers.js";
+import {
+  classicTheme,
+  layoutDiagram,
+  renderToExcalidraw,
+  type DiagramSpec,
+} from "../../src/index.js";
+import { allFinite } from "../support/helpers.js";
 
 describe("erd", () => {
   const erd: DiagramSpec = {

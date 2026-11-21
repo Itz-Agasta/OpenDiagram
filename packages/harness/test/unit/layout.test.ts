@@ -6,9 +6,9 @@ import {
   renderToExcalidraw,
   sketchTheme,
   type DiagramSpec,
-} from "../src/index.js";
-import { containerTitleBox } from "../src/measure.js";
-import { allFinite } from "./helpers.js";
+} from "../../src/index.js";
+import { containerTitleBox } from "../../src/measure.js";
+import { allFinite } from "../support/helpers.js";
 
 describe("elk layout invariants", () => {
   const spec: DiagramSpec = {

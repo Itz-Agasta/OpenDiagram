@@ -5,8 +5,8 @@ import {
   renderSequenceDiagram,
   sketchTheme,
   type DiagramSpec,
-} from "../src/index.js";
-import { allFinite } from "./helpers.js";
+} from "../../src/index.js";
+import { allFinite } from "../support/helpers.js";
 
 const seqSpec: DiagramSpec = {
   type: "sequence",

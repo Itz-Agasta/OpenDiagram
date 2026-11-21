@@ -1,6 +1,6 @@
 /** planViews: which diagrams a system model becomes. */
 import { describe, expect, test } from "bun:test";
-import { MAX_DETAIL_NODES, planViews, type SystemModel } from "../src/index.js";
+import { MAX_DETAIL_NODES, planViews, type SystemModel } from "../../src/index.js";
 
 type Component = SystemModel["components"][number];
 const svc = (id: string, domain: string, category: Component["category"] = "service") => ({
