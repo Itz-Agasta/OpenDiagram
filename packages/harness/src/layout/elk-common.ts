@@ -12,12 +12,15 @@ import type { Box } from "../geometry.js";
 import type { DiagramEdge } from "../schema.js";
 import type { Theme } from "../theme/index.js";
 
+/** Gap between siblings in one layer (`elk.spacing.nodeNode`). */
+export const NODE_GAP = 48;
+
 // TUNABLE spacing (px): between columns/rows of nodes and around edges.
 // Bigger = airier diagram, smaller = denser.
 const SPACING: Record<string, string> = {
   "elk.layered.spacing.nodeNodeBetweenLayers": "110", // gap between flow layers (arrow length + label corridors live here)
   "elk.layered.spacing.edgeNodeBetweenLayers": "32",
-  "elk.spacing.nodeNode": "48", // gap between siblings in the same layer
+  "elk.spacing.nodeNode": String(NODE_GAP), // gap between siblings in the same layer
   "elk.spacing.edgeNode": "32", // how close an edge may run past a node
   "elk.spacing.edgeEdge": "30", // gap between parallel edges (label chips need air)
   "elk.spacing.edgeLabel": "8",
