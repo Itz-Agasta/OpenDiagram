@@ -140,39 +140,44 @@ const replica = spec("Replica", {
 });
 
 // Regression: a chip with no legal spot on its line printed over a group title.
-// Two groups with two-line titles under a gateway, TB.
+// Both groups carry a sublabel wide enough to wrap, so their titles are two lines.
+const cats: Cat[] = [
+  "gateway",
+  "gateway",
+  "database",
+  "gateway",
+  "queue",
+  "queue",
+  "gateway",
+  "cache",
+  "gateway",
+  "queue",
+];
 const groupTitles = spec("Group titles", {
-  nodes: [
-    n("gw", "API Gateway", "gateway"),
-    n("orders", "Orders DB", "database"),
-    n("search", "Search Service"),
-    n("rank", "Ranker", "gateway"),
-    n("ingest", "Ingest Queue", "queue"),
-    n("stream", "Stream Processor", "queue"),
-    n("sink", "Event Sink", "gateway"),
-    n("cdn", "CDN Cache", "cache"),
-    n("auth", "Auth Service"),
-  ],
+  nodes: cats.map((c, i) => n(`n${i}`, `Node ${i}`, c)),
   edges: [
-    e("gw", "orders", "HTTPS"),
-    e("gw", "search", "Query / Read"),
-    e("search", "rank", "Search & Agent · gRPC"),
-    e("orders", "ingest", "Search & Agent · gRPC"),
-    e("ingest", "stream", "Query / Read"),
-    e("gw", "sink", "gRPC"),
-    e("ingest", "cdn", "Search & Agent · gRPC"),
-    e("orders", "auth", "Query / Read"),
+    e("n0", "n1", "Query / Read"),
+    e("n0", "n2", "gRPC"),
+    e("n1", "n3", "Query / Read"),
+    e("n2", "n4", "HTTPS"),
+    e("n1", "n5", "Query / Read"),
+    e("n1", "n6", "gRPC"),
+    e("n1", "n7", "gRPC"),
+    e("n2", "n8", "Query / Read"),
+    e("n8", "n9", "Search & Agent · gRPC"),
   ],
   groups: [
     {
-      id: "mesh",
-      label: "Compute Mesh / EKS Multi-Region",
-      contains: ["orders", "search", "rank"],
+      id: "g0",
+      label: "Edge",
+      sublabel: "EKS Multi-Region with cross-region failover and traffic shifting",
+      contains: ["n1"],
     },
     {
-      id: "data",
-      label: "Data Platform / Streaming Ingest Tier",
-      contains: ["ingest", "stream", "sink"],
+      id: "g1",
+      label: "Edge",
+      sublabel: "Streaming Ingest Tier with schema registry and replay buffers",
+      contains: ["n2", "n3", "n4"],
     },
   ],
   meta: { direction: "TB" },
