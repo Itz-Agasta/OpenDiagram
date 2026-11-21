@@ -263,12 +263,15 @@ export function createDrawSystemTool(
     yield {
       views: first.map((view) => ({ ...forClient(view), fix: { status: "polishing" as const } })),
     };
+    // Numbered among the views the fixer polishes: a small system's sequence
+    // views sit beside one complete view, which is not part of a set.
+    const laid = first.filter((view) => view.positioned);
     const final: RenderedView[] = [];
     for (const [i, view] of first.entries())
       final.push(
         await polishStreamed(view, theme, fix, progress, `${toolCallId}-${i}`, log, {
-          index: i,
-          count: first.length,
+          index: laid.indexOf(view),
+          count: laid.length,
         }),
       );
     yield {
