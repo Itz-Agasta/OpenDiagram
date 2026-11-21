@@ -66,11 +66,12 @@ export async function polishView(
   theme: Theme,
   fix: LayoutFixer,
   onEvent: (event: FixEvent) => void,
+  part?: Parameters<LayoutFixer>[3],
 ): Promise<RenderedView> {
   if (!view.positioned) return view;
   // The fixer may restructure (merge edges, add a junction): what it returns
   // is what the canvas stores, so the next edit starts from what is drawn.
-  const { spec, positioned } = await fix(view.spec, view.positioned, onEvent);
+  const { spec, positioned } = await fix(view.spec, view.positioned, onEvent, part);
   if (positioned === view.positioned) return view;
   // Icon warnings carry over; layout warnings come from the new positioning.
   const iconWarnings = view.summary.warnings.filter((w) => w.startsWith("unknown icon"));

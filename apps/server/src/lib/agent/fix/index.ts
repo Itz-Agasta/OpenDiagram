@@ -24,7 +24,26 @@ export type LayoutFixer = (
   spec: DiagramSpec,
   drawn: PositionedSpec,
   onEvent?: (event: FixEvent) => void,
+  /** Set when this drawing is one view of several `draw_system` planned. */
+  part?: { index: number; count: number },
 ) => Promise<{ spec: DiagramSpec; positioned: PositionedSpec }>;
+
+/**
+ * The request as one view should read it. Without the note, a flow view of a
+ * multi-view system was judged against the whole request and the first look
+ * reported every component drawn in the other views as "entirely missing"
+ * (gemini-3.8-flash, food delivery flow view: 3/3 runs, 0/3 with the note).
+ * The request stays: placement asks still apply to every view.
+ */
+function requestFor(
+  request: string | undefined,
+  title: string,
+  part: { index: number; count: number } | undefined,
+): string | undefined {
+  if (!request || !part || part.count < 2) return request;
+  // First, not last: the prompts cut the request at 2-3k chars.
+  return `THIS DRAWING is "${title}", view ${part.index + 1} of ${part.count} of the system below (an overview plus one view per flow). It shows only part of what was asked, on purpose: judge its layout, not whether everything requested appears in it.\n\n${request}`;
+}
 
 export interface FixOptions {
   /** Show the model a render of the drawing, refreshed after every change. */
@@ -130,7 +149,8 @@ export function createLayoutFixer(
   options: FixOptions = DEFAULT_FIX,
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"],
 ): LayoutFixer {
-  return async (input, drawn, emit = () => {}) => {
+  return async (input, drawn, emit = () => {}, part) => {
+    const asked = requestFor(request, input.title, part);
     const cost = layoutCost(drawn, theme);
     const lintsBefore = layoutLints(drawn, theme).length;
     if (input.nodes.length < 3) return { spec: input, positioned: drawn };
@@ -138,7 +158,7 @@ export function createLayoutFixer(
     let seen: string | undefined;
     if (!numbers) {
       if (!options.picture) return { spec: input, positioned: drawn };
-      const look = await triage(model, providerOptions, drawn, request, usage, theme).catch(
+      const look = await triage(model, providerOptions, drawn, asked, usage, theme).catch(
         (error) => {
           log.warn("fix triage failed, skipping the fix", { error: String(error) });
           return { polish: false, problems: "" };
@@ -169,7 +189,7 @@ export function createLayoutFixer(
     const { state, calls } = session;
     const started = performance.now();
 
-    const ask = request ? `THE USER ASKED FOR:\n"""\n${request.slice(0, 3000)}\n"""\n\n` : "";
+    const ask = asked ? `THE USER ASKED FOR:\n"""\n${asked.slice(0, 3000)}\n"""\n\n` : "";
     const first: ModelMessage = {
       role: "user",
       content: [
@@ -225,18 +245,12 @@ export function createLayoutFixer(
     }
     let kept: "fix" | "start" | undefined;
     if (options.selfCheck && state.current !== drawn) {
-      kept = await compare(
-        model,
-        providerOptions,
-        drawn,
-        state.current,
-        request,
-        usage,
-        theme,
-      ).catch((error) => {
-        log.warn("fix self-check failed, keeping the fix", { error: String(error) });
-        return undefined;
-      });
+      kept = await compare(model, providerOptions, drawn, state.current, asked, usage, theme).catch(
+        (error) => {
+          log.warn("fix self-check failed, keeping the fix", { error: String(error) });
+          return undefined;
+        },
+      );
       if (kept === "start") [state.current, state.spec] = [drawn, working];
     }
     emit({
