@@ -41,7 +41,8 @@ function requestFor(
   part: { index: number; count: number } | undefined,
 ): string | undefined {
   if (!request || !part || part.count < 2) return request;
-  return `${request}\n\nTHIS DRAWING is "${title}", view ${part.index + 1} of ${part.count} of that system (an overview plus one view per flow). It shows only part of what was asked, on purpose: judge its layout, not whether everything requested appears in it.`;
+  // First, not last: the prompts cut the request at 2-3k chars.
+  return `THIS DRAWING is "${title}", view ${part.index + 1} of ${part.count} of the system below (an overview plus one view per flow). It shows only part of what was asked, on purpose: judge its layout, not whether everything requested appears in it.\n\n${request}`;
 }
 
 export interface FixOptions {
