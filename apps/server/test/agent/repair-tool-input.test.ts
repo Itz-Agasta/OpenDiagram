@@ -59,9 +59,8 @@ describe("repairToolInput", () => {
   });
 
   test("an input still invalid after the fixups is left to the normal tool error", () => {
-    expect(
-      repairToolInput("draw_diagram", JSON.stringify({ edges: [{ from1: "web", to1: "api" }] })),
-    ).toBeNull();
+    // A valid diagram whose edge still has no `to` once `from1` is renamed.
+    expect(repairToolInput("draw_diagram", JSON.stringify(diagram([{ from1: "web" }])))).toBeNull();
   });
 
   test("a tool it does not know, or input that is not JSON, is not touched", () => {
