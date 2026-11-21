@@ -141,7 +141,10 @@ function pendingLabel(parts: Part[]) {
     // and so does a draw whose layout fixer is still polishing.
     return null;
   }
-  if (last.type === "data-fix" && (last.data as FixProgress).status === "polishing") return null;
+  // Between two views' passes the last part is the previous view's `done`.
+  const polishing = (part: Part) =>
+    isStaticToolUIPart(part) && part.state === "output-available" && part.preliminary;
+  if (parts.some(polishing)) return null;
   return "Working…";
 }
 

@@ -18,6 +18,8 @@ export interface FixProgress {
   title: string;
   lines: string[];
   status: "polishing" | "done";
+  /** On `done`, only when the fixer changed the drawing: what replaces the first draw. */
+  view?: DrawDiagramOutput & { spec: DiagramSpec };
 }
 
 /** `draw_system`: overview first, then one view per flow. `spec` is what the canvas list stores. */

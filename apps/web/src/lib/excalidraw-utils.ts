@@ -44,11 +44,75 @@ async function loadSceneFonts(elements: readonly SceneTextElement[]) {
   await document.fonts.ready;
 }
 
-/** Loads scene fonts and repairs text bounds that may have used fallback metrics. */
+/**
+ * Loads scene fonts and repairs text bounds that may have used fallback metrics.
+ * Also releases any frame still locked for polishing: a reload or a lost tab
+ * mid-polish saved it locked, and nothing else would ever unlock it.
+ */
 export async function restoreSceneElements(elements: readonly unknown[]) {
   const { restoreElements } = await import("@excalidraw/excalidraw");
   await loadSceneFonts(elements as SceneTextElement[]);
-  return restoreElements(elements as never[], null, { refreshDimensions: true });
+  const released = (elements as ExcalidrawElement[]).map((el) =>
+    el.customData?.polishing === undefined ? el : { ...el, ...unmarked(el) },
+  );
+  return restoreElements(released as never[], null, { refreshDimensions: true });
+}
+
+const POLISHING_SUFFIX = " · polishing…";
+
+/** The fields that undo `lockFrame` on one element. */
+function unmarked(el: ExcalidrawElement) {
+  const { polishing, ...customData } = el.customData ?? {};
+  return {
+    locked: false,
+    customData,
+    ...(el.type === "frame" && typeof polishing === "string" && { name: polishing }),
+  };
+}
+
+/**
+ * Locks a generated frame and its members while the layout fixer polishes it,
+ * and titles it "<title> · polishing…" so the lock reads as intended. Marked
+ * through `customData.polishing` (the frame's holds its real name), which is
+ * how `releaseFrame` and a reload find what to unlock.
+ */
+export async function lockFrame(api: ExcalidrawImperativeAPI, frameId: string, title: string) {
+  const { newElementWith } = await import("@excalidraw/excalidraw");
+  api.updateScene({
+    elements: api.getSceneElementsIncludingDeleted().map((el) =>
+      !el.isDeleted && (el.id === frameId || el.frameId === frameId)
+        ? newElementWith(el, {
+            locked: true,
+            customData: { ...el.customData, polishing: el.id === frameId ? title : true },
+            ...(el.id === frameId && { name: `${title}${POLISHING_SUFFIX}` }),
+          })
+        : el,
+    ),
+  });
+}
+
+/**
+ * Undoes `lockFrame`. With `replacing`, unmarked members (shapes the user drew
+ * over the locked frame) leave it first: the redraw deletes every member.
+ *
+ * FIXME(excalidraw-locked-frame): locked frames adopt new shapes in 0.18.1
+ * (`getTopLayerFrameAtSceneCoords` ignores `locked`). Fixed upstream, not yet
+ * released; drop the detach once a release carries it.
+ * https://github.com/excalidraw/excalidraw/pull/9851
+ */
+export async function releaseFrame(
+  api: ExcalidrawImperativeAPI,
+  frameId: string,
+  { replacing = false } = {},
+) {
+  const { newElementWith } = await import("@excalidraw/excalidraw");
+  api.updateScene({
+    elements: api.getSceneElementsIncludingDeleted().map((el) => {
+      if (el.isDeleted || (el.id !== frameId && el.frameId !== frameId)) return el;
+      if (el.customData?.polishing !== undefined) return newElementWith(el, unmarked(el));
+      return replacing ? newElementWith(el, { frameId: null }) : el;
+    }),
+  });
 }
 
 function toElementSkeleton(skeleton: RenderSkeleton): ExcalidrawElementSkeleton {
@@ -157,7 +221,7 @@ export async function applyDiagramToCanvas(
   api: ExcalidrawImperativeAPI,
   skeletons: RenderSkeleton[],
   rawElements: unknown[],
-  opts?: { replaceFrameId?: string | null },
+  opts?: { replaceFrameId?: string | null; scroll?: boolean },
 ): Promise<ApplyDiagramResult> {
   // Dynamic import: @excalidraw/excalidraw touches `window` at module scope,
   // so it can only be evaluated in the browser, never during Next.js SSR.
@@ -244,7 +308,8 @@ export async function applyDiagramToCanvas(
   api.updateScene({ elements: [...elements, ...converted] });
 
   const frame = converted.find((el) => el.type === "frame");
-  api.scrollToContent(frame ?? converted, { fitToContent: true, animate: true, duration: 400 });
+  if (opts?.scroll !== false)
+    api.scrollToContent(frame ?? converted, { fitToContent: true, animate: true, duration: 400 });
   return { frameId: frame?.id ?? null };
 }
 
