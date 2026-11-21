@@ -10,7 +10,7 @@ import {
 } from "@OpenDiagram/harness";
 import { env } from "@OpenDiagram/env/server";
 import { iconRegistry, normalizeSpecIcons } from "../icons/registry";
-import type { FixEvent, LayoutFixer } from "./fix";
+import type { FixEvent, FixStats, LayoutFixer } from "./fix";
 
 export interface DrawDiagramOutput {
   skeletons: RenderSkeleton[];
@@ -58,8 +58,9 @@ export async function renderView(rawSpec: DiagramSpec, theme: Theme): Promise<Re
 }
 
 /**
- * The fixer's pass over a first draw. Hands back the same object when the
- * drawing did not change, so callers can tell by identity.
+ * The fixer's pass over a first draw, plus what it did for the log. Hands back
+ * the same `view` object when the drawing did not change, so callers can tell
+ * by identity.
  */
 export async function polishView(
   view: RenderedView,
@@ -67,15 +68,15 @@ export async function polishView(
   fix: LayoutFixer,
   onEvent: (event: FixEvent) => void,
   part?: Parameters<LayoutFixer>[3],
-): Promise<RenderedView> {
-  if (!view.positioned) return view;
+): Promise<{ view: RenderedView; stats?: FixStats }> {
+  if (!view.positioned) return { view };
   // The fixer may restructure (merge edges, add a junction): what it returns
   // is what the canvas stores, so the next edit starts from what is drawn.
-  const { spec, positioned } = await fix(view.spec, view.positioned, onEvent, part);
-  if (positioned === view.positioned) return view;
+  const { spec, positioned, stats } = await fix(view.spec, view.positioned, onEvent, part);
+  if (positioned === view.positioned) return { view, stats };
   // Icon warnings carry over; layout warnings come from the new positioning.
   const iconWarnings = view.summary.warnings.filter((w) => w.startsWith("unknown icon"));
-  return drawn(spec, positioned, theme, iconWarnings);
+  return { view: drawn(spec, positioned, theme, iconWarnings), stats };
 }
 
 function drawn(

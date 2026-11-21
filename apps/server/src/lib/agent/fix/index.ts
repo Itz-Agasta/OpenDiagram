@@ -26,7 +26,19 @@ export type LayoutFixer = (
   onEvent?: (event: FixEvent) => void,
   /** Set when this drawing is one view of several `draw_system` planned. */
   part?: { index: number; count: number },
-) => Promise<{ spec: DiagramSpec; positioned: PositionedSpec }>;
+) => Promise<{ spec: DiagramSpec; positioned: PositionedSpec; stats: FixStats }>;
+
+/**
+ * What one pass did, for the caller to log. Returned rather than `log.set`
+ * here: draw_system runs a pass per view on one logger, and each view's
+ * fields overwrote the last.
+ */
+export interface FixStats {
+  /** The first look's verdict, when the numbers alone did not decide. */
+  triage?: { polish: boolean; problems: string };
+  /** Present once a fix pass ran. */
+  fix?: Record<string, unknown>;
+}
 
 /**
  * The request as one view should read it. Without the note, a flow view of a
@@ -153,19 +165,21 @@ export function createLayoutFixer(
     const asked = requestFor(request, input.title, part);
     const cost = layoutCost(drawn, theme);
     const lintsBefore = layoutLints(drawn, theme).length;
-    if (input.nodes.length < 3) return { spec: input, positioned: drawn };
+    const stats: FixStats = {};
+    const unchanged = () => ({ spec: input, positioned: drawn, stats });
+    if (input.nodes.length < 3) return unchanged();
     const numbers = cost < FIX_BELOW || hardFaults(drawn, theme) > 0 || lintsBefore >= SLOP_LINTS;
     let seen: string | undefined;
     if (!numbers) {
-      if (!options.picture) return { spec: input, positioned: drawn };
+      if (!options.picture) return unchanged();
       const look = await triage(model, providerOptions, drawn, asked, usage, theme).catch(
         (error) => {
           log.warn("fix triage failed, skipping the fix", { error: String(error) });
           return { polish: false, problems: "" };
         },
       );
-      log.set({ fixTriage: look });
-      if (!look.polish) return { spec: input, positioned: drawn };
+      stats.triage = look;
+      if (!look.polish) return unchanged();
       seen = look.problems;
     }
 
@@ -178,7 +192,7 @@ export function createLayoutFixer(
         firstPicture = picture(drawn, theme);
       } catch (error) {
         log.warn("fix preview failed, skipping the fix", { error: String(error) });
-        return { spec: input, positioned: drawn };
+        return unchanged();
       }
     }
     const looked = seen ? findings(seen, drawn) : [];
@@ -257,21 +271,23 @@ export function createLayoutFixer(
       kind: "verdict",
       text: state.current === drawn ? "Kept the first draw" : "Kept the polished layout",
     });
-    log.set({
-      fix: {
-        before: cost,
-        after: layoutCost(state.current, theme),
-        hardBefore: session.hardBefore,
-        hardAfter: hardFaults(state.current, theme),
-        lintsBefore,
-        lintsAfter: layoutLints(state.current, theme).length,
-        kept,
-        ...calls,
-        ms: Math.round(performance.now() - started),
-      },
-    });
+    stats.fix = {
+      before: cost,
+      after: layoutCost(state.current, theme),
+      hardBefore: session.hardBefore,
+      hardAfter: hardFaults(state.current, theme),
+      lintsBefore,
+      lintsAfter: layoutLints(state.current, theme).length,
+      kept,
+      ...calls,
+      ms: Math.round(performance.now() - started),
+    };
     // Moves never touch the spec. Hand back the caller's own spec unless a
     // restructure changed it: the working copy carries sanitized edges.
-    return { spec: state.spec === working ? input : state.spec, positioned: state.current };
+    return {
+      spec: state.spec === working ? input : state.spec,
+      positioned: state.current,
+      stats,
+    };
   };
 }
