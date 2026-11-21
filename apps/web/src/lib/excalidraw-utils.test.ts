@@ -46,11 +46,13 @@ describe("releasePolishLocks", () => {
     seedSceneDelta("canvas", { elements: stored }, 9);
     const released = releasePolishLocks(stored);
     const wire = encodeScene("canvas", { elements: released }).wire as {
-      changed: { id: string }[];
+      changed: { id: string; locked: boolean; name?: string }[];
     };
-    assert.deepEqual(
-      wire.changed.map((e) => e.id),
-      ["frame", "box"],
-    );
+    // The released copies themselves, not just their ids: what the server stores.
+    assert.deepEqual(wire.changed, released.slice(0, 2));
+    const [frame, box] = wire.changed;
+    assert.equal(frame!.locked, false);
+    assert.equal(frame!.name, "Shop");
+    assert.equal(box!.locked, false);
   });
 });
