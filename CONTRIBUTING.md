@@ -25,11 +25,16 @@ just check     # oxlint + oxfmt --write
 just types     # typecheck all packages with tsgo
 ```
 
-Both must pass. If you touched `packages/harness`, also run:
+Both must pass, and so must `just test`.
 
-```bash
-cd packages/harness && bun test
-```
+## Tests
+
+`just test` runs every suite, and CI runs it on every pull request.
+
+- Fixing a bug: first write a test that fails because of the bug, then fix it.
+- New harness or layout-fixer behaviour ships with a test.
+- A test states what should happen, worked out from the intent, not copied from what the code prints today. If a new test fails on current code, you found a bug: report it, don't loosen the test.
+- No real model, network or database in tests.
 
 ## Project layout
 
@@ -54,7 +59,7 @@ packages/
 - **Edge routes are drawn verbatim.** Labels are measured against ELK's exact polyline. Never reroute after layout.
 - **No `@excalidraw/excalidraw` imports inside the harness** - it is browser-only. Skeleton-to-element conversion lives in `apps/web/src/lib/excalidraw-utils.ts`.
 - **`bun --hot` does not reload harness edits.** Restart `dev:server` or you will be verifying stale code.
-- **Always run `bun test` in `packages/harness` after a change**, and extend the suite when you add pipeline features.
+- **Run `just test` after a change**, and extend the suite when you add pipeline features.
 
 ## Code style
 

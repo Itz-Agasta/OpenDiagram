@@ -61,9 +61,14 @@ types:
 knip:
     bunx knip
 
-# Harness geometry tests
+# Every test suite: harness geometry and web utils
 test:
     cd packages/harness && bun test
+    cd apps/web && bun test src
+
+# Harness tests with a line coverage report
+coverage:
+    cd packages/harness && bun test --coverage
 
 # Start web dev server
 web:
