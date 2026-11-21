@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   classicTheme,
+  edgeLabelText,
   hardFaults,
   layoutDiagram,
   renderSequenceDiagram,
@@ -14,6 +15,7 @@ import {
   type RenderSkeleton,
 } from "../../src/index.js";
 import { sequence, stress } from "../fixtures/stress.js";
+import { textOf } from "../support/helpers.js";
 
 // 4px grid: sub-pixel float noise from ELK must not churn the snapshot.
 const r4 = (v: number) => Math.round(v / 4) * 4;
@@ -47,8 +49,19 @@ describe("stress corpus", () => {
       for (const e of p.edges)
         expect(p.edgeRoutes[e.id!]?.points.length ?? 0, `edge ${e.id}`).toBeGreaterThanOrEqual(2);
       expect(hardFaults(p, classicTheme)).toBe(0);
-      const text = texts(renderToExcalidraw(p, {}, classicTheme).skeletons);
-      for (const n of spec.nodes) expect(text).toContain(n.label.replace(/\s+/g, ""));
+      const { skeletons } = renderToExcalidraw(p, {}, classicTheme);
+      for (const n of spec.nodes)
+        expect(textOf(skeletons, `${n.id}-label`), `label of ${n.id}`).toBe(
+          n.label.replace(/\s+/g, ""),
+        );
+      // Every label sanitize kept: it drops repeats along one fan corridor on purpose.
+      for (const e of p.edges) {
+        const label = edgeLabelText(e);
+        if (label)
+          expect(textOf(skeletons, `${e.id}-label`), `label of ${e.id}`).toBe(
+            label.replace(/\s+/g, ""),
+          );
+      }
       expect(geometry(p)).toMatchSnapshot();
     });
   }

@@ -12,7 +12,7 @@
 
 ## Rules
 
-- Assert what should happen, worked out from the intent, never output copied from a run. A new test that fails on current code found a bug: fix the code, don't loosen the test.
+- Assert what should happen, worked out from the intent, never output copied from a run. A new test that fails on current code found a bug: fix the code, don't loosen the test. Snapshots are the one exception: they record a run, so a baseline is only committed after its render was checked by eye.
 - Prove a test guards its line: break that line, watch the test fail, restore it.
 - A property counterexample becomes a `unit/` test with readable ids and labels once fixed (see `unit/align.test.ts`).
 
