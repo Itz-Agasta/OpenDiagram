@@ -157,10 +157,9 @@ export function useDiagramCanvas({
           appliedToolCallsRef.current.add(key);
           queue(() => swap(part.id!, fix.view, fix.view?.spec));
           // A pass that ran but changed nothing otherwise reads as a swap that broke.
+          // The row's verdict says why: nothing better, or the pass stopped early.
           if (!fix.view && fix.lines.length > 0)
-            toast.info(
-              `Kept the original layout of “${fix.title}”. Polishing found nothing better.`,
-            );
+            toast.info(`Kept the original layout of “${fix.title}”.`);
           continue;
         }
         if (part.type !== "tool-draw_diagram" && part.type !== "tool-draw_system") continue;
