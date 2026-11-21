@@ -139,6 +139,50 @@ const replica = spec("Replica", {
   meta: { direction: "TB" },
 });
 
+// Regression: a chip with no legal spot on its line printed over a group title.
+// Both groups carry a sublabel wide enough to wrap, so their titles are two lines.
+const cats: Cat[] = [
+  "gateway",
+  "gateway",
+  "database",
+  "gateway",
+  "queue",
+  "queue",
+  "gateway",
+  "cache",
+  "gateway",
+  "queue",
+];
+const groupTitles = spec("Group titles", {
+  nodes: cats.map((c, i) => n(`n${i}`, `Node ${i}`, c)),
+  edges: [
+    e("n0", "n1", "Query / Read"),
+    e("n0", "n2", "gRPC"),
+    e("n1", "n3", "Query / Read"),
+    e("n2", "n4", "HTTPS"),
+    e("n1", "n5", "Query / Read"),
+    e("n1", "n6", "gRPC"),
+    e("n1", "n7", "gRPC"),
+    e("n2", "n8", "Query / Read"),
+    e("n8", "n9", "Search & Agent · gRPC"),
+  ],
+  groups: [
+    {
+      id: "g0",
+      label: "Edge",
+      sublabel: "EKS Multi-Region with cross-region failover and traffic shifting",
+      contains: ["n1"],
+    },
+    {
+      id: "g1",
+      label: "Edge",
+      sublabel: "Streaming Ingest Tier with schema registry and replay buffers",
+      contains: ["n2", "n3", "n4"],
+    },
+  ],
+  meta: { direction: "TB" },
+});
+
 const swimlanes = spec("Swimlanes", {
   type: "flowchart",
   nodes: [
@@ -318,6 +362,7 @@ export const stress: Record<string, DiagramSpec> = {
   nested,
   tbTwoGroups,
   replica,
+  groupTitles,
   swimlanes,
   big,
   longLabels,
