@@ -2,7 +2,7 @@
 
 OpenDiagram - AI diagram generator for software architecture. Describe your system in plain English, get editable diagrams on an Excalidraw canvas.
 
-Bun 1.3 monorepo. `apps/web` Next.js 16 (:3001), `apps/server` Hono (:3000), `apps/fumadocs` (:4000), `packages/{auth,config,db,env,harness}`. Setup (`.env.sample` into `apps/server/.env` and `apps/web/.env`) is in `CONTRIBUTING.md`.
+Bun 1.4 monorepo. `apps/web` Next.js 16 (:3001), `apps/server` Hono (:3000), `apps/fumadocs` (:4000), `packages/{auth,config,db,env,harness}`. Setup (`.env.sample` into `apps/server/.env` and `apps/web/.env`) is in `CONTRIBUTING.md`.
 
 ## Commands
 
@@ -12,7 +12,8 @@ bun run dev:web          # web
 just check               # oxlint + oxfmt --write
 just check-ci            # what CI runs: oxlint --deny-warnings + oxfmt --check
 just types               # tsgo (web + server; the harness is checked through its importers)
-just test                # bun test in packages/harness
+just test                # every suite: harness, server, web
+just snapshots           # rewrite layout snapshots, only after checking the renders
 just knip                # unused files, exports and dependencies
 just db-generate <name>  # migration from schema changes
 just db-migrate          # apply pending migrations
@@ -40,7 +41,7 @@ The diagram engine. Full docs: `packages/harness/README.md`.
 - **The LLM never chooses pixels, colors or fonts.** It emits a semantic `DiagramSpec`; layout (ELK / sequence grid) and the themed renderer own all geometry and styling. Don't add visual fields to the spec.
 - **Sizing and rendering must agree:** `measure.ts#nodeSize` reserves the box the renderer draws into. Change both together.
 - **Route last, draw verbatim.** ELK only places; `src/router/` routes every edge and places every label against the final boxes, and the renderer draws those polylines exactly. Sequence diagrams are the exception (`layout/sequence.ts` builds its own grid and routes). Any pass that moves nodes runs before `routeGeometry`. Excalidraw `elbowed` arrows don't work via programmatic insert.
-- **Judge layout by the render, not only the score.** The report has had blind spots (flow inversion, stair-steps, oversize ribbons). Real model output for replaying is produced by `apps/server/scripts/eval/`.
+- **Judge layout by the render, not only the score.** The report has had blind spots (flow inversion, stair-steps, oversize ribbons).
 - **No `@excalidraw/excalidraw` imports inside the harness** (browser-only). Skeleton to element conversion lives in `apps/web/src/lib/excalidraw-utils.ts`, which must pass fresh elements through `restoreElements` (paint-skip bug otherwise).
 - **`bun --hot` does not reload harness edits.** Restart `dev:server` or you are testing stale code.
 - **The Zod spec schema stays Gemini-safe:** no `.refine()`, `.default()` or `.transform()`. Gemini typos `from1` for `from` in edges; `experimental_repairToolCall` in `apps/server/src/lib/agent/chat-stream.ts` fixes it, don't remove it.
@@ -48,6 +49,13 @@ The diagram engine. Full docs: `packages/harness/README.md`.
 - Measured negative results, don't re-add: `elk.layered.nodePlacement.strategy: NETWORK_SIMPLEX` (worse routing), `elk.layered.mergeEdges` (crossings). More for the view planner in `src/model/views.ts`.
 - **After any harness change run `just test`.** Extend it when you add pipeline features, and check the new test fails without your fix.
 - A script that imports the harness never exits on its own (the elkjs worker keeps it alive); end it with `process.exit(0)`.
+
+## Tests
+
+- Harness: `packages/harness/test/` (`unit/`, `properties/` with fast-check, `snapshots/`; see its README). Server: `apps/server/test/` (PGlite stands in for the db, a scripted model for the LLM; see its README). Web: `src/**/*.test.ts` with `node:test`.
+- Assert the intended behaviour, never output copied from a run. A new test that fails on current code found a bug: fix the code, not the test.
+- A layout snapshot diff gets looked at as a render before `just snapshots` rewrites it.
+- CI has no `.env`. To run the server suite the way CI does, from `apps/server`: `env -i PATH=$PATH HOME=$HOME CI=true DOTENV_CONFIG_PATH=/dev/null bun --no-env-file test test`.
 
 ## Server
 
